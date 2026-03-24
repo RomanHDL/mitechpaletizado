@@ -453,6 +453,30 @@ app.get('/api/seed', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// ═══════════ SEED NFC (one-time, remove after use) ═══════════
+app.get('/api/seed-nfc', async (req, res) => {
+  try {
+    const db = mongoose.connection.db;
+    const col = db.collection('nfc_cards');
+    const serial = '5A:EF:3B:02';
+    const exists = await col.findOne({ serialNumber: serial });
+    if (exists) {
+      // Ensure it's active
+      await col.updateOne({ serialNumber: serial }, { $set: { isActive: true } });
+      return res.json({ success: true, status: 'already exists, ensured active', card: exists });
+    }
+    const doc = {
+      serialNumber: serial,
+      role: 'escaneadora',
+      isActive: true,
+      useCount: 0,
+      createdAt: new Date()
+    };
+    const result = await col.insertOne(doc);
+    res.json({ success: true, status: 'created', insertedId: result.insertedId, card: doc });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // ═══════════ HEALTH ═══════════
 app.get('/api/health', async (req, res) => {
   try {
