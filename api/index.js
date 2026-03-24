@@ -460,21 +460,27 @@ app.get('/api/seed-nfc', async (req, res) => {
     const db = mongoose.connection.db;
     const col = db.collection('nfc_cards');
     const serial = '5A:EF:3B:02';
-    const exists = await col.findOne({ serialNumber: serial });
-    if (exists) {
-      // Ensure it's active
-      await col.updateOne({ serialNumber: serial }, { $set: { isActive: true } });
-      return res.json({ success: true, status: 'already exists, ensured active', card: exists });
-    }
-    const doc = {
+
+    // Find Yusley user to link
+    const yusley = await User.findOne({ usuario: 'yusley' });
+    const userId = yusley ? yusley._id : null;
+
+    const update = {
       serialNumber: serial,
       role: 'escaneadora',
       isActive: true,
-      useCount: 0,
-      createdAt: new Date()
+      nombre: 'Yusley Montes',
+      ...(userId ? { userId } : {})
     };
-    const result = await col.insertOne(doc);
-    res.json({ success: true, status: 'created', insertedId: result.insertedId, card: doc });
+
+    await col.updateOne(
+      { serialNumber: serial },
+      { $set: update, $setOnInsert: { useCount: 0, createdAt: new Date() } },
+      { upsert: true }
+    );
+
+    const card = await col.findOne({ serialNumber: serial });
+    res.json({ success: true, status: 'linked', card, linkedUser: yusley ? { id: yusley._id, nombre: yusley.nombre, usuario: yusley.usuario } : null });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
