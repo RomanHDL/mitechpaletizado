@@ -835,16 +835,21 @@
                     <canvas id="chart-turno" height="200"></canvas>
                 </div>
                 <div class="card">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
-                        <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-file-invoice"></i> Control de Pedidos</div>
-                        <button class="btn btn-secondary btn-sm" onclick="openHistorial('pedidos')" style="padding:0.25rem 0.6rem;font-size:0.75rem;">
-                            <i class="fa-solid fa-clock-rotate-left"></i> Historial
-                        </button>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
+                        <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-file-invoice"></i> Pedidos</div>
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                            <select class="form-input" id="pedidos-periodo" onchange="renderPedidosChart()" style="padding:0.3rem 0.6rem;font-size:0.78rem;min-width:100px;">
+                                <option value="total">Total</option>
+                                <option value="hoy">Hoy</option>
+                                <option value="ayer">Ayer</option>
+                            </select>
+                            <button class="btn btn-secondary btn-sm" onclick="openHistorial('pedidos')" style="padding:0.25rem 0.6rem;font-size:0.75rem;">
+                                <i class="fa-solid fa-clock-rotate-left"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div id="pedidos-summary" style="display:flex;gap:0.75rem;margin-bottom:0.75rem;"></div>
-                    <div style="position:relative;height:180px;">
-                        <canvas id="chart-pedidos"></canvas>
-                    </div>
+                    <div id="pedidos-total-label" style="text-align:center;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.25rem;"></div>
+                    <canvas id="chart-pedidos" height="210"></canvas>
                 </div>
             </div>
 
@@ -2053,83 +2058,89 @@ function renderPedidosChart() {
     if (chartPedidos) { chartPedidos.destroy(); chartPedidos = null; }
     if (!lastTableData || lastTableData.length === 0) return;
 
-    // Count pedidos per date (records where pedido field is non-empty)
-    const pedidosByDate = {};
-    let totalPedidos = 0, totalSinPedido = 0;
-    lastTableData.forEach(r => {
-        const fecha = r.fecha || 'Sin fecha';
-        if (!pedidosByDate[fecha]) pedidosByDate[fecha] = { con: 0, sin: 0 };
+    const periodo = (document.getElementById('pedidos-periodo') || {}).value || 'total';
+    const now = new Date();
+    const hoyStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
+    const ayer = new Date(now); ayer.setDate(now.getDate() - 1);
+    const ayerStr = `${ayer.getMonth()+1}/${ayer.getDate()}/${ayer.getFullYear()}`;
+
+    // Filter records by periodo
+    let records = lastTableData;
+    let periodoLabel = 'Total acumulado';
+    if (periodo === 'hoy') {
+        records = lastTableData.filter(r => r.fecha === hoyStr);
+        periodoLabel = 'Hoy: ' + hoyStr;
+    } else if (periodo === 'ayer') {
+        records = lastTableData.filter(r => r.fecha === ayerStr);
+        periodoLabel = 'Ayer: ' + ayerStr;
+    }
+
+    // Count by unique pedido number
+    const pedidoMap = {}; // { "18962220": count }
+    let sinPedido = 0;
+    records.forEach(r => {
         if (r.pedido && r.pedido.trim()) {
-            pedidosByDate[fecha].con++;
-            totalPedidos++;
+            const p = r.pedido.trim();
+            if (!pedidoMap[p]) pedidoMap[p] = 0;
+            pedidoMap[p]++;
         } else {
-            pedidosByDate[fecha].sin++;
-            totalSinPedido++;
+            sinPedido++;
         }
     });
 
-    // Build Mon-Sun week axis
-    const allDates = Object.keys(pedidosByDate).map(f => {
-        const p = f.split('/');
-        return p.length === 3 ? new Date(parseInt(p[2]), parseInt(p[0])-1, parseInt(p[1])) : null;
-    }).filter(Boolean).sort((a,b) => a-b);
+    const pedidoEntries = Object.entries(pedidoMap).sort((a,b) => b[1] - a[1]);
+    const totalConPedido = pedidoEntries.reduce((s, e) => s + e[1], 0);
 
-    const dayNames = ['Lun','Mar','Mie','Jue','Vie','Sab','Dom'];
-    const lastDate = allDates[allDates.length - 1] || new Date();
-    const dow = lastDate.getDay();
-    const monday = new Date(lastDate);
-    monday.setDate(lastDate.getDate() + (dow === 0 ? -6 : 1 - dow));
-    monday.setHours(0,0,0,0);
-
-    const weekDates = [], weekLabels = [];
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + i);
-        weekDates.push(`${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`);
-        weekLabels.push(`${dayNames[i]} ${d.getDate()}/${d.getMonth()+1}`);
+    // Label
+    const labelEl = document.getElementById('pedidos-total-label');
+    if (labelEl) {
+        labelEl.textContent = `${periodoLabel} — ${totalConPedido} con pedido, ${sinPedido} sin pedido`;
     }
 
-    // Summary KPIs
-    const sumEl = document.getElementById('pedidos-summary');
-    if (sumEl) {
-        sumEl.innerHTML = `
-            <div style="flex:1;padding:0.5rem 0.75rem;background:rgba(79,124,255,0.08);border:1px solid rgba(79,124,255,0.2);border-radius:8px;text-align:center;">
-                <div style="font-size:1.3rem;font-weight:700;color:#4f7cff;">${totalPedidos}</div>
-                <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;">Con Pedido</div>
-            </div>
-            <div style="flex:1;padding:0.5rem 0.75rem;background:rgba(107,114,128,0.08);border:1px solid rgba(107,114,128,0.2);border-radius:8px;text-align:center;">
-                <div style="font-size:1.3rem;font-weight:700;color:#6b7280;">${totalSinPedido}</div>
-                <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;">Sin Pedido</div>
-            </div>
-        `;
+    // Build pie data: each unique pedido is a slice, plus "Sin Pedido"
+    const labels = [];
+    const values = [];
+    const colors = [];
+    pedidoEntries.forEach(([ped, count], i) => {
+        labels.push(ped);
+        values.push(count);
+        colors.push(COLORS[i % COLORS.length]);
+    });
+    if (sinPedido > 0) {
+        labels.push('Sin Pedido');
+        values.push(sinPedido);
+        colors.push('#4b5563');
     }
 
-    // Chart
+    if (values.length === 0) {
+        if (labelEl) labelEl.textContent = periodoLabel + ' — Sin registros';
+        return;
+    }
+
     const ctx = document.getElementById('chart-pedidos');
     if (!ctx) return;
+    const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
+
     chartPedidos = new Chart(ctx.getContext('2d'), {
-        type: 'bar',
+        type: 'pie',
         data: {
-            labels: weekLabels,
-            datasets: [{
-                label: 'Pedidos',
-                data: weekDates.map(f => pedidosByDate[f]?.con || 0),
-                backgroundColor: '#4f7cffcc',
-                hoverBackgroundColor: '#4f7cff',
-                borderRadius: 4, borderSkipped: false, maxBarThickness: 28, barPercentage: 0.7,
-            }]
+            labels,
+            datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 8 }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
             plugins: {
-                legend: { display: false },
-                tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 },
-                datalabels: { display: true, anchor:'end', align:'top', color:'#e8ecf4', font:{weight:'bold',size:11}, offset:2, formatter:(v)=>v>0?v:'' }
-            },
-            scales: {
-                x: { ticks:{color:'#94a3b8',font:{size:9}}, grid:{display:false} },
-                y: { beginAtZero:true, ticks:{color:'#7b8ba5',font:{size:10},stepSize:1}, grid:{color:'rgba(30,42,66,0.4)'} }
+                legend: { position:'bottom', labels:{ color:'#7b8ba5', padding:8, font:{size:10}, usePointStyle:true, pointStyle:'circle' } },
+                tooltip: { ...tooltipStyle, callbacks: { label: (ctx) => { const t = ctx.dataset.data.reduce((a,b)=>a+b,0); const pct = t>0?Math.round(ctx.parsed/t*100):0; return `${ctx.label}: ${ctx.parsed} (${pct}%)`; } } },
+                datalabels: {
+                    display: true, color: '#fff', font: { weight:'bold', size: 11 },
+                    formatter: (v, ctx) => {
+                        const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                        const pct = total > 0 ? Math.round(v/total*100) : 0;
+                        return pct >= 5 ? `${v}\n(${pct}%)` : (v > 0 ? v : '');
+                    },
+                    textAlign: 'center'
+                }
             }
         }
     });
