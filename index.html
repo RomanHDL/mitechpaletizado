@@ -158,8 +158,9 @@
         .kpi:nth-child(4) { border-left-color:#8b5cf6; }
 
         /* Charts grid */
-        .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; margin-bottom:1.5rem; max-width:100%; }
-        .charts-grid .card { max-width:100%; overflow:hidden; }
+        .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; margin-bottom:1.5rem; max-width:800px; margin-left:auto; margin-right:auto; }
+        .charts-grid .card { overflow:hidden; }
+        .charts-grid .card canvas { max-height:180px; }
 
         /* Tables */
         .table-wrap { overflow-x:auto; }
@@ -828,16 +829,16 @@
             </div>
 
             <!-- Piezas por escaneadora (horizontal) -->
-            <div class="card" style="margin-bottom:1.5rem;">
+            <div class="card" style="margin-bottom:1.5rem;max-width:800px;margin-left:auto;margin-right:auto;">
                 <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Piezas por Escaneadora</div>
-                <canvas id="chart-escaneadora" height="180"></canvas>
+                <canvas id="chart-escaneadora" height="160"></canvas>
             </div>
 
             <!-- Tendencia Diaria -->
-            <div class="card" style="margin-bottom:1.5rem;padding:1.25rem 1.5rem;">
+            <div class="card" style="margin-bottom:1.5rem;padding:1rem 1.25rem;max-width:800px;margin-left:auto;margin-right:auto;">
                 <div class="card-title"><i class="fa-solid fa-chart-line"></i> Tendencia Diaria</div>
                 <div id="trend-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;margin-bottom:1.25rem;"></div>
-                <div id="trend-chart-wrap" style="position:relative;height:200px;">
+                <div id="trend-chart-wrap" style="position:relative;height:180px;">
                     <canvas id="chart-tendencia"></canvas>
                 </div>
             </div>
@@ -864,7 +865,7 @@
             </div>
 
             <!-- Condicion agrupada por fecha -->
-            <div class="card" style="margin-bottom:1.5rem;padding:1.25rem 1.5rem;">
+            <div class="card" style="margin-bottom:1.5rem;padding:1rem 1.25rem;max-width:800px;margin-left:auto;margin-right:auto;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                     <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-tags"></i> Registros por Condicion</div>
                     <button class="btn btn-secondary btn-sm" onclick="openHistorial('condicion')" title="Ver historial completo">
