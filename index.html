@@ -1455,6 +1455,15 @@ async function loadResumen() {
     }
 }
 
+// Split "GRA, GRB, GRC" into individual families and extract the base name
+function splitCondFamilies(condStr) {
+    if (!condStr || condStr === 'Sin condicion') return ['SIN CONDICION'];
+    return condStr.split(/[,;\/]+/).map(s => {
+        const m = s.trim().match(/^([A-Za-z]+)/);
+        return m ? m[1].toUpperCase() : s.trim().toUpperCase();
+    }).filter(Boolean);
+}
+
 function renderCondicionByDate(data) {
     const container = document.getElementById('condicion-by-date-container');
     if (chartCond) { chartCond.destroy(); chartCond = null; }
@@ -1465,91 +1474,99 @@ function renderCondicionByDate(data) {
     }
 
     if (lastTableData && lastTableData.length > 0) {
-        // Group condition counts by fecha
-        const dateCondMap = {};
+        // ── Count by INDIVIDUAL family per date ──
+        // "GRA, GRB, GRC" → +1 GRA, +1 GRB, +1 GRC
+        const dateFamilyMap = {};  // { "3/20/2026": { GRA:3, GRB:5, ... } }
+        const familyTotals = {};   // { GRA: 10, GRB: 15, ... }
+
         lastTableData.forEach(r => {
             const fecha = r.fecha || 'Sin fecha';
-            const cond = r.condicion || 'Sin condicion';
-            if (!dateCondMap[fecha]) dateCondMap[fecha] = {};
-            if (!dateCondMap[fecha][cond]) dateCondMap[fecha][cond] = 0;
-            dateCondMap[fecha][cond]++;
+            const families = splitCondFamilies(r.condicion);
+            if (!dateFamilyMap[fecha]) dateFamilyMap[fecha] = {};
+            families.forEach(fam => {
+                if (!dateFamilyMap[fecha][fam]) dateFamilyMap[fecha][fam] = 0;
+                dateFamilyMap[fecha][fam]++;
+                if (!familyTotals[fam]) familyTotals[fam] = 0;
+                familyTotals[fam]++;
+            });
         });
 
-        const allConds = [...new Set(lastTableData.map(r => r.condicion || 'Sin condicion'))].sort();
+        // Sorted family names (most frequent first)
+        const allFamilies = Object.keys(familyTotals).sort((a,b) => familyTotals[b] - familyTotals[a]);
 
-        // ── Build full Mon-Sun week axis ──
-        // Find the week range from the data (use most recent date's week)
-        const dataDates = Object.keys(dateCondMap).map(f => {
+        // Fixed color per family
+        const familyColorMap = {
+            'GRA': '#f59e0b', 'GRB': '#4f7cff', 'GRC': '#22c55e',
+            'BOX': '#ef4444', 'ICB': '#8b5cf6', 'ICC': '#ec4899',
+            'SIN CONDICION': '#6b7280'
+        };
+        const getFamilyColor = (fam) => familyColorMap[fam] || COLORS[allFamilies.indexOf(fam) % COLORS.length];
+
+        // ── Build Mon-Sun week axis ──
+        const allDates = Object.keys(dateFamilyMap).map(f => {
             const p = f.split('/');
             return p.length === 3 ? new Date(parseInt(p[2]), parseInt(p[0])-1, parseInt(p[1])) : null;
         }).filter(Boolean).sort((a,b) => a-b);
 
         const dayNames = ['Lun','Mar','Mie','Jue','Vie','Sab','Dom'];
-
-        // Get the Monday of the week containing the most recent data date
-        const lastDate = dataDates[dataDates.length - 1] || new Date();
-        const dayOfWeek = lastDate.getDay(); // 0=Sun
-        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const lastDate = allDates[allDates.length - 1] || new Date();
+        const dow = lastDate.getDay();
         const monday = new Date(lastDate);
-        monday.setDate(lastDate.getDate() + mondayOffset);
+        monday.setDate(lastDate.getDate() + (dow === 0 ? -6 : 1 - dow));
         monday.setHours(0,0,0,0);
 
-        // Build 7-day array Mon-Sun with M/D/YYYY keys
-        const weekDates = [];
-        const weekLabels = [];
+        const weekDates = [], weekLabels = [];
         for (let i = 0; i < 7; i++) {
             const d = new Date(monday);
             d.setDate(monday.getDate() + i);
-            const key = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
-            weekDates.push(key);
+            weekDates.push(`${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`);
             weekLabels.push(`${dayNames[i]} ${d.getDate()}/${d.getMonth()+1}`);
         }
 
         const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
 
-        // ── Build HTML: single chart + badge blocks ──
+        // ── HTML: chart + badge blocks ──
         let html = '<div style="position:relative;height:280px;margin-bottom:1.25rem;"><canvas id="chart-cond-week"></canvas></div>';
 
-        // Badge blocks per date (descending, only dates with data)
-        const sortedDatesDesc = Object.keys(dateCondMap).sort((a, b) => {
+        // Badge blocks per date with SPLIT families
+        const sortedDatesDesc = Object.keys(dateFamilyMap).sort((a, b) => {
             const pa = a.split('/'), pb = b.split('/');
             if (pa.length !== 3 || pb.length !== 3) return 0;
             return new Date(pb[2], pb[0]-1, pb[1]) - new Date(pa[2], pa[0]-1, pa[1]);
         });
         html += '<div>';
         sortedDatesDesc.forEach(fecha => {
-            const conds = dateCondMap[fecha];
-            const total = Object.values(conds).reduce((s,v) => s+v, 0);
+            const fams = dateFamilyMap[fecha];
+            const total = Object.values(fams).reduce((s,v) => s+v, 0);
             html += `<div style="margin-bottom:0.75rem;padding:0.75rem 1rem;background:rgba(15,23,42,0.5);border:1px solid var(--border);border-radius:8px;">`;
             html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">`;
             html += `<span style="font-weight:600;color:var(--text-main);"><i class="fa-solid fa-calendar-day" style="color:var(--accent);margin-right:6px;"></i>${fecha}</span>`;
-            html += `<span style="font-size:0.8rem;color:var(--text-muted);">${total} registros</span></div>`;
+            html += `<span style="font-size:0.8rem;color:var(--text-muted);">${total} menciones</span></div>`;
             html += `<div style="display:flex;flex-wrap:wrap;gap:0.5rem;">`;
-            Object.entries(conds).sort((a,b) => b[1]-a[1]).forEach(([cond, count]) => {
-                const color = COLORS[allConds.indexOf(cond) % COLORS.length];
+            Object.entries(fams).sort((a,b) => b[1]-a[1]).forEach(([fam, count]) => {
+                const color = getFamilyColor(fam);
                 html += `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:0.8rem;font-weight:600;background:${color}22;color:${color};border:1px solid ${color}44;">`;
-                html += `<span style="width:8px;height:8px;border-radius:50%;background:${color};"></span>${cond}: ${count}</span>`;
+                html += `<span style="width:8px;height:8px;border-radius:50%;background:${color};"></span>${fam}: ${count}</span>`;
             });
             html += '</div></div>';
         });
         html += '</div>';
-
         container.innerHTML = html;
 
-        // ── Render single area chart Mon-Sun ──
+        // ── Render area chart with individual families ──
         const ctx = document.getElementById('chart-cond-week').getContext('2d');
-        const datasets = allConds.map((cond, i) => {
-            const baseColor = COLORS[i % COLORS.length];
+        const datasets = allFamilies.map(fam => {
+            const color = getFamilyColor(fam);
             return {
-                label: cond,
-                data: weekDates.map(f => dateCondMap[f]?.[cond] || 0),
-                borderColor: baseColor,
-                backgroundColor: baseColor + '20',
+                label: fam,
+                data: weekDates.map(f => dateFamilyMap[f]?.[fam] || 0),
+                borderColor: color,
+                backgroundColor: color + '20',
                 fill: true,
                 tension: 0.4,
                 borderWidth: 2.5,
                 pointRadius: 5,
-                pointBackgroundColor: baseColor,
+                pointBackgroundColor: color,
                 pointBorderColor: '#0f172a',
                 pointBorderWidth: 2,
                 pointHoverRadius: 7,
@@ -1578,7 +1595,7 @@ function renderCondicionByDate(data) {
         });
 
     } else {
-        // Fallback: simple horizontal bar when no table data yet
+        // Fallback when no table data yet
         container.innerHTML = '<canvas id="chart-condicion" height="200"></canvas>';
         const newCtx = document.getElementById('chart-condicion').getContext('2d');
         chartCond = new Chart(newCtx, {
