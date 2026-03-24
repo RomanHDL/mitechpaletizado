@@ -718,9 +718,14 @@
                     <h1><i class="fa-solid fa-chart-pie"></i> Dashboard Paletizado FFT</h1>
                     <p>Resumen completo de la operacion de paletizado</p>
                 </div>
-                <button class="btn btn-secondary btn-sm admin-only" onclick="exportDashboardExcel()" style="margin-top:0.25rem;">
-                    <i class="fa-solid fa-file-excel"></i> Descargar Dashboard
-                </button>
+                <div style="display:flex;gap:0.5rem;margin-top:0.25rem;">
+                    <button class="btn btn-secondary btn-sm" onclick="openHistorial('registros')">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Historial
+                    </button>
+                    <button class="btn btn-secondary btn-sm admin-only" onclick="exportDashboardExcel()">
+                        <i class="fa-solid fa-file-excel"></i> Descargar Dashboard
+                    </button>
+                </div>
             </div>
 
             <!-- Filters -->
@@ -829,55 +834,11 @@
                 </div>
             </div>
 
-            <!-- Records section -->
-            <div class="card">
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
-                    <div style="display:flex;align-items:center;gap:1rem;">
-                        <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-table"></i> Registros</div>
-                        <span><span class="live-dot"></span><span class="live-label">En vivo</span></span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-                        <input type="text" class="form-input" id="dash-busqueda" placeholder="Buscar..." style="width:200px;padding:0.5rem 0.8rem;font-size:0.85rem;" oninput="debouncedSearch()">
-                        <div class="view-tabs">
-                            <button class="view-tab active" onclick="setRecordView('grouped')" id="tab-grouped"><i class="fa-solid fa-layer-group"></i> Agrupado</button>
-                            <button class="view-tab" onclick="setRecordView('table')" id="tab-table"><i class="fa-solid fa-table-list"></i> Tabla</button>
-                        </div>
-                        <button class="btn btn-secondary btn-sm" onclick="openHistorial('registros')" title="Ver historial completo">
-                            <i class="fa-solid fa-clock-rotate-left"></i> Historial
-                        </button>
-                        <button class="btn btn-secondary btn-sm admin-only" onclick="exportFilteredExcel()" title="Descargar lo que estoy viendo">
-                            <i class="fa-solid fa-download"></i> Excel
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Grouped view (default, shows last 3 dates) -->
+            <!-- Records: hidden containers for data (used by historial modal) -->
+            <div style="display:none;">
                 <div id="records-grouped"></div>
-
-                <!-- Table view (hidden by default, shows last 3 dates) -->
-                <div id="records-table" style="display:none;">
-                    <div class="table-wrap">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Pallet ID</th>
-                                    <th>Cantidad</th>
-                                    <th>Condicion</th>
-                                    <th>Destino</th>
-                                    <th>Turno</th>
-                                    <th>Escaneadora</th>
-                                    <th>Pedido</th>
-                                    <th>Incidencias</th>
-                                    <th>Obs.</th>
-                                </tr>
-                            </thead>
-                            <tbody id="dash-table-body">
-                                <tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-muted);">Cargando...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <div id="records-table"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Pallet ID</th><th>Cantidad</th><th>Condicion</th><th>Destino</th><th>Turno</th><th>Escaneadora</th><th>Pedido</th><th>Incidencias</th><th>Obs.</th></tr></thead><tbody id="dash-table-body"></tbody></table></div></div>
+                <input type="hidden" id="dash-busqueda" value="">
             </div>
 
             <!-- Historial Modal -->
@@ -1552,36 +1513,8 @@ function renderCondicionByDate(data) {
 
         const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
 
-        // ── HTML: chart + badge blocks ──
-        let html = '<div style="position:relative;height:280px;margin-bottom:1.25rem;"><canvas id="chart-cond-week"></canvas></div>';
-
-        // Badge blocks per date with SPLIT families (show last 3 only)
-        const sortedDatesDesc = Object.keys(dateFamilyMap).sort((a, b) => {
-            const pa = a.split('/'), pb = b.split('/');
-            if (pa.length !== 3 || pb.length !== 3) return 0;
-            return new Date(pb[2], pb[0]-1, pb[1]) - new Date(pa[2], pa[0]-1, pa[1]);
-        });
-        const previewDates = sortedDatesDesc.slice(0, 3);
-        html += '<div>';
-        previewDates.forEach(fecha => {
-            const fams = dateFamilyMap[fecha];
-            const total = Object.values(fams).reduce((s,v) => s+v, 0);
-            html += `<div style="margin-bottom:0.75rem;padding:0.75rem 1rem;background:rgba(15,23,42,0.5);border:1px solid var(--border);border-radius:8px;">`;
-            html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">`;
-            html += `<span style="font-weight:600;color:var(--text-main);"><i class="fa-solid fa-calendar-day" style="color:var(--accent);margin-right:6px;"></i>${fecha}</span>`;
-            html += `<span style="font-size:0.8rem;color:var(--text-muted);">${total} menciones</span></div>`;
-            html += `<div style="display:flex;flex-wrap:wrap;gap:0.5rem;">`;
-            Object.entries(fams).sort((a,b) => b[1]-a[1]).forEach(([fam, count]) => {
-                const color = getFamilyColor(fam);
-                html += `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:0.8rem;font-weight:600;background:${color}22;color:${color};border:1px solid ${color}44;">`;
-                html += `<span style="width:8px;height:8px;border-radius:50%;background:${color};"></span>${fam}: ${count}</span>`;
-            });
-            html += '</div></div>';
-        });
-        if (sortedDatesDesc.length > 3) {
-            html += `<div style="text-align:center;padding:0.5rem;color:var(--text-muted);font-size:0.8rem;">Mostrando ultimos 3 dias &middot; <span style="color:var(--accent);cursor:pointer;" onclick="openHistorial('condicion')">Ver historial completo</span></div>`;
-        }
-        html += '</div>';
+        // ── HTML: chart only (badges live in Historial modal) ──
+        let html = '<div style="position:relative;height:280px;"><canvas id="chart-cond-week"></canvas></div>';
         container.innerHTML = html;
 
         // ── Render area chart with individual families ──
@@ -1846,9 +1779,7 @@ function renderGroupedView(records) {
         return new Date(pb[2], pb[0]-1, pb[1]) - new Date(pa[2], pa[0]-1, pa[1]);
     });
 
-    // Show only last 3 dates in main view
-    const previewDates = sortedDates.slice(0, 3);
-    let html = previewDates.map(fecha => {
+    let html = sortedDates.map(fecha => {
         const recs = groups[fecha];
         const safeId = fecha.replace(/\//g, '-');
         const totalQty = recs.reduce((s, r) => s + (r.cantidad || 0), 0);
@@ -1884,9 +1815,6 @@ function renderGroupedView(records) {
             </div>
         `;
     }).join('');
-    if (sortedDates.length > 3) {
-        html += `<div style="text-align:center;padding:0.75rem;color:var(--text-muted);font-size:0.85rem;">Mostrando ultimos 3 dias de ${sortedDates.length} &middot; <span style="color:var(--accent);cursor:pointer;" onclick="openHistorial('registros')">Ver historial completo</span></div>`;
-    }
     container.innerHTML = html;
 }
 
