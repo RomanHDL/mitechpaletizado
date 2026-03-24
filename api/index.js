@@ -430,10 +430,15 @@ app.get('/api/seed', async (req, res) => {
     const seedUsers = [
       { nombre: 'Administrador',   usuario: '3647',      password: '121101', role: 'admin' },
       { nombre: 'Admin General',   usuario: 'admin',     password: '123456', role: 'admin' },
+      // Escaneadoras: acceso por nombre O por numero de empleado
       { nombre: 'Yusley Montes',   usuario: 'yusley',    password: '111111', role: 'escaneadora' },
+      { nombre: 'Yusley Montes',   usuario: '1001',      password: '111111', role: 'escaneadora' },
       { nombre: 'Angelica Aleman', usuario: 'angelica',  password: '222222', role: 'escaneadora' },
+      { nombre: 'Angelica Aleman', usuario: '1002',      password: '222222', role: 'escaneadora' },
       { nombre: 'Cecilia Perez',   usuario: 'cecilia',   password: '333333', role: 'escaneadora' },
+      { nombre: 'Cecilia Perez',   usuario: '1003',      password: '333333', role: 'escaneadora' },
       { nombre: 'Nathalie Lopez',  usuario: 'nathalie',  password: '444444', role: 'escaneadora' },
+      { nombre: 'Nathalie Lopez',  usuario: '1004',      password: '444444', role: 'escaneadora' },
     ];
     const results = [];
     for (const u of seedUsers) {
