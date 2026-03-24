@@ -1455,17 +1455,20 @@ async function loadResumen() {
     }
 }
 
+// Store mini-chart instances for cleanup
+let condMiniCharts = [];
+
 function renderCondicionByDate(data) {
     const container = document.getElementById('condicion-by-date-container');
-    const ctxC = document.getElementById('chart-condicion');
-    if (chartCond) chartCond.destroy();
+    if (chartCond) { chartCond.destroy(); chartCond = null; }
+    condMiniCharts.forEach(c => c.destroy());
+    condMiniCharts = [];
 
     if (!data.porCondicion || data.porCondicion.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-muted);">Sin datos de condicion</div>';
         return;
     }
 
-    // If we have table data with dates, render grouped view
     if (lastTableData && lastTableData.length > 0) {
         // Group condition counts by fecha
         const dateCondMap = {};
@@ -1477,19 +1480,55 @@ function renderCondicionByDate(data) {
             dateCondMap[fecha][cond]++;
         });
 
-        // Get all unique conditions
         const allConds = [...new Set(lastTableData.map(r => r.condicion || 'Sin condicion'))].sort();
 
-        // Sort dates descending
-        const sortedDates = Object.keys(dateCondMap).sort((a, b) => {
+        // Sort dates chronologically (oldest → newest) for line charts
+        const sortedDatesAsc = Object.keys(dateCondMap).sort((a, b) => {
             const pa = a.split('/'), pb = b.split('/');
             if (pa.length !== 3 || pb.length !== 3) return 0;
-            return new Date(pb[2], pb[0]-1, pb[1]) - new Date(pa[2], pa[0]-1, pa[1]);
+            return new Date(pa[2], pa[0]-1, pa[1]) - new Date(pb[2], pb[0]-1, pb[1]);
         });
+        // Descending for badge blocks
+        const sortedDatesDesc = [...sortedDatesAsc].reverse();
 
-        // Build grouped HTML + a stacked bar chart
-        let html = '<div style="margin-bottom:1rem;">';
-        sortedDates.forEach(fecha => {
+        const dateLabels = sortedDatesAsc.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
+        const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
+
+        // Group conditions by prefix/family (GRB-xxx, GRA-xxx, BOX-xxx, etc.)
+        const condFamilies = {};
+        allConds.forEach(cond => {
+            const prefix = cond.match(/^([A-Za-z]+)/);
+            const family = prefix ? prefix[1].toUpperCase() : 'OTROS';
+            if (!condFamilies[family]) condFamilies[family] = [];
+            condFamilies[family].push(cond);
+        });
+        // If all conditions fall into one family or there's only 1-2, just show them individually
+        const familyKeys = Object.keys(condFamilies).sort();
+        const useGroups = familyKeys.length > 1 || allConds.length > 4;
+
+        // ── Build HTML: mini area charts per group + badge blocks ──
+        let html = '';
+
+        if (useGroups) {
+            // One mini area chart per condition family
+            html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin-bottom:1.25rem;">';
+            familyKeys.forEach((family, fi) => {
+                const familyConds = condFamilies[family];
+                const canvasId = 'chart-cond-' + family.toLowerCase();
+                html += `<div style="background:rgba(15,23,42,0.4);border:1px solid var(--border);border-radius:10px;padding:1rem;">`;
+                html += `<div style="font-size:0.85rem;font-weight:600;color:var(--text-main);margin-bottom:0.5rem;">${family} <span style="color:var(--text-muted);font-weight:400;">(${familyConds.length} tipo${familyConds.length>1?'s':''})</span></div>`;
+                html += `<canvas id="${canvasId}" height="120"></canvas>`;
+                html += `</div>`;
+            });
+            html += '</div>';
+        } else {
+            // Single area chart for all conditions
+            html += '<div style="margin-bottom:1.25rem;"><canvas id="chart-cond-all" height="160"></canvas></div>';
+        }
+
+        // Badge blocks per date (unchanged - these stay)
+        html += '<div>';
+        sortedDatesDesc.forEach(fecha => {
             const conds = dateCondMap[fecha];
             const total = Object.values(conds).reduce((s,v) => s+v, 0);
             html += `<div style="margin-bottom:0.75rem;padding:0.75rem 1rem;background:rgba(15,23,42,0.5);border:1px solid var(--border);border-radius:8px;">`;
@@ -1497,7 +1536,7 @@ function renderCondicionByDate(data) {
             html += `<span style="font-weight:600;color:var(--text-main);"><i class="fa-solid fa-calendar-day" style="color:var(--accent);margin-right:6px;"></i>${fecha}</span>`;
             html += `<span style="font-size:0.8rem;color:var(--text-muted);">${total} registros</span></div>`;
             html += `<div style="display:flex;flex-wrap:wrap;gap:0.5rem;">`;
-            Object.entries(conds).sort((a,b) => b[1]-a[1]).forEach(([cond, count], i) => {
+            Object.entries(conds).sort((a,b) => b[1]-a[1]).forEach(([cond, count]) => {
                 const color = COLORS[allConds.indexOf(cond) % COLORS.length];
                 html += `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:0.8rem;font-weight:600;background:${color}22;color:${color};border:1px solid ${color}44;">`;
                 html += `<span style="width:8px;height:8px;border-radius:50%;background:${color};"></span>${cond}: ${count}</span>`;
@@ -1506,39 +1545,61 @@ function renderCondicionByDate(data) {
         });
         html += '</div>';
 
-        container.innerHTML = html + '<canvas id="chart-condicion" height="180"></canvas>';
+        container.innerHTML = html;
 
-        // Stacked bar chart by date
-        const newCtx = document.getElementById('chart-condicion').getContext('2d');
-        const datasets = allConds.map((cond, i) => ({
-            label: cond,
-            data: sortedDates.map(f => dateCondMap[f][cond] || 0),
-            backgroundColor: COLORS[i % COLORS.length] + 'cc',
-            hoverBackgroundColor: COLORS[i % COLORS.length],
-            borderRadius: 3, borderSkipped: false,
-        }));
-
-        const dateLabels = sortedDates.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
-
-        chartCond = new Chart(newCtx, {
-            type: 'bar',
-            data: { labels: dateLabels, datasets },
-            options: {
-                responsive: true,
-                animation: { duration: 800, easing: 'easeOutQuart' },
-                plugins: {
-                    legend: { position:'bottom', labels:{color:'#7b8ba5',padding:10,font:{size:11},usePointStyle:true,pointStyle:'rectRounded'} },
-                    tooltip: { ...{ backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 }, mode:'index', intersect:false },
-                    datalabels: { display: true, color:'#fff', font:{weight:'bold',size:10}, formatter:(v)=>v>0?v:'' }
-                },
-                scales: {
-                    x: { stacked:true, ticks:{color:'#7b8ba5'}, grid:{display:false} },
-                    y: { stacked:true, beginAtZero:true, ticks:{color:'#7b8ba5'}, grid:{color:'rgba(30,42,66,0.5)'} }
+        // ── Render area/line mini-charts ──
+        const makeAreaChart = (canvasId, condsToPlot) => {
+            const el = document.getElementById(canvasId);
+            if (!el) return;
+            const ctx = el.getContext('2d');
+            const datasets = condsToPlot.map((cond, i) => {
+                const baseColor = COLORS[allConds.indexOf(cond) % COLORS.length];
+                return {
+                    label: cond,
+                    data: sortedDatesAsc.map(f => dateCondMap[f]?.[cond] || 0),
+                    borderColor: baseColor,
+                    backgroundColor: baseColor + '25',
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointBackgroundColor: baseColor,
+                    pointBorderColor: '#0f172a',
+                    pointBorderWidth: 1,
+                    pointHoverRadius: 6,
+                };
+            });
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: dateLabels, datasets },
+                options: {
+                    responsive: true,
+                    animation: { duration: 600, easing: 'easeOutQuart' },
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: condsToPlot.length > 1, position:'bottom', labels:{ color:'#7b8ba5', padding:8, font:{size:10}, usePointStyle:true, pointStyle:'circle' } },
+                        tooltip: { ...tooltipStyle, mode:'index', intersect:false },
+                        datalabels: { display: true, anchor:'end', align:'top', color:'#e8ecf4', font:{weight:'bold',size:10}, offset:2, formatter:(v)=>v>0?v:'' }
+                    },
+                    scales: {
+                        x: { ticks:{color:'#7b8ba5',font:{size:10}}, grid:{display:false} },
+                        y: { beginAtZero:true, ticks:{color:'#7b8ba5',font:{size:10},stepSize:1}, grid:{color:'rgba(30,42,66,0.4)'} }
+                    }
                 }
-            }
-        });
+            });
+            condMiniCharts.push(chart);
+        };
+
+        if (useGroups) {
+            familyKeys.forEach(family => {
+                makeAreaChart('chart-cond-' + family.toLowerCase(), condFamilies[family]);
+            });
+        } else {
+            makeAreaChart('chart-cond-all', allConds);
+        }
+
     } else {
-        // Fallback: simple horizontal bar (original behavior)
+        // Fallback: simple horizontal bar when no table data
         container.innerHTML = '<canvas id="chart-condicion" height="200"></canvas>';
         const newCtx = document.getElementById('chart-condicion').getContext('2d');
         chartCond = new Chart(newCtx, {
