@@ -795,15 +795,29 @@
                 <div class="kpi"><div class="kpi-value" id="kpi-operadoras">-</div><div class="kpi-label">Escaneadoras Activas</div></div>
             </div>
 
-            <!-- Charts Row 1: New pie charts -->
+            <!-- Charts Row 1a: Total real -->
             <div class="charts-grid">
                 <div class="card">
-                    <div class="card-title"><i class="fa-solid fa-boxes-stacked"></i> Total Pallets Procesados</div>
-                    <canvas id="chart-pallets-pie" height="240"></canvas>
+                    <div class="card-title"><i class="fa-solid fa-boxes-stacked"></i> Total Real de Pallets Procesados</div>
+                    <div id="total-pallets-center" style="text-align:center;margin-bottom:0.5rem;"></div>
+                    <canvas id="chart-total-pallets" height="200"></canvas>
                 </div>
                 <div class="card">
-                    <div class="card-title"><i class="fa-solid fa-cubes"></i> Piezas Total Paletizadas</div>
-                    <canvas id="chart-piezas-pie" height="240"></canvas>
+                    <div class="card-title"><i class="fa-solid fa-cubes"></i> Total Real de Piezas Paletizadas</div>
+                    <div id="total-piezas-center" style="text-align:center;margin-bottom:0.5rem;"></div>
+                    <canvas id="chart-total-piezas" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- Charts Row 1b: Distribucion por escaneadora -->
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-boxes-stacked"></i> Distribucion de Pallets por Escaneadora</div>
+                    <canvas id="chart-pallets-pie" height="200"></canvas>
+                </div>
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-cubes"></i> Distribucion de Piezas por Escaneadora</div>
+                    <canvas id="chart-piezas-pie" height="200"></canvas>
                 </div>
             </div>
 
@@ -1203,6 +1217,7 @@ async function handleEscSubmit(e) {
 
 let chartEsc = null, chartDest = null, chartTrend = null, chartTurno = null, chartCond = null;
 let chartPalletsPie = null, chartPiezasPie = null, chartPedidos = null;
+let chartTotalPallets = null, chartTotalPiezas = null;
 
 // Register datalabels plugin globally
 Chart.register(ChartDataLabels);
@@ -1370,7 +1385,51 @@ async function loadResumen() {
         const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
         const datalabelWhite = { display: true, color: '#fff', font: { weight: 'bold', size: 11 }, formatter: (v) => v > 0 ? v : '' };
 
-        // ── PIE: Total Pallets Procesados (by escaneadora) ──
+        // ── PIE: Total Real de Pallets (by destino) ──
+        if (chartTotalPallets) chartTotalPallets.destroy();
+        const tpEl = document.getElementById('total-pallets-center');
+        if (tpEl) tpEl.innerHTML = `<span style="font-size:2rem;font-weight:700;color:var(--text-main);">${data.totalRegistros.toLocaleString()}</span><br><span style="font-size:0.75rem;color:var(--text-muted);">pallets totales</span>`;
+        if (data.porDestino.length > 0) {
+            chartTotalPallets = new Chart(document.getElementById('chart-total-pallets').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: data.porDestino.map(d => d.destino),
+                    datasets: [{ data: data.porDestino.map(d => d.registros), backgroundColor: ['#4f7cff','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899'], borderWidth: 2, borderColor: '#0f172a', hoverOffset: 8 }]
+                },
+                options: chartOpts({
+                    cutout: '55%',
+                    plugins: {
+                        legend: { position:'bottom', labels:{color:'#7b8ba5',padding:8,font:{size:10},usePointStyle:true,pointStyle:'circle'} },
+                        tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${c.label}: ${c.parsed} pallets` } },
+                        datalabels: { display:true, color:'#fff', font:{weight:'bold',size:11}, formatter:(v,c)=>{ const t=c.dataset.data.reduce((a,b)=>a+b,0); const p=t>0?Math.round(v/t*100):0; return p>=8?`${v} (${p}%)`:(v>0?v:''); }, textAlign:'center' }
+                    }
+                })
+            });
+        }
+
+        // ── PIE: Total Real de Piezas (by destino) ──
+        if (chartTotalPiezas) chartTotalPiezas.destroy();
+        const tzEl = document.getElementById('total-piezas-center');
+        if (tzEl) tzEl.innerHTML = `<span style="font-size:2rem;font-weight:700;color:var(--text-main);">${data.totalUnidades.toLocaleString()}</span><br><span style="font-size:0.75rem;color:var(--text-muted);">piezas totales</span>`;
+        if (data.porDestino.length > 0) {
+            chartTotalPiezas = new Chart(document.getElementById('chart-total-piezas').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: data.porDestino.map(d => d.destino),
+                    datasets: [{ data: data.porDestino.map(d => d.unidades), backgroundColor: ['#4f7cff','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899'], borderWidth: 2, borderColor: '#0f172a', hoverOffset: 8 }]
+                },
+                options: chartOpts({
+                    cutout: '55%',
+                    plugins: {
+                        legend: { position:'bottom', labels:{color:'#7b8ba5',padding:8,font:{size:10},usePointStyle:true,pointStyle:'circle'} },
+                        tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${c.label}: ${c.parsed.toLocaleString()} piezas` } },
+                        datalabels: { display:true, color:'#fff', font:{weight:'bold',size:11}, formatter:(v,c)=>{ const t=c.dataset.data.reduce((a,b)=>a+b,0); const p=t>0?Math.round(v/t*100):0; return p>=8?`${v.toLocaleString()} (${p}%)`:(v>0?v.toLocaleString():''); }, textAlign:'center' }
+                    }
+                })
+            });
+        }
+
+        // ── PIE: Distribucion de Pallets por Escaneadora ──
         const ctxPP = document.getElementById('chart-pallets-pie').getContext('2d');
         if (chartPalletsPie) chartPalletsPie.destroy();
         if (data.porEscaneadora.length > 0) {
@@ -1390,7 +1449,7 @@ async function loadResumen() {
             });
         }
 
-        // ── PIE: Piezas Total Paletizadas (by escaneadora) ──
+        // ── PIE: Distribucion de Piezas por Escaneadora ──
         const ctxPZ = document.getElementById('chart-piezas-pie').getContext('2d');
         if (chartPiezasPie) chartPiezasPie.destroy();
         if (data.porEscaneadora.length > 0) {
