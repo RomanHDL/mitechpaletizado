@@ -1508,7 +1508,7 @@ function renderCondicionByDate(data) {
         const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
 
         // ── Build HTML: single chart + badge blocks ──
-        let html = '<div style="margin-bottom:1.25rem;"><canvas id="chart-cond-week" height="200"></canvas></div>';
+        let html = '<div style="position:relative;height:280px;margin-bottom:1.25rem;"><canvas id="chart-cond-week"></canvas></div>';
 
         // Badge blocks per date (descending, only dates with data)
         const sortedDatesDesc = Object.keys(dateCondMap).sort((a, b) => {
@@ -1561,8 +1561,10 @@ function renderCondicionByDate(data) {
             data: { labels: weekLabels, datasets },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 animation: { duration: 700, easing: 'easeOutQuart' },
                 interaction: { mode: 'index', intersect: false },
+                layout: { padding: { top: 16, right: 12 } },
                 plugins: {
                     legend: { position:'bottom', labels:{ color:'#7b8ba5', padding:12, font:{size:11}, usePointStyle:true, pointStyle:'circle' } },
                     tooltip: { ...tooltipStyle, mode:'index', intersect:false },
