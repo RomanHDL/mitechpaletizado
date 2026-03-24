@@ -838,17 +838,13 @@
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
                         <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-file-invoice"></i> Pedidos</div>
                         <div style="display:flex;align-items:center;gap:0.5rem;">
-                            <select class="form-input" id="pedidos-periodo" onchange="renderPedidosChart()" style="padding:0.3rem 0.6rem;font-size:0.78rem;min-width:100px;">
-                                <option value="total">Total</option>
-                                <option value="hoy">Hoy</option>
-                                <option value="ayer">Ayer</option>
-                            </select>
+                            <input type="text" class="form-input" id="pedidos-fecha" placeholder="Fecha..." style="width:120px;padding:0.3rem 0.6rem;font-size:0.78rem;">
                             <button class="btn btn-secondary btn-sm" onclick="openHistorial('pedidos')" style="padding:0.25rem 0.6rem;font-size:0.75rem;">
                                 <i class="fa-solid fa-clock-rotate-left"></i>
                             </button>
                         </div>
                     </div>
-                    <div id="pedidos-total-label" style="text-align:center;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.25rem;"></div>
+                    <div id="pedidos-info" style="text-align:center;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.25rem;"></div>
                     <canvas id="chart-pedidos" height="210"></canvas>
                 </div>
             </div>
@@ -1225,6 +1221,7 @@ const COLORS = ['#4f7cff','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14
 Chart.defaults.animation.duration = 800;
 Chart.defaults.animation.easing = 'easeOutQuart';
 
+let fpPedidos = null;
 function initFlatpickr() {
     if (fpInstance) return;
     fpInstance = flatpickr('#dash-fecha', {
@@ -1233,6 +1230,14 @@ function initFlatpickr() {
         allowInput: true,
         onClose: function() { loadDashboard(); }
     });
+    if (!fpPedidos) {
+        fpPedidos = flatpickr('#pedidos-fecha', {
+            locale: 'es',
+            dateFormat: 'n/j/Y',
+            allowInput: true,
+            onClose: function() { renderPedidosChart(); }
+        });
+    }
 }
 
 async function loadDashboard() {
@@ -2056,69 +2061,50 @@ function renderRegistrosHistorial(body, fechaQuery, textoQuery) {
 // ══════════════════════════════════════════════
 function renderPedidosChart() {
     if (chartPedidos) { chartPedidos.destroy(); chartPedidos = null; }
-    if (!lastTableData || lastTableData.length === 0) return;
+    const infoEl = document.getElementById('pedidos-info');
+    const ctx = document.getElementById('chart-pedidos');
+    if (!ctx) return;
 
-    const periodo = (document.getElementById('pedidos-periodo') || {}).value || 'total';
-    const now = new Date();
-    const hoyStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
-    const ayer = new Date(now); ayer.setDate(now.getDate() - 1);
-    const ayerStr = `${ayer.getMonth()+1}/${ayer.getDate()}/${ayer.getFullYear()}`;
-
-    // Filter records by periodo
-    let records = lastTableData;
-    let periodoLabel = 'Total acumulado';
-    if (periodo === 'hoy') {
-        records = lastTableData.filter(r => r.fecha === hoyStr);
-        periodoLabel = 'Hoy: ' + hoyStr;
-    } else if (periodo === 'ayer') {
-        records = lastTableData.filter(r => r.fecha === ayerStr);
-        periodoLabel = 'Ayer: ' + ayerStr;
-    }
-
-    // Count by unique pedido number
-    const pedidoMap = {}; // { "18962220": count }
-    let sinPedido = 0;
-    records.forEach(r => {
-        if (r.pedido && r.pedido.trim()) {
-            const p = r.pedido.trim();
-            if (!pedidoMap[p]) pedidoMap[p] = 0;
-            pedidoMap[p]++;
-        } else {
-            sinPedido++;
-        }
-    });
-
-    const pedidoEntries = Object.entries(pedidoMap).sort((a,b) => b[1] - a[1]);
-    const totalConPedido = pedidoEntries.reduce((s, e) => s + e[1], 0);
-
-    // Label
-    const labelEl = document.getElementById('pedidos-total-label');
-    if (labelEl) {
-        labelEl.textContent = `${periodoLabel} — ${totalConPedido} con pedido, ${sinPedido} sin pedido`;
-    }
-
-    // Build pie data: each unique pedido is a slice, plus "Sin Pedido"
-    const labels = [];
-    const values = [];
-    const colors = [];
-    pedidoEntries.forEach(([ped, count], i) => {
-        labels.push(ped);
-        values.push(count);
-        colors.push(COLORS[i % COLORS.length]);
-    });
-    if (sinPedido > 0) {
-        labels.push('Sin Pedido');
-        values.push(sinPedido);
-        colors.push('#4b5563');
-    }
-
-    if (values.length === 0) {
-        if (labelEl) labelEl.textContent = periodoLabel + ' — Sin registros';
+    if (!lastTableData || lastTableData.length === 0) {
+        if (infoEl) infoEl.textContent = 'Sin datos';
         return;
     }
 
-    const ctx = document.getElementById('chart-pedidos');
-    if (!ctx) return;
+    // Get selected date (empty = all dates)
+    const fechaSel = (document.getElementById('pedidos-fecha') || {}).value || '';
+
+    // Filter to selected date if any, then only records WITH pedido
+    let source = lastTableData;
+    let label = 'Total acumulado';
+    if (fechaSel) {
+        source = lastTableData.filter(r => r.fecha === fechaSel);
+        label = fechaSel;
+    }
+    const records = source.filter(r => r.pedido && r.pedido.trim());
+    const sinPedido = source.length - records.length;
+
+    if (records.length === 0) {
+        if (infoEl) infoEl.innerHTML = `<span>${label}</span> &mdash; <span style="color:var(--text-main);">No hay pedidos</span>` + (sinPedido > 0 ? ` <span style="font-size:0.75rem;">(${sinPedido} registros sin pedido)</span>` : '');
+        return;
+    }
+
+    // Count by unique pedido number
+    const pedidoMap = {};
+    records.forEach(r => {
+        const p = r.pedido.trim();
+        if (!pedidoMap[p]) pedidoMap[p] = 0;
+        pedidoMap[p]++;
+    });
+
+    const entries = Object.entries(pedidoMap).sort((a,b) => b[1] - a[1]);
+
+    if (infoEl) {
+        infoEl.innerHTML = `<span>${label}</span> &mdash; <strong style="color:var(--accent);">${records.length}</strong> pallets en <strong style="color:var(--text-main);">${entries.length}</strong> pedido${entries.length>1?'s':''}` + (sinPedido > 0 ? ` <span style="font-size:0.75rem;color:var(--text-muted);">(${sinPedido} sin pedido)</span>` : '');
+    }
+
+    const labels = entries.map(e => e[0]);
+    const values = entries.map(e => e[1]);
+    const colors = entries.map((_, i) => COLORS[i % COLORS.length]);
     const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
 
     chartPedidos = new Chart(ctx.getContext('2d'), {
@@ -2131,13 +2117,13 @@ function renderPedidosChart() {
             responsive: true,
             plugins: {
                 legend: { position:'bottom', labels:{ color:'#7b8ba5', padding:8, font:{size:10}, usePointStyle:true, pointStyle:'circle' } },
-                tooltip: { ...tooltipStyle, callbacks: { label: (ctx) => { const t = ctx.dataset.data.reduce((a,b)=>a+b,0); const pct = t>0?Math.round(ctx.parsed/t*100):0; return `${ctx.label}: ${ctx.parsed} (${pct}%)`; } } },
+                tooltip: { ...tooltipStyle, callbacks: { label: (c) => { const t = c.dataset.data.reduce((a,b)=>a+b,0); return `${c.label}: ${c.parsed} pallet${c.parsed>1?'s':''} (${t>0?Math.round(c.parsed/t*100):0}%)`; } } },
                 datalabels: {
-                    display: true, color: '#fff', font: { weight:'bold', size: 11 },
-                    formatter: (v, ctx) => {
-                        const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                    display: true, color: '#fff', font: { weight:'bold', size: 12 },
+                    formatter: (v, c) => {
+                        const total = c.dataset.data.reduce((a,b)=>a+b,0);
                         const pct = total > 0 ? Math.round(v/total*100) : 0;
-                        return pct >= 5 ? `${v}\n(${pct}%)` : (v > 0 ? v : '');
+                        return pct >= 8 ? `${v}\n(${pct}%)` : (v > 0 ? v : '');
                     },
                     textAlign: 'center'
                 }
