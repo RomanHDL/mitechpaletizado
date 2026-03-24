@@ -557,19 +557,6 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label><i class="fa-solid fa-boxes-stacked" style="margin-right:5px;color:#8b5cf6;font-size:0.8rem;"></i>Clasificacion <span style="color:var(--text-muted);font-weight:400;">(tipo)</span></label>
-                                <select class="form-input" id="esc-clasificacion">
-                                    <option value="">Sin clasificacion</option>
-                                    <option value="BOX">BOX</option>
-                                    <option value="BULKY">BULKY</option>
-                                    <option value="HV">HV (High Value)</option>
-                                    <option value="HV Televisiones">HV Televisiones</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
                                 <label><i class="fa-solid fa-clock" style="margin-right:5px;color:var(--accent);font-size:0.8rem;"></i>Turno <span style="color:var(--danger);">*</span></label>
                                 <select class="form-input" id="esc-turno" required>
                                     <option value="" disabled selected>Seleccionar...</option>
@@ -577,23 +564,39 @@
                                     <option value="Night (noche)">Night (Noche)</option>
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label><i class="fa-solid fa-calendar" style="margin-right:5px;color:#14b8a6;font-size:0.8rem;"></i>Fecha <span style="color:var(--danger);">*</span></label>
-                                <input type="date" class="form-input" id="esc-fecha" required>
-                            </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label><i class="fa-solid fa-file-lines" style="margin-right:5px;color:#f97316;font-size:0.8rem;"></i>Es pedido?</label>
+                                <label><i class="fa-solid fa-calendar" style="margin-right:5px;color:#14b8a6;font-size:0.8rem;"></i>Fecha <span style="color:var(--danger);">*</span></label>
+                                <input type="date" class="form-input" id="esc-fecha" required>
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-file-lines" style="margin-right:5px;color:#f97316;font-size:0.8rem;"></i>Es pedido? <span style="color:var(--danger);">*</span></label>
                                 <select class="form-input" id="esc-es-pedido" onchange="togglePedidoField()">
                                     <option value="no">No</option>
                                     <option value="si">Si</option>
                                 </select>
                             </div>
-                            <div class="form-group" id="pedido-field-wrap" style="display:none;">
-                                <label><i class="fa-solid fa-hashtag" style="margin-right:5px;color:#f97316;font-size:0.8rem;"></i>Pedido <span style="color:var(--danger);">*</span></label>
-                                <input type="text" class="form-input" id="esc-pedido" placeholder="Ej: 18962220">
+                        </div>
+
+                        <!-- Campos que aparecen solo cuando Es pedido = Si -->
+                        <div id="pedido-fields-wrap" style="display:none;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label><i class="fa-solid fa-hashtag" style="margin-right:5px;color:#f97316;font-size:0.8rem;"></i>Numero de pedido <span style="color:var(--danger);">*</span></label>
+                                    <input type="text" class="form-input" id="esc-pedido" placeholder="Ej: 18962220">
+                                </div>
+                                <div class="form-group">
+                                    <label><i class="fa-solid fa-boxes-stacked" style="margin-right:5px;color:#8b5cf6;font-size:0.8rem;"></i>Clasificacion <span style="color:var(--text-muted);font-weight:400;">(tipo)</span></label>
+                                    <select class="form-input" id="esc-clasificacion">
+                                        <option value="">Sin clasificacion</option>
+                                        <option value="BOX">BOX</option>
+                                        <option value="BULKY">BULKY</option>
+                                        <option value="HV">HV (High Value)</option>
+                                        <option value="HV Televisiones">HV Televisiones</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
@@ -2954,9 +2957,12 @@ function renderCondOptions() {
 
 function togglePedidoField() {
     const val = document.getElementById('esc-es-pedido').value;
-    const wrap = document.getElementById('pedido-field-wrap');
+    const wrap = document.getElementById('pedido-fields-wrap');
     wrap.style.display = val === 'si' ? '' : 'none';
-    if (val === 'no') document.getElementById('esc-pedido').value = '';
+    if (val === 'no') {
+        document.getElementById('esc-pedido').value = '';
+        document.getElementById('esc-clasificacion').value = '';
+    }
 }
 
 function resetEscForm() {
