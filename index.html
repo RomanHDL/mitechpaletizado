@@ -554,12 +554,21 @@
                                     <option value="" disabled selected>Seleccionar...</option>
                                     <option value="TRG">TRG</option>
                                     <option value="Almacen">Almacen</option>
-                                    <option value="HV (High Value)">HV (High Value)</option>
-                                    <option value="HV Televisiones">HV Televisiones</option>
-                                    <option value="BOX">BOX</option>
-                                    <option value="BULKY">BULKY</option>
                                 </select>
                             </div>
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-boxes-stacked" style="margin-right:5px;color:#8b5cf6;font-size:0.8rem;"></i>Clasificacion <span style="color:var(--text-muted);font-weight:400;">(tipo)</span></label>
+                                <select class="form-input" id="esc-clasificacion">
+                                    <option value="">Sin clasificacion</option>
+                                    <option value="BOX">BOX</option>
+                                    <option value="BULKY">BULKY</option>
+                                    <option value="HV">HV (High Value)</option>
+                                    <option value="HV Televisiones">HV Televisiones</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
                             <div class="form-group">
                                 <label><i class="fa-solid fa-clock" style="margin-right:5px;color:var(--accent);font-size:0.8rem;"></i>Turno <span style="color:var(--danger);">*</span></label>
                                 <select class="form-input" id="esc-turno" required>
@@ -568,16 +577,23 @@
                                     <option value="Night (noche)">Night (Noche)</option>
                                 </select>
                             </div>
-                        </div>
-
-                        <div class="form-row">
                             <div class="form-group">
                                 <label><i class="fa-solid fa-calendar" style="margin-right:5px;color:#14b8a6;font-size:0.8rem;"></i>Fecha <span style="color:var(--danger);">*</span></label>
                                 <input type="date" class="form-input" id="esc-fecha" required>
                             </div>
+                        </div>
+
+                        <div class="form-row">
                             <div class="form-group">
-                                <label><i class="fa-solid fa-file-lines" style="margin-right:5px;color:#f97316;font-size:0.8rem;"></i>Pedido <span style="color:var(--text-muted);font-weight:400;">(opcional)</span></label>
-                                <input type="text" class="form-input" id="esc-pedido" placeholder="Ej: PED-456">
+                                <label><i class="fa-solid fa-file-lines" style="margin-right:5px;color:#f97316;font-size:0.8rem;"></i>Es pedido?</label>
+                                <select class="form-input" id="esc-es-pedido" onchange="togglePedidoField()">
+                                    <option value="no">No</option>
+                                    <option value="si">Si</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="pedido-field-wrap" style="display:none;">
+                                <label><i class="fa-solid fa-hashtag" style="margin-right:5px;color:#f97316;font-size:0.8rem;"></i>Pedido <span style="color:var(--danger);">*</span></label>
+                                <input type="text" class="form-input" id="esc-pedido" placeholder="Ej: 18962220">
                             </div>
                         </div>
 
@@ -1088,15 +1104,25 @@ async function handleEscSubmit(e) {
     const cantidad = document.getElementById('esc-cantidad').value;
     const condicion = selectedConditions.join(', ');
     const destino = document.getElementById('esc-destino').value;
+    const clasificacion = document.getElementById('esc-clasificacion').value;
     const turno = document.getElementById('esc-turno').value;
     const fechaRaw = document.getElementById('esc-fecha').value;
-    const pedido = document.getElementById('esc-pedido').value.trim();
+    const esPedido = document.getElementById('esc-es-pedido').value;
+    const pedido = esPedido === 'si' ? document.getElementById('esc-pedido').value.trim() : '';
     const incidencias = document.getElementById('esc-incidencias').value.trim();
     const observaciones = document.getElementById('esc-observaciones').value.trim();
 
     if (!palletId || !cantidad || !destino || !turno || !fechaRaw) {
         errEl.textContent = 'Completa todos los campos obligatorios.';
         errEl.style.display = 'block';
+        return;
+    }
+
+    // Validate pedido is filled when "Es pedido = Si"
+    if (esPedido === 'si' && !pedido) {
+        errEl.textContent = 'El campo Pedido es obligatorio cuando seleccionas "Si".';
+        errEl.style.display = 'block';
+        document.getElementById('esc-pedido').focus();
         return;
     }
 
@@ -1109,10 +1135,11 @@ async function handleEscSubmit(e) {
         return;
     }
 
-    // BULKY: tag observations with LPN identifier
+    // Build observations with clasificacion tag
     let finalObs = observaciones;
-    if (destino === 'BULKY' && !finalObs.includes('LPN')) {
-        finalObs = finalObs ? 'LPN | BULKY | ' + finalObs : 'LPN | BULKY';
+    if (clasificacion) {
+        const tag = clasificacion === 'BULKY' ? 'LPN | BULKY' : clasificacion;
+        finalObs = finalObs ? tag + ' | ' + finalObs : tag;
     }
 
     // Format date M/D/YYYY
@@ -2679,12 +2706,20 @@ function renderCondOptions() {
     });
 }
 
+function togglePedidoField() {
+    const val = document.getElementById('esc-es-pedido').value;
+    const wrap = document.getElementById('pedido-field-wrap');
+    wrap.style.display = val === 'si' ? '' : 'none';
+    if (val === 'no') document.getElementById('esc-pedido').value = '';
+}
+
 function resetEscForm() {
     document.getElementById('esc-form').reset();
     selectedConditions = [];
     renderCondTags();
     renderCondOptions();
     setDefaultDate();
+    togglePedidoField();
 }
 
 // Close dropdown when clicking outside
