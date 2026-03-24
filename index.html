@@ -814,24 +814,22 @@
                 </div>
             </div>
 
-            <!-- Charts Row 1b: Distribucion por escaneadora -->
+            <!-- Charts Row 1b: Distribucion de piezas por escaneadora -->
             <div class="charts-grid">
-                <div class="card">
-                    <div class="card-title"><i class="fa-solid fa-boxes-stacked"></i> Distribucion de Pallets por Escaneadora</div>
-                    <canvas id="chart-pallets-pie" height="200"></canvas>
-                </div>
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-cubes"></i> Distribucion de Piezas por Escaneadora</div>
                     <canvas id="chart-piezas-pie" height="200"></canvas>
                 </div>
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-chart-pie"></i> Distribucion por Destino</div>
+                    <canvas id="chart-destino" height="200"></canvas>
+                </div>
             </div>
 
-            <!-- Charts Row 2: Escaneadoras (horizontal) + Destino -->
-            <div class="charts-grid">
-                <div class="card">
-                    <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Registros por Escaneadora</div>
-                    <canvas id="chart-escaneadora" height="200"></canvas>
-                </div>
+            <!-- Piezas por escaneadora (horizontal) -->
+            <div class="card" style="margin-bottom:1.5rem;">
+                <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Piezas por Escaneadora</div>
+                <canvas id="chart-escaneadora" height="200"></canvas>
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-chart-pie"></i> Distribucion por Destino</div>
                     <canvas id="chart-destino" height="200"></canvas>
@@ -1442,26 +1440,6 @@ async function loadResumen() {
             });
         }
 
-        // ── PIE: Distribucion de Pallets por Escaneadora ──
-        const ctxPP = document.getElementById('chart-pallets-pie').getContext('2d');
-        if (chartPalletsPie) chartPalletsPie.destroy();
-        if (data.porEscaneadora.length > 0) {
-            chartPalletsPie = new Chart(ctxPP, {
-                type: 'pie',
-                data: {
-                    labels: data.porEscaneadora.map(e => e.nombre),
-                    datasets: [{ data: data.porEscaneadora.map(e => e.registros), backgroundColor: COLORS, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 10 }]
-                },
-                options: chartOpts({
-                    plugins: {
-                        legend: { position:'bottom', labels: { color:'#7b8ba5', padding:10, font:{size:11}, usePointStyle:true, pointStyle:'circle' } },
-                        tooltip: { ...tooltipStyle, callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed} pallets` } },
-                        datalabels: { display: true, color: '#fff', font: { weight:'bold', size:12 }, formatter: (v, ctx) => { const total = ctx.dataset.data.reduce((a,b)=>a+b,0); const pct = total > 0 ? Math.round(v/total*100) : 0; return pct >= 5 ? `${v}\n(${pct}%)` : ''; }, textAlign:'center' }
-                    }
-                })
-            });
-        }
-
         // ── PIE: Distribucion de Piezas por Escaneadora ──
         const ctxPZ = document.getElementById('chart-piezas-pie').getContext('2d');
         if (chartPiezasPie) chartPiezasPie.destroy();
@@ -1482,7 +1460,7 @@ async function loadResumen() {
             });
         }
 
-        // ── BAR HORIZONTAL: Registros por Escaneadora ──
+        // ── BAR HORIZONTAL: Piezas por Escaneadora ──
         const ctxE = document.getElementById('chart-escaneadora').getContext('2d');
         if (chartEsc) chartEsc.destroy();
         chartEsc = new Chart(ctxE, {
@@ -1490,8 +1468,8 @@ async function loadResumen() {
             data: {
                 labels: data.porEscaneadora.map(e => e.nombre),
                 datasets: [{
-                    label: 'Registros',
-                    data: data.porEscaneadora.map(e => e.registros),
+                    label: 'Piezas',
+                    data: data.porEscaneadora.map(e => e.unidades),
                     backgroundColor: data.porEscaneadora.map((_, i) => COLORS[i % COLORS.length] + 'cc'),
                     hoverBackgroundColor: data.porEscaneadora.map((_, i) => COLORS[i % COLORS.length]),
                     borderRadius: 5, borderSkipped: false, maxBarThickness: 32,
