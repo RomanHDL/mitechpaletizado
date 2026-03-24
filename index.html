@@ -443,17 +443,9 @@
                 <span>Pulsa para leer</span>
             </div>
         </button>
-        <p class="nfc-unsupported" id="nfc-unsupported">NFC no disponible en este navegador</p>
-
-        <!-- Scanner fisico: campo para lectura de tarjeta NFC via teclado -->
-        <div class="login-divider">o</div>
-        <div class="form-group" style="margin-bottom:0;">
-            <label style="font-size:0.8rem;color:var(--text-muted);text-align:center;display:block;margin-bottom:0.4rem;">
-                <i class="fa-solid fa-barcode" style="margin-right:4px;"></i> Escaner fisico / Tarjeta NFC
-            </label>
-            <input type="text" class="form-input" id="nfc-scanner-input" placeholder="Acerca la tarjeta al escaner..." autocomplete="off" style="text-align:center;font-size:1rem;letter-spacing:1px;">
-            <p id="nfc-scanner-status" style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-top:0.4rem;">Listo para leer tarjeta</p>
-        </div>
+        <p id="nfc-status" style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem;min-height:1.1em;"></p>
+        <!-- Hidden input for physical scanner keyboard wedge -->
+        <input type="text" id="nfc-scanner-input" autocomplete="off" style="position:absolute;left:-9999px;opacity:0;pointer-events:none;" tabindex="-1">
     </div>
 </div>
 
@@ -2343,101 +2335,109 @@ async function loadCatalogos() {
 // NFC
 // ══════════════════════════════════════════════
 
+const hasWebNfc = ('NDEFReader' in window);
+
 function initNfc() {
-    if (!('NDEFReader' in window)) {
-        document.getElementById('nfc-unsupported').style.display = 'block';
-        document.getElementById('nfc-btn').style.opacity = '0.4';
-        document.getElementById('nfc-btn').style.cursor = 'not-allowed';
-        return false;
+    const statusEl = document.getElementById('nfc-status');
+    if (!hasWebNfc) {
+        if (statusEl) statusEl.textContent = 'Escaner fisico listo — acerca la tarjeta';
     }
-    return true;
 }
 
 async function handleNfcScan() {
-    if (!('NDEFReader' in window)) {
-        const errEl = document.getElementById('login-error');
-        errEl.textContent = 'NFC no soportado en este navegador. Usa Chrome en Android.';
-        errEl.style.display = 'block';
-        return;
-    }
-
     const btn = document.getElementById('nfc-btn');
+    const statusEl = document.getElementById('nfc-status');
     const errEl = document.getElementById('login-error');
     errEl.style.display = 'none';
 
-    btn.classList.remove('nfc-error', 'nfc-success');
+    // If browser has Web NFC (mobile), use it
+    if (hasWebNfc) {
+        btn.classList.remove('nfc-error', 'nfc-success');
+        btn.classList.add('scanning');
+        btn.querySelector('.nfc-text span:first-child').textContent = 'Esperando tarjeta...';
+        btn.querySelector('.nfc-text span:last-child').textContent = 'Acerca tu tarjeta NFC';
+
+        try {
+            const ndef = new NDEFReader();
+            await ndef.scan();
+            const controller = new AbortController();
+            const timeout = setTimeout(() => { controller.abort(); resetNfcBtn(); statusEl.textContent = 'Tiempo agotado'; }, 30000);
+
+            ndef.addEventListener('reading', async ({ serialNumber }) => {
+                clearTimeout(timeout);
+                controller.abort();
+                await doNfcLogin(serialNumber.toUpperCase().trim());
+            }, { signal: controller.signal });
+
+        } catch (err) {
+            btn.classList.remove('scanning');
+            btn.classList.add('nfc-error');
+            btn.querySelector('.nfc-text span:first-child').textContent = 'Error NFC';
+            btn.querySelector('.nfc-text span:last-child').textContent = err.name === 'NotAllowedError' ? 'Permite acceso NFC' : err.message;
+            setTimeout(resetNfcBtn, 3000);
+        }
+        return;
+    }
+
+    // No Web NFC (desktop/scanner) — focus hidden input and wait for scanner
     btn.classList.add('scanning');
-    btn.querySelector('.nfc-text span:first-child').textContent = 'Esperando tarjeta...';
-    btn.querySelector('.nfc-text span:last-child').textContent = 'Acerca tu tarjeta NFC al dispositivo';
+    btn.querySelector('.nfc-text span:first-child').textContent = 'Esperando escaner...';
+    btn.querySelector('.nfc-text span:last-child').textContent = 'Acerca la tarjeta al escaner';
+    statusEl.textContent = 'Escuchando escaner fisico...';
+    document.getElementById('nfc-scanner-input').value = '';
+    document.getElementById('nfc-scanner-input').focus();
+
+    // Auto-reset after 30s
+    setTimeout(() => {
+        if (btn.classList.contains('scanning')) {
+            resetNfcBtn();
+            statusEl.textContent = 'Tiempo agotado. Pulsa de nuevo.';
+        }
+    }, 30000);
+}
+
+async function doNfcLogin(serial) {
+    const btn = document.getElementById('nfc-btn');
+    const statusEl = document.getElementById('nfc-status');
+
+    // Normalize: add colons if missing
+    let normalized = serial.replace(/[^0-9A-F]/g, '');
+    if (normalized.length >= 8 && !serial.includes(':')) {
+        normalized = normalized.match(/.{1,2}/g).join(':');
+    } else {
+        normalized = serial;
+    }
+
+    btn.querySelector('.nfc-text span:first-child').textContent = 'Verificando...';
+    btn.querySelector('.nfc-text span:last-child').textContent = normalized;
 
     try {
-        const ndef = new NDEFReader();
-        await ndef.scan();
+        const data = await fetch(`${API}/api/auth/nfc`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ serialNumber: normalized, deviceId: DEVICE_ID })
+        }).then(r => r.json());
 
-        const controller = new AbortController();
+        if (!data.success) throw new Error(data.error || 'Tarjeta no autorizada');
 
-        // Timeout after 30 seconds
-        const timeout = setTimeout(() => {
-            controller.abort();
-            resetNfcBtn();
-            errEl.textContent = 'Tiempo agotado. Intenta de nuevo.';
-            errEl.style.display = 'block';
-        }, 30000);
+        btn.classList.remove('scanning');
+        btn.classList.add('nfc-success');
+        btn.querySelector('.nfc-text span:first-child').textContent = 'Acceso concedido';
+        btn.querySelector('.nfc-text span:last-child').textContent = data.user.nombre;
+        statusEl.textContent = '';
 
-        ndef.addEventListener('reading', async ({ serialNumber }) => {
-            clearTimeout(timeout);
-            controller.abort();
+        if (data.deviceId) localStorage.setItem('mitech_device_id', data.deviceId);
+        authToken = data.token;
+        localStorage.setItem('mitech_token', authToken);
+        currentUser = data.user;
 
-            // Format serial: some readers give lowercase without colons
-            const serial = serialNumber.toUpperCase().trim();
-
-            btn.querySelector('.nfc-text span:first-child').textContent = 'Tarjeta detectada';
-            btn.querySelector('.nfc-text span:last-child').textContent = serial;
-
-            try {
-                const data = await fetch(`${API}/api/auth/nfc`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ serialNumber: serial, deviceId: DEVICE_ID })
-                }).then(r => r.json());
-
-                if (!data.success) throw new Error(data.error || 'Tarjeta no autorizada');
-
-                btn.classList.remove('scanning');
-                btn.classList.add('nfc-success');
-                btn.querySelector('.nfc-text span:first-child').textContent = 'Acceso concedido';
-                btn.querySelector('.nfc-text span:last-child').textContent = data.user.nombre + ' (' + data.user.role + ')';
-
-                // Store server-assigned deviceId
-                if (data.deviceId) localStorage.setItem('mitech_device_id', data.deviceId);
-
-                authToken = data.token;
-                localStorage.setItem('mitech_token', authToken);
-                currentUser = data.user;
-
-                setTimeout(() => {
-                    resetNfcBtn();
-                    enterApp();
-                }, 800);
-            } catch (err) {
-                btn.classList.remove('scanning');
-                btn.classList.add('nfc-error');
-                btn.querySelector('.nfc-text span:first-child').textContent = 'Acceso denegado';
-                btn.querySelector('.nfc-text span:last-child').textContent = err.message;
-                setTimeout(resetNfcBtn, 3000);
-            }
-        }, { signal: controller.signal });
-
+        setTimeout(() => { resetNfcBtn(); enterApp(); }, 800);
     } catch (err) {
         btn.classList.remove('scanning');
         btn.classList.add('nfc-error');
-        if (err.name === 'NotAllowedError') {
-            btn.querySelector('.nfc-text span:first-child').textContent = 'Permiso denegado';
-            btn.querySelector('.nfc-text span:last-child').textContent = 'Permite el acceso NFC en tu navegador';
-        } else {
-            btn.querySelector('.nfc-text span:first-child').textContent = 'Error NFC';
-            btn.querySelector('.nfc-text span:last-child').textContent = err.message;
-        }
+        btn.querySelector('.nfc-text span:first-child').textContent = 'Acceso denegado';
+        btn.querySelector('.nfc-text span:last-child').textContent = err.message;
+        statusEl.textContent = '';
         setTimeout(resetNfcBtn, 3000);
     }
 }
@@ -2446,7 +2446,7 @@ function resetNfcBtn() {
     const btn = document.getElementById('nfc-btn');
     btn.classList.remove('scanning', 'nfc-success', 'nfc-error');
     btn.querySelector('.nfc-text span:first-child').textContent = 'Acceder con NFC';
-    btn.querySelector('.nfc-text span:last-child').textContent = 'Pulsa para leer';
+    btn.querySelector('.nfc-text span:last-child').textContent = hasWebNfc ? 'Pulsa para leer' : 'Pulsa y acerca tarjeta al escaner';
 }
 
 // ══════════════════════════════════════════════
@@ -2459,88 +2459,42 @@ function initScannerInput() {
     const input = document.getElementById('nfc-scanner-input');
     if (!input) return;
 
-    // When scanner sends data, it types fast + Enter
+    // Hidden input receives scanner data when focused
     input.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             const val = input.value.trim().toUpperCase();
-            if (val.length >= 4) {
-                processScannedNfc(val);
-            }
-            return;
+            input.value = '';
+            if (val.length >= 4) doNfcLogin(val);
         }
     });
 
-    // Auto-detect rapid input (scanner types much faster than human)
-    input.addEventListener('input', function() {
-        clearTimeout(scannerTimer);
-        scannerTimer = setTimeout(() => {
-            // If value looks like NFC serial and was typed fast, auto-submit
-            const val = input.value.trim().toUpperCase();
-            if (val.length >= 8 && /^[0-9A-F:]+$/.test(val)) {
-                processScannedNfc(val);
-            }
-        }, 500);
+    // Also listen globally: scanner types fast hex chars even if input not focused
+    // This catches scanners that fire into whatever element has focus
+    document.addEventListener('keydown', function(e) {
+        // Only on login screen
+        const loginScreen = document.getElementById('login-screen');
+        if (!loginScreen || loginScreen.style.display === 'none') return;
+        // Ignore if user is typing in a real input (user/pass fields)
+        const tag = document.activeElement?.tagName;
+        const activeId = document.activeElement?.id || '';
+        if ((tag === 'INPUT' || tag === 'TEXTAREA') && activeId !== 'nfc-scanner-input') return;
+
+        if (e.key === 'Enter' && scannerBuffer.length >= 4) {
+            e.preventDefault();
+            const val = scannerBuffer.toUpperCase();
+            scannerBuffer = '';
+            doNfcLogin(val);
+            return;
+        }
+
+        // Accumulate hex-like chars and colons
+        if (/^[0-9a-fA-F:]$/.test(e.key)) {
+            scannerBuffer += e.key;
+            clearTimeout(scannerTimer);
+            scannerTimer = setTimeout(() => { scannerBuffer = ''; }, 1000);
+        }
     });
-}
-
-async function processScannedNfc(serial) {
-    const input = document.getElementById('nfc-scanner-input');
-    const status = document.getElementById('nfc-scanner-status');
-    const errEl = document.getElementById('login-error');
-    errEl.style.display = 'none';
-
-    // Normalize: add colons if missing (some scanners send without colons)
-    let normalized = serial.replace(/[^0-9A-F]/g, '');
-    if (normalized.length >= 8 && !serial.includes(':')) {
-        normalized = normalized.match(/.{1,2}/g).join(':');
-    } else {
-        normalized = serial;
-    }
-
-    status.textContent = 'Verificando tarjeta...';
-    status.style.color = 'var(--warning)';
-    input.disabled = true;
-
-    try {
-        const data = await fetch(`${API}/api/auth/nfc`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ serialNumber: normalized, deviceId: DEVICE_ID })
-        }).then(r => r.json());
-
-        if (!data.success) throw new Error(data.error || 'Tarjeta no autorizada');
-
-        status.textContent = 'Acceso concedido: ' + data.user.nombre;
-        status.style.color = 'var(--success)';
-        input.style.borderColor = 'var(--success)';
-
-        if (data.deviceId) localStorage.setItem('mitech_device_id', data.deviceId);
-        authToken = data.token;
-        localStorage.setItem('mitech_token', authToken);
-        currentUser = data.user;
-
-        setTimeout(() => {
-            input.value = '';
-            input.disabled = false;
-            input.style.borderColor = '';
-            status.textContent = 'Listo para leer tarjeta';
-            status.style.color = 'var(--text-muted)';
-            enterApp();
-        }, 800);
-
-    } catch (err) {
-        status.textContent = err.message;
-        status.style.color = 'var(--danger)';
-        input.style.borderColor = 'var(--danger)';
-        input.value = '';
-        input.disabled = false;
-        setTimeout(() => {
-            status.textContent = 'Listo para leer tarjeta';
-            status.style.color = 'var(--text-muted)';
-            input.style.borderColor = '';
-        }, 3000);
-    }
 }
 
 // ══════════════════════════════════════════════
