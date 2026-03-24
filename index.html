@@ -535,7 +535,7 @@
 
                         <!-- Condicion: dropdown multi-select con colores -->
                         <div class="form-group">
-                            <label><i class="fa-solid fa-tags" style="margin-right:5px;color:#8b5cf6;font-size:0.8rem;"></i>Condicion</label>
+                            <label><i class="fa-solid fa-tags" style="margin-right:5px;color:#8b5cf6;font-size:0.8rem;"></i>Condicion <span style="color:var(--danger);">*</span></label>
                             <div class="cond-selector" id="cond-selector">
                                 <div class="cond-trigger" id="cond-trigger" onclick="toggleCondDropdown()">
                                     <div class="cond-tags" id="cond-tags">
@@ -1144,6 +1144,14 @@ async function handleEscSubmit(e) {
     if (!palletId || !cantidad || !destino || !turno || !fechaRaw) {
         errEl.textContent = 'Completa todos los campos obligatorios.';
         errEl.style.display = 'block';
+        return;
+    }
+
+    if (selectedConditions.length === 0) {
+        errEl.textContent = 'Debes seleccionar al menos una condicion.';
+        errEl.style.display = 'block';
+        document.getElementById('cond-trigger').style.borderColor = 'var(--danger)';
+        setTimeout(() => { document.getElementById('cond-trigger').style.borderColor = ''; }, 3000);
         return;
     }
 
