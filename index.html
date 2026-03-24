@@ -844,13 +844,14 @@
             <!-- Historial Modal -->
             <div id="historial-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);">
                 <div style="position:absolute;inset:1.5rem;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:0.75rem;">
                         <div style="display:flex;align-items:center;gap:0.75rem;">
                             <i class="fa-solid fa-clock-rotate-left" style="color:var(--accent);"></i>
                             <span id="historial-title" style="font-size:1.1rem;font-weight:600;">Historial</span>
                         </div>
-                        <div style="display:flex;align-items:center;gap:0.75rem;">
-                            <input type="text" class="form-input" id="historial-search" placeholder="Buscar fecha (ej: 3/20/2026)..." style="width:220px;padding:0.5rem 0.8rem;font-size:0.85rem;" oninput="filterHistorial()">
+                        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                            <input type="text" class="form-input" id="historial-search-fecha" placeholder="Buscar fecha..." style="width:170px;padding:0.5rem 0.8rem;font-size:0.85rem;" oninput="filterHistorial()">
+                            <input type="text" class="form-input" id="historial-search-texto" placeholder="Pallet ID o Pedido..." style="width:180px;padding:0.5rem 0.8rem;font-size:0.85rem;display:none;" oninput="filterHistorial()">
                             <button onclick="closeHistorial()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.75rem;color:var(--text-muted);cursor:pointer;font-size:0.9rem;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">
                                 <i class="fa-solid fa-xmark"></i> Cerrar
                             </button>
@@ -1845,16 +1846,24 @@ function renderTableView(records) {
 // ══════════════════════════════════════════════
 let historialMode = ''; // 'condicion' or 'registros'
 
+const historialExpandedDates = new Set();
+
 function openHistorial(mode) {
     historialMode = mode;
+    historialExpandedDates.clear();
     const modal = document.getElementById('historial-modal');
     const title = document.getElementById('historial-title');
-    const search = document.getElementById('historial-search');
-    search.value = '';
-    title.textContent = mode === 'condicion' ? 'Historial - Registros por Condicion' : 'Historial - Registros';
+    const searchFecha = document.getElementById('historial-search-fecha');
+    const searchTexto = document.getElementById('historial-search-texto');
+    searchFecha.value = '';
+    searchTexto.value = '';
+    // Show text search only for registros mode
+    searchTexto.style.display = mode === 'registros' ? '' : 'none';
+    searchFecha.placeholder = mode === 'condicion' ? 'Buscar fecha...' : 'Buscar fecha...';
+    title.textContent = mode === 'condicion' ? 'Historial - Condiciones por Fecha' : 'Historial de Registros de Pallets';
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
-    renderHistorialContent('');
+    filterHistorial();
 }
 
 function closeHistorial() {
@@ -1863,22 +1872,27 @@ function closeHistorial() {
 }
 
 function filterHistorial() {
-    const q = document.getElementById('historial-search').value.trim();
-    renderHistorialContent(q);
-}
-
-function renderHistorialContent(searchQuery) {
+    const fechaQ = document.getElementById('historial-search-fecha').value.trim();
+    const textoQ = document.getElementById('historial-search-texto').value.trim().toLowerCase();
     const body = document.getElementById('historial-body');
     if (!lastTableData || lastTableData.length === 0) {
         body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);">Sin datos</div>';
         return;
     }
-
     if (historialMode === 'condicion') {
-        renderCondicionHistorial(body, searchQuery);
+        renderCondicionHistorial(body, fechaQ);
     } else {
-        renderRegistrosHistorial(body, searchQuery);
+        renderRegistrosHistorial(body, fechaQ, textoQ);
     }
+}
+
+function toggleHistorialDate(fecha) {
+    if (historialExpandedDates.has(fecha)) {
+        historialExpandedDates.delete(fecha);
+    } else {
+        historialExpandedDates.add(fecha);
+    }
+    filterHistorial();
 }
 
 function renderCondicionHistorial(body, searchQuery) {
@@ -1928,9 +1942,16 @@ function renderCondicionHistorial(body, searchQuery) {
     }).join('');
 }
 
-function renderRegistrosHistorial(body, searchQuery) {
+function renderRegistrosHistorial(body, fechaQuery, textoQuery) {
+    // Group by date, then filter
     const groups = {};
     lastTableData.forEach(r => {
+        // Text filter: match pallet ID or pedido
+        if (textoQuery) {
+            const pid = (r.palletId || '').toLowerCase();
+            const ped = (r.pedido || '').toLowerCase();
+            if (!pid.includes(textoQuery) && !ped.includes(textoQuery)) return;
+        }
         const key = r.fecha || 'Sin fecha';
         if (!groups[key]) groups[key] = [];
         groups[key].push(r);
@@ -1942,40 +1963,65 @@ function renderRegistrosHistorial(body, searchQuery) {
         return new Date(pb[2], pb[0]-1, pb[1]) - new Date(pa[2], pa[0]-1, pa[1]);
     });
 
-    if (searchQuery) dates = dates.filter(d => d.includes(searchQuery));
+    if (fechaQuery) dates = dates.filter(d => d.includes(fechaQuery));
 
     if (dates.length === 0) {
-        body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);">Sin resultados para esa fecha</div>';
+        body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);">Sin resultados</div>';
         return;
     }
 
-    body.innerHTML = dates.map(fecha => {
+    // If text search is active, auto-expand all dates
+    const forceOpen = !!textoQuery;
+
+    const totalRegs = dates.reduce((s, f) => s + groups[f].length, 0);
+    let html = `<div style="margin-bottom:1rem;font-size:0.85rem;color:var(--text-muted);">${totalRegs} registros en ${dates.length} fecha${dates.length>1?'s':''}</div>`;
+
+    html += dates.map(fecha => {
         const recs = groups[fecha];
         const totalQty = recs.reduce((s, r) => s + (r.cantidad || 0), 0);
-        let html = `<div style="margin-bottom:1rem;">`;
-        html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 1rem;background:var(--bg-sidebar);border:1px solid var(--border);border-radius:8px 8px 0 0;">`;
-        html += `<span style="font-weight:600;color:var(--text-main);"><i class="fa-solid fa-calendar-day" style="color:var(--accent);margin-right:6px;"></i>${fecha}</span>`;
-        html += `<span style="font-size:0.8rem;color:var(--text-muted);">${recs.length} registros &middot; ${totalQty} uds</span></div>`;
-        html += `<div style="border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;overflow-x:auto;">`;
-        html += `<table style="width:100%;font-size:0.82rem;"><thead><tr>`;
-        ['Pallet','Cant','Destino','Turno','Escaneadora','Condicion','Pedido'].forEach(h => {
-            html += `<th style="padding:0.5rem 0.6rem;text-align:left;color:var(--text-muted);font-size:0.75rem;border-bottom:1px solid var(--border);">${h}</th>`;
-        });
-        html += `</tr></thead><tbody>`;
-        recs.forEach(r => {
-            html += `<tr>`;
-            html += `<td style="padding:0.4rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);font-weight:600;">${r.palletId}</td>`;
-            html += `<td style="padding:0.4rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.cantidad}</td>`;
-            html += `<td style="padding:0.4rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.destino}</td>`;
-            html += `<td style="padding:0.4rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${turnoBadge(r.turno)}</td>`;
-            html += `<td style="padding:0.4rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.escaneadora}</td>`;
-            html += `<td style="padding:0.4rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.condicion||'-'}</td>`;
-            html += `<td style="padding:0.4rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.pedido||'-'}</td>`;
-            html += `</tr>`;
-        });
-        html += `</tbody></table></div></div>`;
-        return html;
+        const isOpen = forceOpen || historialExpandedDates.has(fecha);
+        const chevron = isOpen ? 'fa-chevron-up' : 'fa-chevron-down';
+
+        let h = `<div style="margin-bottom:0.5rem;border:1px solid var(--border);border-radius:8px;overflow:hidden;">`;
+        // Header (clickable)
+        h += `<div onclick="toggleHistorialDate('${fecha}')" style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;background:var(--bg-sidebar);cursor:pointer;user-select:none;transition:background 0.15s;" onmouseover="this.style.background='rgba(79,124,255,0.06)'" onmouseout="this.style.background='var(--bg-sidebar)'">`;
+        h += `<div style="display:flex;align-items:center;gap:0.5rem;">`;
+        h += `<i class="fa-solid fa-calendar-day" style="color:var(--accent);font-size:0.85rem;"></i>`;
+        h += `<span style="font-weight:600;color:var(--text-main);">${fecha}</span>`;
+        h += `<span style="font-size:0.8rem;color:var(--text-muted);margin-left:0.25rem;">${recs.length} reg &middot; ${totalQty} uds</span>`;
+        h += `</div>`;
+        h += `<i class="fa-solid ${chevron}" style="color:var(--text-muted);font-size:0.7rem;transition:transform 0.2s;"></i>`;
+        h += `</div>`;
+
+        // Body (collapsible)
+        if (isOpen) {
+            h += `<div style="overflow-x:auto;">`;
+            h += `<table style="width:100%;font-size:0.82rem;border-collapse:collapse;"><thead><tr>`;
+            ['Pallet ID','Cant','Destino','Turno','Escaneadora','Condicion','Pedido','Incidencias'].forEach(col => {
+                h += `<th style="padding:0.5rem 0.6rem;text-align:left;color:var(--text-muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid var(--border);white-space:nowrap;">${col}</th>`;
+            });
+            h += `</tr></thead><tbody>`;
+            recs.forEach(r => {
+                const highlight = textoQuery ? 'background:rgba(79,124,255,0.04);' : '';
+                h += `<tr style="${highlight}">`;
+                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);font-weight:600;">${r.palletId}</td>`;
+                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.cantidad}</td>`;
+                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.destino}</td>`;
+                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${turnoBadge(r.turno)}</td>`;
+                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.escaneadora}</td>`;
+                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.condicion ? `<span class="badge badge-blue">${r.condicion}</span>` : '-'}</td>`;
+                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.pedido || '-'}</td>`;
+                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);color:${r.incidencias ? 'var(--danger)' : 'var(--text-muted)'};">${r.incidencias || '-'}</td>`;
+                h += `</tr>`;
+            });
+            h += `</tbody></table></div>`;
+        }
+
+        h += `</div>`;
+        return h;
     }).join('');
+
+    body.innerHTML = html;
 }
 
 async function loadCatalogos() {
