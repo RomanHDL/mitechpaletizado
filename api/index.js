@@ -14,7 +14,13 @@ const JWT_SECRET = process.env.JWT_SECRET || 'mitech-jwt-secret-2026';
 let isConnected = false;
 async function connectDB() {
   if (isConnected) return;
-  await mongoose.connect(process.env.MONGODB_URI);
+  let uri = process.env.MONGODB_URI || '';
+  // Ensure we connect to paletizadodb, not the default 'test' database
+  if (uri && !uri.includes('/paletizadodb')) {
+    uri = uri.replace(/\/(\?|$)/, '/paletizadodb$1');
+    if (!uri.includes('/paletizadodb')) uri = uri + '/paletizadodb';
+  }
+  await mongoose.connect(uri);
   isConnected = true;
 }
 
@@ -417,8 +423,11 @@ app.get('/api/resumen', auth, roleGuard('admin', 'escaneadora'), async (req, res
 // ═══════════ SEED (one-time, remove after use) ═══════════
 app.get('/api/seed', async (req, res) => {
   try {
+    // Drop stale indexes that may conflict (email_1 from old schema)
+    try { await mongoose.connection.db.collection('users').dropIndex('email_1'); } catch(e) {}
+
     const seedUsers = [
-      { nombre: 'Administrador',   usuario: '3647',      password: '364700', role: 'admin' },
+      { nombre: 'Administrador',   usuario: '3647',      password: '121101', role: 'admin' },
       { nombre: 'Admin General',   usuario: 'admin',     password: '123456', role: 'admin' },
       { nombre: 'Yusley Montes',   usuario: 'yusley',    password: '111111', role: 'escaneadora' },
       { nombre: 'Angelica Aleman', usuario: 'angelica',  password: '222222', role: 'escaneadora' },
@@ -428,13 +437,19 @@ app.get('/api/seed', async (req, res) => {
     const results = [];
     for (const u of seedUsers) {
       const exists = await User.findOne({ usuario: u.usuario });
-      if (exists) { results.push({ usuario: u.usuario, status: 'already exists' }); continue; }
+      if (exists) {
+        // Update password to ensure it matches
+        const hash = await bcrypt.hash(u.password, 10);
+        await User.updateOne({ usuario: u.usuario }, { $set: { passwordHash: hash, isActive: true } });
+        results.push({ usuario: u.usuario, status: 'updated password' });
+        continue;
+      }
       const hash = await bcrypt.hash(u.password, 10);
       await User.create({ nombre: u.nombre, usuario: u.usuario, passwordHash: hash, role: u.role, isActive: true });
       results.push({ usuario: u.usuario, status: 'created', role: u.role });
     }
     const total = await User.countDocuments();
-    res.json({ success: true, results, totalUsers: total });
+    res.json({ success: true, results, totalUsers: total, database: mongoose.connection.db.databaseName });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
