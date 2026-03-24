@@ -444,6 +444,16 @@
             </div>
         </button>
         <p class="nfc-unsupported" id="nfc-unsupported">NFC no disponible en este navegador</p>
+
+        <!-- Scanner fisico: campo para lectura de tarjeta NFC via teclado -->
+        <div class="login-divider">o</div>
+        <div class="form-group" style="margin-bottom:0;">
+            <label style="font-size:0.8rem;color:var(--text-muted);text-align:center;display:block;margin-bottom:0.4rem;">
+                <i class="fa-solid fa-barcode" style="margin-right:4px;"></i> Escaner fisico / Tarjeta NFC
+            </label>
+            <input type="text" class="form-input" id="nfc-scanner-input" placeholder="Acerca la tarjeta al escaner..." autocomplete="off" style="text-align:center;font-size:1rem;letter-spacing:1px;">
+            <p id="nfc-scanner-status" style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-top:0.4rem;">Listo para leer tarjeta</p>
+        </div>
     </div>
 </div>
 
@@ -2440,6 +2450,100 @@ function resetNfcBtn() {
 }
 
 // ══════════════════════════════════════════════
+// NFC SCANNER FISICO (keyboard wedge)
+// ══════════════════════════════════════════════
+let scannerBuffer = '';
+let scannerTimer = null;
+
+function initScannerInput() {
+    const input = document.getElementById('nfc-scanner-input');
+    if (!input) return;
+
+    // When scanner sends data, it types fast + Enter
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const val = input.value.trim().toUpperCase();
+            if (val.length >= 4) {
+                processScannedNfc(val);
+            }
+            return;
+        }
+    });
+
+    // Auto-detect rapid input (scanner types much faster than human)
+    input.addEventListener('input', function() {
+        clearTimeout(scannerTimer);
+        scannerTimer = setTimeout(() => {
+            // If value looks like NFC serial and was typed fast, auto-submit
+            const val = input.value.trim().toUpperCase();
+            if (val.length >= 8 && /^[0-9A-F:]+$/.test(val)) {
+                processScannedNfc(val);
+            }
+        }, 500);
+    });
+}
+
+async function processScannedNfc(serial) {
+    const input = document.getElementById('nfc-scanner-input');
+    const status = document.getElementById('nfc-scanner-status');
+    const errEl = document.getElementById('login-error');
+    errEl.style.display = 'none';
+
+    // Normalize: add colons if missing (some scanners send without colons)
+    let normalized = serial.replace(/[^0-9A-F]/g, '');
+    if (normalized.length >= 8 && !serial.includes(':')) {
+        normalized = normalized.match(/.{1,2}/g).join(':');
+    } else {
+        normalized = serial;
+    }
+
+    status.textContent = 'Verificando tarjeta...';
+    status.style.color = 'var(--warning)';
+    input.disabled = true;
+
+    try {
+        const data = await fetch(`${API}/api/auth/nfc`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ serialNumber: normalized, deviceId: DEVICE_ID })
+        }).then(r => r.json());
+
+        if (!data.success) throw new Error(data.error || 'Tarjeta no autorizada');
+
+        status.textContent = 'Acceso concedido: ' + data.user.nombre;
+        status.style.color = 'var(--success)';
+        input.style.borderColor = 'var(--success)';
+
+        if (data.deviceId) localStorage.setItem('mitech_device_id', data.deviceId);
+        authToken = data.token;
+        localStorage.setItem('mitech_token', authToken);
+        currentUser = data.user;
+
+        setTimeout(() => {
+            input.value = '';
+            input.disabled = false;
+            input.style.borderColor = '';
+            status.textContent = 'Listo para leer tarjeta';
+            status.style.color = 'var(--text-muted)';
+            enterApp();
+        }, 800);
+
+    } catch (err) {
+        status.textContent = err.message;
+        status.style.color = 'var(--danger)';
+        input.style.borderColor = 'var(--danger)';
+        input.value = '';
+        input.disabled = false;
+        setTimeout(() => {
+            status.textContent = 'Listo para leer tarjeta';
+            status.style.color = 'var(--text-muted)';
+            input.style.borderColor = '';
+        }, 3000);
+    }
+}
+
+// ══════════════════════════════════════════════
 // RESUMEN DE PALETIZADO
 // ══════════════════════════════════════════════
 
@@ -2996,6 +3100,7 @@ document.addEventListener('click', function(e) {
 // ══════════════════════════════════════════════
 initCondDropdown();
 initNfc();
+initScannerInput();
 checkSession();
 
 // BULKY: auto-select GRA/GRB/GRC when BULKY is chosen
