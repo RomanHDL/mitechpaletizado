@@ -734,9 +734,12 @@
                     <h1><i class="fa-solid fa-chart-pie"></i> Dashboard Paletizado FFT</h1>
                     <p>Resumen completo de la operacion de paletizado</p>
                 </div>
-                <div style="display:flex;gap:0.5rem;margin-top:0.25rem;">
+                <div style="display:flex;gap:0.5rem;margin-top:0.25rem;flex-wrap:wrap;">
                     <button class="btn btn-secondary btn-sm" onclick="openHistorial('registros')">
                         <i class="fa-solid fa-clock-rotate-left"></i> Historial
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="openHistorial('pedidos')">
+                        <i class="fa-solid fa-file-invoice"></i> Pedidos
                     </button>
                     <button class="btn btn-secondary btn-sm admin-only" onclick="exportDashboardExcel()">
                         <i class="fa-solid fa-file-excel"></i> Descargar Dashboard
@@ -825,15 +828,23 @@
                 </div>
             </div>
 
-            <!-- Charts Row 3: Turno + Promedios -->
+            <!-- Charts Row 3: Turno + Pedidos -->
             <div class="charts-grid">
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-clock"></i> Registros por Turno</div>
                     <canvas id="chart-turno" height="200"></canvas>
                 </div>
                 <div class="card">
-                    <div class="card-title"><i class="fa-solid fa-ranking-star"></i> Promedios por Turno</div>
-                    <div id="promedios-container" style="font-size:0.9rem;color:var(--text-muted);">Cargando...</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+                        <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-file-invoice"></i> Control de Pedidos</div>
+                        <button class="btn btn-secondary btn-sm" onclick="openHistorial('pedidos')" style="padding:0.25rem 0.6rem;font-size:0.75rem;">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Historial
+                        </button>
+                    </div>
+                    <div id="pedidos-summary" style="display:flex;gap:0.75rem;margin-bottom:0.75rem;"></div>
+                    <div style="position:relative;height:180px;">
+                        <canvas id="chart-pedidos"></canvas>
+                    </div>
                 </div>
             </div>
 
@@ -1190,7 +1201,7 @@ async function handleEscSubmit(e) {
 // ══════════════════════════════════════════════
 
 let chartEsc = null, chartDest = null, chartTrend = null, chartTurno = null, chartCond = null;
-let chartPalletsPie = null, chartPiezasPie = null;
+let chartPalletsPie = null, chartPiezasPie = null, chartPedidos = null;
 
 // Register datalabels plugin globally
 Chart.register(ChartDataLabels);
@@ -1734,26 +1745,6 @@ async function loadTendencias() {
 
         trendCache = dateMap;
         renderTrendWidget(dateMap);
-
-        // Promedios
-        const promEl = document.getElementById('promedios-container');
-        if (data.promedios.length > 0) {
-            promEl.innerHTML = data.promedios.map(p => `
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem 0;border-bottom:1px solid var(--border);">
-                    <div>
-                        <strong style="color:var(--text-main);">${p.turno}</strong>
-                        <span style="margin-left:0.5rem;">${p.totalDias} dias trabajados</span>
-                    </div>
-                    <div style="text-align:right;">
-                        <strong style="color:var(--accent);font-size:1.2rem;">${p.promedio}</strong>
-                        <span style="font-size:0.8rem;"> reg/dia</span>
-                        <div style="font-size:0.8rem;">${p.totalRegistros} registros total</div>
-                    </div>
-                </div>
-            `).join('');
-        } else {
-            promEl.innerHTML = '<p style="padding:1rem 0;">Sin datos de tendencia</p>';
-        }
     } catch (err) {
         console.error('[TENDENCIAS]', err);
     }
@@ -1770,6 +1761,7 @@ async function loadTableData() {
         renderRecords(data.data);
         // Re-render condicion chart now that table data is available for date grouping
         if (lastResumen) renderCondicionByDate(lastResumen);
+        renderPedidosChart();
     } catch (err) {
         console.error('[TABLE]', err);
     }
@@ -1884,10 +1876,11 @@ function openHistorial(mode) {
     const searchTexto = document.getElementById('historial-search-texto');
     searchFecha.value = '';
     searchTexto.value = '';
-    // Show text search only for registros mode
-    searchTexto.style.display = mode === 'registros' ? '' : 'none';
-    searchFecha.placeholder = mode === 'condicion' ? 'Buscar fecha...' : 'Buscar fecha...';
-    title.textContent = mode === 'condicion' ? 'Historial - Condiciones por Fecha' : 'Historial de Registros de Pallets';
+    // Show text search for registros and pedidos modes
+    searchTexto.style.display = (mode === 'registros' || mode === 'pedidos') ? '' : 'none';
+    searchTexto.placeholder = mode === 'pedidos' ? 'Buscar pedido o pallet...' : 'Pallet ID o Pedido...';
+    const titles = { condicion: 'Historial - Condiciones por Fecha', registros: 'Historial de Registros de Pallets', pedidos: 'Control de Pedidos - Historial' };
+    title.textContent = titles[mode] || 'Historial';
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
     filterHistorial();
@@ -1908,6 +1901,8 @@ function filterHistorial() {
     }
     if (historialMode === 'condicion') {
         renderCondicionHistorial(body, fechaQ);
+    } else if (historialMode === 'pedidos') {
+        renderPedidosHistorial(body, fechaQ, textoQ);
     } else {
         renderRegistrosHistorial(body, fechaQ, textoQ);
     }
@@ -2042,6 +2037,201 @@ function renderRegistrosHistorial(body, fechaQuery, textoQuery) {
                 h += `</tr>`;
             });
             h += `</tbody></table></div>`;
+        }
+
+        h += `</div>`;
+        return h;
+    }).join('');
+
+    body.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════
+// PEDIDOS CHART + HISTORIAL
+// ══════════════════════════════════════════════
+function renderPedidosChart() {
+    if (chartPedidos) { chartPedidos.destroy(); chartPedidos = null; }
+    if (!lastTableData || lastTableData.length === 0) return;
+
+    // Count pedidos per date (records where pedido field is non-empty)
+    const pedidosByDate = {};
+    let totalPedidos = 0, totalSinPedido = 0;
+    lastTableData.forEach(r => {
+        const fecha = r.fecha || 'Sin fecha';
+        if (!pedidosByDate[fecha]) pedidosByDate[fecha] = { con: 0, sin: 0 };
+        if (r.pedido && r.pedido.trim()) {
+            pedidosByDate[fecha].con++;
+            totalPedidos++;
+        } else {
+            pedidosByDate[fecha].sin++;
+            totalSinPedido++;
+        }
+    });
+
+    // Build Mon-Sun week axis
+    const allDates = Object.keys(pedidosByDate).map(f => {
+        const p = f.split('/');
+        return p.length === 3 ? new Date(parseInt(p[2]), parseInt(p[0])-1, parseInt(p[1])) : null;
+    }).filter(Boolean).sort((a,b) => a-b);
+
+    const dayNames = ['Lun','Mar','Mie','Jue','Vie','Sab','Dom'];
+    const lastDate = allDates[allDates.length - 1] || new Date();
+    const dow = lastDate.getDay();
+    const monday = new Date(lastDate);
+    monday.setDate(lastDate.getDate() + (dow === 0 ? -6 : 1 - dow));
+    monday.setHours(0,0,0,0);
+
+    const weekDates = [], weekLabels = [];
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        weekDates.push(`${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`);
+        weekLabels.push(`${dayNames[i]} ${d.getDate()}/${d.getMonth()+1}`);
+    }
+
+    // Summary KPIs
+    const sumEl = document.getElementById('pedidos-summary');
+    if (sumEl) {
+        sumEl.innerHTML = `
+            <div style="flex:1;padding:0.5rem 0.75rem;background:rgba(79,124,255,0.08);border:1px solid rgba(79,124,255,0.2);border-radius:8px;text-align:center;">
+                <div style="font-size:1.3rem;font-weight:700;color:#4f7cff;">${totalPedidos}</div>
+                <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;">Con Pedido</div>
+            </div>
+            <div style="flex:1;padding:0.5rem 0.75rem;background:rgba(107,114,128,0.08);border:1px solid rgba(107,114,128,0.2);border-radius:8px;text-align:center;">
+                <div style="font-size:1.3rem;font-weight:700;color:#6b7280;">${totalSinPedido}</div>
+                <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;">Sin Pedido</div>
+            </div>
+        `;
+    }
+
+    // Chart
+    const ctx = document.getElementById('chart-pedidos');
+    if (!ctx) return;
+    chartPedidos = new Chart(ctx.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: weekLabels,
+            datasets: [{
+                label: 'Pedidos',
+                data: weekDates.map(f => pedidosByDate[f]?.con || 0),
+                backgroundColor: '#4f7cffcc',
+                hoverBackgroundColor: '#4f7cff',
+                borderRadius: 4, borderSkipped: false, maxBarThickness: 28, barPercentage: 0.7,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 },
+                datalabels: { display: true, anchor:'end', align:'top', color:'#e8ecf4', font:{weight:'bold',size:11}, offset:2, formatter:(v)=>v>0?v:'' }
+            },
+            scales: {
+                x: { ticks:{color:'#94a3b8',font:{size:9}}, grid:{display:false} },
+                y: { beginAtZero:true, ticks:{color:'#7b8ba5',font:{size:10},stepSize:1}, grid:{color:'rgba(30,42,66,0.4)'} }
+            }
+        }
+    });
+}
+
+function renderPedidosHistorial(body, fechaQuery, textoQuery) {
+    if (!lastTableData || lastTableData.length === 0) {
+        body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);">Sin datos de pedidos</div>';
+        return;
+    }
+
+    // Only records WITH pedido
+    const pedidoRecords = lastTableData.filter(r => r.pedido && r.pedido.trim());
+
+    // Text filter
+    let filtered = pedidoRecords;
+    if (textoQuery) {
+        filtered = filtered.filter(r =>
+            (r.pedido||'').toLowerCase().includes(textoQuery) ||
+            (r.palletId||'').toLowerCase().includes(textoQuery)
+        );
+    }
+
+    // Group by date
+    const groups = {};
+    filtered.forEach(r => {
+        const key = r.fecha || 'Sin fecha';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(r);
+    });
+
+    let dates = Object.keys(groups).sort((a, b) => {
+        const pa = a.split('/'), pb = b.split('/');
+        if (pa.length !== 3 || pb.length !== 3) return 0;
+        return new Date(pb[2], pb[0]-1, pb[1]) - new Date(pa[2], pa[0]-1, pa[1]);
+    });
+    if (fechaQuery) dates = dates.filter(d => d.includes(fechaQuery));
+
+    if (dates.length === 0) {
+        body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);">Sin pedidos encontrados</div>';
+        return;
+    }
+
+    const forceOpen = !!textoQuery;
+    const totalPeds = dates.reduce((s, f) => s + groups[f].length, 0);
+    // Unique pedido numbers
+    const uniquePedidos = new Set();
+    dates.forEach(f => groups[f].forEach(r => uniquePedidos.add(r.pedido.trim())));
+
+    let html = `<div style="margin-bottom:1rem;display:flex;gap:1rem;font-size:0.85rem;color:var(--text-muted);">`;
+    html += `<span><strong style="color:var(--text-main);">${totalPeds}</strong> registros con pedido</span>`;
+    html += `<span><strong style="color:var(--accent);">${uniquePedidos.size}</strong> pedidos unicos</span>`;
+    html += `<span><strong style="color:var(--text-main);">${dates.length}</strong> fecha${dates.length>1?'s':''}</span>`;
+    html += `</div>`;
+
+    html += dates.map(fecha => {
+        const recs = groups[fecha];
+        const isOpen = forceOpen || historialExpandedDates.has('ped-' + fecha);
+        const chevron = isOpen ? 'fa-chevron-up' : 'fa-chevron-down';
+        const pedNums = [...new Set(recs.map(r => r.pedido.trim()))];
+
+        let h = `<div style="margin-bottom:0.5rem;border:1px solid var(--border);border-radius:8px;overflow:hidden;">`;
+        h += `<div onclick="toggleHistorialDate('ped-${fecha}')" style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;background:var(--bg-sidebar);cursor:pointer;user-select:none;transition:background 0.15s;" onmouseover="this.style.background='rgba(79,124,255,0.06)'" onmouseout="this.style.background='var(--bg-sidebar)'">`;
+        h += `<div style="display:flex;align-items:center;gap:0.5rem;">`;
+        h += `<i class="fa-solid fa-calendar-day" style="color:var(--accent);font-size:0.85rem;"></i>`;
+        h += `<span style="font-weight:600;color:var(--text-main);">${fecha}</span>`;
+        h += `<span style="font-size:0.8rem;color:var(--text-muted);">${recs.length} reg &middot; ${pedNums.length} pedido${pedNums.length>1?'s':''}</span>`;
+        h += `</div>`;
+        h += `<i class="fa-solid ${chevron}" style="color:var(--text-muted);font-size:0.7rem;"></i>`;
+        h += `</div>`;
+
+        if (isOpen) {
+            h += `<div style="padding:0.75rem 1rem;">`;
+            // Group by pedido number
+            const byPedido = {};
+            recs.forEach(r => {
+                const p = r.pedido.trim();
+                if (!byPedido[p]) byPedido[p] = [];
+                byPedido[p].push(r);
+            });
+            Object.entries(byPedido).sort((a,b) => b[1].length - a[1].length).forEach(([pedNum, pRecs]) => {
+                h += `<div style="margin-bottom:0.75rem;">`;
+                h += `<div style="font-size:0.8rem;font-weight:600;color:var(--accent);margin-bottom:0.35rem;"><i class="fa-solid fa-file-invoice" style="margin-right:4px;"></i>Pedido: ${pedNum} <span style="color:var(--text-muted);font-weight:400;">(${pRecs.length} pallet${pRecs.length>1?'s':''})</span></div>`;
+                h += `<div style="overflow-x:auto;"><table style="width:100%;font-size:0.8rem;border-collapse:collapse;">`;
+                h += `<thead><tr>`;
+                ['Pallet ID','Cant','Destino','Turno','Escaneadora','Condicion'].forEach(col => {
+                    h += `<th style="padding:0.35rem 0.5rem;text-align:left;color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap;">${col}</th>`;
+                });
+                h += `</tr></thead><tbody>`;
+                pRecs.forEach(r => {
+                    h += `<tr>`;
+                    h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);font-weight:600;">${r.palletId}</td>`;
+                    h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.cantidad}</td>`;
+                    h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.destino}</td>`;
+                    h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);">${turnoBadge(r.turno)}</td>`;
+                    h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.escaneadora}</td>`;
+                    h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.condicion||'-'}</td>`;
+                    h += `</tr>`;
+                });
+                h += `</tbody></table></div></div>`;
+            });
+            h += `</div>`;
         }
 
         h += `</div>`;
