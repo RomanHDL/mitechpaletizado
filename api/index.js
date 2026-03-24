@@ -414,6 +414,30 @@ app.get('/api/resumen', auth, roleGuard('admin', 'escaneadora'), async (req, res
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// ═══════════ SEED (one-time, remove after use) ═══════════
+app.get('/api/seed', async (req, res) => {
+  try {
+    const seedUsers = [
+      { nombre: 'Administrador',   usuario: '3647',      password: '364700', role: 'admin' },
+      { nombre: 'Admin General',   usuario: 'admin',     password: '123456', role: 'admin' },
+      { nombre: 'Yusley Montes',   usuario: 'yusley',    password: '111111', role: 'escaneadora' },
+      { nombre: 'Angelica Aleman', usuario: 'angelica',  password: '222222', role: 'escaneadora' },
+      { nombre: 'Cecilia Perez',   usuario: 'cecilia',   password: '333333', role: 'escaneadora' },
+      { nombre: 'Nathalie Lopez',  usuario: 'nathalie',  password: '444444', role: 'escaneadora' },
+    ];
+    const results = [];
+    for (const u of seedUsers) {
+      const exists = await User.findOne({ usuario: u.usuario });
+      if (exists) { results.push({ usuario: u.usuario, status: 'already exists' }); continue; }
+      const hash = await bcrypt.hash(u.password, 10);
+      await User.create({ nombre: u.nombre, usuario: u.usuario, passwordHash: hash, role: u.role, isActive: true });
+      results.push({ usuario: u.usuario, status: 'created', role: u.role });
+    }
+    const total = await User.countDocuments();
+    res.json({ success: true, results, totalUsers: total });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // ═══════════ HEALTH ═══════════
 app.get('/api/health', async (req, res) => {
   try {
