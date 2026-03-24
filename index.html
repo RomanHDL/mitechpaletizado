@@ -159,8 +159,7 @@
 
         /* Charts grid */
         .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; margin-bottom:1.5rem; max-width:800px; margin-left:auto; margin-right:auto; }
-        .charts-grid .card { overflow:hidden; }
-        .charts-grid .card canvas { max-height:180px; }
+        .charts-grid .card { overflow:hidden; min-height:0; }
 
         /* Tables */
         .table-wrap { overflow-x:auto; }
@@ -802,7 +801,7 @@
                 <div class="kpi"><div class="kpi-value" id="kpi-operadoras">-</div><div class="kpi-label">Escaneadoras Activas</div></div>
             </div>
 
-            <!-- Charts Row 1a: Total real -->
+            <!-- Row 1: 4 graficas de pastel en cuadricula 2x2 -->
             <div class="charts-grid">
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-boxes-stacked"></i> Total Real de Pallets Procesados</div>
@@ -814,10 +813,6 @@
                     <div id="total-piezas-center" style="text-align:center;margin-bottom:0.25rem;"></div>
                     <canvas id="chart-total-piezas" height="160"></canvas>
                 </div>
-            </div>
-
-            <!-- Charts Row 1b: Distribucion de piezas por escaneadora -->
-            <div class="charts-grid">
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-cubes"></i> Distribucion de Piezas por Escaneadora</div>
                     <canvas id="chart-piezas-pie" height="160"></canvas>
@@ -828,26 +823,26 @@
                 </div>
             </div>
 
-            <!-- Piezas por escaneadora (horizontal) -->
-            <div class="card" style="margin-bottom:1.5rem;max-width:800px;margin-left:auto;margin-right:auto;">
-                <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Piezas por Escaneadora</div>
-                <canvas id="chart-escaneadora" height="160"></canvas>
-            </div>
-
-            <!-- Tendencia Diaria -->
-            <div class="card" style="margin-bottom:1.5rem;padding:1rem 1.25rem;max-width:800px;margin-left:auto;margin-right:auto;">
-                <div class="card-title"><i class="fa-solid fa-chart-line"></i> Tendencia Diaria</div>
-                <div id="trend-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;margin-bottom:1.25rem;"></div>
-                <div id="trend-chart-wrap" style="position:relative;height:180px;">
-                    <canvas id="chart-tendencia"></canvas>
+            <!-- Row 2: Piezas bar + Tendencia lado a lado -->
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Piezas por Escaneadora</div>
+                    <canvas id="chart-escaneadora" height="160"></canvas>
+                </div>
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-chart-line"></i> Tendencia Diaria</div>
+                    <div id="trend-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;"></div>
+                    <div id="trend-chart-wrap" style="position:relative;height:160px;">
+                        <canvas id="chart-tendencia"></canvas>
+                    </div>
                 </div>
             </div>
 
-            <!-- Charts Row 3: Turno + Pedidos -->
+            <!-- Row 3: Turno + Pedidos -->
             <div class="charts-grid">
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-clock"></i> Registros por Turno</div>
-                    <canvas id="chart-turno" height="200"></canvas>
+                    <canvas id="chart-turno" height="160"></canvas>
                 </div>
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
@@ -860,11 +855,11 @@
                         </div>
                     </div>
                     <div id="pedidos-info" style="text-align:center;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.25rem;"></div>
-                    <canvas id="chart-pedidos" height="210"></canvas>
+                    <canvas id="chart-pedidos" height="160"></canvas>
                 </div>
             </div>
 
-            <!-- Condicion agrupada por fecha -->
+            <!-- Row 4: Condicion -->
             <div class="card" style="margin-bottom:1.5rem;padding:1rem 1.25rem;max-width:800px;margin-left:auto;margin-right:auto;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                     <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-tags"></i> Registros por Condicion</div>
