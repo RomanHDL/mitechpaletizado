@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "MI-TECH Paletizado",
+    "slug": "mitech-paletizado",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F172A"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mitechnologies.paletizado",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Se necesita acceso a la cámara para escanear códigos de barras de pallets"
+      }
+    },
+    "android": {
+      "package": "com.mitechnologies.paletizado",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#0F172A",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "CAMERA",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Se necesita acceso a la cámara para escanear códigos de barras de pallets"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "mitech-paletizado"
+      }
+    }
+  }
+}

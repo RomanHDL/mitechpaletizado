@@ -1,0 +1,2514 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MI-TECH Paletizado</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
+    <style>
+        :root {
+            font-size: 80%;
+            --bg-dark: #0a0f1e;
+            --bg-card: #141b2d;
+            --bg-sidebar: #0f1525;
+            --bg-input: #1a2236;
+            --text-main: #e8ecf4;
+            --text-muted: #7b8ba5;
+            --accent: #4f7cff;
+            --accent-hover: #3a63e0;
+            --accent-glow: rgba(79,124,255,0.15);
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border: #1e2a42;
+            --sidebar-w: 220px;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
+        body { background:var(--bg-dark); color:var(--text-main); min-height:100vh; }
+
+        /* ── Login ── */
+        .login-screen {
+            display:flex; align-items:center; justify-content:center; min-height:100vh;
+            background: linear-gradient(135deg, #0a0f1e 0%, #141b2d 50%, #0f1525 100%);
+        }
+        .login-card {
+            background:var(--bg-card); border:1px solid var(--border); border-radius:16px;
+            padding:3rem; width:100%; max-width:400px; box-shadow:0 8px 32px rgba(0,0,0,0.4);
+        }
+        .login-card h1 { font-size:1.8rem; font-weight:700; margin-bottom:0.5rem; text-align:center; }
+        .login-card p { color:var(--text-muted); text-align:center; margin-bottom:2rem; font-size:0.95rem; }
+        .login-card .brand-icon { text-align:center; margin-bottom:1.5rem; }
+        .login-card .brand-icon img { width:150px; height:auto; object-fit:contain; }
+
+        /* ── Form elements ── */
+        .form-group { margin-bottom:1.25rem; }
+        .form-group label { display:block; font-size:0.9rem; font-weight:500; color:var(--text-muted); margin-bottom:6px; }
+        .form-input {
+            width:100%; padding:0.85rem 1rem; background:var(--bg-input); border:1px solid var(--border);
+            border-radius:8px; color:var(--text-main); font-size:1rem; transition:border-color 0.2s;
+        }
+        .form-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); }
+        select.form-input { cursor:pointer; }
+        textarea.form-input { resize:vertical; min-height:60px; }
+        .form-input::placeholder { color:var(--text-muted); opacity:0.6; }
+
+        .btn {
+            display:inline-flex; align-items:center; gap:8px; padding:0.85rem 1.5rem;
+            border:none; border-radius:8px; font-size:1rem; font-weight:600; cursor:pointer; transition:all 0.2s;
+        }
+        .btn-primary { background:var(--accent); color:#fff; width:100%; justify-content:center; }
+        .btn-primary:hover { background:var(--accent-hover); }
+        .btn-primary:disabled { opacity:0.6; cursor:not-allowed; }
+        .btn-secondary { background:var(--bg-input); color:var(--text-muted); border:1px solid var(--border); }
+        .btn-secondary:hover { border-color:var(--accent); color:var(--text-main); }
+        .btn-sm { padding:0.5rem 1rem; font-size:0.85rem; }
+        .btn-danger { background:var(--danger); color:#fff; }
+
+        .alert { padding:0.75rem 1rem; border-radius:8px; font-size:0.9rem; margin-bottom:1rem; display:none; }
+        .alert-error { background:rgba(239,68,68,0.12); color:#ef4444; border:1px solid rgba(239,68,68,0.3); }
+        .alert-success { background:rgba(34,197,94,0.12); color:#22c55e; border:1px solid rgba(34,197,94,0.3); }
+
+        /* NFC Button */
+        .login-divider { display:flex; align-items:center; gap:1rem; margin:1.5rem 0; color:var(--text-muted); font-size:0.85rem; }
+        .login-divider::before, .login-divider::after { content:''; flex:1; height:1px; background:var(--border); }
+        .btn-nfc {
+            width:100%; display:flex; align-items:center; justify-content:center; gap:10px;
+            padding:0.85rem 1.5rem; border:2px solid var(--accent); border-radius:12px;
+            background:transparent; color:var(--accent); font-size:1rem; font-weight:600;
+            cursor:pointer; transition:all 0.3s; position:relative; overflow:hidden;
+        }
+        .btn-nfc:hover { background:var(--accent-glow); border-color:var(--accent-hover); }
+        .btn-nfc:active { transform:scale(0.97); }
+        .btn-nfc.scanning { border-color:var(--warning); color:var(--warning); animation:nfc-pulse 1.5s infinite; }
+        .btn-nfc.scanning .nfc-icon { animation:nfc-wave 1s infinite; }
+        .btn-nfc.nfc-success { border-color:var(--success); color:var(--success); }
+        .btn-nfc.nfc-error { border-color:var(--danger); color:var(--danger); }
+        .btn-nfc .nfc-icon { font-size:1.3rem; }
+        .btn-nfc .nfc-text { display:flex; flex-direction:column; align-items:flex-start; line-height:1.3; }
+        .btn-nfc .nfc-text span:first-child { font-size:0.95rem; font-weight:700; }
+        .btn-nfc .nfc-text span:last-child { font-size:0.75rem; font-weight:400; opacity:0.8; }
+        @keyframes nfc-pulse { 0%,100% { box-shadow:0 0 0 0 rgba(245,158,11,0.3); } 50% { box-shadow:0 0 0 12px rgba(245,158,11,0); } }
+        @keyframes nfc-wave { 0%,100% { transform:scale(1); } 50% { transform:scale(1.2); } }
+        .nfc-unsupported { display:none; text-align:center; color:var(--text-muted); font-size:0.8rem; margin-top:0.5rem; }
+
+        /* ── App Shell ── */
+        .app { display:none; min-height:100vh; }
+        .app.active { display:block; }
+
+        /* Sidebar — hidden, navigation via home cards */
+        .sidebar { display:none !important; }
+        .sidebar-brand { padding:0 1.5rem 1.5rem; border-bottom:1px solid var(--border); margin-bottom:1rem; }
+        .sidebar-brand h2 { font-size:1.15rem; font-weight:700; display:flex; align-items:center; gap:10px; }
+        .sidebar-brand h2 i { color:var(--accent); }
+        .sidebar-brand span { font-size:0.75rem; color:var(--text-muted); display:block; margin-top:4px; }
+        .nav-list { list-style:none; flex:1; padding:0 0.75rem; }
+        .nav-item {
+            display:flex; align-items:center; gap:10px; padding:0.7rem 1rem; border-radius:8px;
+            color:var(--text-muted); cursor:pointer; font-size:0.9rem; font-weight:500; transition:all 0.2s; margin-bottom:2px;
+        }
+        .nav-item:hover { background:var(--accent-glow); color:var(--text-main); }
+        .nav-item.active { background:var(--accent); color:#fff; }
+        .nav-item i { width:20px; text-align:center; }
+        .sidebar-footer { padding:1rem 1.5rem; border-top:1px solid var(--border); }
+        .sidebar-footer .user-info { font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem; }
+        .sidebar-footer .user-info strong { color:var(--text-main); display:block; }
+        .btn-logout { width:100%; justify-content:center; font-size:0.85rem; }
+
+        /* Main */
+        .main { margin-left:0; flex:1; padding:1.5rem 2rem; min-height:100vh; }
+        .page-header { margin-bottom:1.5rem; }
+        .page-header { margin-bottom:1.75rem; }
+        .page-header h1 { font-size:2rem; font-weight:700; display:flex; align-items:center; gap:10px; }
+        .page-header h1 i { color:var(--accent); }
+        .page-header p { color:var(--text-muted); font-size:1rem; margin-top:6px; }
+
+        .view { display:none; }
+        .view.active { display:block; }
+
+        /* ── Cards / Panels ── */
+        .card {
+            background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
+            padding:1.25rem 1.5rem; margin-bottom:1rem;
+        }
+        .card-title { font-size:1.1rem; font-weight:600; margin-bottom:1rem; display:flex; align-items:center; gap:8px; }
+        .card-title i { color:var(--accent); font-size:0.9rem; }
+        .charts-grid .card { padding:1.25rem 1.5rem; }
+        .charts-grid .card canvas { max-height:240px; }
+
+        /* KPIs */
+        .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+        .kpi {
+            background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
+            padding:1.35rem 1.5rem; border-left:4px solid var(--accent);
+        }
+        .kpi-value { font-size:2.2rem; font-weight:700; line-height:1.2; }
+        .kpi-label { font-size:0.88rem; color:var(--text-muted); margin-top:5px; text-transform:uppercase; letter-spacing:0.5px; }
+        .kpi:nth-child(2) { border-left-color:var(--success); }
+        .kpi:nth-child(3) { border-left-color:var(--warning); }
+        .kpi:nth-child(4) { border-left-color:#8b5cf6; }
+
+        /* Charts grid */
+        .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; margin-bottom:1.5rem; }
+
+        /* Tables */
+        .table-wrap { overflow-x:auto; }
+        table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+        thead th {
+            text-align:left; padding:0.7rem 0.85rem; color:var(--text-muted); font-weight:600;
+            border-bottom:2px solid var(--border); font-size:0.82rem; text-transform:uppercase; letter-spacing:0.3px;
+            white-space:nowrap;
+        }
+        tbody td { padding:0.65rem 0.85rem; border-bottom:1px solid var(--border); }
+        tbody tr:hover { background:rgba(79,124,255,0.04); }
+
+        /* Filter bar */
+        .filter-bar { display:flex; flex-wrap:wrap; gap:0.85rem; align-items:end; margin-bottom:1.75rem; }
+        .filter-bar .form-group { margin-bottom:0; min-width:160px; flex:1; }
+        .filter-bar .form-group label { font-size:0.85rem; }
+        .filter-bar .form-input { padding:0.65rem 0.9rem; font-size:0.92rem; }
+
+        /* ── Form page ── */
+        .form-panel { max-width:640px; margin:0 auto; }
+        .form-panel .card {
+            padding:2.5rem; border-radius:16px;
+            box-shadow:0 4px 24px rgba(0,0,0,0.25), 0 0 0 1px var(--border);
+        }
+        .form-header { margin-bottom:2rem; border-bottom:1px solid var(--border); padding-bottom:1.25rem; text-align:center; }
+        .form-header h2 { font-size:1.3rem; font-weight:700; letter-spacing:-0.3px; }
+        .form-header p { color:var(--text-muted); font-size:0.85rem; margin-top:6px; }
+        .form-row { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; }
+        .form-group { margin-bottom:1.35rem; }
+        .form-footer { display:flex; gap:1rem; margin-top:2rem; padding-top:1.25rem; border-top:1px solid var(--border); }
+
+        /* ── Condition dropdown (multi-select) ── */
+        .cond-selector { position:relative; }
+        .cond-trigger {
+            width:100%; padding:0.75rem 1rem; background:var(--bg-input); border:1px solid var(--border);
+            border-radius:8px; color:var(--text-main); font-size:0.95rem; cursor:pointer; transition:border-color 0.2s;
+            display:flex; align-items:center; justify-content:space-between; min-height:44px; gap:8px;
+        }
+        .cond-trigger:hover { border-color:var(--accent); }
+        .cond-trigger.open { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); border-radius:8px 8px 0 0; }
+        .cond-trigger .cond-placeholder { color:var(--text-muted); opacity:0.6; }
+        .cond-trigger .cond-chevron { transition:transform 0.2s; color:var(--text-muted); }
+        .cond-trigger.open .cond-chevron { transform:rotate(180deg); }
+        .cond-tags { display:flex; flex-wrap:wrap; gap:4px; flex:1; }
+        .cond-tag {
+            display:inline-flex; align-items:center; gap:4px; padding:3px 10px;
+            border-radius:20px; font-size:0.78rem; font-weight:700; letter-spacing:0.3px;
+        }
+        .cond-tag .cond-tag-x { cursor:pointer; opacity:0.7; font-size:0.7rem; margin-left:2px; }
+        .cond-tag .cond-tag-x:hover { opacity:1; }
+        .cond-dropdown {
+            display:none; position:absolute; top:100%; left:0; right:0; z-index:50;
+            background:var(--bg-card); border:1px solid var(--accent); border-top:none;
+            border-radius:0 0 10px 10px; max-height:260px; overflow-y:auto;
+            box-shadow:0 12px 32px rgba(0,0,0,0.4);
+        }
+        .cond-dropdown.open { display:block; }
+        .cond-option {
+            display:flex; align-items:center; gap:10px; padding:0.65rem 1rem;
+            cursor:pointer; transition:background 0.15s; font-size:0.9rem;
+        }
+        .cond-option:hover { background:rgba(79,124,255,0.08); }
+        .cond-option.selected { background:rgba(79,124,255,0.06); }
+        .cond-option .cond-dot {
+            width:10px; height:10px; border-radius:50%; flex-shrink:0;
+        }
+        .cond-option .cond-check {
+            margin-left:auto; color:var(--accent); font-size:0.8rem; opacity:0;
+        }
+        .cond-option.selected .cond-check { opacity:1; }
+        .checkbox-label input { accent-color:var(--accent); }
+
+        /* ── Responsive ── */
+        .mobile-toggle { display:none !important; }
+        @media (max-width:768px) {
+            .mobile-toggle { display:block; }
+            .sidebar { transform:translateX(-100%); transition:transform 0.3s; }
+            .sidebar.open { transform:translateX(0); }
+            .main { margin-left:0; padding:1rem; }
+            .form-row { grid-template-columns:1fr; }
+            .charts-grid { grid-template-columns:1fr; }
+            .charts-grid .card canvas { max-height:220px; }
+            .kpi-grid { grid-template-columns:repeat(2,1fr); }
+        }
+
+        /* Badge */
+        .badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600; }
+        .badge-blue { background:rgba(79,124,255,0.15); color:#4f7cff; }
+        .badge-green { background:rgba(34,197,94,0.15); color:#22c55e; }
+        .badge-amber { background:rgba(245,158,11,0.15); color:#f59e0b; }
+        .badge-red { background:rgba(239,68,68,0.15); color:#ef4444; }
+
+        /* ── View Toggle Tabs ── */
+        .view-tabs { display:flex; gap:4px; background:var(--bg-input); border-radius:8px; padding:3px; width:fit-content; }
+        .view-tab {
+            padding:0.4rem 1rem; border-radius:6px; border:none; background:none;
+            color:var(--text-muted); font-size:0.82rem; font-weight:500; cursor:pointer; transition:all 0.2s;
+        }
+        .view-tab.active { background:var(--accent); color:#fff; }
+        .view-tab:hover:not(.active) { color:var(--text-main); }
+
+        /* ── Grouped Records ── */
+        .date-group { margin-bottom:1.25rem; }
+        .date-group-header {
+            display:flex; align-items:center; justify-content:space-between; padding:0.6rem 1rem;
+            background:var(--bg-input); border-radius:8px; cursor:pointer; user-select:none; transition:all 0.2s;
+        }
+        .date-group-header:hover { background:rgba(79,124,255,0.08); }
+        .date-group-header .dg-left { display:flex; align-items:center; gap:10px; }
+        .date-group-header .dg-date { font-weight:700; font-size:0.95rem; }
+        .date-group-header .dg-count { font-size:0.78rem; color:var(--text-muted); }
+        .date-group-header .dg-chevron { color:var(--text-muted); transition:transform 0.2s; font-size:0.8rem; }
+        .date-group-header.collapsed .dg-chevron { transform:rotate(-90deg); }
+        .date-group-body { padding:0.5rem 0 0; }
+        .date-group-body.hidden { display:none; }
+        .record-card {
+            display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:0.5rem 1rem;
+            padding:0.75rem 1rem; margin-bottom:6px; background:var(--bg-card);
+            border:1px solid var(--border); border-radius:8px; font-size:0.83rem;
+            transition:border-color 0.2s;
+        }
+        .record-card:hover { border-color:rgba(79,124,255,0.3); }
+        .record-card .rc-field { display:flex; flex-direction:column; gap:2px; }
+        .record-card .rc-label { font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.3px; }
+        .record-card .rc-value { font-weight:500; }
+        .record-card .rc-value.bold { font-weight:700; }
+        .record-card .rc-row { grid-column:1/-1; display:flex; gap:1rem; flex-wrap:wrap; }
+        @media (max-width:768px) {
+            .record-card { grid-template-columns:1fr 1fr; }
+        }
+
+        /* ── Trend Widget ── */
+        .trend-kpi {
+            background:var(--bg-input); border-radius:10px; padding:0.85rem 1rem; text-align:center;
+            border:1px solid var(--border);
+        }
+        .trend-kpi-value { font-size:1.8rem; font-weight:700; line-height:1.2; }
+        .trend-kpi-label { font-size:0.8rem; color:var(--text-muted); margin-top:2px; text-transform:uppercase; letter-spacing:0.3px; }
+
+        /* ── Live indicator ── */
+        .live-dot {
+            display:inline-block; width:8px; height:8px; background:var(--success); border-radius:50%;
+            animation:live-blink 2s infinite; margin-right:6px; vertical-align:middle;
+        }
+        @keyframes live-blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+        .live-label { font-size:0.78rem; color:var(--success); font-weight:500; }
+
+        /* Admin-only elements (hidden by default, shown via JS) */
+        .admin-only { display:none !important; }
+        .admin-only.visible { display:inline-flex !important; }
+
+        /* ── Top Bar ── */
+        .topbar {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:0.85rem 2.5rem; background:var(--bg-card); border-bottom:1px solid var(--border);
+        }
+        .topbar-brand { display:flex; align-items:center; gap:10px; font-weight:700; font-size:1.25rem; }
+        .topbar-brand i { color:var(--accent); }
+        .topbar-right { display:flex; align-items:center; gap:1rem; }
+        .topbar-user { font-size:0.92rem; color:var(--text-muted); }
+        .topbar-user strong { color:var(--text-main); }
+        .btn-logout-top {
+            display:inline-flex; align-items:center; gap:5px; padding:0.4rem 0.85rem;
+            background:none; border:1px solid var(--border); border-radius:6px;
+            color:var(--text-muted); font-size:0.8rem; cursor:pointer; transition:all 0.2s;
+        }
+        .btn-logout-top:hover { border-color:var(--danger); color:var(--danger); }
+
+        /* ── Home Module Cards ── */
+        .home-screen { display:flex; align-items:center; justify-content:center; min-height:calc(100vh - 80px); }
+        .home-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:2rem; padding:2rem; width:100%; max-width:1000px; }
+        @media (max-width:900px) { .home-grid { grid-template-columns:repeat(2, 1fr); max-width:600px; } }
+        @media (max-width:560px) { .home-grid { grid-template-columns:1fr; max-width:380px; } }
+        .module-card {
+            background:var(--bg-card); border:1px solid var(--border); border-radius:20px;
+            padding:3rem 2.5rem; text-align:center; cursor:pointer; transition:all 0.3s ease;
+            position:relative; overflow:hidden; min-height:280px;
+            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1.25rem;
+        }
+        .module-card::before {
+            content:''; position:absolute; top:0; left:0; right:0; height:4px;
+            border-radius:20px 20px 0 0; transition:height 0.3s;
+        }
+        .module-card:hover { transform:translateY(-6px); box-shadow:0 16px 48px rgba(0,0,0,0.3); }
+        .module-card:hover::before { height:6px; }
+        .module-card:active { transform:translateY(-2px); }
+        .module-card .module-icon {
+            width:80px; height:80px; border-radius:20px; display:flex; align-items:center; justify-content:center;
+            font-size:2.2rem; margin-bottom:0.5rem;
+        }
+        .module-card .module-title { font-size:1.4rem; font-weight:700; letter-spacing:-0.3px; }
+        .module-card .module-desc { font-size:0.9rem; color:var(--text-muted); line-height:1.5; max-width:240px; }
+        .module-card .module-arrow {
+            font-size:1.1rem; color:var(--text-muted); transition:all 0.3s;
+            margin-top:0.5rem; opacity:0.5;
+        }
+        .module-card:hover .module-arrow { opacity:1; transform:translateX(4px); }
+
+        /* Escaneadoras card */
+        .module-card.mod-esc::before { background:linear-gradient(90deg, #4f7cff, #6366f1); }
+        .module-card.mod-esc .module-icon { background:rgba(79,124,255,0.12); color:#4f7cff; }
+        .module-card.mod-esc:hover { border-color:rgba(79,124,255,0.3); }
+
+        /* Resumen card */
+        .module-card.mod-resumen::before { background:linear-gradient(90deg, #f59e0b, #f97316); }
+        .module-card.mod-resumen .module-icon { background:rgba(245,158,11,0.12); color:#f59e0b; }
+        .module-card.mod-resumen:hover { border-color:rgba(245,158,11,0.3); }
+
+        /* Dashboard card */
+        .module-card.mod-dash::before { background:linear-gradient(90deg, #22c55e, #14b8a6); }
+        .module-card.mod-dash .module-icon { background:rgba(34,197,94,0.12); color:#22c55e; }
+        .module-card.mod-dash:hover { border-color:rgba(34,197,94,0.3); }
+
+        /* Resumen history cards */
+        .resumen-card {
+            background:var(--bg-card); border:1px solid var(--border); border-radius:10px;
+            padding:1rem 1.25rem; margin-bottom:0.75rem; display:grid;
+            grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:0.75rem;
+        }
+        .resumen-card:hover { border-color:rgba(79,124,255,0.2); }
+        .resumen-stat { display:flex; flex-direction:column; gap:2px; }
+        .resumen-stat-label { font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.3px; }
+        .resumen-stat-value { font-size:1.05rem; font-weight:600; }
+        .resumen-tareas { grid-column:1/-1; font-size:0.85rem; color:var(--text-muted); border-top:1px solid var(--border); padding-top:0.5rem; margin-top:0.25rem; }
+
+        /* Back button inside modules */
+        .back-btn {
+            display:inline-flex; align-items:center; gap:6px; color:var(--text-muted); font-size:0.85rem;
+            cursor:pointer; padding:0.4rem 0.75rem; border-radius:6px; transition:all 0.2s;
+            background:none; border:1px solid transparent; font-weight:500; margin-bottom:1rem;
+        }
+        .back-btn:hover { color:var(--text-main); background:var(--accent-glow); border-color:var(--border); }
+
+        /* ── Operational Context Bar ── */
+        .ops-context { display:flex; flex-wrap:wrap; justify-content:center; gap:0.75rem; margin-bottom:1.5rem; }
+        .ops-pill {
+            display:inline-flex; align-items:center; gap:6px; padding:0.45rem 1rem;
+            border-radius:20px; font-size:0.85rem; font-weight:600; border:1px solid;
+        }
+        .ops-pill-turno-dia { background:rgba(245,158,11,0.12); color:#f59e0b; border-color:rgba(245,158,11,0.25); animation:ops-glow-amber 3s infinite; }
+        .ops-pill-turno-noche { background:rgba(79,124,255,0.12); color:#4f7cff; border-color:rgba(79,124,255,0.25); animation:ops-glow-blue 3s infinite; }
+        .ops-pill-turno-extra { background:rgba(249,115,22,0.12); color:#f97316; border-color:rgba(249,115,22,0.25); animation:ops-glow-orange 3s infinite; }
+        .ops-pill-active { background:rgba(34,197,94,0.12); color:#22c55e; border-color:rgba(34,197,94,0.25); }
+        .ops-pill-stat { background:var(--bg-input); color:var(--text-muted); border-color:var(--border); }
+        .ops-pill-stat strong { color:var(--text-main); }
+        @keyframes ops-glow-amber { 0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0);} 50%{box-shadow:0 0 8px 0 rgba(245,158,11,0.2);} }
+        @keyframes ops-glow-blue { 0%,100%{box-shadow:0 0 0 0 rgba(79,124,255,0);} 50%{box-shadow:0 0 8px 0 rgba(79,124,255,0.2);} }
+        @keyframes ops-glow-orange { 0%,100%{box-shadow:0 0 0 0 rgba(249,115,22,0);} 50%{box-shadow:0 0 8px 0 rgba(249,115,22,0.2);} }
+    </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════ -->
+<!-- LOGIN                                    -->
+<!-- ════════════════════════════════════════ -->
+<div class="login-screen" id="login-screen">
+    <div class="login-card">
+        <div class="brand-icon"><img src="https://resellers.mitechnologiesinc.com/images/MI_Technologies_blue.png" alt="MI Technologies"></div>
+        <h1>MI-TECH Paletizado</h1>
+        <p>Ingresa tus credenciales para continuar</p>
+        <div class="alert alert-error" id="login-error"></div>
+        <form id="login-form" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label>Numero de empleado</label>
+                <input type="text" class="form-input" id="login-user" placeholder="Ej: 3647" autocomplete="username" inputmode="numeric" required>
+            </div>
+            <div class="form-group">
+                <label>Contrasena (6 digitos)</label>
+                <input type="password" class="form-input" id="login-pass" placeholder="000000" autocomplete="current-password" inputmode="numeric" maxlength="6" pattern="\d{6}" required>
+            </div>
+            <button type="submit" class="btn btn-primary" id="login-btn">
+                <i class="fa-solid fa-right-to-bracket"></i> Iniciar Sesion
+            </button>
+        </form>
+
+        <div class="login-divider">o</div>
+
+        <button class="btn-nfc" id="nfc-btn" onclick="handleNfcScan()">
+            <i class="fa-solid fa-wifi nfc-icon" style="transform:rotate(90deg);"></i>
+            <div class="nfc-text">
+                <span>Acceder con NFC</span>
+                <span>Pulsa para leer</span>
+            </div>
+        </button>
+        <p class="nfc-unsupported" id="nfc-unsupported">NFC no disponible en este navegador</p>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- APP SHELL                                -->
+<!-- ════════════════════════════════════════ -->
+<div class="app" id="app">
+    <!-- Top Bar -->
+    <div class="topbar">
+        <div class="topbar-brand" style="cursor:pointer;" onclick="switchView('home')">
+            <img src="https://resellers.mitechnologiesinc.com/images/MI_Technologies_blue.png" alt="MI Technologies" style="height:36px;width:auto;object-fit:contain;"> PaletTrack
+        </div>
+        <div class="topbar-right">
+            <span class="topbar-user"><strong id="user-display-name">-</strong> &middot; <span id="user-display-role">-</span></span>
+            <button class="btn-logout-top" onclick="handleLogout()">
+                <i class="fa-solid fa-right-from-bracket"></i> Salir
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main">
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: HOME (Module selection)          -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view active" id="view-home">
+            <div class="page-header" style="text-align:center;">
+                <h1 style="font-size:1.8rem;">MI-TECH Paletizado</h1>
+                <p id="home-greeting">Selecciona un modulo para continuar</p>
+            </div>
+            <!-- Operational Context -->
+            <div class="ops-context" id="ops-context"></div>
+            <div class="home-screen">
+                <div class="home-grid">
+                    <div class="module-card mod-esc" onclick="switchView('escaneadoras')">
+                        <div class="module-icon"><i class="fa-solid fa-barcode"></i></div>
+                        <div class="module-title">Escaneadoras</div>
+                        <div class="module-desc">Registro operativo de pallets escaneados</div>
+                        <div class="module-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    </div>
+                    <div class="module-card mod-resumen" onclick="switchView('resumen')">
+                        <div class="module-icon"><i class="fa-solid fa-clipboard-check"></i></div>
+                        <div class="module-title">Resumen Turno</div>
+                        <div class="module-desc">Resumen de paletizado por turno</div>
+                        <div class="module-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    </div>
+                    <div class="module-card mod-dash" onclick="switchView('dashboard')" id="home-dash-card">
+                        <div class="module-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                        <div class="module-title">Dashboard</div>
+                        <div class="module-desc">Resumen completo de la operacion</div>
+                        <div class="module-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: ESCANEADORAS (Formulario)        -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-escaneadoras">
+            <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
+            <div class="page-header" style="text-align:center;">
+                <h1><i class="fa-solid fa-barcode"></i> Registro de Escaneo</h1>
+                <p>Captura operativa de pallets escaneados</p>
+            </div>
+
+            <div class="form-panel">
+                <div class="card">
+                    <div class="form-header">
+                        <h2>Nuevo Registro</h2>
+                        <p>Completa los campos requeridos (<span style="color:var(--danger);">*</span>)</p>
+                    </div>
+
+                    <div class="alert alert-error" id="esc-error"></div>
+                    <div class="alert alert-success" id="esc-success"></div>
+
+                    <form id="esc-form" onsubmit="handleEscSubmit(event)">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-hashtag" style="margin-right:5px;color:var(--accent);font-size:0.8rem;"></i>Pallet ID <span style="color:var(--danger);">*</span></label>
+                                <input type="text" class="form-input" id="esc-palletId" placeholder="Ej: 100234" required>
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-cubes" style="margin-right:5px;color:var(--warning);font-size:0.8rem;"></i>Cantidad <span style="color:var(--danger);">*</span></label>
+                                <input type="number" class="form-input" id="esc-cantidad" placeholder="Ej: 48" min="1" required>
+                            </div>
+                        </div>
+
+                        <!-- Condicion: dropdown multi-select con colores -->
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-tags" style="margin-right:5px;color:#8b5cf6;font-size:0.8rem;"></i>Condicion</label>
+                            <div class="cond-selector" id="cond-selector">
+                                <div class="cond-trigger" id="cond-trigger" onclick="toggleCondDropdown()">
+                                    <div class="cond-tags" id="cond-tags">
+                                        <span class="cond-placeholder">Seleccionar condiciones...</span>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-down cond-chevron"></i>
+                                </div>
+                                <div class="cond-dropdown" id="cond-dropdown"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-location-dot" style="margin-right:5px;color:var(--success);font-size:0.8rem;"></i>Destino <span style="color:var(--danger);">*</span></label>
+                                <select class="form-input" id="esc-destino" required>
+                                    <option value="" disabled selected>Seleccionar...</option>
+                                    <option value="TRG">TRG</option>
+                                    <option value="Almacen">Almacen</option>
+                                    <option value="HV (High Value)">HV (High Value)</option>
+                                    <option value="HV Televisiones">HV Televisiones</option>
+                                    <option value="BOX">BOX</option>
+                                    <option value="BULKY">BULKY</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-clock" style="margin-right:5px;color:var(--accent);font-size:0.8rem;"></i>Turno <span style="color:var(--danger);">*</span></label>
+                                <select class="form-input" id="esc-turno" required>
+                                    <option value="" disabled selected>Seleccionar...</option>
+                                    <option value="Day (dia)">Day (Dia)</option>
+                                    <option value="Night (noche)">Night (Noche)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-calendar" style="margin-right:5px;color:#14b8a6;font-size:0.8rem;"></i>Fecha <span style="color:var(--danger);">*</span></label>
+                                <input type="date" class="form-input" id="esc-fecha" required>
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-file-lines" style="margin-right:5px;color:#f97316;font-size:0.8rem;"></i>Pedido <span style="color:var(--text-muted);font-weight:400;">(opcional)</span></label>
+                                <input type="text" class="form-input" id="esc-pedido" placeholder="Ej: PED-456">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-triangle-exclamation" style="margin-right:5px;color:var(--danger);font-size:0.8rem;"></i>Incidencias <span style="color:var(--text-muted);font-weight:400;">(opcional)</span></label>
+                            <input type="text" class="form-input" id="esc-incidencias" placeholder="Describir si hubo incidencias">
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-comment" style="margin-right:5px;color:#6366f1;font-size:0.8rem;"></i>Observaciones <span style="color:var(--text-muted);font-weight:400;">(opcional)</span></label>
+                            <textarea class="form-input" id="esc-observaciones" placeholder="Notas adicionales..."></textarea>
+                        </div>
+
+                        <div class="form-footer">
+                            <button type="submit" class="btn btn-primary" id="esc-submit-btn" style="flex:1;padding:0.85rem;font-size:1rem;">
+                                <i class="fa-solid fa-paper-plane"></i> Registrar
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="resetEscForm()" style="padding:0.85rem 1.25rem;">
+                                <i class="fa-solid fa-rotate-left"></i> Limpiar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: RESUMEN DE PALETIZADO            -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-resumen">
+            <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
+            <div class="page-header" style="text-align:center;">
+                <h1><i class="fa-solid fa-clipboard-check"></i> Resumen de Paletizado</h1>
+                <p>Captura rapida del resumen de turno</p>
+            </div>
+
+            <div class="form-panel">
+                <div class="card">
+                    <div class="form-header">
+                        <h2>Nuevo Resumen</h2>
+                        <p>Campos requeridos (<span style="color:var(--danger);">*</span>)</p>
+                    </div>
+
+                    <div class="alert alert-error" id="res-error"></div>
+                    <div class="alert alert-success" id="res-success"></div>
+
+                    <form id="resumen-form" onsubmit="handleResumenSubmit(event)">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-clock" style="margin-right:5px;color:var(--accent);font-size:0.8rem;"></i>Turno <span style="color:var(--danger);">*</span></label>
+                                <select class="form-input" id="res-turno" required>
+                                    <option value="" disabled selected>Seleccionar...</option>
+                                    <option value="Day (dia)">Day (Dia)</option>
+                                    <option value="Night (noche)">Night (Noche)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-calendar" style="margin-right:5px;color:#14b8a6;font-size:0.8rem;"></i>Fecha <span style="color:var(--danger);">*</span></label>
+                                <input type="date" class="form-input" id="res-fecha" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-boxes-stacked" style="margin-right:5px;color:#f59e0b;font-size:0.8rem;"></i>Pallets totales del turno <span style="color:var(--danger);">*</span></label>
+                                <input type="number" class="form-input" id="res-pallets-total" placeholder="Ej: 120" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-truck-loading" style="margin-right:5px;color:#22c55e;font-size:0.8rem;"></i>Pallets TRG <span style="color:var(--danger);">*</span></label>
+                                <input type="number" class="form-input" id="res-pallets-trg" placeholder="Ej: 30" min="0" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-warehouse" style="margin-right:5px;color:#14b8a6;font-size:0.8rem;"></i>Pallets Almacen <span style="color:var(--danger);">*</span></label>
+                                <input type="number" class="form-input" id="res-pallets-almacen" placeholder="Ej: 50" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-spinner" style="margin-right:5px;color:#8b5cf6;font-size:0.8rem;"></i>Pallets en proceso <span style="color:var(--danger);">*</span></label>
+                                <input type="number" class="form-input" id="res-pallets-proceso" placeholder="Ej: 5" min="0" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-users" style="margin-right:5px;color:var(--accent);font-size:0.8rem;"></i>Total asistencia <span style="color:var(--danger);">*</span></label>
+                                <input type="number" class="form-input" id="res-asistencia" placeholder="Ej: 12" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-user-xmark" style="margin-right:5px;color:var(--danger);font-size:0.8rem;"></i>Total absentismo <span style="color:var(--danger);">*</span></label>
+                                <input type="number" class="form-input" id="res-absentismo" placeholder="Ej: 2" min="0" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-list-check" style="margin-right:5px;color:#f97316;font-size:0.8rem;"></i>Tareas pendientes para el siguiente turno <span style="color:var(--danger);">*</span></label>
+                            <textarea class="form-input" id="res-tareas" placeholder="Describir tareas que quedan pendientes..." rows="3" required></textarea>
+                        </div>
+
+                        <div class="form-footer">
+                            <button type="submit" class="btn btn-primary" id="res-submit-btn" style="flex:1;padding:0.85rem;font-size:1rem;">
+                                <i class="fa-solid fa-paper-plane"></i> Guardar Resumen
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('resumen-form').reset(); setResumenDate();" style="padding:0.85rem 1.25rem;">
+                                <i class="fa-solid fa-rotate-left"></i> Limpiar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Historial -->
+                <div class="card" style="margin-top:1.5rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;">
+                        <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-clock-rotate-left"></i> Resumenes Anteriores</div>
+                        <div style="display:flex;gap:0.5rem;">
+                            <select class="form-input" id="res-filter-turno" style="width:auto;padding:0.4rem 0.6rem;font-size:0.82rem;" onchange="loadResumenes()">
+                                <option value="">Todos los turnos</option>
+                                <option value="Day">Dia</option>
+                                <option value="Night">Noche</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="resumen-history">
+                        <div style="text-align:center;padding:1.5rem;color:var(--text-muted);">Cargando...</div>
+                    </div>
+                </div>
+            </div>
+        </div><!-- /view-resumen -->
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: DASHBOARD (Solo admin)           -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-dashboard">
+            <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
+            <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
+                <div>
+                    <h1><i class="fa-solid fa-chart-pie"></i> Dashboard Paletizado FFT</h1>
+                    <p>Resumen completo de la operacion de paletizado</p>
+                </div>
+                <button class="btn btn-secondary btn-sm admin-only" onclick="exportDashboardExcel()" style="margin-top:0.25rem;">
+                    <i class="fa-solid fa-file-excel"></i> Descargar Dashboard
+                </button>
+            </div>
+
+            <!-- Filters -->
+            <div class="card filter-bar" style="padding:1rem 1.25rem;">
+                <div class="form-group">
+                    <label>Fecha</label>
+                    <input type="text" class="form-input" id="dash-fecha" placeholder="Seleccionar fecha...">
+                </div>
+                <div class="form-group">
+                    <label>Rango inicio</label>
+                    <input type="date" class="form-input" id="dash-fecha-inicio">
+                </div>
+                <div class="form-group">
+                    <label>Rango fin</label>
+                    <input type="date" class="form-input" id="dash-fecha-fin">
+                </div>
+                <div class="form-group">
+                    <label>Escaneadora</label>
+                    <select class="form-input" id="dash-escaneadora"><option value="">Todas</option></select>
+                </div>
+                <div class="form-group">
+                    <label>Turno</label>
+                    <select class="form-input" id="dash-turno">
+                        <option value="">Todos</option>
+                        <option value="Day">Dia</option>
+                        <option value="Night">Noche</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex:0;">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-primary btn-sm" onclick="loadDashboard()">
+                        <i class="fa-solid fa-filter"></i> Filtrar
+                    </button>
+                </div>
+                <div class="form-group" style="flex:0;">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-secondary btn-sm" onclick="clearFilters()">
+                        Limpiar
+                    </button>
+                </div>
+            </div>
+
+            <!-- KPIs -->
+            <div class="kpi-grid" id="dash-kpis">
+                <div class="kpi"><div class="kpi-value" id="kpi-total">-</div><div class="kpi-label">Total Registros</div></div>
+                <div class="kpi"><div class="kpi-value" id="kpi-hoy">-</div><div class="kpi-label">Registros Hoy</div></div>
+                <div class="kpi"><div class="kpi-value" id="kpi-unidades">-</div><div class="kpi-label">Unidades Totales</div></div>
+                <div class="kpi"><div class="kpi-value" id="kpi-operadoras">-</div><div class="kpi-label">Escaneadoras Activas</div></div>
+            </div>
+
+            <!-- Charts Row 1: New pie charts -->
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-boxes-stacked"></i> Total Pallets Procesados</div>
+                    <canvas id="chart-pallets-pie" height="240"></canvas>
+                </div>
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-cubes"></i> Piezas Total Paletizadas</div>
+                    <canvas id="chart-piezas-pie" height="240"></canvas>
+                </div>
+            </div>
+
+            <!-- Charts Row 2: Escaneadoras (horizontal) + Destino -->
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Registros por Escaneadora</div>
+                    <canvas id="chart-escaneadora" height="200"></canvas>
+                </div>
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-chart-pie"></i> Distribucion por Destino</div>
+                    <canvas id="chart-destino" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- Tendencia Diaria -->
+            <div class="card" style="margin-bottom:1.5rem;padding:1.25rem 1.5rem;">
+                <div class="card-title"><i class="fa-solid fa-chart-line"></i> Tendencia Diaria</div>
+                <div id="trend-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;margin-bottom:1.25rem;"></div>
+                <div id="trend-chart-wrap" style="position:relative;height:200px;">
+                    <canvas id="chart-tendencia"></canvas>
+                </div>
+            </div>
+
+            <!-- Charts Row 3: Turno + Promedios -->
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-clock"></i> Registros por Turno</div>
+                    <canvas id="chart-turno" height="200"></canvas>
+                </div>
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-ranking-star"></i> Promedios por Turno</div>
+                    <div id="promedios-container" style="font-size:0.9rem;color:var(--text-muted);">Cargando...</div>
+                </div>
+            </div>
+
+            <!-- Condicion agrupada por fecha -->
+            <div class="card" style="margin-bottom:1.5rem;padding:1.25rem 1.5rem;">
+                <div class="card-title"><i class="fa-solid fa-tags"></i> Registros por Condicion</div>
+                <div id="condicion-by-date-container">
+                    <canvas id="chart-condicion" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- Records section -->
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+                    <div style="display:flex;align-items:center;gap:1rem;">
+                        <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-table"></i> Registros</div>
+                        <span><span class="live-dot"></span><span class="live-label">En vivo</span></span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+                        <input type="text" class="form-input" id="dash-busqueda" placeholder="Buscar..." style="width:200px;padding:0.5rem 0.8rem;font-size:0.85rem;" oninput="debouncedSearch()">
+                        <div class="view-tabs">
+                            <button class="view-tab active" onclick="setRecordView('grouped')" id="tab-grouped"><i class="fa-solid fa-layer-group"></i> Agrupado</button>
+                            <button class="view-tab" onclick="setRecordView('table')" id="tab-table"><i class="fa-solid fa-table-list"></i> Tabla</button>
+                        </div>
+                        <button class="btn btn-secondary btn-sm admin-only" onclick="exportFilteredExcel()" title="Descargar lo que estoy viendo">
+                            <i class="fa-solid fa-download"></i> Excel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Grouped view (default) -->
+                <div id="records-grouped"></div>
+
+                <!-- Table view (hidden by default) -->
+                <div id="records-table" style="display:none;">
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Pallet ID</th>
+                                    <th>Cantidad</th>
+                                    <th>Condicion</th>
+                                    <th>Destino</th>
+                                    <th>Turno</th>
+                                    <th>Escaneadora</th>
+                                    <th>Pedido</th>
+                                    <th>Incidencias</th>
+                                    <th>Obs.</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dash-table-body">
+                                <tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-muted);">Cargando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div><!-- /view-dashboard -->
+
+    </main>
+</div><!-- /app -->
+
+<script>
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+const API = window.location.origin;
+let currentUser = null;
+let authToken = localStorage.getItem('mitech_token');
+
+// Persistent device ID
+function getDeviceId() {
+    let id = localStorage.getItem('mitech_device_id');
+    if (!id) {
+        id = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('mitech_device_id', id);
+    }
+    return id;
+}
+const DEVICE_ID = getDeviceId();
+
+// ══════════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════════
+
+async function apiFetch(url, options = {}) {
+    const headers = { 'Content-Type': 'application/json', 'X-Device-Id': DEVICE_ID, ...options.headers };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch(url, { ...options, headers });
+    if (res.status === 401) { handleLogout(); throw new Error('Sesion expirada'); }
+    return res.json();
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const usuario = document.getElementById('login-user').value.trim();
+    const password = document.getElementById('login-pass').value;
+    const btn = document.getElementById('login-btn');
+    const errEl = document.getElementById('login-error');
+    errEl.style.display = 'none';
+
+    if (!/^\d{6}$/.test(password)) {
+        errEl.textContent = 'La contrasena debe ser exactamente 6 digitos.';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Ingresando...';
+
+    try {
+        const data = await fetch(`${API}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario, password, deviceId: DEVICE_ID })
+        }).then(r => r.json());
+
+        if (!data.success) {
+            if (data.sessionConflict) throw new Error(data.error);
+            throw new Error(data.error || 'Error de autenticacion');
+        }
+
+        // Store server-assigned deviceId if provided
+        if (data.deviceId) localStorage.setItem('mitech_device_id', data.deviceId);
+
+        authToken = data.token;
+        localStorage.setItem('mitech_token', authToken);
+        currentUser = data.user;
+        enterApp();
+    } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Iniciar Sesion';
+    }
+}
+
+function handleLogout() {
+    // Clear session on server (fire and forget)
+    if (authToken) {
+        fetch(`${API}/api/auth/logout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }
+        }).catch(() => {});
+    }
+    authToken = null;
+    currentUser = null;
+    localStorage.removeItem('mitech_token');
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').classList.remove('active');
+    document.getElementById('login-form').reset();
+}
+
+async function checkSession() {
+    if (!authToken) return;
+    try {
+        const data = await apiFetch(`${API}/api/auth/me`);
+        if (data.success) { currentUser = data.user; enterApp(); }
+        else handleLogout();
+    } catch { handleLogout(); }
+}
+
+function enterApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').classList.add('active');
+    document.getElementById('user-display-name').textContent = currentUser.nombre;
+    document.getElementById('user-display-role').textContent = currentUser.role === 'admin' ? 'Administrador' : 'Escaneadora';
+
+    // Role-based: hide dashboard card and export buttons for non-admin
+    const dashCard = document.getElementById('home-dash-card');
+    if (currentUser.role === 'admin') {
+        if (dashCard) dashCard.style.display = 'flex';
+        document.querySelectorAll('.admin-only').forEach(el => el.classList.add('visible'));
+    } else {
+        if (dashCard) dashCard.style.display = 'none';
+        document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('visible'));
+    }
+
+    // Greeting
+    const greeting = document.getElementById('home-greeting');
+    if (greeting) greeting.textContent = `Bienvenido, ${currentUser.nombre}`;
+
+    setDefaultDate();
+    startOpsUpdates();
+    switchView('home');
+}
+
+// ══════════════════════════════════════════════
+// OPERATIONAL CONTEXT
+// ══════════════════════════════════════════════
+
+function getCurrentTurno() {
+    const h = new Date().getHours();
+    // Día: 6:00-18:00, Noche: 18:00-6:00, Extra: detected by hour edges
+    if (h >= 6 && h < 14) return { id: 'dia', label: 'Turno Dia', icon: 'fa-sun', css: 'ops-pill-turno-dia' };
+    if (h >= 14 && h < 18) return { id: 'extra', label: 'Tiempo Extra', icon: 'fa-bolt', css: 'ops-pill-turno-extra' };
+    return { id: 'noche', label: 'Turno Noche', icon: 'fa-moon', css: 'ops-pill-turno-noche' };
+}
+
+async function loadOpsContext() {
+    const el = document.getElementById('ops-context');
+    if (!el) return;
+
+    const turno = getCurrentTurno();
+
+    // Build pills
+    let html = `<span class="ops-pill ${turno.css}"><i class="fa-solid ${turno.icon}"></i> ${turno.label}</span>`;
+    html += `<span class="ops-pill ops-pill-active"><i class="fa-solid fa-circle" style="font-size:0.5rem;"></i> Sistema activo</span>`;
+
+    // Fetch live stats if admin
+    if (currentUser && currentUser.role === 'admin') {
+        try {
+            const data = await apiFetch(`${API}/api/dashboard/resumen`);
+            if (data.success) {
+                html += `<span class="ops-pill ops-pill-stat"><i class="fa-solid fa-box"></i> <strong>${data.registrosHoy}</strong> pallets hoy</span>`;
+                html += `<span class="ops-pill ops-pill-stat"><i class="fa-solid fa-user"></i> <strong>${data.escaneadoras.length}</strong> escaneadoras</span>`;
+            }
+        } catch(e) {}
+    }
+
+    // Last registro time
+    if (currentUser && currentUser.role === 'admin') {
+        try {
+            const data = await apiFetch(`${API}/api/escaneadoras?limit=1`);
+            if (data.success && data.data.length > 0) {
+                const last = new Date(data.data[0].createdAt);
+                const diff = Math.floor((Date.now() - last) / 60000);
+                const timeStr = diff < 1 ? 'hace un momento' : diff < 60 ? `hace ${diff} min` : `hace ${Math.floor(diff/60)}h`;
+                html += `<span class="ops-pill ops-pill-stat"><i class="fa-solid fa-clock"></i> Ultimo: <strong>${timeStr}</strong></span>`;
+            }
+        } catch(e) {}
+    }
+
+    el.innerHTML = html;
+}
+
+// Update turno every minute
+let opsInterval = null;
+function startOpsUpdates() {
+    loadOpsContext();
+    if (opsInterval) clearInterval(opsInterval);
+    opsInterval = setInterval(loadOpsContext, 60000);
+}
+
+// ══════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════
+
+function switchView(viewName) {
+    // Role check
+    if (viewName === 'dashboard' && (!currentUser || currentUser.role !== 'admin')) return;
+
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+
+    const view = document.getElementById('view-' + viewName);
+    if (view) view.classList.add('active');
+
+    if (viewName === 'dashboard') { loadDashboard(); }
+    else { stopPolling(); }
+    if (viewName === 'escaneadoras') setDefaultDate();
+    if (viewName === 'resumen') { setResumenDate(); loadResumenes(); }
+    if (viewName === 'home') loadOpsContext();
+}
+
+function setDefaultDate() {
+    const el = document.getElementById('esc-fecha');
+    if (el && !el.value) el.value = new Date().toISOString().split('T')[0];
+}
+
+// ══════════════════════════════════════════════
+// ESCANEADORAS — FORMULARIO
+// ══════════════════════════════════════════════
+
+async function handleEscSubmit(e) {
+    e.preventDefault();
+    const errEl = document.getElementById('esc-error');
+    const okEl = document.getElementById('esc-success');
+    errEl.style.display = 'none';
+    okEl.style.display = 'none';
+
+    const palletId = document.getElementById('esc-palletId').value.trim();
+    const cantidad = document.getElementById('esc-cantidad').value;
+    const condicion = selectedConditions.join(', ');
+    const destino = document.getElementById('esc-destino').value;
+    const turno = document.getElementById('esc-turno').value;
+    const fechaRaw = document.getElementById('esc-fecha').value;
+    const pedido = document.getElementById('esc-pedido').value.trim();
+    const incidencias = document.getElementById('esc-incidencias').value.trim();
+    const observaciones = document.getElementById('esc-observaciones').value.trim();
+
+    if (!palletId || !cantidad || !destino || !turno || !fechaRaw) {
+        errEl.textContent = 'Completa todos los campos obligatorios.';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    // Validate pallet ID has at least 5 digits
+    const digits = palletId.replace(/\D/g, '');
+    if (digits.length > 0 && digits.length < 5) {
+        errEl.textContent = `El Pallet ID debe tener al menos 5 digitos (actual: ${digits.length}).`;
+        errEl.style.display = 'block';
+        document.getElementById('esc-palletId').focus();
+        return;
+    }
+
+    // BULKY: tag observations with LPN identifier
+    let finalObs = observaciones;
+    if (destino === 'BULKY' && !finalObs.includes('LPN')) {
+        finalObs = finalObs ? 'LPN | BULKY | ' + finalObs : 'LPN | BULKY';
+    }
+
+    // Format date M/D/YYYY
+    const dp = fechaRaw.split('-');
+    const fecha = `${parseInt(dp[1])}/${parseInt(dp[2])}/${dp[0]}`;
+
+    // Escaneadora is the logged-in user's name
+    const escaneadora = currentUser.nombre;
+
+    const btn = document.getElementById('esc-submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+    try {
+        const data = await apiFetch(`${API}/api/escaneadoras`, {
+            method: 'POST',
+            body: JSON.stringify({ palletId, cantidad: parseInt(cantidad), condicion, destino, turno, escaneadora, fecha, pedido, incidencias, observaciones: finalObs })
+        });
+
+        if (!data.success) {
+            if (data.duplicate) {
+                errEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i><strong>Pallet duplicado.</strong> El pallet <strong>${palletId}</strong> ya existe en el sistema.`;
+            } else {
+                errEl.textContent = data.error;
+            }
+            errEl.style.display = 'block';
+            document.getElementById('esc-palletId').focus();
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Registrar';
+            return;
+        }
+
+        okEl.textContent = `Registro guardado correctamente (ID: ${data.id.slice(-6)})`;
+        okEl.style.display = 'block';
+        resetEscForm();
+        setTimeout(() => { okEl.style.display = 'none'; }, 5000);
+    } catch (err) {
+        errEl.textContent = 'Error: ' + err.message;
+        errEl.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Registrar';
+    }
+}
+
+// ══════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════
+
+let chartEsc = null, chartDest = null, chartTrend = null, chartTurno = null, chartCond = null;
+let chartPalletsPie = null, chartPiezasPie = null;
+
+// Register datalabels plugin globally
+Chart.register(ChartDataLabels);
+// Disable datalabels by default (enable per-chart)
+Chart.defaults.plugins.datalabels = { display: false };
+let fpInstance = null;
+let dashPollTimer = null;
+let currentRecordView = 'grouped';
+let lastTableData = [];
+let lastResumen = null;
+let searchTimer = null;
+
+const COLORS = ['#4f7cff','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#06b6d4'];
+
+// Chart.js global animation defaults
+Chart.defaults.animation.duration = 800;
+Chart.defaults.animation.easing = 'easeOutQuart';
+
+function initFlatpickr() {
+    if (fpInstance) return;
+    fpInstance = flatpickr('#dash-fecha', {
+        locale: 'es',
+        dateFormat: 'n/j/Y',
+        allowInput: true,
+        onClose: function() { loadDashboard(); }
+    });
+}
+
+async function loadDashboard() {
+    // Validate date range
+    const fi = document.getElementById('dash-fecha-inicio').value;
+    const ff = document.getElementById('dash-fecha-fin').value;
+    if (fi && ff && fi > ff) {
+        alert('La fecha de inicio no puede ser mayor que la fecha fin.');
+        return;
+    }
+
+    initFlatpickr();
+
+    // Show loading state
+    const filterBtn = document.querySelector('.filter-bar .btn-primary');
+    const origHTML = filterBtn ? filterBtn.innerHTML : '';
+    if (filterBtn) {
+        filterBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cargando...';
+        filterBtn.disabled = true;
+    }
+
+    // Show loading in KPIs
+    ['kpi-total', 'kpi-hoy', 'kpi-unidades', 'kpi-operadoras'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '...';
+    });
+
+    try {
+        await Promise.all([loadResumen(), loadTendencias(), loadTableData(), loadCatalogos()]);
+    } catch (err) {
+        console.error('[DASHBOARD] Error loading:', err);
+    } finally {
+        // Restore button
+        if (filterBtn) {
+            filterBtn.innerHTML = origHTML;
+            filterBtn.disabled = false;
+        }
+    }
+    startPolling();
+}
+
+function startPolling() {
+    stopPolling();
+    dashPollTimer = setInterval(async () => {
+        const dashView = document.getElementById('view-dashboard');
+        if (!dashView || !dashView.classList.contains('active')) { stopPolling(); return; }
+        await Promise.all([loadResumen(), loadTendencias(), loadTableData()]);
+    }, 5000);
+}
+
+function stopPolling() {
+    if (dashPollTimer) { clearInterval(dashPollTimer); dashPollTimer = null; }
+}
+
+function debouncedSearch() {
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadTableData(), 300);
+}
+
+function getFilterParams() {
+    const p = new URLSearchParams();
+    const fecha = document.getElementById('dash-fecha').value;
+    const fi = document.getElementById('dash-fecha-inicio').value;
+    const ff = document.getElementById('dash-fecha-fin').value;
+    const esc = document.getElementById('dash-escaneadora').value;
+    const turno = document.getElementById('dash-turno').value;
+    if (fecha) p.set('fecha', fecha);
+    if (fi) p.set('fecha_inicio', fi);
+    if (ff) p.set('fecha_fin', ff);
+    if (esc) p.set('escaneadora', esc);
+    if (turno) p.set('turno', turno);
+    return p.toString();
+}
+
+function clearFilters() {
+    document.getElementById('dash-fecha').value = '';
+    document.getElementById('dash-fecha-inicio').value = '';
+    document.getElementById('dash-fecha-fin').value = '';
+    document.getElementById('dash-escaneadora').value = '';
+    document.getElementById('dash-turno').value = '';
+    if (fpInstance) fpInstance.clear();
+    loadDashboard();
+}
+
+// ── Record view toggle ──
+function setRecordView(mode) {
+    currentRecordView = mode;
+    document.getElementById('tab-grouped').classList.toggle('active', mode === 'grouped');
+    document.getElementById('tab-table').classList.toggle('active', mode === 'table');
+    document.getElementById('records-grouped').style.display = mode === 'grouped' ? '' : 'none';
+    document.getElementById('records-table').style.display = mode === 'table' ? '' : 'none';
+    renderRecords(lastTableData);
+}
+
+// Track which groups user has manually expanded (all start collapsed)
+const expandedGroups = new Set();
+
+function toggleDateGroup(fecha) {
+    const header = document.querySelector(`[data-dg="${fecha}"]`);
+    const body = document.getElementById('dg-body-' + fecha.replace(/\//g, '-'));
+    if (!header || !body) return;
+    if (expandedGroups.has(fecha)) {
+        expandedGroups.delete(fecha);
+        header.classList.add('collapsed');
+        body.classList.add('hidden');
+    } else {
+        expandedGroups.add(fecha);
+        header.classList.remove('collapsed');
+        body.classList.remove('hidden');
+    }
+}
+
+async function loadResumen() {
+    try {
+        const data = await apiFetch(`${API}/api/dashboard/resumen?${getFilterParams()}`);
+        if (!data.success) return;
+        lastResumen = data;
+
+        document.getElementById('kpi-total').textContent = data.totalRegistros.toLocaleString();
+        document.getElementById('kpi-hoy').textContent = data.registrosHoy.toLocaleString();
+        document.getElementById('kpi-unidades').textContent = data.totalUnidades.toLocaleString();
+        document.getElementById('kpi-operadoras').textContent = data.escaneadoras.length;
+
+        const chartOpts = (extra = {}) => ({
+            responsive: true,
+            animation: { duration: 800, easing: 'easeOutQuart' },
+            transitions: { active: { animation: { duration: 200 } } },
+            ...extra
+        });
+        const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
+        const datalabelWhite = { display: true, color: '#fff', font: { weight: 'bold', size: 11 }, formatter: (v) => v > 0 ? v : '' };
+
+        // ── PIE: Total Pallets Procesados (by escaneadora) ──
+        const ctxPP = document.getElementById('chart-pallets-pie').getContext('2d');
+        if (chartPalletsPie) chartPalletsPie.destroy();
+        if (data.porEscaneadora.length > 0) {
+            chartPalletsPie = new Chart(ctxPP, {
+                type: 'pie',
+                data: {
+                    labels: data.porEscaneadora.map(e => e.nombre),
+                    datasets: [{ data: data.porEscaneadora.map(e => e.registros), backgroundColor: COLORS, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 10 }]
+                },
+                options: chartOpts({
+                    plugins: {
+                        legend: { position:'bottom', labels: { color:'#7b8ba5', padding:10, font:{size:11}, usePointStyle:true, pointStyle:'circle' } },
+                        tooltip: { ...tooltipStyle, callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed} pallets` } },
+                        datalabels: { display: true, color: '#fff', font: { weight:'bold', size:12 }, formatter: (v, ctx) => { const total = ctx.dataset.data.reduce((a,b)=>a+b,0); const pct = total > 0 ? Math.round(v/total*100) : 0; return pct >= 5 ? `${v}\n(${pct}%)` : ''; }, textAlign:'center' }
+                    }
+                })
+            });
+        }
+
+        // ── PIE: Piezas Total Paletizadas (by escaneadora) ──
+        const ctxPZ = document.getElementById('chart-piezas-pie').getContext('2d');
+        if (chartPiezasPie) chartPiezasPie.destroy();
+        if (data.porEscaneadora.length > 0) {
+            chartPiezasPie = new Chart(ctxPZ, {
+                type: 'pie',
+                data: {
+                    labels: data.porEscaneadora.map(e => e.nombre),
+                    datasets: [{ data: data.porEscaneadora.map(e => e.unidades), backgroundColor: COLORS, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 10 }]
+                },
+                options: chartOpts({
+                    plugins: {
+                        legend: { position:'bottom', labels: { color:'#7b8ba5', padding:10, font:{size:11}, usePointStyle:true, pointStyle:'circle' } },
+                        tooltip: { ...tooltipStyle, callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed.toLocaleString()} piezas` } },
+                        datalabels: { display: true, color: '#fff', font: { weight:'bold', size:12 }, formatter: (v, ctx) => { const total = ctx.dataset.data.reduce((a,b)=>a+b,0); const pct = total > 0 ? Math.round(v/total*100) : 0; return pct >= 5 ? `${v.toLocaleString()}\n(${pct}%)` : ''; }, textAlign:'center' }
+                    }
+                })
+            });
+        }
+
+        // ── BAR HORIZONTAL: Registros por Escaneadora ──
+        const ctxE = document.getElementById('chart-escaneadora').getContext('2d');
+        if (chartEsc) chartEsc.destroy();
+        chartEsc = new Chart(ctxE, {
+            type: 'bar',
+            data: {
+                labels: data.porEscaneadora.map(e => e.nombre),
+                datasets: [{
+                    label: 'Registros',
+                    data: data.porEscaneadora.map(e => e.registros),
+                    backgroundColor: data.porEscaneadora.map((_, i) => COLORS[i % COLORS.length] + 'cc'),
+                    hoverBackgroundColor: data.porEscaneadora.map((_, i) => COLORS[i % COLORS.length]),
+                    borderRadius: 5, borderSkipped: false, maxBarThickness: 32,
+                }]
+            },
+            options: chartOpts({
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display:false },
+                    tooltip: tooltipStyle,
+                    datalabels: { display: true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:11}, formatter:(v)=>v>0?v:'' }
+                },
+                scales: {
+                    x: { beginAtZero:true, ticks:{color:'#7b8ba5'}, grid:{color:'rgba(30,42,66,0.5)'} },
+                    y: { ticks:{color:'#7b8ba5'}, grid:{display:false} }
+                }
+            })
+        });
+
+        // ── DOUGHNUT: Distribucion por Destino ──
+        const ctxD = document.getElementById('chart-destino').getContext('2d');
+        if (chartDest) chartDest.destroy();
+        chartDest = new Chart(ctxD, {
+            type: 'doughnut',
+            data: {
+                labels: data.porDestino.map(d => d.destino),
+                datasets: [{ data: data.porDestino.map(d => d.registros), backgroundColor: COLORS, borderWidth: 0, hoverOffset: 8 }]
+            },
+            options: chartOpts({
+                cutout:'40%',
+                plugins: {
+                    legend: { position:'bottom', labels:{color:'#7b8ba5',padding:12,font:{size:11}} },
+                    tooltip: tooltipStyle,
+                    datalabels: { display: true, color:'#fff', font:{weight:'bold',size:12}, formatter:(v,ctx)=>{ const t=ctx.dataset.data.reduce((a,b)=>a+b,0); return t>0&&Math.round(v/t*100)>=5?v:''; } }
+                }
+            })
+        });
+
+        // ── DOUGHNUT: Registros por Turno ──
+        const turnoColorMap = (name) => {
+            const n = name.toLowerCase();
+            if (n.includes('día') || n.includes('dia') || n.includes('day')) return '#f59e0b';
+            if (n.includes('noche') || n.includes('night')) return '#4f7cff';
+            return '#22c55e';
+        };
+        const ctxT = document.getElementById('chart-turno').getContext('2d');
+        if (chartTurno) chartTurno.destroy();
+        chartTurno = new Chart(ctxT, {
+            type: 'doughnut',
+            data: {
+                labels: data.porTurno.map(t => t.turno),
+                datasets: [{ data: data.porTurno.map(t => t.registros), backgroundColor: data.porTurno.map(t => turnoColorMap(t.turno)), borderWidth: 0, hoverOffset: 8 }]
+            },
+            options: chartOpts({
+                cutout:'40%',
+                plugins: {
+                    legend: { position:'bottom', labels:{color:'#7b8ba5',padding:12,font:{size:11}} },
+                    tooltip: tooltipStyle,
+                    datalabels: { display: true, color:'#fff', font:{weight:'bold',size:13}, formatter:(v)=>v>0?v:'' }
+                }
+            })
+        });
+
+        // ── CONDICION grouped by date ──
+        renderCondicionByDate(data);
+
+        // Escaneadora dropdown is populated by loadCatalogos() with ALL values from DB
+    } catch (err) {
+        console.error('[DASHBOARD]', err);
+    }
+}
+
+function renderCondicionByDate(data) {
+    const container = document.getElementById('condicion-by-date-container');
+    const ctxC = document.getElementById('chart-condicion');
+    if (chartCond) chartCond.destroy();
+
+    if (!data.porCondicion || data.porCondicion.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-muted);">Sin datos de condicion</div>';
+        return;
+    }
+
+    // If we have table data with dates, render grouped view
+    if (lastTableData && lastTableData.length > 0) {
+        // Group condition counts by fecha
+        const dateCondMap = {};
+        lastTableData.forEach(r => {
+            const fecha = r.fecha || 'Sin fecha';
+            const cond = r.condicion || 'Sin condicion';
+            if (!dateCondMap[fecha]) dateCondMap[fecha] = {};
+            if (!dateCondMap[fecha][cond]) dateCondMap[fecha][cond] = 0;
+            dateCondMap[fecha][cond]++;
+        });
+
+        // Get all unique conditions
+        const allConds = [...new Set(lastTableData.map(r => r.condicion || 'Sin condicion'))].sort();
+
+        // Sort dates descending
+        const sortedDates = Object.keys(dateCondMap).sort((a, b) => {
+            const pa = a.split('/'), pb = b.split('/');
+            if (pa.length !== 3 || pb.length !== 3) return 0;
+            return new Date(pb[2], pb[0]-1, pb[1]) - new Date(pa[2], pa[0]-1, pa[1]);
+        });
+
+        // Build grouped HTML + a stacked bar chart
+        let html = '<div style="margin-bottom:1rem;">';
+        sortedDates.forEach(fecha => {
+            const conds = dateCondMap[fecha];
+            const total = Object.values(conds).reduce((s,v) => s+v, 0);
+            html += `<div style="margin-bottom:0.75rem;padding:0.75rem 1rem;background:rgba(15,23,42,0.5);border:1px solid var(--border);border-radius:8px;">`;
+            html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">`;
+            html += `<span style="font-weight:600;color:var(--text-main);"><i class="fa-solid fa-calendar-day" style="color:var(--accent);margin-right:6px;"></i>${fecha}</span>`;
+            html += `<span style="font-size:0.8rem;color:var(--text-muted);">${total} registros</span></div>`;
+            html += `<div style="display:flex;flex-wrap:wrap;gap:0.5rem;">`;
+            Object.entries(conds).sort((a,b) => b[1]-a[1]).forEach(([cond, count], i) => {
+                const color = COLORS[allConds.indexOf(cond) % COLORS.length];
+                html += `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:0.8rem;font-weight:600;background:${color}22;color:${color};border:1px solid ${color}44;">`;
+                html += `<span style="width:8px;height:8px;border-radius:50%;background:${color};"></span>${cond}: ${count}</span>`;
+            });
+            html += '</div></div>';
+        });
+        html += '</div>';
+
+        container.innerHTML = html + '<canvas id="chart-condicion" height="180"></canvas>';
+
+        // Stacked bar chart by date
+        const newCtx = document.getElementById('chart-condicion').getContext('2d');
+        const datasets = allConds.map((cond, i) => ({
+            label: cond,
+            data: sortedDates.map(f => dateCondMap[f][cond] || 0),
+            backgroundColor: COLORS[i % COLORS.length] + 'cc',
+            hoverBackgroundColor: COLORS[i % COLORS.length],
+            borderRadius: 3, borderSkipped: false,
+        }));
+
+        const dateLabels = sortedDates.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
+
+        chartCond = new Chart(newCtx, {
+            type: 'bar',
+            data: { labels: dateLabels, datasets },
+            options: {
+                responsive: true,
+                animation: { duration: 800, easing: 'easeOutQuart' },
+                plugins: {
+                    legend: { position:'bottom', labels:{color:'#7b8ba5',padding:10,font:{size:11},usePointStyle:true,pointStyle:'rectRounded'} },
+                    tooltip: { ...{ backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 }, mode:'index', intersect:false },
+                    datalabels: { display: true, color:'#fff', font:{weight:'bold',size:10}, formatter:(v)=>v>0?v:'' }
+                },
+                scales: {
+                    x: { stacked:true, ticks:{color:'#7b8ba5'}, grid:{display:false} },
+                    y: { stacked:true, beginAtZero:true, ticks:{color:'#7b8ba5'}, grid:{color:'rgba(30,42,66,0.5)'} }
+                }
+            }
+        });
+    } else {
+        // Fallback: simple horizontal bar (original behavior)
+        container.innerHTML = '<canvas id="chart-condicion" height="200"></canvas>';
+        const newCtx = document.getElementById('chart-condicion').getContext('2d');
+        chartCond = new Chart(newCtx, {
+            type: 'bar',
+            data: {
+                labels: data.porCondicion.map(c => c.condicion),
+                datasets: [{
+                    label: 'Registros',
+                    data: data.porCondicion.map(c => c.total),
+                    backgroundColor: data.porCondicion.map((_, i) => COLORS[i % COLORS.length] + 'cc'),
+                    hoverBackgroundColor: data.porCondicion.map((_, i) => COLORS[i % COLORS.length]),
+                    borderRadius: 4, borderSkipped: false, maxBarThickness: 28,
+                }]
+            },
+            options: {
+                responsive: true, indexAxis:'y',
+                plugins: { legend:{display:false}, tooltip:{ backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 }, datalabels:{ display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:11}, formatter:(v)=>v>0?v:'' } },
+                scales: { x:{beginAtZero:true,ticks:{color:'#7b8ba5'},grid:{color:'rgba(30,42,66,0.5)'}}, y:{ticks:{color:'#7b8ba5'},grid:{display:false}} }
+            }
+        });
+    }
+}
+
+let trendCache = null;
+
+function renderTrendWidget(dateMap) {
+    // Dates are M/D/YYYY format from 'fecha' field, sort chronologically
+    const dates = Object.keys(dateMap).sort((a, b) => {
+        const pa = a.split('/'), pb = b.split('/');
+        return new Date(pa[2], pa[0]-1, pa[1]) - new Date(pb[2], pb[0]-1, pb[1]);
+    });
+
+    let totalDia = 0, totalNoche = 0;
+    dates.forEach(d => { totalDia += dateMap[d].Dia; totalNoche += dateMap[d].Noche; });
+
+    // KPIs
+    document.getElementById('trend-summary').innerHTML = `
+        <div class="trend-kpi"><div class="trend-kpi-value" style="color:#f59e0b;">${totalDia}</div><div class="trend-kpi-label">Turno Dia</div></div>
+        <div class="trend-kpi"><div class="trend-kpi-value" style="color:#4f7cff;">${totalNoche}</div><div class="trend-kpi-label">Turno Noche</div></div>
+        <div class="trend-kpi"><div class="trend-kpi-value" style="color:var(--text-main);">${totalDia + totalNoche}</div><div class="trend-kpi-label">Total</div></div>
+    `;
+
+    // Vertical grouped bar chart
+    const ctx = document.getElementById('chart-tendencia').getContext('2d');
+    if (chartTrend) chartTrend.destroy();
+
+    if (dates.length === 0) {
+        document.getElementById('trend-chart-wrap').style.display = 'none';
+        return;
+    }
+    document.getElementById('trend-chart-wrap').style.display = '';
+
+    const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#e8ecf4', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
+
+    // Format dates for display: M/D/YYYY → "DD/MM"
+    const dateLabels = dates.map(d => { const p = d.split('/'); return p[1] + '/' + p[0]; });
+    const diaValues = dates.map(d => dateMap[d].Dia);
+    const nocheValues = dates.map(d => dateMap[d].Noche);
+
+    console.log('[TREND] Labels L→R:', dateLabels.join(' → '));
+    console.log('[TREND] Dia values:', diaValues.join(', '));
+    console.log('[TREND] Noche values:', nocheValues.join(', '));
+
+    chartTrend = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: dateLabels,
+            datasets: [
+                {
+                    label: 'Dia',
+                    data: diaValues,
+                    backgroundColor: 'rgba(245,158,11,0.85)',
+                    hoverBackgroundColor: '#f59e0b',
+                    borderRadius: 3,
+                    borderSkipped: false,
+                    maxBarThickness: 44,
+                    barPercentage: 0.75,
+                    categoryPercentage: 0.6,
+                },
+                {
+                    label: 'Noche',
+                    data: nocheValues,
+                    backgroundColor: 'rgba(79,124,255,0.85)',
+                    hoverBackgroundColor: '#4f7cff',
+                    borderRadius: 3,
+                    borderSkipped: false,
+                    maxBarThickness: 44,
+                    barPercentage: 0.75,
+                    categoryPercentage: 0.6,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { left: 8, right: 8 } },
+            animation: { duration: 800, easing: 'easeOutQuart' },
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    align: 'end',
+                    labels: { color: '#7b8ba5', usePointStyle: true, pointStyle: 'rectRounded', padding: 16, font: { size: 12 } }
+                },
+                tooltip: {
+                    ...tooltipStyle, mode: 'index', intersect: false,
+                    callbacks: {
+                        title: (items) => items[0].label,
+                        afterBody: (items) => 'Total: ' + items.reduce((s, i) => s + i.parsed.y, 0)
+                    }
+                },
+                datalabels: { display: true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:10}, formatter:(v)=>v>0?v:'' }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#7b8ba5', stepSize: 1, font: { size: 11 } },
+                    grid: { color: 'rgba(30,42,66,0.4)' },
+                    title: { display: true, text: 'Registros', color: '#7b8ba5', font: { size: 11 } }
+                },
+                x: {
+                    type: 'category',
+                    offset: true,
+                    reverse: false,
+                    ticks: { color: '#7b8ba5', font: { size: 12, weight: '500' } },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+
+async function loadTendencias() {
+    try {
+        const filterParams = getFilterParams();
+        const separator = filterParams ? '&' : '';
+        const data = await apiFetch(`${API}/api/dashboard/tendencias?dias=7${separator}${filterParams}`);
+        if (!data.success) return;
+
+        // New format: data.tendencia = [{ date, dia, noche, total }]
+        const dateMap = {};
+        (data.tendencia || []).forEach(d => {
+            dateMap[d.date] = { Dia: d.dia, Noche: d.noche };
+        });
+
+        trendCache = dateMap;
+        renderTrendWidget(dateMap);
+
+        // Promedios
+        const promEl = document.getElementById('promedios-container');
+        if (data.promedios.length > 0) {
+            promEl.innerHTML = data.promedios.map(p => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem 0;border-bottom:1px solid var(--border);">
+                    <div>
+                        <strong style="color:var(--text-main);">${p.turno}</strong>
+                        <span style="margin-left:0.5rem;">${p.totalDias} dias trabajados</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <strong style="color:var(--accent);font-size:1.2rem;">${p.promedio}</strong>
+                        <span style="font-size:0.8rem;"> reg/dia</span>
+                        <div style="font-size:0.8rem;">${p.totalRegistros} registros total</div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            promEl.innerHTML = '<p style="padding:1rem 0;">Sin datos de tendencia</p>';
+        }
+    } catch (err) {
+        console.error('[TENDENCIAS]', err);
+    }
+}
+
+async function loadTableData() {
+    try {
+        const busqueda = document.getElementById('dash-busqueda').value;
+        const params = getFilterParams();
+        const extra = busqueda ? `&busqueda=${encodeURIComponent(busqueda)}` : '';
+        const data = await apiFetch(`${API}/api/dashboard/registros?${params}${extra}&limit=200`);
+        if (!data.success) return;
+        lastTableData = data.data;
+        renderRecords(data.data);
+        // Re-render condicion chart now that table data is available for date grouping
+        if (lastResumen) renderCondicionByDate(lastResumen);
+    } catch (err) {
+        console.error('[TABLE]', err);
+    }
+}
+
+function renderRecords(records) {
+    renderGroupedView(records);
+    renderTableView(records);
+}
+
+function turnoBadge(turno) {
+    const isDia = turno.toLowerCase().includes('day') || turno.toLowerCase().includes('dia');
+    return `<span class="badge ${isDia ? 'badge-amber' : 'badge-blue'}">${turno}</span>`;
+}
+
+function renderGroupedView(records) {
+    const container = document.getElementById('records-grouped');
+    if (records.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);">Sin registros</div>';
+        return;
+    }
+
+    // Group by fecha
+    const groups = {};
+    records.forEach(r => {
+        const key = r.fecha || 'Sin fecha';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(r);
+    });
+
+    // Sort dates descending
+    const sortedDates = Object.keys(groups).sort((a, b) => {
+        const pa = a.split('/'), pb = b.split('/');
+        if (pa.length !== 3 || pb.length !== 3) return 0;
+        return new Date(pb[2], pb[0]-1, pb[1]) - new Date(pa[2], pa[0]-1, pa[1]);
+    });
+
+    container.innerHTML = sortedDates.map(fecha => {
+        const recs = groups[fecha];
+        const safeId = fecha.replace(/\//g, '-');
+        const totalQty = recs.reduce((s, r) => s + (r.cantidad || 0), 0);
+        const isExpanded = expandedGroups.has(fecha);
+        return `
+            <div class="date-group">
+                <div class="date-group-header ${isExpanded ? '' : 'collapsed'}" data-dg="${fecha}" onclick="toggleDateGroup('${fecha}')">
+                    <div class="dg-left">
+                        <i class="fa-solid fa-calendar-day" style="color:var(--accent);"></i>
+                        <span class="dg-date">${fecha}</span>
+                        <span class="dg-count">${recs.length} registro${recs.length !== 1 ? 's' : ''} &middot; ${totalQty} uds</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                        ${currentUser && currentUser.role==='admin' ? `<button onclick="event.stopPropagation();exportDateExcel('${fecha}')" style="background:none;border:1px solid var(--border);border-radius:5px;padding:3px 8px;color:var(--text-muted);cursor:pointer;font-size:0.75rem;display:flex;align-items:center;gap:4px;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'"><i class="fa-solid fa-download"></i>Excel</button>` : ''}
+                        <i class="fa-solid fa-chevron-down dg-chevron"></i>
+                    </div>
+                </div>
+                <div class="date-group-body ${isExpanded ? '' : 'hidden'}" id="dg-body-${safeId}">
+                    ${recs.map(r => `
+                        <div class="record-card">
+                            <div class="rc-field"><span class="rc-label">Pallet</span><span class="rc-value bold">${r.palletId}</span></div>
+                            <div class="rc-field"><span class="rc-label">Cantidad</span><span class="rc-value">${r.cantidad}</span></div>
+                            <div class="rc-field"><span class="rc-label">Destino</span><span class="rc-value">${r.destino}</span></div>
+                            <div class="rc-field"><span class="rc-label">Turno</span><span class="rc-value">${turnoBadge(r.turno)}</span></div>
+                            <div class="rc-field"><span class="rc-label">Escaneadora</span><span class="rc-value">${r.escaneadora}</span></div>
+                            <div class="rc-field"><span class="rc-label">Condicion</span><span class="rc-value">${r.condicion ? `<span class="badge badge-blue">${r.condicion}</span>` : '-'}</span></div>
+                            <div class="rc-field"><span class="rc-label">Pedido</span><span class="rc-value">${r.pedido || '-'}</span></div>
+                            <div class="rc-field"><span class="rc-label">Incidencias</span><span class="rc-value" style="color:${r.incidencias ? 'var(--danger)' : 'var(--text-muted)'};">${r.incidencias || '-'}</span></div>
+                            ${r.observaciones ? `<div class="rc-row"><div class="rc-field"><span class="rc-label">Observaciones</span><span class="rc-value" style="color:var(--text-muted);">${r.observaciones}</span></div></div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderTableView(records) {
+    const tbody = document.getElementById('dash-table-body');
+    if (records.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-muted);">Sin registros</td></tr>';
+        return;
+    }
+    tbody.innerHTML = records.map(r => `
+        <tr>
+            <td>${r.fecha}</td>
+            <td style="font-weight:600;">${r.palletId}</td>
+            <td>${r.cantidad}</td>
+            <td>${r.condicion ? `<span class="badge badge-blue">${r.condicion}</span>` : '-'}</td>
+            <td>${r.destino}</td>
+            <td>${turnoBadge(r.turno)}</td>
+            <td>${r.escaneadora}</td>
+            <td>${r.pedido || '-'}</td>
+            <td style="color:${r.incidencias ? 'var(--danger)' : 'var(--text-muted)'};">${r.incidencias || '-'}</td>
+            <td>${r.observaciones || '-'}</td>
+        </tr>
+    `).join('');
+}
+
+async function loadCatalogos() {
+    try {
+        const data = await apiFetch(`${API}/api/dashboard/catalogos`);
+        if (!data.success) return;
+
+        // Populate escaneadora dropdown with ALL values from DB
+        const sel = document.getElementById('dash-escaneadora');
+        const curVal = sel.value;
+        sel.innerHTML = '<option value="">Todas</option>';
+        (data.escaneadoras || []).forEach(e => {
+            if (!e) return;
+            const o = document.createElement('option');
+            o.value = e; o.textContent = e;
+            if (e === curVal) o.selected = true;
+            sel.appendChild(o);
+        });
+    } catch (err) {
+        console.error('[CATALOGOS]', err);
+    }
+}
+
+// ══════════════════════════════════════════════
+// NFC
+// ══════════════════════════════════════════════
+
+function initNfc() {
+    if (!('NDEFReader' in window)) {
+        document.getElementById('nfc-unsupported').style.display = 'block';
+        document.getElementById('nfc-btn').style.opacity = '0.4';
+        document.getElementById('nfc-btn').style.cursor = 'not-allowed';
+        return false;
+    }
+    return true;
+}
+
+async function handleNfcScan() {
+    if (!('NDEFReader' in window)) {
+        const errEl = document.getElementById('login-error');
+        errEl.textContent = 'NFC no soportado en este navegador. Usa Chrome en Android.';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    const btn = document.getElementById('nfc-btn');
+    const errEl = document.getElementById('login-error');
+    errEl.style.display = 'none';
+
+    btn.classList.remove('nfc-error', 'nfc-success');
+    btn.classList.add('scanning');
+    btn.querySelector('.nfc-text span:first-child').textContent = 'Esperando tarjeta...';
+    btn.querySelector('.nfc-text span:last-child').textContent = 'Acerca tu tarjeta NFC al dispositivo';
+
+    try {
+        const ndef = new NDEFReader();
+        await ndef.scan();
+
+        const controller = new AbortController();
+
+        // Timeout after 30 seconds
+        const timeout = setTimeout(() => {
+            controller.abort();
+            resetNfcBtn();
+            errEl.textContent = 'Tiempo agotado. Intenta de nuevo.';
+            errEl.style.display = 'block';
+        }, 30000);
+
+        ndef.addEventListener('reading', async ({ serialNumber }) => {
+            clearTimeout(timeout);
+            controller.abort();
+
+            // Format serial: some readers give lowercase without colons
+            const serial = serialNumber.toUpperCase().trim();
+
+            btn.querySelector('.nfc-text span:first-child').textContent = 'Tarjeta detectada';
+            btn.querySelector('.nfc-text span:last-child').textContent = serial;
+
+            try {
+                const data = await fetch(`${API}/api/auth/nfc`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ serialNumber: serial, deviceId: DEVICE_ID })
+                }).then(r => r.json());
+
+                if (!data.success) throw new Error(data.error || 'Tarjeta no autorizada');
+
+                btn.classList.remove('scanning');
+                btn.classList.add('nfc-success');
+                btn.querySelector('.nfc-text span:first-child').textContent = 'Acceso concedido';
+                btn.querySelector('.nfc-text span:last-child').textContent = data.user.nombre + ' (' + data.user.role + ')';
+
+                // Store server-assigned deviceId
+                if (data.deviceId) localStorage.setItem('mitech_device_id', data.deviceId);
+
+                authToken = data.token;
+                localStorage.setItem('mitech_token', authToken);
+                currentUser = data.user;
+
+                setTimeout(() => {
+                    resetNfcBtn();
+                    enterApp();
+                }, 800);
+            } catch (err) {
+                btn.classList.remove('scanning');
+                btn.classList.add('nfc-error');
+                btn.querySelector('.nfc-text span:first-child').textContent = 'Acceso denegado';
+                btn.querySelector('.nfc-text span:last-child').textContent = err.message;
+                setTimeout(resetNfcBtn, 3000);
+            }
+        }, { signal: controller.signal });
+
+    } catch (err) {
+        btn.classList.remove('scanning');
+        btn.classList.add('nfc-error');
+        if (err.name === 'NotAllowedError') {
+            btn.querySelector('.nfc-text span:first-child').textContent = 'Permiso denegado';
+            btn.querySelector('.nfc-text span:last-child').textContent = 'Permite el acceso NFC en tu navegador';
+        } else {
+            btn.querySelector('.nfc-text span:first-child').textContent = 'Error NFC';
+            btn.querySelector('.nfc-text span:last-child').textContent = err.message;
+        }
+        setTimeout(resetNfcBtn, 3000);
+    }
+}
+
+function resetNfcBtn() {
+    const btn = document.getElementById('nfc-btn');
+    btn.classList.remove('scanning', 'nfc-success', 'nfc-error');
+    btn.querySelector('.nfc-text span:first-child').textContent = 'Acceder con NFC';
+    btn.querySelector('.nfc-text span:last-child').textContent = 'Pulsa para leer';
+}
+
+// ══════════════════════════════════════════════
+// RESUMEN DE PALETIZADO
+// ══════════════════════════════════════════════
+
+function setResumenDate() {
+    const el = document.getElementById('res-fecha');
+    if (el && !el.value) el.value = new Date().toISOString().split('T')[0];
+}
+
+async function handleResumenSubmit(e) {
+    e.preventDefault();
+    const errEl = document.getElementById('res-error');
+    const okEl = document.getElementById('res-success');
+    errEl.style.display = 'none';
+    okEl.style.display = 'none';
+
+    const turno = document.getElementById('res-turno').value;
+    const fechaRaw = document.getElementById('res-fecha').value;
+    const palletsTotales = document.getElementById('res-pallets-total').value;
+    const palletsTRG = document.getElementById('res-pallets-trg').value;
+    const palletsAlmacen = document.getElementById('res-pallets-almacen').value;
+    const palletsEnProceso = document.getElementById('res-pallets-proceso').value;
+    const asistencia = document.getElementById('res-asistencia').value;
+    const absentismo = document.getElementById('res-absentismo').value;
+    const tareasPendientes = document.getElementById('res-tareas').value.trim();
+
+    if (!turno || !fechaRaw || palletsTotales==='' || palletsTRG==='' || palletsAlmacen==='' || palletsEnProceso==='' || asistencia==='' || absentismo==='' || !tareasPendientes) {
+        errEl.textContent = 'Todos los campos son obligatorios. Completa el formulario.';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    const dp = fechaRaw.split('-');
+    const fecha = `${parseInt(dp[1])}/${parseInt(dp[2])}/${dp[0]}`;
+
+    const btn = document.getElementById('res-submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+    try {
+        const data = await apiFetch(`${API}/api/resumen`, {
+            method: 'POST',
+            body: JSON.stringify({ turno, palletsTotales, palletsTRG, palletsAlmacen, palletsEnProceso, asistencia, absentismo, tareasPendientes, fecha })
+        });
+        if (!data.success) throw new Error(data.error);
+        okEl.textContent = 'Resumen guardado correctamente.';
+        okEl.style.display = 'block';
+        document.getElementById('resumen-form').reset();
+        setResumenDate();
+        loadResumenes();
+        setTimeout(() => { okEl.style.display = 'none'; }, 5000);
+    } catch (err) {
+        errEl.textContent = 'Error: ' + err.message;
+        errEl.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Guardar Resumen';
+    }
+}
+
+const expandedResGroups = new Set();
+let lastResumenData = [];
+
+function toggleResGroup(fecha) {
+    if (expandedResGroups.has(fecha)) expandedResGroups.delete(fecha);
+    else expandedResGroups.add(fecha);
+    renderResumenHistory(lastResumenData);
+}
+
+function renderResumenCard(r) {
+    const isDia = (r.turno||'').toLowerCase().includes('day') || (r.turno||'').toLowerCase().includes('dia');
+    return `<div class="resumen-card">
+        <div class="resumen-stat"><span class="resumen-stat-label">Turno</span><span class="resumen-stat-value"><span class="badge ${isDia?'badge-amber':'badge-blue'}">${r.turno}</span></span></div>
+        <div class="resumen-stat"><span class="resumen-stat-label">Pallets Totales</span><span class="resumen-stat-value" style="color:#f59e0b;font-size:1.15rem;">${r.palletsTotales}</span></div>
+        <div class="resumen-stat"><span class="resumen-stat-label">Pallets TRG</span><span class="resumen-stat-value">${r.palletsTRG||0}</span></div>
+        <div class="resumen-stat"><span class="resumen-stat-label">Pallets Almacen</span><span class="resumen-stat-value">${r.palletsAlmacen||0}</span></div>
+        <div class="resumen-stat"><span class="resumen-stat-label">En Proceso</span><span class="resumen-stat-value">${r.palletsEnProceso||0}</span></div>
+        <div class="resumen-stat"><span class="resumen-stat-label">Asistencia</span><span class="resumen-stat-value" style="color:var(--success);">${r.asistencia||0}</span></div>
+        <div class="resumen-stat"><span class="resumen-stat-label">Absentismo</span><span class="resumen-stat-value" style="color:var(--danger);">${r.absentismo||0}</span></div>
+        <div class="resumen-stat"><span class="resumen-stat-label">Registrado por</span><span class="resumen-stat-value" style="font-size:0.85rem;">${r.nombreCaptura||'-'}</span></div>
+        <div class="resumen-stat"><span class="resumen-stat-label">Hora</span><span class="resumen-stat-value" style="font-size:0.85rem;">${r.createdAt ? new Date(r.createdAt).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '-'}</span></div>
+        ${r.tareasPendientes ? `<div class="resumen-tareas"><strong>Tareas pendientes:</strong> ${r.tareasPendientes}</div>` : ''}
+    </div>`;
+}
+
+function renderResumenHistory(records) {
+    const container = document.getElementById('resumen-history');
+    if (records.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-muted);">Sin resumenes registrados</div>';
+        return;
+    }
+    // Group by fecha
+    const groups = {};
+    records.forEach(r => { const k = r.fecha||'Sin fecha'; if (!groups[k]) groups[k]=[]; groups[k].push(r); });
+    const sortedDates = Object.keys(groups).sort((a,b) => {
+        const pa=a.split('/'),pb=b.split('/');
+        if(pa.length!==3||pb.length!==3) return 0;
+        return new Date(pb[2],pb[0]-1,pb[1]) - new Date(pa[2],pa[0]-1,pa[1]);
+    });
+
+    container.innerHTML = sortedDates.map(fecha => {
+        const recs = groups[fecha];
+        const isExp = expandedResGroups.has(fecha);
+        const totalPallets = recs.reduce((s,r)=>s+(r.palletsTotales||0),0);
+        const safeId = fecha.replace(/\//g,'-');
+        return `<div class="date-group">
+            <div class="date-group-header ${isExp?'':'collapsed'}" data-dg="${fecha}" onclick="toggleResGroup('${fecha}')">
+                <div class="dg-left">
+                    <i class="fa-solid fa-calendar-day" style="color:var(--accent);"></i>
+                    <span class="dg-date">${fecha}</span>
+                    <span class="dg-count">${recs.length} resumen${recs.length!==1?'es':''} &middot; ${totalPallets} pallets</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    ${currentUser && currentUser.role==='admin' ? `<button onclick="event.stopPropagation();exportResumenFecha('${fecha}')" style="background:none;border:1px solid var(--border);border-radius:5px;padding:3px 8px;color:var(--text-muted);cursor:pointer;font-size:0.75rem;display:flex;align-items:center;gap:4px;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'"><i class="fa-solid fa-download"></i>Excel</button>` : ''}
+                    <i class="fa-solid fa-chevron-down dg-chevron"></i>
+                </div>
+            </div>
+            <div class="date-group-body ${isExp?'':'hidden'}" id="dg-res-${safeId}">
+                ${recs.map(r => renderResumenCard(r)).join('')}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function exportResumenFecha(fecha) {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    const recs = lastResumenData.filter(r => r.fecha === fecha);
+    if (recs.length === 0) return;
+    const wb = XLSX.utils.book_new();
+    const headers = ['Fecha','Turno','Pallets Totales','Pallets TRG','Pallets Almacen','En Proceso','Asistencia','Absentismo','Tareas Pendientes','Registrado Por'];
+    const rows = recs.map(r => [r.fecha, r.turno, r.palletsTotales, r.palletsTRG||0, r.palletsAlmacen||0, r.palletsEnProceso||0, r.asistencia||0, r.absentismo||0, r.tareasPendientes||'', r.nombreCaptura||'']);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = headers.map(() => ({ wch: 16 }));
+    XLSX.utils.book_append_sheet(wb, ws, fecha.replace(/\//g, '-'));
+    XLSX.writeFile(wb, `Resumen_${fecha.replace(/\//g,'-')}.xlsx`);
+}
+
+async function loadResumenes() {
+    const container = document.getElementById('resumen-history');
+    try {
+        const turnoFilter = document.getElementById('res-filter-turno').value;
+        const params = turnoFilter ? `?turno=${turnoFilter}` : '';
+        const data = await apiFetch(`${API}/api/resumen${params}`);
+        if (!data.success) { container.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--danger);">Error</div>'; return; }
+        lastResumenData = data.data;
+        renderResumenHistory(data.data);
+    } catch (err) {
+        container.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--danger);">Error cargando resumenes</div>';
+    }
+}
+
+// ══════════════════════════════════════════════
+// EXCEL EXPORTS
+// ══════════════════════════════════════════════
+
+const EXPORT_COLS = ['Fecha','Pallet ID','Cantidad','Condicion','Destino','Turno','Escaneadora','Pedido','Incidencias','Observaciones'];
+function recordToRow(r) {
+    return [r.fecha, r.palletId, r.cantidad, r.condicion||'', r.destino, r.turno, r.escaneadora, r.pedido||'', r.incidencias||'', r.observaciones||''];
+}
+
+function downloadXlsx(wb, filename) {
+    XLSX.writeFile(wb, filename);
+}
+
+// Helper: isDia check
+function isDiaTurno(t) { const l = (t||'').toLowerCase(); return l.includes('day') || l.includes('dia'); }
+
+// ExcelJS helpers
+function exTitle(ws,t,r,c){ws.getRow(r).getCell(1).value=t;ws.getRow(r).getCell(1).font={bold:true,size:14,color:{argb:'FF1E293B'}};ws.getRow(r).height=24;if(c>1)ws.mergeCells(r,1,r,c);}
+function exSection(ws,t,r,c){ws.getRow(r).getCell(1).value=t;ws.getRow(r).getCell(1).font={bold:true,size:11,color:{argb:'FF4F7CFF'}};if(c>1)ws.mergeCells(r,1,r,c);}
+function exHeaders(ws,h,r){h.forEach((v,i)=>{const c=ws.getRow(r).getCell(i+1);c.value=v;c.font={bold:true,size:10,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF334155'}};c.alignment={horizontal:'center'};});ws.getRow(r).height=20;}
+function exRow(ws,v,r){v.forEach((val,i)=>{const c=ws.getRow(r).getCell(i+1);c.value=val;c.font={size:10};c.border={bottom:{style:'hair',color:{argb:'FFE2E8F0'}}};});}
+
+// ── Native Excel chart XML generators ──
+function chartBarXML(sheetName, lastRow, series, title) {
+    const serXML = series.map((s, i) => `<c:ser><c:idx val="${i}"/><c:order val="${i}"/>
+<c:tx><c:strRef><c:f>'${sheetName}'!$${String.fromCharCode(66+i)}$1</c:f><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>${s.name}</c:v></c:pt></c:strCache></c:strRef></c:tx>
+<c:spPr><a:solidFill><a:srgbClr val="${s.color}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr>
+<c:cat><c:strRef><c:f>'${sheetName}'!$A$2:$A$${lastRow}</c:f></c:strRef></c:cat>
+<c:val><c:numRef><c:f>'${sheetName}'!$${String.fromCharCode(66+i)}$2:$${String.fromCharCode(66+i)}$${lastRow}</c:f></c:numRef></c:val></c:ser>`).join('');
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="es-MX" sz="1100" b="1"/><a:t>${title}</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title>
+<c:autoTitleDeleted val="0"/><c:plotArea><c:layout/>
+<c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:varyColors val="0"/>
+${serXML}<c:axId val="111"/><c:axId val="222"/></c:barChart>
+<c:catAx><c:axId val="111"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:crossAx val="222"/><c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="es-MX"/></a:p></c:txPr></c:catAx>
+<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111"/><c:numFmt formatCode="General" sourceLinked="1"/><c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="es-MX"/></a:p></c:txPr></c:valAx>
+</c:plotArea><c:legend><c:legendPos val="b"/></c:legend><c:plotVisOnly val="1"/></c:chart></c:chartSpace>`;
+}
+
+function chartPieXML(sheetName, lastRow, colorMap, title) {
+    const ptColors = colorMap.map((clr, i) => `<c:dPt><c:idx val="${i}"/><c:spPr><a:solidFill><a:srgbClr val="${clr}"/></a:solidFill></c:spPr></c:dPt>`).join('');
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="es-MX" sz="1100" b="1"/><a:t>${title}</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title>
+<c:autoTitleDeleted val="0"/><c:plotArea><c:layout/>
+<c:pieChart><c:varyColors val="1"/>
+<c:ser><c:idx val="0"/><c:order val="0"/>
+${ptColors}
+<c:cat><c:strRef><c:f>'${sheetName}'!$A$2:$A$${lastRow}</c:f></c:strRef></c:cat>
+<c:val><c:numRef><c:f>'${sheetName}'!$B$2:$B$${lastRow}</c:f></c:numRef></c:val></c:ser>
+</c:pieChart></c:plotArea>
+<c:legend><c:legendPos val="b"/></c:legend><c:plotVisOnly val="1"/></c:chart></c:chartSpace>`;
+}
+
+function drawingXML(chartRId, fromCol, fromRow, toCol, toRow, id) {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<xdr:twoCellAnchor><xdr:from><xdr:col>${fromCol}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${fromRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>
+<xdr:to><xdr:col>${toCol}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${toRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>
+<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="${id}" name="Chart ${id}"/><xdr:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></xdr:cNvGraphicFramePr></xdr:nvGraphicFramePr>
+<xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>
+<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">
+<c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" r:id="${chartRId}"/></a:graphicData></a:graphic>
+</xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor></xdr:wsDr>`;
+}
+
+function relsXML(rels) {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+${rels.map(r => `<Relationship Id="${r.id}" Type="${r.type}" Target="${r.target}"/>`).join('\n')}
+</Relationships>`;
+}
+
+// Export dashboard with NATIVE Excel charts
+async function exportDashboardExcel() {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    const EJS = window.ExcelJS;
+    if (!EJS) { alert('ExcelJS no cargado'); return; }
+
+    const wb = new EJS.Workbook();
+    wb.creator = 'MI-TECH Paletizado';
+    wb.created = new Date();
+    const today = new Date();
+    const todayStr = today.toLocaleDateString('es-MX', {year:'numeric',month:'long',day:'numeric'});
+    const res = lastResumen || {};
+
+    // Compute aggregated data
+    const byDate = {};
+    let sumRD=0,sumRN=0,sumUD=0,sumUN=0;
+    lastTableData.forEach(rec => {
+        if (!byDate[rec.fecha]) byDate[rec.fecha]={dia:0,noche:0,uDia:0,uNoche:0};
+        if (isDiaTurno(rec.turno)){byDate[rec.fecha].dia++;byDate[rec.fecha].uDia+=(rec.cantidad||0);}
+        else{byDate[rec.fecha].noche++;byDate[rec.fecha].uNoche+=(rec.cantidad||0);}
+    });
+    Object.values(byDate).forEach(d=>{sumRD+=d.dia;sumRN+=d.noche;sumUD+=d.uDia;sumUN+=d.uNoche;});
+    const sortedDates = Object.keys(byDate).sort();
+    const tR = lastTableData.length||1;
+    const tU = (res.totalUnidades||0)||1;
+
+    // ═══ Sheet 1: Resumen ═══
+    const ws1 = wb.addWorksheet('Resumen');
+    ws1.columns=[{width:28},{width:16},{width:16}];
+    exTitle(ws1,'MI-TECH PALETIZADO — REPORTE',1,3);
+    ws1.getRow(2).getCell(1).value='Generado: '+todayStr;ws1.getRow(2).getCell(1).font={size:10,italic:true,color:{argb:'FF7B8BA5'}};ws1.mergeCells(2,1,2,3);
+    let r=4;
+    exSection(ws1,'INDICADORES',r,2);r++;
+    exHeaders(ws1,['Metrica','Valor'],r);r++;
+    [['Total Registros',res.totalRegistros||lastTableData.length],['Registros Hoy',res.registrosHoy||0],['Unidades Totales',res.totalUnidades||0],['Escaneadoras Activas',(res.escaneadoras||[]).length],['Fechas con actividad',sortedDates.length],['Promedio reg/dia',sortedDates.length>0?+((lastTableData.length/sortedDates.length).toFixed(1)):0]].forEach(row=>{exRow(ws1,row,r);r++;});
+    r++;exSection(ws1,'DISTRIBUCION POR TURNO',r,3);r++;
+    exHeaders(ws1,['','Registros','Unidades'],r);r++;
+    exRow(ws1,['Dia',sumRD,sumUD],r);r++;exRow(ws1,['Noche',sumRN,sumUN],r);r++;
+    r++;exSection(ws1,'POR DESTINO',r,3);r++;exHeaders(ws1,['Destino','Registros','Unidades'],r);r++;
+    (res.porDestino||[]).forEach(d=>{exRow(ws1,[d.destino,d.registros,d.unidades],r);r++;});
+    r++;exSection(ws1,'POR CONDICION',r,2);r++;exHeaders(ws1,['Condicion','Registros'],r);r++;
+    (res.porCondicion||[]).forEach(c=>{exRow(ws1,[c.condicion,c.total],r);r++;});
+
+    // ═══ Sheet 2: Registros ═══
+    const ws2 = wb.addWorksheet('Registros');
+    ws2.columns=EXPORT_COLS.map(h=>({header:h,width:16}));
+    exHeaders(ws2,EXPORT_COLS,1);
+    lastTableData.forEach((rec,i)=>{exRow(ws2,recordToRow(rec),i+2);});
+    ws2.autoFilter={from:'A1',to:String.fromCharCode(64+EXPORT_COLS.length)+'1'};
+
+    // ═══ Sheet 3: Tendencia (data for native chart) ═══
+    const ws3 = wb.addWorksheet('Tendencia');
+    ws3.columns=[{width:14},{width:12},{width:13},{width:12},{width:12},{width:13},{width:12}];
+    exHeaders(ws3,['Fecha','Dia','Noche','Total','Uds Dia','Uds Noche','Uds Total'],1);
+    sortedDates.forEach((f,i)=>{const d=byDate[f];exRow(ws3,[f,d.dia,d.noche,d.dia+d.noche,d.uDia,d.uNoche,d.uDia+d.uNoche],i+2);});
+    const tendLastRow = sortedDates.length+1;
+
+    // ═══ Sheet 4: Turno (data for native chart) ═══
+    const ws4 = wb.addWorksheet('Por Turno');
+    ws4.columns=[{width:16},{width:14},{width:14}];
+    exHeaders(ws4,['Turno','Registros','Unidades'],1);
+    exRow(ws4,['Dia',sumRD,sumUD],2);
+    exRow(ws4,['Noche',sumRN,sumUN],3);
+
+    // ═══ Sheet 5: Escaneadora (data for native chart) ═══
+    const ws5 = wb.addWorksheet('Por Escaneadora');
+    ws5.columns=[{width:22},{width:14},{width:14}];
+    exHeaders(ws5,['Escaneadora','Registros','Unidades'],1);
+    const escData = (res.porEscaneadora||[]).sort((a,b)=>b.registros-a.registros);
+    escData.forEach((e,i)=>{exRow(ws5,[e.nombre,e.registros,e.unidades],i+2);});
+    const escLastRow = escData.length+1;
+
+    // ═══ Sheet 6: Por Destino (data for native chart) ═══
+    const ws6 = wb.addWorksheet('Por Destino');
+    ws6.columns=[{width:20},{width:14},{width:14}];
+    exHeaders(ws6,['Destino','Registros','Unidades'],1);
+    const destData = (res.porDestino||[]).sort((a,b)=>b.registros-a.registros);
+    destData.forEach((d,i)=>{exRow(ws6,[d.destino,d.registros,d.unidades],i+2);});
+    const destLastRow = destData.length+1;
+
+    // ═══ Sheet 7: Por Condicion (data for native chart) ═══
+    const ws7 = wb.addWorksheet('Por Condicion');
+    ws7.columns=[{width:18},{width:14}];
+    exHeaders(ws7,['Condicion','Registros'],1);
+    const condData = (res.porCondicion||[]).sort((a,b)=>b.total-a.total);
+    condData.forEach((c,i)=>{exRow(ws7,[c.condicion,c.total],i+2);});
+    const condLastRow = condData.length+1;
+
+    // ═══ Sheet 8: Promedios por Turno ═══
+    const ws8 = wb.addWorksheet('Promedios');
+    ws8.columns=[{width:16},{width:16},{width:14},{width:16}];
+    exHeaders(ws8,['Turno','Total Registros','Promedio Reg/Dia','Dias Trabajados'],1);
+    const dayDates=new Set(),nightDates=new Set();
+    lastTableData.forEach(rec=>{
+        if(isDiaTurno(rec.turno))dayDates.add(rec.fecha);else nightDates.add(rec.fecha);
+    });
+    exRow(ws8,['Dia',sumRD,dayDates.size>0?+(sumRD/dayDates.size).toFixed(1):0,dayDates.size],2);
+    exRow(ws8,['Noche',sumRN,nightDates.size>0?+(sumRN/nightDates.size).toFixed(1):0,nightDates.size],3);
+    // Generate ExcelJS buffer
+    const buf = await wb.xlsx.writeBuffer();
+
+    // ═══ Inject native Excel charts via OOXML + JSZip ═══
+    const zip = await JSZip.loadAsync(buf);
+
+    // Native chart colors
+    const PIE_COLORS = ['4F7CFF','22C55E','F59E0B','EF4444','8B5CF6','EC4899','14B8A6','F97316','6366F1','06B6D4'];
+
+    // Chart definitions — ALL 6 dashboard visualizations
+    const chartFiles = [
+        // 1. Tendencia Diaria (grouped column: Dia vs Noche per date)
+        { id: 1, xml: chartBarXML('Tendencia', tendLastRow, [{name:'Dia',color:'F59E0B'},{name:'Noche',color:'4F7CFF'}], 'Tendencia Diaria'), sheetIdx: 3, fromCol:0, fromRow:tendLastRow+1, toCol:7, toRow:tendLastRow+16 },
+        // 2. Registros por Turno (pie)
+        { id: 2, xml: chartPieXML('Por Turno', 3, ['F59E0B','4F7CFF'], 'Registros por Turno'), sheetIdx: 4, fromCol:0, fromRow:4, toCol:5, toRow:18 },
+        // 3. Registros por Escaneadora (bar)
+        { id: 3, xml: chartBarXML('Por Escaneadora', escLastRow, [{name:'Registros',color:'4F7CFF'}], 'Registros por Escaneadora'), sheetIdx: 5, fromCol:0, fromRow:escLastRow+1, toCol:5, toRow:escLastRow+16 },
+        // 4. Distribucion por Destino (pie)
+        { id: 4, xml: chartPieXML('Por Destino', destLastRow, PIE_COLORS.slice(0, destData.length), 'Distribucion por Destino'), sheetIdx: 6, fromCol:0, fromRow:destLastRow+1, toCol:5, toRow:destLastRow+15 },
+        // 5. Registros por Condicion (bar)
+        { id: 5, xml: chartBarXML('Por Condicion', condLastRow, [{name:'Registros',color:'8B5CF6'}], 'Registros por Condicion'), sheetIdx: 7, fromCol:0, fromRow:condLastRow+1, toCol:4, toRow:condLastRow+15 },
+        // 6. Promedios por Turno (bar — Total + Promedio)
+        { id: 6, xml: chartBarXML('Promedios', 3, [{name:'Total Registros',color:'4F7CFF'},{name:'Promedio Reg/Dia',color:'22C55E'}], 'Promedios por Turno'), sheetIdx: 8, fromCol:0, fromRow:4, toCol:5, toRow:18 },
+    ];
+
+    for (const cf of chartFiles) {
+        // Add chart XML
+        zip.file(`xl/charts/chart${cf.id}.xml`, cf.xml);
+
+        // Add drawing XML
+        zip.file(`xl/drawings/drawing${cf.id}.xml`, drawingXML('rId1', cf.fromCol, cf.fromRow, cf.toCol, cf.toRow, 2));
+
+        // Drawing rels → points to chart
+        zip.file(`xl/drawings/_rels/drawing${cf.id}.xml.rels`, relsXML([
+            { id: 'rId1', type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart', target: `../charts/chart${cf.id}.xml` }
+        ]));
+
+        // Sheet rels → points to drawing
+        const sheetRelsPath = `xl/worksheets/_rels/sheet${cf.sheetIdx}.xml.rels`;
+        const existingRels = zip.file(sheetRelsPath);
+        if (existingRels) {
+            let relsContent = await existingRels.async('string');
+            relsContent = relsContent.replace('</Relationships>', `<Relationship Id="rIdDrawing" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing${cf.id}.xml"/>\n</Relationships>`);
+            zip.file(sheetRelsPath, relsContent);
+        } else {
+            zip.file(sheetRelsPath, relsXML([
+                { id: 'rIdDrawing', type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing', target: `../drawings/drawing${cf.id}.xml` }
+            ]));
+        }
+
+        // Add <drawing> reference in sheet XML
+        const sheetPath = `xl/worksheets/sheet${cf.sheetIdx}.xml`;
+        let sheetXML = await zip.file(sheetPath).async('string');
+        if (!sheetXML.includes('<drawing')) {
+            sheetXML = sheetXML.replace('</worksheet>', `<drawing r:id="rIdDrawing"/></worksheet>`);
+            // Ensure r: namespace
+            if (!sheetXML.includes('xmlns:r=')) {
+                sheetXML = sheetXML.replace('<worksheet', '<worksheet xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"');
+            }
+            zip.file(sheetPath, sheetXML);
+        }
+    }
+
+    // Update [Content_Types].xml
+    let ct = await zip.file('[Content_Types].xml').async('string');
+    const additions = [];
+    for (const cf of chartFiles) {
+        if (!ct.includes(`/xl/charts/chart${cf.id}.xml`)) {
+            additions.push(`<Override PartName="/xl/charts/chart${cf.id}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`);
+        }
+        if (!ct.includes(`/xl/drawings/drawing${cf.id}.xml`)) {
+            additions.push(`<Override PartName="/xl/drawings/drawing${cf.id}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`);
+        }
+    }
+    if (additions.length > 0) {
+        ct = ct.replace('</Types>', additions.join('\n') + '\n</Types>');
+        zip.file('[Content_Types].xml', ct);
+    }
+
+    // Download
+    const finalBuf = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(finalBuf);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Dashboard_MI-TECH_${today.toISOString().split('T')[0]}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// Export records for a specific date
+function exportDateExcel(fecha) {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    const recs = lastTableData.filter(r => r.fecha === fecha);
+    if (recs.length === 0) return;
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([EXPORT_COLS, ...recs.map(recordToRow)]);
+    ws['!cols'] = EXPORT_COLS.map(() => ({ wch: 16 }));
+    XLSX.utils.book_append_sheet(wb, ws, fecha.replace(/\//g, '-'));
+    downloadXlsx(wb, `Registros_${fecha.replace(/\//g, '-')}.xlsx`);
+}
+
+// Export current filtered view
+function exportFilteredExcel() {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    if (lastTableData.length === 0) return;
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([EXPORT_COLS, ...lastTableData.map(recordToRow)]);
+    ws['!cols'] = EXPORT_COLS.map(() => ({ wch: 16 }));
+    XLSX.utils.book_append_sheet(wb, ws, 'Registros Filtrados');
+    const today = new Date().toISOString().split('T')[0];
+    downloadXlsx(wb, `Registros_Filtrados_${today}.xlsx`);
+}
+
+// ══════════════════════════════════════════════
+// CONDITION MULTI-SELECT DROPDOWN
+// ══════════════════════════════════════════════
+
+const CONDITIONS = [
+    { code: 'GRA', label: 'GRA', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
+    { code: 'GRB', label: 'GRB', color: '#16a34a', bg: 'rgba(22,163,74,0.15)' },
+    { code: 'GRC', label: 'GRC', color: '#15803d', bg: 'rgba(21,128,61,0.15)' },
+    { code: 'ICB', label: 'ICB', color: '#4f7cff', bg: 'rgba(79,124,255,0.15)' },
+    { code: 'ICC', label: 'ICC', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
+    { code: 'ICD', label: 'ICD', color: '#2563eb', bg: 'rgba(37,99,235,0.15)' },
+    { code: 'ICX', label: 'ICX', color: '#6366f1', bg: 'rgba(99,102,241,0.15)' },
+    { code: 'BOX', label: 'BOX', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+    { code: 'DNP', label: 'DNP', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
+    { code: 'DMT', label: 'DMT', color: '#ec4899', bg: 'rgba(236,72,153,0.15)' },
+    { code: 'DMA', label: 'DMA', color: '#f97316', bg: 'rgba(249,115,22,0.15)' },
+];
+
+let selectedConditions = [];
+
+function initCondDropdown() {
+    const dropdown = document.getElementById('cond-dropdown');
+    dropdown.innerHTML = CONDITIONS.map(c => `
+        <div class="cond-option" data-code="${c.code}" onclick="toggleCondition('${c.code}')">
+            <span class="cond-dot" style="background:${c.color};"></span>
+            <span>${c.code}</span>
+            <i class="fa-solid fa-check cond-check"></i>
+        </div>
+    `).join('');
+}
+
+function toggleCondDropdown() {
+    const trigger = document.getElementById('cond-trigger');
+    const dropdown = document.getElementById('cond-dropdown');
+    const isOpen = dropdown.classList.contains('open');
+    if (isOpen) {
+        dropdown.classList.remove('open');
+        trigger.classList.remove('open');
+    } else {
+        dropdown.classList.add('open');
+        trigger.classList.add('open');
+    }
+}
+
+function toggleCondition(code) {
+    const idx = selectedConditions.indexOf(code);
+    if (idx >= 0) {
+        selectedConditions.splice(idx, 1);
+    } else {
+        selectedConditions.push(code);
+    }
+    renderCondTags();
+    renderCondOptions();
+}
+
+function removeCondition(code, event) {
+    event.stopPropagation();
+    selectedConditions = selectedConditions.filter(c => c !== code);
+    renderCondTags();
+    renderCondOptions();
+}
+
+function renderCondTags() {
+    const container = document.getElementById('cond-tags');
+    if (selectedConditions.length === 0) {
+        container.innerHTML = '<span class="cond-placeholder">Seleccionar condiciones...</span>';
+        return;
+    }
+    container.innerHTML = selectedConditions.map(code => {
+        const c = CONDITIONS.find(x => x.code === code);
+        return `<span class="cond-tag" style="background:${c.bg};color:${c.color};border:1px solid ${c.color}30;">
+            ${c.code}
+            <span class="cond-tag-x" onclick="removeCondition('${c.code}', event)"><i class="fa-solid fa-xmark"></i></span>
+        </span>`;
+    }).join('');
+}
+
+function renderCondOptions() {
+    document.querySelectorAll('#cond-dropdown .cond-option').forEach(el => {
+        const code = el.getAttribute('data-code');
+        if (selectedConditions.includes(code)) {
+            el.classList.add('selected');
+        } else {
+            el.classList.remove('selected');
+        }
+    });
+}
+
+function resetEscForm() {
+    document.getElementById('esc-form').reset();
+    selectedConditions = [];
+    renderCondTags();
+    renderCondOptions();
+    setDefaultDate();
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    const selector = document.getElementById('cond-selector');
+    if (selector && !selector.contains(e.target)) {
+        document.getElementById('cond-dropdown').classList.remove('open');
+        document.getElementById('cond-trigger').classList.remove('open');
+    }
+});
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+initCondDropdown();
+initNfc();
+checkSession();
+
+// BULKY: auto-select GRA/GRB/GRC when BULKY is chosen
+document.getElementById('esc-destino').addEventListener('change', function() {
+    if (this.value === 'BULKY') {
+        const bulkyConds = ['GRA', 'GRB', 'GRC'];
+        bulkyConds.forEach(code => {
+            if (!selectedConditions.includes(code)) selectedConditions.push(code);
+        });
+        renderCondTags();
+        renderCondOptions();
+    }
+});
+</script>
+</body>
+</html>

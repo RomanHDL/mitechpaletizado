@@ -1,0 +1,1914 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Paletizado</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js para los gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Flatpickr para el calendario interactivo -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
+    <style>
+        :root {
+            /* Escala nativa base para evitar "Zoom Out". 
+               65% equivalente a ~10.4px base en vez de 16px. Achica todo lo que usa "rem" un 35% automáticamente */
+            font-size: 65%;
+
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-primary: #3b82f6;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --border-color: #334155;
+            --sidebar-width: 200px;
+            /* Reducido de 260px */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-card);
+            border-right: 1px solid var(--border-color);
+            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+
+        .brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 3rem;
+            letter-spacing: -0.5px;
+        }
+
+        .brand i {
+            color: var(--accent-primary);
+        }
+
+        .nav-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .nav-item {
+            padding: 0.875rem 1rem;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .nav-item:hover,
+        .nav-item.active {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: var(--accent-primary);
+        }
+
+        .nav-item i {
+            font-size: 1.25rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 1rem 1.5rem;
+            /* Fuerza el achicamiento quitando relleno extra */
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            /* Reducido gaps globales */
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .page-title h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .page-title p {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .month-pill {
+            background: var(--bg-dark);
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .month-pill.active {
+            background: var(--accent-primary);
+            color: #fff;
+            border-color: var(--accent-primary);
+        }
+
+        .month-pill:hover {
+            border-color: var(--accent-primary);
+            color: #fff;
+        }
+
+        .month-pill.active:hover {
+            background: #2563eb;
+        }
+
+        /* Estilización personalizada del Calendario Flatpickr */
+        .flatpickr-calendar {
+            background: #1E293B !important;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4) !important;
+            border: 1px solid var(--border-color) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-months {
+            background: #1E293B !important;
+        }
+
+        .flatpickr-calendar .flatpickr-weekday {
+            background: #1E293B !important;
+            color: var(--text-muted) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-days {
+            border-top: 1px solid var(--border-color) !important;
+        }
+
+        .flatpickr-calendar span.flatpickr-day {
+            color: var(--text-main) !important;
+            border: 1px solid transparent !important;
+            border-radius: 4px;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+
+        /* Efecto hover azul (accent-primary) super reforzado para los Días */
+        .flatpickr-calendar span.flatpickr-day:hover,
+        .flatpickr-calendar span.flatpickr-day:focus {
+            background: rgba(59, 130, 246, 0.2) !important;
+            border-color: var(--accent-primary) !important;
+            color: #fff !important;
+        }
+
+        .flatpickr-calendar span.flatpickr-day.selected,
+        .flatpickr-calendar span.flatpickr-day.selected:hover {
+            background: var(--accent-primary) !important;
+            border-color: var(--accent-primary) !important;
+            color: #fff !important;
+        }
+
+        /* Efecto hover azul para el selector de Mes y Año (Cabecera) */
+        .flatpickr-monthDropdown-months:hover,
+        .numInputWrapper:hover .numInput,
+        .numInputWrapper:hover .arrowUp,
+        .numInputWrapper:hover .arrowDown,
+        .flatpickr-prev-month:hover svg,
+        .flatpickr-next-month:hover svg {
+            color: var(--accent-primary) !important;
+            fill: var(--accent-primary) !important;
+            background: rgba(59, 130, 246, 0.1) !important;
+            /* Resalte en la cabecera también */
+        }
+
+        /* Responsive */
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .search-bar {
+            position: relative;
+        }
+
+        .search-bar input {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.625rem 1rem 0.625rem 2.5rem;
+            border-radius: 2rem;
+            outline: none;
+            width: 180px;
+            /* Reducido de 250px */
+            transition: all 0.3s ease;
+        }
+
+        .search-bar input:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        .search-bar i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .profile {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .avatar {
+            width: 32px;
+            /* Reducido de 40px */
+            height: 32px;
+            /* Reducido de 40px */
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        /* Cards Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .stat-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 1rem;
+            min-width: 0;
+            /* Fuerza a ignorar anchos mínimos del contenido interno */
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            border-color: var(--accent-primary);
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .stat-icon {
+            width: 32px;
+            /* Reducido de 40px */
+            height: 32px;
+            /* Reducido de 40px */
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            /* Reducido de 1.25rem */
+        }
+
+        .icon-blue {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--accent-primary);
+        }
+
+        .icon-green {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-success);
+        }
+
+        .icon-yellow {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--accent-warning);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .stat-change {
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .change-up {
+            color: var(--accent-success);
+        }
+
+        .change-down {
+            color: #ef4444;
+        }
+
+        /* Dashboard Sections */
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .panel {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 1rem;
+            min-width: 0;
+            /* Fuerza compresión horizontal agresiva */
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .btn {
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 1rem;
+            text-align: center;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            font-size: 0.95rem;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-success);
+        }
+
+        .status-pending {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--accent-warning);
+        }
+
+        /* Chart Area */
+        .chart-area {
+            height: 300px;
+            /* Aumentamos ligeramente la altura para el anillo */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-top: 1rem;
+            position: relative;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="brand">
+            <i class="fa-solid fa-boxes-stacked"></i>
+            PaletTrack
+        </div>
+        <ul class="nav-list">
+            <li class="nav-item active">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Dashboard</span>
+            </li>
+            <li class="nav-item">
+                <i class="fa-solid fa-pallet"></i>
+                <span>Palets</span>
+            </li>
+            <li class="nav-item">
+                <i class="fa-solid fa-truck-fast"></i>
+                <span>Envíos</span>
+            </li>
+            <li class="nav-item">
+                <i class="fa-solid fa-warehouse"></i>
+                <span>Inventario</span>
+            </li>
+            <li class="nav-item" style="margin-top: auto;">
+                <i class="fa-solid fa-gear"></i>
+                <span>Configuración</span>
+            </li>
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header>
+            <div class="page-title">
+                <h1>Resumen Paletizado</h1>
+                <p>Monitoreo local</p>
+                <div id="month-pills"
+                    style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                    <!-- Botones de mes dinámicos (Pills) -->
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="search-bar">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <input type="text" id="dateFilter" placeholder="Filtrar por Fechas...">
+                </div>
+                <div class="search-bar">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" placeholder="Buscar palets, IDs...">
+                </div>
+                <div class="profile">
+                    <div class="avatar">L2</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- SECCIÓN DE ERROR: Alerta de Pallets Duplicados -->
+        <div id="alertas-duplicados-wrapper" style="margin-top: 1rem; margin-bottom: 0.5rem; display: none;">
+            <h3 style="font-size: 1rem; color: var(--text-muted); margin-bottom: 1rem;">
+                <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444; margin-right: 6px;"></i>
+                ALERTA DE SEGURIDAD: ID de Pallets Duplicados
+            </h3>
+            <div id="alertas-duplicados-container" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <!-- Etiquetas de duplicados inyectadas por JS -->
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span>Pallets Históricos</span>
+                    <div class="stat-icon icon-blue">
+                        <i class="fa-solid fa-layer-group"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="stat-activos">...</div>
+                <div class="stat-change" style="color: var(--text-muted);">
+                    <i class="fa-solid fa-database"></i>
+                    <span>Total general registrado</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span>Envíos en Tránsito</span>
+                    <div class="stat-icon icon-yellow">
+                        <i class="fa-solid fa-truck"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="stat-transito">...</div>
+                <div class="stat-change change-up">
+                    <i class="fa-solid fa-arrow-trend-up"></i>
+                    <span>+4% esta semana</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span>Promedio Histórico</span>
+                    <div class="stat-icon icon-green">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="stat-promedio-day" style="font-size: 1.5rem; margin-top: 5px;">...</div>
+                <div class="stat-change"
+                    style="background: none; padding: 0; color: #94a3b8; font-size: 0.95rem; margin-top: 5px;">
+                    <i class="fa-solid fa-moon"></i>
+                    <span id="stat-promedio-night">...</span>
+                </div>
+            </div>
+
+            <!-- Nuevo Recuadro: Total Seleccionado -->
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span>Pallets Seleccionados</span>
+                    <div class="stat-icon" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">
+                        <i class="fa-solid fa-calendar-check"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="stat-filtros">0</div>
+                <div class="stat-change" style="color: var(--text-muted);">
+                    <i class="fa-solid fa-filter"></i>
+                    <span>Según tu calendario</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Content Grid -->
+        <div class="content-grid">
+            <!-- Nuevo Recuadro: Órdenes Especiales Consolidado (Movido a la Fila de Gráficos) -->
+            <div class="panel" id="ordenes-especiales-card" style="display: none; flex-direction: column;">
+                <div class="panel-header" style="margin-bottom: 1rem; flex-shrink: 0;">
+                    <span style="font-size: 1rem; font-weight: 600; color: var(--text-muted);">Órdenes de Atención
+                        Especial</span>
+                    <div class="stat-icon"
+                        style="background: rgba(239, 68, 68, 0.1); color: #ef4444; width: 32px; height: 32px; border-radius: 0.75rem; display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-fire"></i>
+                    </div>
+                </div>
+
+                <!-- Contenedor ampliado con Scroll vertical -->
+                <div
+                    style="flex: 1; min-height: 320px; max-height: 380px; overflow-y: auto; padding-right: 0.5rem; display: flex; flex-direction: column; gap: 10px;">
+                    <!-- JS inyectará aquí los divs 'HOY' -->
+                    <div id="pedidos-hoy-container"
+                        style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                        <!-- Vacío por defecto -->
+                    </div>
+
+                    <!-- JS inyectará aquí los divs '7 DÍAS' -->
+                    <div id="pedidos-activos-container"
+                        style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                        <!-- Vacío por defecto -->
+                    </div>
+                </div>
+            </div>
+            <!-- Chart Panel (Anillo) -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Estado de Inventario</h2>
+                    <button class="btn">Exportar PDF</button>
+                </div>
+                <div class="chart-area">
+                    <canvas id="doughnutChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart Panel (Barras) -->
+            <div class="panel" style="grid-column: span 1;">
+                <div class="panel-header">
+                    <h2 class="panel-title">Envíos por Turno</h2>
+                </div>
+                <div class="chart-area" id="barChartContainer">
+                    <canvas id="barChart"></canvas>
+                </div>
+                <!-- Detalle oculto para Drill-Down -->
+                <div class="chart-area" id="barChartDetailContainer"
+                    style="display: none; flex-direction: column; height: 300px; padding-top: 0; align-items: stretch; justify-content: flex-start;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <span id="barDetailSubtitle"
+                            style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;"></span>
+                        <button class="btn" onclick="hideBarDetails()"
+                            style="padding: 0.25rem 0.6rem; font-size: 0.75rem;"><i class="fa-solid fa-arrow-left"
+                                style="margin-right: 4px;"></i> Volver</button>
+                    </div>
+                    <div
+                        style="flex: 1; overflow-y: auto; overflow-x: auto; background: var(--bg-dark); border-radius: 0.5rem; border: 1px solid var(--border-color);">
+                        <table style="width: 100%; border-collapse: collapse; min-width: max-content;">
+                            <thead style="position: sticky; top: 0; background: var(--bg-dark); z-index: 1;">
+                                <tr>
+                                    <th
+                                        style="padding: 0.5rem; font-size: 0.75rem; border-bottom: 1px solid var(--border-color);">
+                                        Pallet ID</th>
+                                    <th
+                                        style="padding: 0.5rem; font-size: 0.75rem; border-bottom: 1px solid var(--border-color);">
+                                        Fecha</th>
+                                    <th
+                                        style="padding: 0.5rem; font-size: 0.75rem; border-bottom: 1px solid var(--border-color);">
+                                        Cant.</th>
+                                </tr>
+                            </thead>
+                            <tbody id="barDetailTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTENEDOR 50/50 PARA PRODUCCIÓN Y ERRORES -->
+            <div
+                style="grid-column: span 3; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem;">
+
+                <!-- Gráfico Línea Últimos 7 Días (Mitad Izquierda) -->
+                <div class="panel" style="display: flex; flex-direction: column;">
+                    <div class="panel-header" style="align-items: center; justify-content: space-between;">
+                        <h2 class="panel-title">Producción Diaria (Últimos 7 Días de Actividad)</h2>
+                        <select id="lineChartTurnoFilter" onchange="window.filterLineChartByTurno()"
+                            style="background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border-color); padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.8rem; cursor: pointer; outline: none;">
+                            <option value="Completo">Completo</option>
+                            <option value="Día">Turno Día</option>
+                            <option value="Noche">Turno Noche</option>
+                        </select>
+                    </div>
+                    <div class="chart-area" style="height: 280px; flex: 1;">
+                        <canvas id="lineChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Gráfico de Errores (Mitad Derecha) -->
+                <div class="panel" style="display: flex; flex-direction: column;">
+                    <div class="panel-header" style="align-items: center; justify-content: space-between;">
+                        <h2 class="panel-title" style="font-size: 0.95rem;">Errores de Liberación</h2>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button id="toggleHoyBtn" class="btn" onclick="toggleFiltroHoy()"
+                                style="font-size: 0.70rem; padding: 0.25rem 0.5rem; background-color: var(--bg-dark); color: var(--text-main);">
+                                <i class="fa-solid fa-calendar-day"></i> Solo Hoy
+                            </button>
+                            <button id="toggleHVBtn" class="btn" onclick="toggleFiltroHV()"
+                                style="font-size: 0.70rem; padding: 0.25rem 0.5rem; background-color: var(--bg-dark); color: var(--text-main);">
+                                <i class="fa-solid fa-gem"></i> HIGH VALUE
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chart-area" style="height: 280px; flex: 1;">
+                        <canvas id="errorsChart"></canvas>
+
+                    </div>
+
+                    <!-- NUEVA SECCIÓN DE PALLETS RECHAZADOS (ACORDEÓN) -->
+                    <div
+                        style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem; position: relative;">
+                        <button id="toggleRechazadosBtn" onclick="toggleRechazadosTable()"
+                            style="width: 100%; background: transparent; border: 1px dashed var(--border-color); color: var(--text-muted); padding: 0.5rem; border-radius: 0.5rem; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;">
+                            <i class="fa-solid fa-chevron-down"></i> Ver pallets rechazados
+                        </button>
+                        <div id="rechazadosContainer"
+                            style="display: none; position: absolute; z-index: 50; bottom: 100%; left: 0; right: 0; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 0.5rem; margin-bottom: 0.5rem; max-height: 220px; overflow-y: auto; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8);">
+                            <table class="data-table" style="margin: 0; width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th
+                                            style="padding: 0.5rem; text-align: center; font-size: 0.8rem; border-bottom: 1px solid var(--border-color);">
+                                            Defecto</th>
+                                        <th
+                                            style="padding: 0.5rem; text-align: center; font-size: 0.8rem; border-bottom: 1px solid var(--border-color);">
+                                            Pallet ID</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rechazadosBody">
+                                    <!-- Datos dinámicos -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div> <!-- Se cierra adecuadamente .panel de Errores -->
+
+                <!-- Recent Activity Panel, por fuera de Errores -->
+                <div class="panel" style="grid-column: 1 / -1;">
+                    <div class="panel-header">
+                        <h2 class="panel-title">Últimos Registros</h2>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID Palet</th>
+                                    <th>Destino</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                                <tr>
+                                    <td colspan="3"
+                                        style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                                        Cargando registros del SpreadSheet...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+    </main>
+
+    <script>
+
+        // Función simple para parsear texto CSV respetando comillas
+        function parseCSV(str) {
+            const result = [];
+            let inQuotes = false;
+            let currentField = '';
+            let currentRow = [];
+
+            for (let i = 0; i < str.length; i++) {
+                const char = str[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    currentRow.push(currentField.trim());
+                    currentField = '';
+                } else if ((char === String.fromCharCode(10) || char === String.fromCharCode(13)) && !inQuotes) {
+                    if (char === String.fromCharCode(13) && str[i + 1] === String.fromCharCode(10)) i++; // Saltar salto de linea doble
+                    if (currentField !== '' || currentRow.length > 0) {
+                        currentRow.push(currentField.trim());
+                        result.push(currentRow);
+                    }
+                    currentField = '';
+                    currentRow = [];
+                } else {
+                    currentField += char;
+                }
+            }
+            if (currentField !== '' || currentRow.length > 0) {
+                currentRow.push(currentField.trim());
+                result.push(currentRow);
+            }
+            return result;
+        }
+
+        let myDoughnutChart = null; // Variable global para el gráfico de anillos
+        let myBarChart = null;      // Variable global para el gráfico de barras
+        let myLineChart = null;     // Variable global para el gráfico histórico 7D
+        let flatpickrInstance = null; // Instancia global de calendario
+        let allSheetData = [];      // Guardamos en memoria los datos puros para filtrar
+        let availableDates = [];    // Todas las fechas extraíbles
+        let currentLineChartTurno = 'Completo'; // Filtro predeterminado para gráfico de 7 días
+
+        // Función para cambiar de color si todos los días de ese mes están seleccionados
+        window.syncMonthPills = function () {
+            let val = document.getElementById('dateFilter').value;
+            let currentSelectedStrs = val ? val.split(', ') : [];
+
+            document.querySelectorAll('.month-pill').forEach(btn => {
+                const monthYearStr = btn.getAttribute('data-month');
+                const [m, y] = monthYearStr.split('/');
+                const datesInMonth = availableDates.filter(d => {
+                    const parts = d.split('/');
+                    return parts[0] === m && parts[2] === y;
+                });
+                const allSelected = datesInMonth.length > 0 && datesInMonth.every(d => currentSelectedStrs.includes(d));
+                if (allSelected) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+        };
+
+        // Función para cambiar la vista a Detalle de Barras
+        window.showBarDetails = function (turnoSelected, destinoSelected) {
+            document.getElementById('barChartContainer').style.display = 'none';
+            document.getElementById('barChartDetailContainer').style.display = 'flex';
+            document.getElementById('barDetailSubtitle').innerText = `${destinoSelected} - Turno ${turnoSelected}`;
+
+            const tbody = document.getElementById('barDetailTableBody');
+            tbody.innerHTML = '';
+
+            let val = document.getElementById('dateFilter').value;
+            let currentSelectedStrs = val ? val.split(', ') : [];
+
+            let filteredList = allSheetData.filter(row => {
+                // Filtrar por fechas elegidas
+                if (currentSelectedStrs.length > 0 && currentSelectedStrs[0] !== "") {
+                    let formattedRowDate = row.fecha; // M/d/yyyy
+                    if (!currentSelectedStrs.includes(formattedRowDate)) return false;
+                }
+
+                let tKey = row.turno;
+                if (tKey.includes("Noche") || tKey.toLowerCase().includes("night")) tKey = 'Noche';
+                else if (tKey.includes("día") || tKey.toLowerCase().includes("day") || tKey.includes("Dia") || tKey.includes("dia")) tKey = 'Día';
+
+                if (tKey !== turnoSelected) return false;
+
+                let d = row.destinoOriginal;
+                if (/pedido/i.test(d)) d = "TRG";
+                else if (/\d/.test(d)) d = "Almacén";
+
+                let dNorm = d.charAt(0).toUpperCase() + d.slice(1).toLowerCase();
+                if (d.toLowerCase() === 'trg') dNorm = "TRG";
+                else if (d.toLowerCase().includes('hv')) dNorm = "HV (High Value)";
+
+                return dNorm === destinoSelected;
+            });
+
+            if (filteredList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="100%" style="text-align:center; padding: 1rem; color: var(--text-muted); font-size: 0.8rem;">No hay registros asociados a esta barra.</td></tr>`;
+            } else {
+                filteredList.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = "1px solid var(--border-color)";
+                    let htmlChunks = window.displayIndices.map((idx, arrIndex) => {
+                        let val = row.rowValues[idx] !== undefined ? row.rowValues[idx].toString() : '';
+
+                        // Si es la primera columna mostrada (Pallet ID), la recortamos a 6 caracteres
+                        if (arrIndex === 0 && val.length > 6) {
+                            val = val.substring(0, 6);
+                        }
+
+                        let displayVal = arrIndex === 0 ? `<strong>${val}</strong>` : val;
+                        return `<td style="padding: 0.5rem; font-size: 0.8rem; text-align: center;">${displayVal}</td>`;
+                    });
+                    tr.innerHTML = htmlChunks.join('');
+                    tbody.appendChild(tr);
+                });
+            }
+        };
+
+        // Función para retornar a la gráfica de barras original
+        window.hideBarDetails = function () {
+            document.getElementById('barChartDetailContainer').style.display = 'none';
+            document.getElementById('barChartContainer').style.display = 'flex';
+        };
+
+        window.filterLineChartByTurno = function () {
+            const select = document.getElementById('lineChartTurnoFilter');
+            if (select) {
+                currentLineChartTurno = select.value;
+                window.renderLineChart();
+            }
+        };
+
+        window.renderLineChart = function () {
+            if (!myLineChart) return;
+
+            let dailyCounts = {};
+
+            // Iteramos sobre todos los datos y contamos basados en el filtro actual de Turno
+            allSheetData.forEach(row => {
+                let tKey = row.turno.toLowerCase();
+
+                let includeRow = false;
+                if (currentLineChartTurno === 'Completo') {
+                    includeRow = true;
+                } else if (currentLineChartTurno === 'Día' && (tKey.includes("día") || tKey.includes("dia") || tKey.includes("day"))) {
+                    includeRow = true;
+                } else if (currentLineChartTurno === 'Noche' && (tKey.includes("noche") || tKey.includes("night"))) {
+                    includeRow = true;
+                }
+
+                if (includeRow) {
+                    if (dailyCounts[row.fecha]) {
+                        dailyCounts[row.fecha]++;
+                    } else {
+                        dailyCounts[row.fecha] = 1;
+                    }
+                }
+            });
+
+            // Ordenar fechas cronológicamente
+            // availableDates contiene los valores del date picker, que extrajimos previamente como fechas unicas
+            let chronologicDates = Array.from(availableDates).sort((a, b) => new Date(a) - new Date(b));
+
+            // Tomar las últimas 7
+            let last7 = chronologicDates.slice(-7);
+
+            // Mapear la cuenta de pallets para cada uno de esos 7 días
+            let last7Data = last7.map(d => dailyCounts[d] || 0);
+
+            // Embellecer formato de fecha para la etiqueta (ej: 'Feb 13')
+            let prettyLabels = last7.map(d => {
+                let dt = new Date(d);
+                return dt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+            });
+
+            myLineChart.data.labels = prettyLabels;
+            myLineChart.data.datasets[0].data = last7Data;
+            myLineChart.update();
+        };
+
+        // Función para inyectar un mes completo al Flatpickr
+        window.toggleMonth = function (monthYearStr) {
+            let val = document.getElementById('dateFilter').value;
+            let currentSelectedStrs = val ? val.split(', ') : [];
+
+            const [m, y] = monthYearStr.split('/');
+            const datesInMonth = availableDates.filter(d => {
+                const parts = d.split('/');
+                return parts[0] === m && parts[2] === y;
+            });
+
+            const allSelected = datesInMonth.length > 0 && datesInMonth.every(d => currentSelectedStrs.includes(d));
+
+            if (allSelected) {
+                // Deseleccionarlo quitando las fechas asociadas
+                currentSelectedStrs = currentSelectedStrs.filter(d => !datesInMonth.includes(d));
+            } else {
+                // Seleccionar agregando las fechas que falten
+                datesInMonth.forEach(d => {
+                    if (!currentSelectedStrs.includes(d)) currentSelectedStrs.push(d);
+                });
+            }
+
+            // flatpickr sabe mapear un array de string al calendario y disparará el onChange internamente
+            flatpickrInstance.setDate(currentSelectedStrs, true);
+        };
+
+        // ---- NUEVO SISTEMA (JSONP CON INTERCEPTOR) ----
+        let allErrorsData = [];
+        let myErrorsChart = null;
+
+        // Al usar JSONP evitamos el bloqueo CORS para archivos locales.
+        // Google Visualization API siempre devuelve: google.visualization.Query.setResponse(...)
+        // Por lo tanto, creamos un falso objeto 'google' para atrapar su respuesta.
+        window.google = {
+            visualization: {
+                Query: {
+                    setResponse: function (response) {
+                        window.processSheetData(response);
+                    }
+                }
+            }
+        };
+
+        window.processErrorsData = function (response) {
+            try {
+                if (!response || !response.table || !response.table.rows) return;
+
+                allErrorsData = []; // Vaciamos para re-poblar los conjuntos
+
+                // Regla del usuario: Busca en la columna J (c[9]) el primer dato. Juntalo con Col D (c[3]), Col L (c[11]), Col B (c[1]).
+                response.table.rows.forEach(r => {
+                    let c = r.c;
+                    // J = c[9] (Defectos)
+                    if (!c || !c[9] || c[9].v === null) return;
+
+                    let desc = c[9].v.toString().trim();
+                    if (desc !== "" && desc !== "-") {
+                        // B (c[1]) = Fecha 
+                        let dateVal = c[1] && c[1].f ? c[1].f.split(' ')[0] : (c[1] && c[1].v ? c[1].v : 'N/A');
+
+                        // D (c[3]) = Pallet ID
+                        let idVal = c[3] && c[3].v ? c[3].v.toString().trim() : 'N/A';
+
+                        // L (c[11]) = Tipo de pallet
+                        let tipoVal = c[11] && c[11].v ? c[11].v.toString().trim() : '';
+
+                        allErrorsData.push({
+                            defecto: desc,
+                            palletId: idVal,
+                            tipo: tipoVal,
+                            fecha: dateVal
+                        });
+                    }
+                });
+
+                // Llamar a re-dibujar la gráfica con los filtros actuales
+                window.renderErrorsChart();
+
+            } catch (error) {
+                console.error('Error procesando datos de Errores', error);
+            }
+        };
+
+        let isFilterHoyOn = false;
+        let isFilterHVOn = false;
+
+        window.renderErrorsChart = function () {
+            let filteredErrorRows = allErrorsData;
+
+            // 1. Filtrar por "Solo Hoy" si el toggle está encendido
+            if (isFilterHoyOn) {
+                const todayObj = new Date();
+                const todayStr = `${todayObj.getMonth() + 1}/${todayObj.getDate()}/${todayObj.getFullYear()}`;
+                filteredErrorRows = filteredErrorRows.filter(row => row.fecha === todayStr);
+            }
+
+            // 2. Filtrar por "HIGH VALUE" si el toggle está encendido, SIMULTÁNEAMENTE
+            if (isFilterHVOn) {
+                filteredErrorRows = filteredErrorRows.filter(row => {
+                    let text = row.tipo.toLowerCase();
+                    return text.includes('hv') || text.includes('high value');
+                });
+            }
+
+            let errorCounts = {};
+            filteredErrorRows.forEach(row => {
+                let e = row.defecto;
+                errorCounts[e] = (errorCounts[e] || 0) + 1;
+            });
+
+            let sortedErrors = Object.keys(errorCounts).map(k => ({ label: k, count: errorCounts[k] })).sort((a, b) => b.count - a.count);
+
+            let labels = sortedErrors.map(item => item.label);
+            let data = sortedErrors.map(item => item.count);
+
+            if (myErrorsChart) {
+                myErrorsChart.data.labels = labels.length > 0 ? labels : ["Sin Resultados"];
+                myErrorsChart.data.datasets[0].data = data.length > 0 ? data : [0];
+
+                // Color Púrpura si filtramos HIGH VALUE, Naranja por puro default
+                myErrorsChart.data.datasets[0].backgroundColor = isFilterHVOn ? '#8b5cf6' : '#f59e0b';
+                myErrorsChart.update();
+            }
+
+            // Renderizado Visual de los Botones
+            const btnHoy = document.getElementById('toggleHoyBtn');
+            if (btnHoy) {
+                btnHoy.style.backgroundColor = isFilterHoyOn ? '#3b82f6' : 'var(--bg-dark)';
+                btnHoy.style.color = isFilterHoyOn ? '#ffffff' : 'var(--text-main)';
+            }
+
+            const btnHV = document.getElementById('toggleHVBtn');
+            if (btnHV) {
+                btnHV.style.backgroundColor = isFilterHVOn ? '#8b5cf6' : 'var(--bg-dark)';
+                btnHV.style.color = isFilterHVOn ? '#ffffff' : 'var(--text-main)';
+            }
+
+            // Renderizamos la Tabla Dinámica de Pallets Rechazados correspondiente a la misma data gráfica
+            window.renderRechazadosTable(filteredErrorRows);
+        };
+
+        window.toggleFiltroHoy = function () {
+            isFilterHoyOn = !isFilterHoyOn;
+            window.renderErrorsChart();
+        };
+
+        window.toggleFiltroHV = function () {
+            isFilterHVOn = !isFilterHVOn;
+            window.renderErrorsChart();
+        };
+
+        // LÓGICA DE TABLA DE RECHAZADOS DESPLEGABLE
+        let isRechazadosOpen = false;
+
+        window.toggleRechazadosTable = function () {
+            isRechazadosOpen = !isRechazadosOpen;
+            const container = document.getElementById('rechazadosContainer');
+            const btn = document.getElementById('toggleRechazadosBtn');
+
+            if (isRechazadosOpen) {
+                container.style.display = 'block';
+                btn.innerHTML = '<i class="fa-solid fa-chevron-up"></i> Ocultar pallets rechazados';
+                btn.style.color = 'var(--text-main)';
+                btn.style.borderColor = 'var(--text-muted)';
+            } else {
+                container.style.display = 'none';
+                btn.innerHTML = '<i class="fa-solid fa-chevron-down"></i> Ver pallets rechazados';
+                btn.style.color = 'var(--text-muted)';
+                btn.style.borderColor = 'var(--border-color)';
+            }
+        };
+
+        window.renderRechazadosTable = function (filteredRows) {
+            const tbody = document.getElementById('rechazadosBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+
+            if (!filteredRows || filteredRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; padding: 1rem; color: var(--text-muted); font-size: 0.8rem;">No hay pallets con errores para esta pre-selección.</td></tr>`;
+                return;
+            }
+
+            // Para no repetir IDs con el mismo defecto
+            const printed = new Set();
+            const uniqueRows = [];
+
+            filteredRows.forEach(row => {
+                const uniqueKey = `${row.defecto}-${row.palletId}`;
+                if (printed.has(uniqueKey)) return;
+                printed.add(uniqueKey);
+                uniqueRows.push(row);
+            });
+
+            // Evitar desbordes forzando máx 5 elementos visuales para proteger el Layout
+            const maxToDisplay = 5;
+            const toDisplay = uniqueRows.slice(0, maxToDisplay);
+
+            toDisplay.forEach(row => {
+                let displayId = row.palletId;
+                if (displayId.length > 6) displayId = displayId.substring(0, 6);
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding: 0.5rem; text-align: center; font-size: 0.75rem; color: var(--text-main); border-bottom: 1px solid var(--border-dark);">${row.defecto}</td>
+                    <td style="padding: 0.5rem; text-align: center; font-size: 0.75rem; border-bottom: 1px solid var(--border-dark);"><strong>${displayId}</strong></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (uniqueRows.length > maxToDisplay) {
+                const trLabel = document.createElement('tr');
+                trLabel.innerHTML = `
+                    <td colspan="2" style="padding: 0.5rem; text-align: center; font-size: 0.7rem; color: var(--text-muted); font-style: italic;">... y ${uniqueRows.length - maxToDisplay} defectuosos más</td>
+                `;
+                tbody.appendChild(trLabel);
+            }
+        };
+
+        // ══════════════════════════════════════════════════════════════
+        // CONFIGURACIÓN — MONGODB ATLAS via /api/sheet-proxy
+        // ══════════════════════════════════════════════════════════════
+        const API_BASE = window.location.origin;
+
+        function fetchSheetData() {
+            const oldScript = document.getElementById('jsonp-script-main');
+            if (oldScript) oldScript.remove();
+
+            console.log('[FETCH] Solicitando datos de MongoDB...');
+
+            const script = document.createElement('script');
+            script.id = 'jsonp-script-main';
+            script.src = `${API_BASE}/api/sheet-proxy?callback=window.processSheetData&_=${Date.now()}`;
+            script.onerror = function() {
+                console.error('[FETCH] ERROR: No se pudo conectar al backend.');
+                const tbody = document.getElementById('table-body');
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#ef4444;padding:2rem;">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size:2rem;margin-bottom:0.5rem;"></i><br>
+                        <strong>Error cargando datos.</strong><br>
+                        No se pudo conectar al servidor.
+                    </td></tr>`;
+                }
+            };
+            document.body.appendChild(script);
+        }
+
+        function fetchErrorsData() {
+            console.log('[FETCH] Errores: endpoint pendiente de migración.');
+        }
+
+        // Esta función será ejecutada automáticamente por el <script> insertado cuando Google responde
+        window.processSheetData = function (response) {
+            try {
+                if (!response || !response.table || !response.table.rows) {
+                    throw new Error("Formato de respuesta inválido.");
+                }
+
+                allSheetData = [];
+                const uniqueDates = new Set();
+                const uniqueMonths = new Set(); // Para generar los botones
+
+                // [FIX] Guardar selección actual del calendario para restaurarla después del refresh
+                let previousSelectedStrs = [];
+                if (flatpickrInstance && flatpickrInstance.selectedDates.length > 0) {
+                    previousSelectedStrs = flatpickrInstance.selectedDates.map(d => {
+                        return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+                    });
+                }
+
+                // Parsear encabezados dinámicamente, omitiendo Timestamp (índice 0) y usando hasta el 7
+                const allRawHeaders = response.table.cols.map(c => c ? (c.label || "Columna") : "N/A");
+                const colHeaders = allRawHeaders.slice(1, 7).map((lbl, i) => {
+                    let txt = lbl.toLowerCase();
+                    // Índice 0 es siempre la columna B (Número de pallet) en este Sheet
+                    if (i === 0 || txt.includes('número') || txt.includes('numero') || (txt.includes('pallet') && !txt.includes('destino'))) {
+                        return 'Pallet ID';
+                    }
+                    if (txt.includes('cantidad') || txt.includes('qty')) return 'Cantidad';
+                    if (txt.includes('dónde') || txt.includes('destino')) return 'Destino';
+                    return lbl;
+                });
+                // Calcular los índices a mostrar (hasta la columna "CONDICION")
+                window.displayIndices = [];
+                let foundCondicion = false;
+                for (let i = 0; i < colHeaders.length; i++) {
+                    if (foundCondicion) break; // Ya vimos condicion, ignoramos las demás
+                    window.displayIndices.push(i);
+                    if (colHeaders[i].toUpperCase().includes('CONDICI')) {
+                        foundCondicion = true;
+                    }
+                }
+
+                // Generamos los Headers finales para TODAS las tablas
+                let HTMLHeaders = window.displayIndices.map(i => `<th style="text-align: center;">${colHeaders[i]}</th>`).join('');
+                document.querySelectorAll('table thead tr').forEach(tr => {
+                    tr.innerHTML = HTMLHeaders;
+                });
+
+                // Mapear y procesar todos los datos iniciales
+                response.table.rows.forEach(r => {
+                    const c = r.c;
+                    // Índices: c[4] = Destino, c[5] = Fecha, c[6] = Turno
+                    if (!c || !c[4] || c[4].v === null) return;
+
+                    // Extraer los 6 valores omitiendo la Marca Temporal (columna 0)
+                    let rawValues = [];
+                    for (let i = 1; i <= 6; i++) {
+                        let cell = c[i];
+                        if (!cell || cell.v == null) {
+                            rawValues.push('');
+                        } else {
+                            rawValues.push(cell.f ? cell.f.toString() : cell.v.toString());
+                        }
+                    }
+
+                    let rawDate = (c[5] && c[5].f) ? c[5].f.split(' ')[0] : 'N/A'; // Formato esperado M/d/yyyy
+                    if (rawDate !== 'N/A') {
+                        uniqueDates.add(rawDate);
+                        const parts = rawDate.split('/');
+                        uniqueMonths.add(`${parts[0]}/${parts[2]}`);
+                    }
+
+                    allSheetData.push({
+                        rowValues: rawValues,
+                        id: (c[1] && c[1].v != null) ? c[1].v.toString().split('-')[0].trim() : 'Sin ID',
+                        cantidad: rawValues[1] ? (parseFloat(rawValues[1].toString().replace(/,/g, '')) || 0) : 0,
+                        destinoOriginal: (c[4] && c[4].v != null) ? c[4].v.toString().trim() : '',
+                        fecha: rawDate,
+                        turno: (c[6] && c[6].v != null) ? c[6].v.toString() : 'N/A',
+                        observaciones: (c[8] && c[8].v != null) ? c[8].v.toString().trim() : ''
+                    });
+                });
+
+                // Configurar el Calendario Flatpickr permitiendo selecciones múltiples
+                availableDates = Array.from(uniqueDates);
+                if (!flatpickrInstance) {
+                    flatpickrInstance = flatpickr("#dateFilter", {
+                        mode: "multiple",
+                        dateFormat: "n/j/Y",
+                        locale: "es",
+                        enable: availableDates,
+                        onChange: function (selectedDates, dateStr, instance) {
+                            renderDashboard(dateStr.split(', '));
+                            window.syncMonthPills();
+                        }
+                    });
+                } else {
+                    // [FIX] Actualizar fechas habilitadas para incluir nuevos días del Sheet
+                    flatpickrInstance.set('enable', availableDates);
+                    // Restaurar selección previa sin disparar onChange
+                    if (previousSelectedStrs.length > 0) {
+                        flatpickrInstance.setDate(previousSelectedStrs, false);
+                    }
+                }
+
+                // Generar los botones dinámicos de Mes (Pills)
+                const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+                const pillsContainer = document.getElementById('month-pills');
+                pillsContainer.innerHTML = '<span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Meses:</span>';
+
+                // Ordenar cronológicamente simple
+                Array.from(uniqueMonths).sort().forEach(m => {
+                    const [monthNum, yearNum] = m.split('/');
+                    const btn = document.createElement('button');
+                    btn.className = 'month-pill';
+                    btn.setAttribute('data-month', m);
+                    btn.innerText = `${monthNames[parseInt(monthNum) - 1]} ${yearNum}`;
+                    btn.onclick = () => window.toggleMonth(m);
+                    pillsContainer.appendChild(btn);
+                });
+
+                // --- Cálculo de Promedio Histórico ---
+                let dayPallets = 0;
+                let nightPallets = 0;
+                let dayDates = new Set();
+                let nightDates = new Set();
+
+                // Para el grafico de linea
+                // La suma y graficado ahora se manejan en renderLineChart(), solo necesitamos setear availableDates.
+                availableDates = Array.from(uniqueDates);
+
+                allSheetData.forEach(row => {
+                    let tKey = row.turno;
+                    if (tKey.includes("Noche") || tKey.toLowerCase().includes("night")) {
+                        nightPallets++;
+                        nightDates.add(row.fecha);
+                    } else if (tKey.includes("día") || tKey.toLowerCase().includes("day")) {
+                        dayPallets++;
+                        dayDates.add(row.fecha);
+                    }
+                });
+
+                let avgDay = dayDates.size > 0 ? (dayPallets / dayDates.size).toFixed(1) : 0;
+                let avgNight = nightDates.size > 0 ? (nightPallets / nightDates.size).toFixed(1) : 0;
+
+                document.getElementById('stat-promedio-day').innerHTML = `<i class="fa-solid fa-sun" style="font-size: 1.1rem; color: #f59e0b; margin-right: 8px;"></i>${avgDay} plts/día`;
+                document.getElementById('stat-promedio-night').innerText = `${avgNight} plts/noche`;
+
+                // --- Generar Gráfico de 7 Días INDEPENDIENTE ---
+                window.renderLineChart();
+
+                // [FIX] Renderizar respetando la selección previa del calendario
+                if (previousSelectedStrs.length > 0) {
+                    renderDashboard(previousSelectedStrs);
+                } else {
+                    renderDashboard([]);
+                }
+                window.syncMonthPills();
+
+            } catch (error) {
+                console.error('Error procesando datos del Spreadsheet', error);
+                document.getElementById('table-body').innerHTML = `
+                    <tr>
+                        <td colspan="3" style="text-align:center;color:#ef4444;">
+                            <i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem; margin-bottom: 0.5rem;"></i><br>
+                            <strong>Hubo un problema procesando el documento.</strong>
+                        </td>
+                    </tr>
+                `;
+            }
+        };
+
+        // Renderiza Gráficos (Anillo y Barras) y Tablas según la Selección de Fechas
+        function renderDashboard(selectedDatesAllowed) {
+            // if (typeof window.renderErrorsChart === 'function') {
+            //     window.renderErrorsChart(selectedDatesAllowed);
+            // }
+
+            let validRowsCount = 0;
+            let enTransitoCount = 0;
+
+            const destinosCount = {};
+            const turnoData = {
+                'Día': {},
+                'Noche': {}
+            };
+
+            const filteredRows = [];
+
+            // Filtrado sobre los datos pre-procesados
+            allSheetData.forEach(row => {
+                // Filtrar por fechas elegidas en el calendario (si está vacío, significa "Todos los días")
+                if (selectedDatesAllowed.length > 0 && selectedDatesAllowed[0] !== "") {
+                    let formattedRowDate = row.fecha; // M/d/yyyy
+                    if (!selectedDatesAllowed.includes(formattedRowDate)) return;
+                }
+
+                validRowsCount++;
+                filteredRows.push(row);
+
+                let destino = row.destinoOriginal;
+
+                // 1. REGLA PEDIDO: Si incluye la palabra "Pedido"
+                if (/pedido/i.test(destino)) {
+                    destino = "TRG";
+                }
+                // 2. REGLA NÚMEROS: Si no es pedido, y el destino contiene números
+                else if (/\d/.test(destino)) {
+                    destino = "Almacén";
+                }
+
+                let destinoNormalizado = destino.charAt(0).toUpperCase() + destino.slice(1).toLowerCase();
+
+                // 3. REGLA CAPITALIZACIÓN ESPECIAL:
+                if (destino.toLowerCase() === 'trg') {
+                    destinoNormalizado = "TRG";
+                } else if (destino.toLowerCase().includes('hv')) {
+                    destinoNormalizado = "HV (High Value)";
+                }
+
+                // Acumulador global Doughnut Chart
+                if (destinosCount[destinoNormalizado]) {
+                    destinosCount[destinoNormalizado]++;
+                } else {
+                    destinosCount[destinoNormalizado] = 1;
+                }
+
+                // Acumulador para Tracking Bar Chart por Turno
+                let turnoKey = row.turno;
+                // Normalizando los turnos a las llaves esperadas en turnoData
+                if (turnoKey.includes("Noche") || turnoKey.toLowerCase().includes("night")) turnoKey = 'Noche';
+                else if (turnoKey.includes("día") || turnoKey.toLowerCase().includes("day") || turnoKey.includes("Dia") || turnoKey.includes("dia")) turnoKey = 'Día';
+
+                if (turnoData[turnoKey]) {
+                    if (turnoData[turnoKey][destinoNormalizado]) {
+                        turnoData[turnoKey][destinoNormalizado]++;
+                    } else {
+                        turnoData[turnoKey][destinoNormalizado] = 1;
+                    }
+                }
+
+                if (!destino.toLowerCase().includes('almacén')) {
+                    enTransitoCount++;
+                }
+            });
+
+            // 1.5) NUEVA SECCIÓN: PEDIDOS Y ÓRDENES ESPECIALES ACTIVAS (HOY & 7 Días)
+            const pedidosActivosObj = {};
+            const pedidosActivosHoyObj = {};
+            const palletIdFrequencies = {}; // Alerta duplicados
+
+            const MS_PER_DAY = 1000 * 60 * 60 * 24;
+            const todayDateObj = new Date();
+
+            allSheetData.forEach(row => {
+                // Tracking de Frecuencias de Pallet ID (Primeros 6 dígitos)
+                let dirtyId = row.id.toString().trim();
+                let sixDigitId = dirtyId.substring(0, 6);
+                if (sixDigitId.length >= 6) { // Solo si realmente tiene al menos 6 dígitos
+                    if (palletIdFrequencies[sixDigitId]) {
+                        palletIdFrequencies[sixDigitId]++;
+                    } else {
+                        palletIdFrequencies[sixDigitId] = 1;
+                    }
+                }
+
+                let d = row.destinoOriginal || '';
+                let o = row.observaciones || '';
+
+                // Evaluamos tanto en Destino como en Observaciones
+                const isPedidoStr = /pedido/i.test(d) || /pedido/i.test(o);
+                const has8DigitsInfo = /\b\d{8}\b/.exec(d) || /\b\d{8}\b/.exec(o);
+                const has8Digits = has8DigitsInfo !== null;
+
+                if (isPedidoStr || has8Digits) {
+                    let nombrePedido = "Pedido Especial"; // default fallback
+
+                    // Si encontramos los 8 digitos directos, los usamos como nombre
+                    if (has8DigitsInfo && has8DigitsInfo[0]) {
+                        nombrePedido = has8DigitsInfo[0];
+                    } else if (isPedidoStr) {
+                        // Si no hay 8 dígitos, rescatamos el rubro donde encontramos la palabra pedido
+                        nombrePedido = /pedido/i.test(d) ? d : o;
+                    }
+
+                    const rowDateObj = new Date(row.fecha);
+                    if (!isNaN(rowDateObj)) {
+                        const timeDiff = todayDateObj.getTime() - rowDateObj.getTime();
+                        let diffDays = Math.floor(timeDiff / MS_PER_DAY);
+
+                        // Evaluar fecha exacta de HOY
+                        if (rowDateObj.getDate() === todayDateObj.getDate() &&
+                            rowDateObj.getMonth() === todayDateObj.getMonth() &&
+                            rowDateObj.getFullYear() === todayDateObj.getFullYear()) {
+
+                            if (pedidosActivosHoyObj[nombrePedido]) {
+                                pedidosActivosHoyObj[nombrePedido].pallets++;
+                                pedidosActivosHoyObj[nombrePedido].unidades += row.cantidad;
+                            } else {
+                                pedidosActivosHoyObj[nombrePedido] = { pallets: 1, unidades: row.cantidad };
+                            }
+                        }
+
+                        // Si ocurrió hace 7 días o menos, se cataloga "Vivo / Activo" (incluye hoy también, pero este contenedor será histórico de últimos 7)
+                        if (diffDays <= 7) {
+                            if (pedidosActivosObj[nombrePedido]) {
+                                pedidosActivosObj[nombrePedido].pallets++;
+                                pedidosActivosObj[nombrePedido].unidades += row.cantidad;
+                            } else {
+                                pedidosActivosObj[nombrePedido] = { pallets: 1, unidades: row.cantidad };
+                            }
+                        }
+                    }
+                }
+            });
+
+            // RENDER -> Mini tarjetas para pedidos de HOY
+            const ordenesMacroCard = document.getElementById('ordenes-especiales-card');
+            const pedidosHoyContainer = document.getElementById('pedidos-hoy-container');
+            pedidosHoyContainer.innerHTML = '';
+
+            const pedidosHoyKeys = Object.keys(pedidosActivosHoyObj);
+            let hasOrdenes = false;
+
+            if (pedidosHoyKeys.length > 0) {
+                hasOrdenes = true;
+
+                // 1) Inyectar Título Separador "Realizados hoy"
+                const titleDiv = document.createElement('div');
+                titleDiv.style.cssText = `
+                    font-size: 0.8rem;
+                    text-transform: uppercase;
+                    color: var(--text-muted);
+                    font-weight: 600;
+                    margin-bottom: 4px;
+                    letter-spacing: 0.5px;
+                `;
+                titleDiv.textContent = "Realizados hoy";
+                pedidosHoyContainer.appendChild(titleDiv);
+
+                pedidosHoyKeys.forEach(pedidoName => {
+                    const data = pedidosActivosHoyObj[pedidoName];
+                    const div = document.createElement('div');
+                    div.style.cssText = `
+                        background: rgba(59, 130, 246, 0.15); /* Azul */
+                        border: 1px solid rgba(59, 130, 246, 0.4);
+                        border-left: 4px solid #3b82f6;
+                        padding: 0.75rem 1rem;
+                        border-radius: 0.5rem;
+                        display: flex;
+                        gap: 1rem;
+                        align-items: center;
+                    `;
+                    div.innerHTML = `
+                        <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-main);">${pedidoName}</div>
+                        <div style="background: #3b82f6; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 700;">
+                            ${data.pallets} plts | ${data.unidades.toLocaleString('es-MX')} uds
+                        </div>
+                    `;
+                    pedidosHoyContainer.appendChild(div);
+                });
+            }
+
+            // RENDER -> Alertas de Duplicados
+            const duplicadosWrapper = document.getElementById('alertas-duplicados-wrapper');
+            const duplicadosContainer = document.getElementById('alertas-duplicados-container');
+            duplicadosContainer.innerHTML = '';
+
+            const duplicatedIds = Object.keys(palletIdFrequencies).filter(id => palletIdFrequencies[id] > 1);
+
+            if (duplicatedIds.length > 0) {
+                duplicadosWrapper.style.display = 'block';
+                duplicatedIds.forEach(dupId => {
+                    const failCount = palletIdFrequencies[dupId];
+                    const div = document.createElement('div');
+                    div.style.cssText = `
+                        background: rgba(239, 68, 68, 0.1); 
+                        border: 1px solid rgba(239, 68, 68, 0.3);
+                        border-left: 4px solid #ef4444;
+                        padding: 0.5rem 0.75rem;
+                        border-radius: 0.5rem;
+                        display: flex;
+                        gap: 0.5rem;
+                        align-items: center;
+                    `;
+                    div.innerHTML = `
+                        <div style="font-weight: 600; font-size: 0.95rem; color: #ef4444;">ID: ${dupId}</div>
+                        <div style="background: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 700;">
+                            Repetido x${failCount}
+                        </div>
+                    `;
+                    duplicadosContainer.appendChild(div);
+                });
+            } else {
+                duplicadosWrapper.style.display = 'none';
+            }
+
+            // RENDER -> Mini tarjetas para pedidos ÚLTIMOS 7 DÍAS
+
+            const pedidosContainer = document.getElementById('pedidos-activos-container');
+            pedidosContainer.innerHTML = '';
+
+            const pedidosKeys = Object.keys(pedidosActivosObj);
+
+            if (pedidosKeys.length > 0) {
+                hasOrdenes = true;
+
+                // 2) Inyectar Título Separador "Activos" (Solo si hay data de últimos 7 días)
+                const titleDiv = document.createElement('div');
+                titleDiv.style.cssText = `
+                    font-size: 0.8rem;
+                    text-transform: uppercase;
+                    color: var(--text-muted);
+                    font-weight: 600;
+                    margin-top: 8px;
+                    margin-bottom: 4px;
+                    letter-spacing: 0.5px;
+                `;
+                titleDiv.textContent = "Activos";
+                pedidosContainer.appendChild(titleDiv);
+
+                pedidosKeys.forEach(pedidoName => {
+                    const data = pedidosActivosObj[pedidoName];
+                    const div = document.createElement('div');
+                    div.style.cssText = `
+                        background: rgba(245, 158, 11, 0.15);
+                        border: 1px solid rgba(245, 158, 11, 0.4);
+                        border-left: 4px solid var(--accent-warning);
+                        padding: 0.75rem 1rem;
+                        border-radius: 0.5rem;
+                        display: flex;
+                        gap: 1rem;
+                        align-items: center;
+                    `;
+                    div.innerHTML = `
+                        <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-main);">${pedidoName}</div>
+                        <div style="background: var(--accent-warning); color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 700;">
+                            ${data.pallets} plts | ${data.unidades.toLocaleString('es-MX')} uds
+                        </div>
+                    `;
+                    pedidosContainer.appendChild(div);
+                });
+            }
+
+            // Manejo de la visibilidad de la macro-tarjeta de stats
+            if (hasOrdenes) {
+                ordenesMacroCard.style.display = 'flex';
+            } else {
+                ordenesMacroCard.style.display = 'none';
+            }
+
+            // Actualización de Stat Cards
+            document.getElementById('stat-activos').innerText = allSheetData.length.toLocaleString(); // Histórico inamovible
+            document.getElementById('stat-transito').innerText = enTransitoCount.toLocaleString();
+            document.getElementById('stat-filtros').innerText = validRowsCount.toLocaleString(); // Total resultante de los filtros
+
+            const bgColorsPie = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#14b8a6', '#f97316'];
+
+            // 1) DOUGHNUT CHART UPDATE
+            if (myDoughnutChart) {
+                const labels = Object.keys(destinosCount);
+                const dataValues = Object.values(destinosCount);
+
+                myDoughnutChart.data.labels = labels;
+                myDoughnutChart.data.datasets[0].data = dataValues;
+                myDoughnutChart.data.datasets[0].backgroundColor = bgColorsPie.slice(0, labels.length);
+                myDoughnutChart.update();
+            }
+
+            // 2) BAR CHART UPDATE (Agrupado por Turno y Destinos)
+            if (myBarChart) {
+                // Recopilar todos los destinos únicos hallados en turnos para que sean barras distintas
+                const uniqueBarDestinos = new Set();
+                Object.values(turnoData).forEach(destinoObj => {
+                    Object.keys(destinoObj).forEach(d => uniqueBarDestinos.add(d));
+                });
+
+                const destinosArray = Array.from(uniqueBarDestinos);
+                const turnosLabels = Object.keys(turnoData); // ['Day (día)', 'Night (Noche)']
+
+                // Crear un Dataset colorido por cada destino
+                const newDatasets = destinosArray.map((destino, index) => {
+                    return {
+                        label: destino,
+                        data: turnosLabels.map(turno => turnoData[turno][destino] || 0),
+                        backgroundColor: bgColorsPie[index % bgColorsPie.length],
+                        borderRadius: 4
+                    };
+                });
+
+                myBarChart.data.labels = turnosLabels;
+                myBarChart.data.datasets = newDatasets;
+                myBarChart.update();
+            }
+
+            // 3) TABLA DINÁMICA DE "HOY" (Independiente del filtro del calendario)
+            const tableBody = document.getElementById('table-body');
+            tableBody.innerHTML = '';
+
+            const todayStrObj = new Date();
+            const todayStrDB = `${todayStrObj.getMonth() + 1}/${todayStrObj.getDate()}/${todayStrObj.getFullYear()}`;
+
+            const todaysRows = allSheetData.filter(row => row.fecha === todayStrDB);
+            const recentRows = todaysRows.slice(-50).reverse(); // Mostrar los ultimos 50 de hoy para no saturar
+
+            if (recentRows.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="100%" style="text-align:center; padding: 2rem; color: var(--text-muted);">No hay pallets cargados el día de hoy (${todayStrDB}).</td></tr>`;
+            } else {
+                recentRows.forEach(row => {
+                    const tr = document.createElement('tr');
+                    let htmlChunks = window.displayIndices.map((idx, arrIndex) => {
+                        let val = row.rowValues[idx] !== undefined ? row.rowValues[idx].toString() : '';
+
+                        // Recorte a 6 dígitos en caso de ser el ID
+                        if (arrIndex === 0 && val.length > 6) {
+                            val = val.substring(0, 6);
+                        }
+
+                        let displayVal = arrIndex === 0 ? `<strong>${val}</strong>` : val;
+                        // Centrado global de celdas según instrucción
+                        return `<td style="text-align: center;">${displayVal}</td>`;
+                    });
+                    tr.innerHTML = htmlChunks.join('');
+                    tableBody.appendChild(tr);
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // Inicializar el Gráfico de Anillos (Doughnut Chart) vacío
+            const ctx = document.getElementById('doughnutChart').getContext('2d');
+
+            const chartData = {
+                labels: ['Cargando...'],
+                datasets: [{
+                    data: [1],
+                    backgroundColor: ['#1e293b'],
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
+            };
+
+            const config = {
+                type: 'doughnut',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#94a3b8',
+                                font: {
+                                    family: "'Inter', sans-serif"
+                                },
+                                padding: 20
+                            }
+                        }
+                    }
+                }
+            };
+
+            myDoughnutChart = new Chart(ctx, config);
+
+            // Inicializar el Gráfico de Barras (Bar Chart) vacío
+            const barCtx = document.getElementById('barChart').getContext('2d');
+            myBarChart = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Cargando...'],
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: function (evt, elements) {
+                        if (elements && elements.length > 0) {
+                            const datasetIndex = elements[0].datasetIndex;
+                            const index = elements[0].index;
+                            const turno = myBarChart.data.labels[index]; // 'Día' o 'Noche'
+                            const destino = myBarChart.data.datasets[datasetIndex].label; // ej: 'TRG'
+                            window.showBarDetails(turno, destino);
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#94a3b8',
+                                font: { family: "'Inter', sans-serif" }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#334155' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+
+            // Inicializar el Gráfico histórico (Line Chart) 7D vacío
+            const lineCtx = document.getElementById('lineChart').getContext('2d');
+            myLineChart = new Chart(lineCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Cargando...'],
+                    datasets: [{
+                        label: 'Pallets Totales',
+                        data: [],
+                        borderColor: '#80591B', // Color marrón/dorado
+                        backgroundColor: 'rgba(128, 89, 27, 0.2)', // translúcido
+                        borderWidth: 3,
+                        pointBackgroundColor: '#1e293b',
+                        pointBorderColor: '#80591B',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.3 // curva suave
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+
+            // Inicializar el Gráfico de Errores (Bar Chart) vacío o mock
+            const errorsCtx = document.getElementById('errorsChart').getContext('2d');
+            myErrorsChart = new Chart(errorsCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Sin conexión base'],
+                    datasets: [{
+                        label: 'Frecuencia',
+                        data: [0],
+                        backgroundColor: '#f59e0b',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y', // Gráfico Horizontal
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', stepSize: 1 }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+
+            // Cargar datos inicialmente
+            fetchSheetData();
+            fetchErrorsData();
+
+            // [FIX] Actualización automática cada 60 segundos (1 minuto), SIEMPRE activa
+            // La selección del calendario se preserva dentro de processSheetData
+            setInterval(() => {
+                fetchSheetData();
+                fetchErrorsData();
+            }, 60000);
+        });
+    </script>
+</body>
+
+</html>
