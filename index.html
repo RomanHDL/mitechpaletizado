@@ -142,8 +142,8 @@
         }
         .card-title { font-size:1.1rem; font-weight:600; margin-bottom:1rem; display:flex; align-items:center; gap:8px; }
         .card-title i { color:var(--accent); font-size:0.9rem; }
-        .charts-grid .card { padding:1.25rem 1.5rem; }
-        .charts-grid .card canvas { max-height:240px; }
+        .charts-grid .card { padding:1rem 1.25rem; }
+        .charts-grid .card canvas { max-height:220px; }
 
         /* KPIs */
         .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1rem; margin-bottom:1.5rem; }
@@ -158,7 +158,8 @@
         .kpi:nth-child(4) { border-left-color:#8b5cf6; }
 
         /* Charts grid */
-        .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; margin-bottom:1.5rem; }
+        .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; margin-bottom:1.5rem; max-width:100%; }
+        .charts-grid .card { max-width:100%; overflow:hidden; }
 
         /* Tables */
         .table-wrap { overflow-x:auto; }
@@ -804,13 +805,13 @@
             <div class="charts-grid">
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-boxes-stacked"></i> Total Real de Pallets Procesados</div>
-                    <div id="total-pallets-center" style="text-align:center;margin-bottom:0.5rem;"></div>
-                    <canvas id="chart-total-pallets" height="200"></canvas>
+                    <div id="total-pallets-center" style="text-align:center;margin-bottom:0.25rem;"></div>
+                    <canvas id="chart-total-pallets" height="160"></canvas>
                 </div>
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-cubes"></i> Total Real de Piezas Paletizadas</div>
-                    <div id="total-piezas-center" style="text-align:center;margin-bottom:0.5rem;"></div>
-                    <canvas id="chart-total-piezas" height="200"></canvas>
+                    <div id="total-piezas-center" style="text-align:center;margin-bottom:0.25rem;"></div>
+                    <canvas id="chart-total-piezas" height="160"></canvas>
                 </div>
             </div>
 
@@ -818,22 +819,18 @@
             <div class="charts-grid">
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-cubes"></i> Distribucion de Piezas por Escaneadora</div>
-                    <canvas id="chart-piezas-pie" height="200"></canvas>
+                    <canvas id="chart-piezas-pie" height="160"></canvas>
                 </div>
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-chart-pie"></i> Distribucion por Destino</div>
-                    <canvas id="chart-destino" height="200"></canvas>
+                    <canvas id="chart-destino" height="160"></canvas>
                 </div>
             </div>
 
             <!-- Piezas por escaneadora (horizontal) -->
             <div class="card" style="margin-bottom:1.5rem;">
                 <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Piezas por Escaneadora</div>
-                <canvas id="chart-escaneadora" height="200"></canvas>
-                <div class="card">
-                    <div class="card-title"><i class="fa-solid fa-chart-pie"></i> Distribucion por Destino</div>
-                    <canvas id="chart-destino" height="200"></canvas>
-                </div>
+                <canvas id="chart-escaneadora" height="180"></canvas>
             </div>
 
             <!-- Tendencia Diaria -->
