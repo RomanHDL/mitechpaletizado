@@ -1,0 +1,24 @@
+{
+  "name": "Dashboard Paletizado FFT",
+  "short_name": "Paletizado FFT",
+  "description": "Sistema de control de paletizado - MI Technologies",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0f1e",
+  "theme_color": "#0a0f1e",
+  "icons": [
+    {
+      "src": "https://resellers.mitechnologiesinc.com/images/MI_Technologies_blue.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://resellers.mitechnologiesinc.com/images/MI_Technologies_blue.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
