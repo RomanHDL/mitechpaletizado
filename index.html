@@ -1277,6 +1277,13 @@ async function handleEscSubmit(e) {
         return;
     }
 
+    if (esPedido === 'si' && !clasificacion) {
+        errEl.textContent = 'Debes seleccionar una clasificacion cuando es pedido.';
+        errEl.style.display = 'block';
+        document.getElementById('esc-clasificacion').focus();
+        return;
+    }
+
     // Validate pallet ID has at least 5 digits
     const digits = palletId.replace(/\D/g, '');
     if (digits.length > 0 && digits.length < 5) {

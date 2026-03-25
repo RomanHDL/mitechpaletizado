@@ -217,6 +217,14 @@ app.post('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (re
     const dest = normalizeDestino(destino);
     const qty = parseInt(cantidad) || 0;
     if (qty <= 0) return res.status(400).json({ success: false, error: 'Cantidad debe ser mayor a 0' });
+    // If pedido is present, clasificacion is required (stored in observaciones as first tag)
+    if (pedido && pedido.trim()) {
+      const obs = (observaciones || '').trim().toUpperCase();
+      const firstTag = obs.split('|')[0].trim();
+      if (!firstTag || !['BULKY', 'BOX', 'HV', 'HV TELEVISIONES', 'LPN'].includes(firstTag)) {
+        return res.status(400).json({ success: false, error: 'Clasificacion es obligatoria cuando hay pedido' });
+      }
+    }
     const exists = await EscReg.findOne({ palletId: pid });
     if (exists) {
       emitEvent('paletizado', 'registro:duplicado', { palletId: pid, escaneadora, fecha });
@@ -590,6 +598,7 @@ app.post('/api/mobile/register', async (req, res) => {
     const dest = normalizeDestino(destino);
     const qty = parseInt(cantidad) || 0;
     if (qty <= 0) return res.status(400).json({ success: false, error: 'Cantidad debe ser mayor a 0' });
+    if (pedido && pedido.trim() && !clasificacion) return res.status(400).json({ success: false, error: 'Clasificacion es obligatoria cuando hay pedido' });
 
     const exists = await EscReg.findOne({ palletId: pid });
     if (exists) {
