@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MI-TECH Paletizado</title>
+    <title>Dashboard Paletizado FFT</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -420,7 +420,7 @@
 <div class="login-screen" id="login-screen">
     <div class="login-card">
         <div class="brand-icon"><img src="https://resellers.mitechnologiesinc.com/images/MI_Technologies_blue.png" alt="MI Technologies"></div>
-        <h1>MI-TECH Paletizado</h1>
+        <h1>Dashboard Paletizado FFT</h1>
         <p>Ingresa tus credenciales para continuar</p>
         <div class="alert alert-error" id="login-error"></div>
         <form id="login-form" onsubmit="handleLogin(event)">
@@ -459,7 +459,7 @@
     <!-- Top Bar -->
     <div class="topbar">
         <div class="topbar-brand" style="cursor:pointer;" onclick="switchView('home')">
-            <img src="https://resellers.mitechnologiesinc.com/images/MI_Technologies_blue.png" alt="MI Technologies" style="height:36px;width:auto;object-fit:contain;"> PaletTrack
+            <img src="https://resellers.mitechnologiesinc.com/images/MI_Technologies_blue.png" alt="MI Technologies" style="height:36px;width:auto;object-fit:contain;">
         </div>
         <div class="topbar-right">
             <span class="topbar-user"><strong id="user-display-name">-</strong> &middot; <span id="user-display-role">-</span></span>
@@ -477,14 +477,14 @@
         <!-- ══════════════════════════════════════ -->
         <div class="view active" id="view-home">
             <div class="page-header" style="text-align:center;">
-                <h1 style="font-size:1.8rem;">MI-TECH Paletizado</h1>
+                <h1 style="font-size:1.8rem;">Dashboard Paletizado FFT</h1>
                 <p id="home-greeting">Selecciona un modulo para continuar</p>
             </div>
             <!-- Operational Context -->
             <div class="ops-context" id="ops-context"></div>
             <div class="home-screen">
                 <!-- Admin: Acceder como escaneadora (arriba de modulos, solo admin) -->
-                <div class="admin-only" id="impersonate-panel" style="margin-bottom:1.25rem;width:100%;max-width:1000px;padding:0 2rem;box-sizing:border-box;">
+                <div class="admin-only" id="impersonate-panel" style="margin-bottom:1.25rem;width:100%;max-width:1000px;padding:0 2rem;box-sizing:border-box;margin-left:auto;margin-right:auto;">
                     <div class="card" style="padding:1rem 1.25rem;">
                         <div class="card-title"><i class="fa-solid fa-user-secret"></i> Acceder como Escaneadora</div>
                         <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;">Acceso administrativo paralelo. No cierra la sesion activa de la escaneadora.</p>
@@ -2948,7 +2948,7 @@ async function exportDashboardExcel() {
     if (!EJS) { alert('ExcelJS no cargado'); return; }
 
     const wb = new EJS.Workbook();
-    wb.creator = 'MI-TECH Paletizado';
+    wb.creator = 'Dashboard Paletizado FFT';
     wb.created = new Date();
     const today = new Date();
     const todayStr = today.toLocaleDateString('es-MX', {year:'numeric',month:'long',day:'numeric'});
