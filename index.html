@@ -540,6 +540,13 @@
                         <p>Completa los campos requeridos (<span style="color:var(--danger);">*</span>)</p>
                     </div>
 
+                    <!-- Scan autofill -->
+                    <div id="scan-autofill-bar" style="margin-bottom:1rem;padding:0.75rem 1rem;background:rgba(79,124,255,0.06);border:1px dashed rgba(79,124,255,0.3);border-radius:10px;text-align:center;">
+                        <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.4rem;"><i class="fa-solid fa-qrcode" style="color:var(--accent);margin-right:4px;"></i> Escanea la etiqueta del pallet para autollenar</div>
+                        <input type="text" id="scan-input" class="form-input" placeholder="Haz click aqui y escanea..." autocomplete="off" style="text-align:center;font-size:0.9rem;max-width:400px;margin:0 auto;">
+                        <div id="scan-status" style="font-size:0.72rem;color:var(--text-muted);margin-top:0.3rem;min-height:1em;"></div>
+                    </div>
+
                     <div class="alert alert-error" id="esc-error"></div>
                     <div class="alert alert-success" id="esc-success"></div>
 
@@ -3253,6 +3260,102 @@ function exportFilteredExcel() {
 // CONDITION MULTI-SELECT DROPDOWN
 // ══════════════════════════════════════════════
 
+// ══════════════════════════════════════════════
+// SCAN AUTOFILL (parse pallet label)
+// ══════════════════════════════════════════════
+function parsePalletLabel(text) {
+    const result = { palletId: null, cantidad: null, condiciones: [] };
+    if (!text) return result;
+    const t = text.replace(/[\r\n]+/g, ' ').trim();
+
+    // No Pallet: 335010
+    const palletMatch = t.match(/No\s*Pallet\s*[:\-]?\s*(\d+)/i);
+    if (palletMatch) result.palletId = palletMatch[1];
+
+    // QTY: 24
+    const qtyMatch = t.match(/QTY\s*[:\-]?\s*(\d+)/i);
+    if (qtyMatch) result.cantidad = parseInt(qtyMatch[1]);
+
+    // Condition: GRA,GRB,ICC
+    const condMatch = t.match(/Condition\s*[:\-]?\s*([A-Z,\s]+)/i);
+    if (condMatch) {
+        result.condiciones = condMatch[1].split(/[,\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+    }
+
+    return result;
+}
+
+function applyAutofill(parsed) {
+    const status = document.getElementById('scan-status');
+    let filled = [];
+
+    if (parsed.palletId) {
+        document.getElementById('esc-palletId').value = parsed.palletId;
+        filled.push('Pallet ID');
+    }
+    if (parsed.cantidad) {
+        document.getElementById('esc-cantidad').value = parsed.cantidad;
+        filled.push('Cantidad');
+    }
+    if (parsed.condiciones.length > 0) {
+        // Map to valid condition codes
+        const validCodes = CONDITIONS.map(c => c.code);
+        const matched = parsed.condiciones.filter(c => validCodes.includes(c));
+        if (matched.length > 0) {
+            selectedConditions = [...matched];
+            renderCondTags();
+            renderCondOptions();
+            filled.push('Condicion (' + matched.join(', ') + ')');
+        }
+    }
+
+    if (filled.length > 0) {
+        status.textContent = 'Autollenado: ' + filled.join(', ');
+        status.style.color = 'var(--success)';
+        // Focus next empty required field
+        if (!document.getElementById('esc-destino').value) document.getElementById('esc-destino').focus();
+        else if (!document.getElementById('esc-turno').value) document.getElementById('esc-turno').focus();
+    } else {
+        status.textContent = 'No se encontraron datos en el escaneo';
+        status.style.color = 'var(--warning)';
+    }
+    setTimeout(() => { status.textContent = ''; status.style.color = ''; }, 5000);
+}
+
+function initScanAutofill() {
+    const input = document.getElementById('scan-input');
+    if (!input) return;
+    let scanTimer = null;
+
+    // Scanner sends text fast + Enter
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const val = input.value.trim();
+            if (val.length >= 5) {
+                const parsed = parsePalletLabel(val);
+                applyAutofill(parsed);
+            }
+            input.value = '';
+        }
+    });
+
+    // Auto-detect: if input stops for 500ms and has enough data, process it
+    input.addEventListener('input', function() {
+        clearTimeout(scanTimer);
+        scanTimer = setTimeout(() => {
+            const val = input.value.trim();
+            if (val.length >= 10) {
+                const parsed = parsePalletLabel(val);
+                if (parsed.palletId || parsed.cantidad) {
+                    applyAutofill(parsed);
+                    input.value = '';
+                }
+            }
+        }, 500);
+    });
+}
+
 const CONDITIONS = [
     { code: 'GRA', label: 'GRA', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
     { code: 'GRB', label: 'GRB', color: '#16a34a', bg: 'rgba(22,163,74,0.15)' },
@@ -3385,6 +3488,7 @@ document.addEventListener('click', function(e) {
 // INIT
 // ══════════════════════════════════════════════
 initCondDropdown();
+initScanAutofill();
 initNfc();
 initScannerInput();
 checkSession();
