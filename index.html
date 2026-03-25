@@ -3264,22 +3264,43 @@ function exportFilteredExcel() {
 // SCAN AUTOFILL (parse pallet label)
 // ══════════════════════════════════════════════
 function parsePalletLabel(text) {
-    const result = { palletId: null, cantidad: null, condiciones: [] };
+    const result = { palletId: null, cantidad: null, condiciones: [], raw: text };
     if (!text) return result;
     const t = text.replace(/[\r\n]+/g, ' ').trim();
 
-    // No Pallet: 335010
-    const palletMatch = t.match(/No\s*Pallet\s*[:\-]?\s*(\d+)/i);
+    // Strategy 1: structured text with labels
+    // "No Pallet: 335010" or "Pallet: 335010" or "NoPallet:335010"
+    const palletMatch = t.match(/(?:No\s*)?Pallet\s*[:\-#]?\s*(\d{4,})/i);
     if (palletMatch) result.palletId = palletMatch[1];
 
-    // QTY: 24
-    const qtyMatch = t.match(/QTY\s*[:\-]?\s*(\d+)/i);
+    // "QTY: 24" or "Qty:24" or "Cantidad: 24"
+    const qtyMatch = t.match(/(?:QTY|Cantidad|Qty)\s*[:\-]?\s*(\d+)/i);
     if (qtyMatch) result.cantidad = parseInt(qtyMatch[1]);
 
-    // Condition: GRA,GRB,ICC
-    const condMatch = t.match(/Condition\s*[:\-]?\s*([A-Z,\s]+)/i);
+    // "Condition: GRA,GRB,ICC" or "Cond: GRA GRB"
+    const condMatch = t.match(/(?:Condition|Cond|Condicion)\s*[:\-]?\s*([A-Z][A-Z0-9,\s]+)/i);
     if (condMatch) {
         result.condiciones = condMatch[1].split(/[,\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+    }
+
+    // Strategy 2: if no structured match, try plain number as pallet ID
+    if (!result.palletId) {
+        // Pure number (5+ digits) = pallet ID
+        const numMatch = t.match(/^(\d{5,})$/);
+        if (numMatch) result.palletId = numMatch[1];
+    }
+
+    // Strategy 3: if text contains condition codes anywhere, extract them
+    if (result.condiciones.length === 0) {
+        const validCodes = ['GRA','GRB','GRC','ICB','ICC','ICD','ICX','BOX','DNP','DMT','DMA'];
+        const found = validCodes.filter(code => t.toUpperCase().includes(code));
+        if (found.length > 0) result.condiciones = found;
+    }
+
+    // Strategy 4: look for any 5+ digit number as pallet ID if not found yet
+    if (!result.palletId) {
+        const anyNum = t.match(/(\d{5,})/);
+        if (anyNum) result.palletId = anyNum[1];
     }
 
     return result;
@@ -3289,37 +3310,37 @@ function applyAutofill(parsed) {
     const status = document.getElementById('scan-status');
     let filled = [];
 
+    // DEBUG: always show raw scanned value (temporary for diagnosis)
+    console.log('[SCAN] Raw:', JSON.stringify(parsed.raw));
+    console.log('[SCAN] Parsed:', JSON.stringify(parsed));
+
     if (parsed.palletId) {
         document.getElementById('esc-palletId').value = parsed.palletId;
-        filled.push('Pallet ID');
+        filled.push('Pallet: ' + parsed.palletId);
     }
     if (parsed.cantidad) {
         document.getElementById('esc-cantidad').value = parsed.cantidad;
-        filled.push('Cantidad');
+        filled.push('Cant: ' + parsed.cantidad);
     }
     if (parsed.condiciones.length > 0) {
-        // Map to valid condition codes
         const validCodes = CONDITIONS.map(c => c.code);
         const matched = parsed.condiciones.filter(c => validCodes.includes(c));
         if (matched.length > 0) {
             selectedConditions = [...matched];
             renderCondTags();
             renderCondOptions();
-            filled.push('Condicion (' + matched.join(', ') + ')');
+            filled.push('Cond: ' + matched.join(','));
         }
     }
 
     if (filled.length > 0) {
-        status.textContent = 'Autollenado: ' + filled.join(', ');
-        status.style.color = 'var(--success)';
-        // Focus next empty required field
-        if (!document.getElementById('esc-destino').value) document.getElementById('esc-destino').focus();
-        else if (!document.getElementById('esc-turno').value) document.getElementById('esc-turno').focus();
+        status.innerHTML = '<span style="color:var(--success);">' + filled.join(' | ') + '</span>';
     } else {
-        status.textContent = 'No se encontraron datos en el escaneo';
-        status.style.color = 'var(--warning)';
+        // Show raw value so user can report what the scanner sends
+        const rawPreview = parsed.raw ? parsed.raw.substring(0, 80) : '(vacio)';
+        status.innerHTML = '<span style="color:var(--warning);">Sin datos reconocidos</span> <span style="color:var(--text-muted);font-size:0.65rem;">Raw: ' + rawPreview + '</span>';
     }
-    setTimeout(() => { status.textContent = ''; status.style.color = ''; }, 5000);
+    setTimeout(() => { status.innerHTML = ''; }, 8000);
 }
 
 function initScanAutofill() {
@@ -3327,27 +3348,26 @@ function initScanAutofill() {
     if (!input) return;
     let scanTimer = null;
 
-    // Scanner sends text fast + Enter
+    // Scanner sends text + Enter
     input.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             const val = input.value.trim();
-            if (val.length >= 5) {
-                const parsed = parsePalletLabel(val);
-                applyAutofill(parsed);
+            if (val.length >= 3) {
+                applyAutofill(parsePalletLabel(val));
             }
             input.value = '';
         }
     });
 
-    // Auto-detect: if input stops for 500ms and has enough data, process it
+    // Auto-detect after 500ms pause
     input.addEventListener('input', function() {
         clearTimeout(scanTimer);
         scanTimer = setTimeout(() => {
             const val = input.value.trim();
-            if (val.length >= 10) {
+            if (val.length >= 5) {
                 const parsed = parsePalletLabel(val);
-                if (parsed.palletId || parsed.cantidad) {
+                if (parsed.palletId || parsed.cantidad || parsed.condiciones.length > 0) {
                     applyAutofill(parsed);
                     input.value = '';
                 }
