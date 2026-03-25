@@ -845,8 +845,8 @@
             <!-- Row 2: Piezas bar + Pedidos -->
             <div class="charts-grid">
                 <div class="card">
-                    <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Piezas por Escaneadora</div>
-                    <canvas id="chart-escaneadora" height="160"></canvas>
+                    <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Produccion por Escaneadora</div>
+                    <canvas id="chart-escaneadora" height="180"></canvas>
                 </div>
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
@@ -1612,31 +1612,41 @@ async function loadResumen() {
             });
         }
 
-        // ── BAR HORIZONTAL: Piezas por Escaneadora ──
+        // ── BAR HORIZONTAL: Produccion por Escaneadora (Piezas + Pallets) ──
         const ctxE = document.getElementById('chart-escaneadora').getContext('2d');
         if (chartEsc) chartEsc.destroy();
         chartEsc = new Chart(ctxE, {
             type: 'bar',
             data: {
                 labels: data.porEscaneadora.map(e => e.nombre),
-                datasets: [{
-                    label: 'Piezas',
-                    data: data.porEscaneadora.map(e => e.unidades),
-                    backgroundColor: data.porEscaneadora.map((_, i) => COLORS[i % COLORS.length] + 'cc'),
-                    hoverBackgroundColor: data.porEscaneadora.map((_, i) => COLORS[i % COLORS.length]),
-                    borderRadius: 5, borderSkipped: false, maxBarThickness: 32,
-                }]
+                datasets: [
+                    {
+                        label: 'Piezas',
+                        data: data.porEscaneadora.map(e => e.unidades),
+                        backgroundColor: '#4f7cffcc',
+                        hoverBackgroundColor: '#4f7cff',
+                        borderRadius: 4, borderSkipped: false, maxBarThickness: 18,
+                    },
+                    {
+                        label: 'Pallets',
+                        data: data.porEscaneadora.map(e => e.registros),
+                        backgroundColor: '#22c55ecc',
+                        hoverBackgroundColor: '#22c55e',
+                        borderRadius: 4, borderSkipped: false, maxBarThickness: 18,
+                    }
+                ]
             },
             options: chartOpts({
                 indexAxis: 'y',
+                layout: { padding: { right: 40 } },
                 plugins: {
-                    legend: { display:false },
-                    tooltip: tooltipStyle,
-                    datalabels: { display: true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:11}, formatter:(v)=>v>0?v:'' }
+                    legend: { display:true, position:'top', align:'end', labels:{ color:'#7b8ba5', padding:10, font:{size:10}, usePointStyle:true, pointStyle:'rectRounded' } },
+                    tooltip: { ...tooltipStyle, mode:'index', intersect:false },
+                    datalabels: { display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:10}, offset:4, formatter:(v)=>v>0?v.toLocaleString():'' }
                 },
                 scales: {
                     x: { beginAtZero:true, ticks:{color:'#7b8ba5'}, grid:{color:'rgba(30,42,66,0.5)'} },
-                    y: { ticks:{color:'#7b8ba5'}, grid:{display:false} }
+                    y: { ticks:{color:'#7b8ba5',font:{size:11}}, grid:{display:false} }
                 }
             })
         });
