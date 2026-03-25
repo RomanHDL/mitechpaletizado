@@ -2229,23 +2229,41 @@ function renderPedidosChart() {
         return;
     }
 
-    // Count by unique pedido number
-    const pedidoMap = {};
-    records.forEach(r => {
-        const p = r.pedido.trim();
-        if (!pedidoMap[p]) pedidoMap[p] = 0;
-        pedidoMap[p]++;
-    });
-
-    const entries = Object.entries(pedidoMap).sort((a,b) => b[1] - a[1]);
-
-    if (infoEl) {
-        infoEl.innerHTML = `<span>${label}</span> &mdash; <strong style="color:var(--accent);">${records.length}</strong> pallets en <strong style="color:var(--text-main);">${entries.length}</strong> pedido${entries.length>1?'s':''}` + (sinPedido > 0 ? ` <span style="font-size:0.75rem;color:var(--text-muted);">(${sinPedido} sin pedido)</span>` : '');
+    // Extract tipo/clasificacion from each record
+    function extractTipo(r) {
+        // Check observaciones for tag (first segment before |)
+        const obs = (r.observaciones || '').trim();
+        if (obs) {
+            const first = obs.split('|')[0].trim().toUpperCase();
+            if (['BULKY', 'BOX', 'HV', 'HV TELEVISIONES', 'LPN'].includes(first)) {
+                return first === 'LPN' ? 'BULKY' : first;
+            }
+        }
+        // Check destino for legacy records where type was stored there
+        const dest = (r.destino || '').trim().toUpperCase();
+        if (['BULKY', 'BOX'].includes(dest)) return dest;
+        if (dest.startsWith('HV')) return dest;
+        return 'OTRO';
     }
 
+    // Group by tipo
+    const tipoMap = {};
+    records.forEach(r => {
+        const tipo = extractTipo(r);
+        if (!tipoMap[tipo]) tipoMap[tipo] = 0;
+        tipoMap[tipo]++;
+    });
+
+    const entries = Object.entries(tipoMap).sort((a,b) => b[1] - a[1]);
+
+    if (infoEl) {
+        infoEl.innerHTML = `<span>${label}</span> &mdash; <strong style="color:var(--accent);">${records.length}</strong> pallets en <strong style="color:var(--text-main);">${entries.length}</strong> tipo${entries.length>1?'s':''}` + (sinPedido > 0 ? ` <span style="font-size:0.75rem;color:var(--text-muted);">(${sinPedido} sin pedido)</span>` : '');
+    }
+
+    const tipoColors = { 'BULKY':'#f59e0b', 'BOX':'#4f7cff', 'HV':'#22c55e', 'HV TELEVISIONES':'#8b5cf6', 'HV (HIGH VALUE)':'#22c55e', 'OTRO':'#6b7280' };
     const labels = entries.map(e => e[0]);
     const values = entries.map(e => e[1]);
-    const colors = entries.map((_, i) => COLORS[i % COLORS.length]);
+    const colors = entries.map(e => tipoColors[e[0]] || COLORS[entries.indexOf(e) % COLORS.length]);
     const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
 
     chartPedidos = new Chart(ctx.getContext('2d'), {
