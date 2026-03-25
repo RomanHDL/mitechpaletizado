@@ -147,6 +147,44 @@ app.get('/api/auth/me', auth, async (req, res) => {
   res.json({ success: true, user: { id: req.user._id, nombre: req.user.nombre, usuario: req.user.usuario, role: req.user.role } });
 });
 
+// ═══════════ IMPERSONATION (admin only) ═══════════
+app.post('/api/auth/impersonate', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    const { targetUsuario } = req.body;
+    if (!targetUsuario) return res.status(400).json({ success: false, error: 'targetUsuario requerido' });
+
+    // Only admin 3647 can impersonate
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo el administrador 3647 puede usar esta funcion' });
+
+    const target = await User.findOne({ usuario: targetUsuario.toLowerCase().trim() });
+    if (!target || !target.isActive) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+
+    // Generate token for target user — NO session check, no logout of target
+    const token = jwt.sign({ id: target._id, role: target.role, impersonatedBy: req.user._id }, JWT_SECRET, { expiresIn: '12h' });
+
+    // Log impersonation for audit
+    try {
+      await mongoose.connection.db.collection('audit_log').insertOne({
+        action: 'impersonate',
+        adminId: req.user._id.toString(),
+        adminUsuario: req.user.usuario,
+        targetId: target._id.toString(),
+        targetUsuario: target.usuario,
+        targetNombre: target.nombre,
+        timestamp: new Date()
+      });
+    } catch(e) { /* audit log failure should not block impersonation */ }
+
+    res.json({
+      success: true,
+      token,
+      user: { id: target._id, nombre: target.nombre, usuario: target.usuario, role: target.role },
+      impersonation: true,
+      admin: req.user.usuario
+    });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // ═══════════ ESCANEADORAS ═══════════
 app.post('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (req, res) => {
   try {

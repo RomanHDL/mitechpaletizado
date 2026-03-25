@@ -503,6 +503,16 @@
                         <div class="module-arrow"><i class="fa-solid fa-arrow-right"></i></div>
                     </div>
                 </div>
+
+                <!-- Admin: Acceder como escaneadora -->
+                <div class="admin-only" id="impersonate-panel" style="margin-top:1.5rem;">
+                    <div class="card" style="padding:1rem 1.25rem;">
+                        <div class="card-title"><i class="fa-solid fa-user-secret"></i> Acceder como Escaneadora</div>
+                        <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;">Acceso administrativo paralelo. No cierra la sesion activa de la escaneadora.</p>
+                        <div id="impersonate-buttons" style="display:flex;flex-wrap:wrap;gap:0.5rem;"></div>
+                        <p id="impersonate-status" style="font-size:0.8rem;margin-top:0.5rem;min-height:1.2em;"></p>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1028,6 +1038,7 @@ function enterApp() {
 
     setDefaultDate();
     startOpsUpdates();
+    loadImpersonatePanel();
     switchView('home');
 }
 
@@ -1086,6 +1097,91 @@ function startOpsUpdates() {
     loadOpsContext();
     if (opsInterval) clearInterval(opsInterval);
     opsInterval = setInterval(loadOpsContext, 60000);
+}
+
+// ══════════════════════════════════════════════
+// IMPERSONATION (admin 3647 only)
+// ══════════════════════════════════════════════
+let originalAdmin = null; // stores admin session when impersonating
+
+function loadImpersonatePanel() {
+    const container = document.getElementById('impersonate-buttons');
+    if (!container || !currentUser || currentUser.usuario !== '3647') return;
+
+    const escaneadoras = [
+        { usuario: 'yusley', nombre: 'Yusley Montes' },
+        { usuario: 'angelica', nombre: 'Angelica Aleman' },
+        { usuario: 'cecilia', nombre: 'Cecilia Perez' },
+        { usuario: 'nathalie', nombre: 'Nathalie Lopez' },
+    ];
+
+    container.innerHTML = escaneadoras.map(e => `
+        <button class="btn btn-secondary btn-sm" onclick="impersonateUser('${e.usuario}')" style="padding:0.4rem 0.8rem;">
+            <i class="fa-solid fa-user" style="margin-right:4px;"></i> ${e.nombre}
+        </button>
+    `).join('');
+
+    // If currently impersonating, show return button
+    if (originalAdmin) {
+        container.innerHTML += `
+            <button class="btn btn-primary btn-sm" onclick="returnToAdmin()" style="padding:0.4rem 0.8rem;margin-left:0.5rem;">
+                <i class="fa-solid fa-arrow-rotate-left" style="margin-right:4px;"></i> Volver a Admin
+            </button>
+        `;
+    }
+}
+
+async function impersonateUser(targetUsuario) {
+    const status = document.getElementById('impersonate-status');
+    status.textContent = 'Accediendo...';
+    status.style.color = 'var(--warning)';
+
+    try {
+        const data = await apiFetch(`${API}/api/auth/impersonate`, {
+            method: 'POST',
+            body: JSON.stringify({ targetUsuario })
+        });
+
+        if (!data.success) throw new Error(data.error);
+
+        // Save current admin session for return
+        originalAdmin = { token: authToken, user: currentUser };
+
+        // Switch to impersonated user
+        authToken = data.token;
+        localStorage.setItem('mitech_token', authToken);
+        currentUser = data.user;
+
+        status.textContent = 'Acceso como: ' + data.user.nombre;
+        status.style.color = 'var(--success)';
+
+        // Update UI
+        document.getElementById('user-display-name').textContent = data.user.nombre + ' (admin)';
+        // Keep admin-only visible since we're still admin underneath
+        document.querySelectorAll('.admin-only').forEach(el => el.classList.add('visible'));
+        loadImpersonatePanel();
+
+        setTimeout(() => { status.textContent = ''; }, 2000);
+    } catch (err) {
+        status.textContent = err.message;
+        status.style.color = 'var(--danger)';
+        setTimeout(() => { status.textContent = ''; }, 3000);
+    }
+}
+
+function returnToAdmin() {
+    if (!originalAdmin) return;
+    authToken = originalAdmin.token;
+    localStorage.setItem('mitech_token', authToken);
+    currentUser = originalAdmin.user;
+    originalAdmin = null;
+
+    document.getElementById('user-display-name').textContent = currentUser.nombre;
+    const status = document.getElementById('impersonate-status');
+    status.textContent = 'Sesion restaurada como Admin';
+    status.style.color = 'var(--success)';
+    loadImpersonatePanel();
+    setTimeout(() => { status.textContent = ''; }, 2000);
 }
 
 // ══════════════════════════════════════════════
