@@ -3,12 +3,34 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const Pusher = require('pusher');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const JWT_SECRET = process.env.JWT_SECRET || 'mitech-jwt-secret-2026';
+
+// ── Pusher (real-time events) ──
+let pusher = null;
+if (process.env.PUSHER_APP_ID && process.env.PUSHER_KEY && process.env.PUSHER_SECRET) {
+  pusher = new Pusher({
+    appId: process.env.PUSHER_APP_ID,
+    key: process.env.PUSHER_KEY,
+    secret: process.env.PUSHER_SECRET,
+    cluster: process.env.PUSHER_CLUSTER || 'us2',
+    useTLS: true
+  });
+}
+function emitEvent(channel, event, data) {
+  if (pusher) { try { pusher.trigger(channel, event, data); } catch(e) { console.error('[PUSHER]', e.message); } }
+}
+
+// ── Validation helpers ──
+const VALID_DESTINOS = ['TRG', 'ALMACEN'];
+const VALID_CLASIFICACIONES = ['', 'BOX', 'BULKY', 'HV', 'HV TELEVISIONES'];
+function normalizeDestino(d) { const u = (d||'').trim(); const up = u.toUpperCase(); if (up === 'ALMACEN' || up === 'ALMACÉN') return 'Almacen'; if (up === 'TRG') return 'TRG'; return u; }
+function normalizePalletId(id) { return (id||'').trim().toUpperCase(); }
 
 // ── DB Connection (reuse across invocations) ──
 let isConnected = false;
@@ -191,11 +213,22 @@ app.post('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (re
     const { palletId, cantidad, condicion, destino, turno, escaneadora, fecha, pedido, incidencias, observaciones } = req.body;
     if (!palletId || !destino || !turno || !escaneadora || !fecha) return res.status(400).json({ success: false, error: 'Campos requeridos: palletId, destino, turno, escaneadora, fecha' });
     if (!condicion || !condicion.trim()) return res.status(400).json({ success: false, error: 'El campo condicion es obligatorio' });
-    const exists = await EscReg.findOne({ palletId: palletId.trim() });
-    if (exists) return res.status(409).json({ success: false, error: `Pallet ID duplicado. El pallet ${palletId.trim()} ya fue registrado.`, duplicate: true });
-    const doc = await EscReg.create({ palletId: palletId.trim(), cantidad: parseInt(cantidad) || 0, condicion: condicion || '', destino, turno, escaneadora, fecha, pedido: pedido || '', incidencias: incidencias || '', observaciones: observaciones || '', capturadoPor: req.user._id });
+    const pid = normalizePalletId(palletId);
+    const dest = normalizeDestino(destino);
+    const qty = parseInt(cantidad) || 0;
+    if (qty <= 0) return res.status(400).json({ success: false, error: 'Cantidad debe ser mayor a 0' });
+    const exists = await EscReg.findOne({ palletId: pid });
+    if (exists) {
+      emitEvent('paletizado', 'registro:duplicado', { palletId: pid, escaneadora, fecha });
+      return res.status(409).json({ success: false, error: `Pallet ID duplicado. El pallet ${pid} ya fue registrado.`, duplicate: true });
+    }
+    const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora, fecha, pedido: pedido || '', incidencias: incidencias || '', observaciones: observaciones || '', capturadoPor: req.user._id });
+    emitEvent('paletizado', 'registro:nuevo', { id: doc._id, palletId: pid, cantidad: qty, destino: dest, turno, escaneadora, fecha, condicion: condicion.trim(), source: 'web' });
     res.json({ success: true, id: doc._id, message: 'Registro guardado' });
-  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error) {
+    emitEvent('paletizado', 'registro:error', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 app.get('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (req, res) => {
@@ -550,31 +583,27 @@ app.post('/api/mobile/register', async (req, res) => {
     const { pallet_id, cantidad, destino, fecha, turno, condicion, operador, pedido, clasificacion } = req.body;
     if (!pallet_id || !destino || !fecha || !turno) return res.status(400).json({ success: false, error: 'Campos requeridos: pallet_id, destino, fecha, turno' });
     if (!condicion || !condicion.trim()) return res.status(400).json({ success: false, error: 'Condicion es obligatoria' });
+    const pid = normalizePalletId(pallet_id);
+    const dest = normalizeDestino(destino);
+    const qty = parseInt(cantidad) || 0;
+    if (qty <= 0) return res.status(400).json({ success: false, error: 'Cantidad debe ser mayor a 0' });
 
-    const exists = await EscReg.findOne({ palletId: pallet_id.trim() });
-    if (exists) return res.status(409).json({ success: false, error: `Pallet ${pallet_id.trim()} ya registrado`, duplicate: true });
-
-    // Build observaciones with clasificacion tag (same as web)
-    let obs = '';
-    if (clasificacion) {
-      const tag = clasificacion === 'BULKY' ? 'LPN | BULKY' : clasificacion;
-      obs = tag;
+    const exists = await EscReg.findOne({ palletId: pid });
+    if (exists) {
+      emitEvent('paletizado', 'registro:duplicado', { palletId: pid, escaneadora: operador, fecha, source: 'mobile' });
+      return res.status(409).json({ success: false, error: `Pallet ${pid} ya registrado`, duplicate: true });
     }
 
-    const doc = await EscReg.create({
-      palletId: pallet_id.trim(),
-      cantidad: parseInt(cantidad) || 0,
-      condicion: condicion || '',
-      destino,
-      turno,
-      escaneadora: operador || '',
-      fecha,
-      pedido: pedido || '',
-      incidencias: '',
-      observaciones: obs,
-    });
+    let obs = '';
+    if (clasificacion) { obs = clasificacion === 'BULKY' ? 'LPN | BULKY' : clasificacion; }
+
+    const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora: operador || '', fecha, pedido: pedido || '', incidencias: '', observaciones: obs });
+    emitEvent('paletizado', 'registro:nuevo', { id: doc._id, palletId: pid, cantidad: qty, destino: dest, turno, escaneadora: operador, fecha, condicion: condicion.trim(), source: 'mobile' });
     res.json({ success: true, id: doc._id, message: 'Registrado desde app movil' });
-  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error) {
+    emitEvent('paletizado', 'registro:error', { error: error.message, source: 'mobile' });
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 app.get('/api/mobile/recent', async (req, res) => {
@@ -605,6 +634,12 @@ app.get('/api/mobile/stats', async (req, res) => {
       byDestino: byDestino.map(d => ({ destino: d._id, total: d.total }))
     });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ═══════════ PUSHER CONFIG (public key only) ═══════════
+app.get('/api/realtime-config', (req, res) => {
+  if (!process.env.PUSHER_KEY) return res.json({ enabled: false });
+  res.json({ enabled: true, key: process.env.PUSHER_KEY, cluster: process.env.PUSHER_CLUSTER || 'us2' });
 });
 
 // ═══════════ HEALTH ═══════════

@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://js.pusher.com/8.0/pusher.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
@@ -1411,7 +1412,45 @@ async function loadDashboard() {
     startPolling();
 }
 
+// ── Real-time: Pusher (primary) + polling fallback ──
+let pusherChannel = null;
+let realtimeReady = false;
+
+async function initRealtime() {
+    try {
+        const cfg = await fetch(`${API}/api/realtime-config`).then(r => r.json());
+        if (cfg.enabled && typeof Pusher !== 'undefined') {
+            const p = new Pusher(cfg.key, { cluster: cfg.cluster });
+            pusherChannel = p.subscribe('paletizado');
+            pusherChannel.bind('registro:nuevo', () => {
+                console.log('[RT] registro:nuevo recibido');
+                refreshDashboard();
+            });
+            pusherChannel.bind('registro:duplicado', (data) => {
+                console.log('[RT] duplicado:', data.palletId);
+            });
+            realtimeReady = true;
+            console.log('[RT] Pusher conectado — tiempo real activo');
+            return;
+        }
+    } catch(e) { console.warn('[RT] Pusher no disponible:', e.message); }
+    // Fallback: polling si Pusher no está configurado
+    console.log('[RT] Usando polling como fallback');
+    startPollingFallback();
+}
+
+function refreshDashboard() {
+    const dashView = document.getElementById('view-dashboard');
+    if (dashView && dashView.classList.contains('active')) {
+        Promise.all([loadResumen(), loadTendencias(), loadTableData()]).catch(()=>{});
+    }
+}
+
 function startPolling() {
+    initRealtime();
+}
+
+function startPollingFallback() {
     stopPolling();
     dashPollTimer = setInterval(async () => {
         const dashView = document.getElementById('view-dashboard');
