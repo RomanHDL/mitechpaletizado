@@ -1718,12 +1718,12 @@ function renderCondicionByDate(data) {
                 backgroundColor: color + '20',
                 fill: true,
                 tension: 0.4,
-                borderWidth: 2.5,
-                pointRadius: 5,
+                borderWidth: 2,
+                pointRadius: 4,
                 pointBackgroundColor: color,
                 pointBorderColor: '#0f172a',
                 pointBorderWidth: 2,
-                pointHoverRadius: 7,
+                pointHoverRadius: 6,
             };
         });
 
@@ -1735,15 +1735,33 @@ function renderCondicionByDate(data) {
                 maintainAspectRatio: false,
                 animation: { duration: 700, easing: 'easeOutQuart' },
                 interaction: { mode: 'index', intersect: false },
-                layout: { padding: { top: 16, right: 12 } },
+                layout: { padding: { top: 28, right: 16, left: 8 } },
                 plugins: {
                     legend: { position:'bottom', labels:{ color:'#7b8ba5', padding:12, font:{size:11}, usePointStyle:true, pointStyle:'circle' } },
-                    tooltip: { ...tooltipStyle, mode:'index', intersect:false },
-                    datalabels: { display: true, anchor:'end', align:'top', color:'#e8ecf4', font:{weight:'bold',size:11}, offset:4, formatter:(v)=>v>0?v:'' }
+                    tooltip: { ...tooltipStyle, mode:'index', intersect:false, enabled:true },
+                    datalabels: {
+                        display: (ctx) => {
+                            // Hide label if value is 0 or if too many overlapping points
+                            const v = ctx.dataset.data[ctx.dataIndex];
+                            if (v <= 0) return false;
+                            // Check if another dataset has a value within 2 units at same index
+                            const allVals = ctx.chart.data.datasets.map(ds => ds.data[ctx.dataIndex]).filter(x => x > 0).sort((a,b) => a-b);
+                            const idx = allVals.indexOf(v);
+                            if (idx > 0 && Math.abs(allVals[idx] - allVals[idx-1]) <= 1) {
+                                // Only show for the highest value to avoid overlap
+                                return v >= allVals[allVals.length - 1];
+                            }
+                            return true;
+                        },
+                        anchor:'end', align:'top', offset:8,
+                        color:'#e8ecf4', font:{weight:'600',size:10},
+                        formatter:(v)=>v>0?v:'',
+                        clamp: true, clip: false
+                    }
                 },
                 scales: {
                     x: { ticks:{color:'#94a3b8',font:{size:11,weight:'500'}}, grid:{display:false} },
-                    y: { beginAtZero:true, ticks:{color:'#7b8ba5',font:{size:10},stepSize:1}, grid:{color:'rgba(30,42,66,0.4)'} }
+                    y: { beginAtZero:true, grace:'15%', ticks:{color:'#7b8ba5',font:{size:10},stepSize:1}, grid:{color:'rgba(30,42,66,0.4)'} }
                 }
             }
         });
