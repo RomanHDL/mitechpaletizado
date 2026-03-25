@@ -483,6 +483,16 @@
             <!-- Operational Context -->
             <div class="ops-context" id="ops-context"></div>
             <div class="home-screen">
+                <!-- Admin: Acceder como escaneadora (arriba de modulos, solo admin) -->
+                <div class="admin-only" id="impersonate-panel" style="margin-bottom:1.25rem;">
+                    <div class="card" style="padding:1rem 1.25rem;">
+                        <div class="card-title"><i class="fa-solid fa-user-secret"></i> Acceder como Escaneadora</div>
+                        <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;">Acceso administrativo paralelo. No cierra la sesion activa de la escaneadora.</p>
+                        <div id="impersonate-buttons" style="display:flex;flex-wrap:wrap;gap:0.5rem;"></div>
+                        <p id="impersonate-status" style="font-size:0.8rem;margin-top:0.5rem;min-height:1.2em;"></p>
+                    </div>
+                </div>
+
                 <div class="home-grid">
                     <div class="module-card mod-esc" onclick="switchView('escaneadoras')">
                         <div class="module-icon"><i class="fa-solid fa-barcode"></i></div>
@@ -501,16 +511,6 @@
                         <div class="module-title">Dashboard</div>
                         <div class="module-desc">Resumen completo de la operacion</div>
                         <div class="module-arrow"><i class="fa-solid fa-arrow-right"></i></div>
-                    </div>
-                </div>
-
-                <!-- Admin: Acceder como escaneadora -->
-                <div class="admin-only" id="impersonate-panel" style="margin-top:1.5rem;">
-                    <div class="card" style="padding:1rem 1.25rem;">
-                        <div class="card-title"><i class="fa-solid fa-user-secret"></i> Acceder como Escaneadora</div>
-                        <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;">Acceso administrativo paralelo. No cierra la sesion activa de la escaneadora.</p>
-                        <div id="impersonate-buttons" style="display:flex;flex-wrap:wrap;gap:0.5rem;"></div>
-                        <p id="impersonate-status" style="font-size:0.8rem;margin-top:0.5rem;min-height:1.2em;"></p>
                     </div>
                 </div>
             </div>
