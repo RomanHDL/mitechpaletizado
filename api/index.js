@@ -545,27 +545,30 @@ app.get('/api/seed-nfc', async (req, res) => {
   try {
     const db = mongoose.connection.db;
     const col = db.collection('nfc_cards');
-    const serial = '5A:EF:3B:02';
+    const results = [];
 
-    // Find Yusley user to link
-    const yusley = await User.findOne({ usuario: 'yusley' });
-    const userId = yusley ? yusley._id : null;
-
-    const update = {
-      serialNumber: serial,
-      role: 'escaneadora',
-      isActive: true,
-      nombre: 'Yusley Montes',
-      ...(userId ? { userId } : {})
-    };
-
+    // Admin 3647 NFC
+    const admin = await User.findOne({ usuario: '3647' });
+    const adminSerial = '42:3A:D4:42';
     await col.updateOne(
-      { serialNumber: serial },
-      { $set: update, $setOnInsert: { useCount: 0, createdAt: new Date() } },
+      { serialNumber: adminSerial },
+      { $set: { serialNumber: adminSerial, role: 'admin', isActive: true, nombre: 'Administrador', ...(admin ? { userId: admin._id } : {}) }, $setOnInsert: { useCount: 0, createdAt: new Date() } },
       { upsert: true }
     );
+    results.push({ serial: adminSerial, nombre: 'Administrador', role: 'admin', linkedUserId: admin?._id || null });
 
-    const card = await col.findOne({ serialNumber: serial });
+    // Yusley NFC
+    const yusley = await User.findOne({ usuario: 'yusley' });
+    const yusleySerial = '5A:EF:3B:02';
+    await col.updateOne(
+      { serialNumber: yusleySerial },
+      { $set: { serialNumber: yusleySerial, role: 'escaneadora', isActive: true, nombre: 'Yusley Montes', ...(yusley ? { userId: yusley._id } : {}) }, $setOnInsert: { useCount: 0, createdAt: new Date() } },
+      { upsert: true }
+    );
+    results.push({ serial: yusleySerial, nombre: 'Yusley Montes', role: 'escaneadora', linkedUserId: yusley?._id || null });
+
+    const allCards = await col.find({}).toArray();
+    res.json({ success: true, results, totalCards: allCards.length, allCards });
     res.json({ success: true, status: 'linked', card, linkedUser: yusley ? { id: yusley._id, nombre: yusley.nombre, usuario: yusley.usuario } : null });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
