@@ -3266,41 +3266,83 @@ function exportFilteredExcel() {
 function parsePalletLabel(text) {
     const result = { palletId: null, cantidad: null, condiciones: [], raw: text };
     if (!text) return result;
-    const t = text.replace(/[\r\n]+/g, ' ').trim();
 
-    // Strategy 1: structured text with labels
-    // "No Pallet: 335010" or "Pallet: 335010" or "NoPallet:335010"
-    const palletMatch = t.match(/(?:No\s*)?Pallet\s*[:\-#]?\s*(\d{4,})/i);
-    if (palletMatch) result.palletId = palletMatch[1];
+    // Normalize: replace tabs, pipes, semicolons, multiple spaces with single space
+    const t = text.replace(/[\r\n\t|;]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const up = t.toUpperCase();
 
-    // "QTY: 24" or "Qty:24" or "Cantidad: 24"
-    const qtyMatch = t.match(/(?:QTY|Cantidad|Qty)\s*[:\-]?\s*(\d+)/i);
-    if (qtyMatch) result.cantidad = parseInt(qtyMatch[1]);
-
-    // "Condition: GRA,GRB,ICC" or "Cond: GRA GRB"
-    const condMatch = t.match(/(?:Condition|Cond|Condicion)\s*[:\-]?\s*([A-Z][A-Z0-9,\s]+)/i);
-    if (condMatch) {
-        result.condiciones = condMatch[1].split(/[,\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+    // ── PALLET ID ──
+    // Try multiple patterns
+    const palletPatterns = [
+        /NO\s*PALLET\s*[:\-#=]?\s*(\d{4,})/i,
+        /PALLET\s*[:\-#=]?\s*(\d{4,})/i,
+        /PALLET\s*ID\s*[:\-#=]?\s*(\d{4,})/i,
+        /NP\s*[:\-#=]?\s*(\d{4,})/i,
+    ];
+    for (const pat of palletPatterns) {
+        const m = t.match(pat);
+        if (m) { result.palletId = m[1]; break; }
     }
 
-    // Strategy 2: if no structured match, try plain number as pallet ID
+    // ── CANTIDAD / QTY ──
+    const qtyPatterns = [
+        /QTY\s*[:\-#=]?\s*(\d+)/i,
+        /CANTIDAD\s*[:\-#=]?\s*(\d+)/i,
+        /QUANTITY\s*[:\-#=]?\s*(\d+)/i,
+        /CANT\s*[:\-#=]?\s*(\d+)/i,
+        /Q\s*[:\-=]\s*(\d+)/i,
+    ];
+    for (const pat of qtyPatterns) {
+        const m = t.match(pat);
+        if (m) { result.cantidad = parseInt(m[1]); break; }
+    }
+
+    // ── CONDICION ──
+    const condPatterns = [
+        /CONDITION\s*[:\-#=]?\s*([A-Z][A-Z0-9,\s\/]+)/i,
+        /CONDICION\s*[:\-#=]?\s*([A-Z][A-Z0-9,\s\/]+)/i,
+        /COND\s*[:\-#=]?\s*([A-Z][A-Z0-9,\s\/]+)/i,
+        /C\s*[:\-=]\s*([A-Z][A-Z0-9,\s\/]+)/i,
+    ];
+    for (const pat of condPatterns) {
+        const m = t.match(pat);
+        if (m) {
+            result.condiciones = m[1].split(/[,\s\/]+/).map(s => s.trim().toUpperCase()).filter(s => s.length >= 2 && s.length <= 4);
+            break;
+        }
+    }
+
+    // ── FALLBACKS ──
+
+    // If no pallet ID yet, try pure number
     if (!result.palletId) {
-        // Pure number (5+ digits) = pallet ID
         const numMatch = t.match(/^(\d{5,})$/);
         if (numMatch) result.palletId = numMatch[1];
     }
-
-    // Strategy 3: if text contains condition codes anywhere, extract them
-    if (result.condiciones.length === 0) {
-        const validCodes = ['GRA','GRB','GRC','ICB','ICC','ICD','ICX','BOX','DNP','DMT','DMA'];
-        const found = validCodes.filter(code => t.toUpperCase().includes(code));
-        if (found.length > 0) result.condiciones = found;
-    }
-
-    // Strategy 4: look for any 5+ digit number as pallet ID if not found yet
+    // Or any 5+ digit number in the text
     if (!result.palletId) {
         const anyNum = t.match(/(\d{5,})/);
         if (anyNum) result.palletId = anyNum[1];
+    }
+
+    // If no conditions yet, scan for known codes anywhere
+    if (result.condiciones.length === 0) {
+        const validCodes = ['GRA','GRB','GRC','ICB','ICC','ICD','ICX','BOX','DNP','DMT','DMA'];
+        const found = validCodes.filter(code => {
+            // Match as whole word to avoid false positives
+            return new RegExp('\\b' + code + '\\b').test(up);
+        });
+        if (found.length > 0) result.condiciones = found;
+    }
+
+    // If no qty yet, look for a small number (1-999) that appears after pallet ID
+    if (!result.cantidad && result.palletId) {
+        // Remove pallet ID from text, then find first small number
+        const remaining = t.replace(result.palletId, '').trim();
+        const smallNum = remaining.match(/\b(\d{1,3})\b/);
+        if (smallNum && parseInt(smallNum[1]) > 0 && parseInt(smallNum[1]) <= 999) {
+            result.cantidad = parseInt(smallNum[1]);
+        }
     }
 
     return result;
@@ -3333,14 +3375,15 @@ function applyAutofill(parsed) {
         }
     }
 
+    // Always show raw for debug (temporary)
+    const rawPreview = parsed.raw ? parsed.raw.substring(0, 100) : '(vacio)';
+
     if (filled.length > 0) {
-        status.innerHTML = '<span style="color:var(--success);">' + filled.join(' | ') + '</span>';
+        status.innerHTML = '<span style="color:var(--success);">' + filled.join(' | ') + '</span><br><span style="color:var(--text-muted);font-size:0.6rem;">Raw: ' + rawPreview + '</span>';
     } else {
-        // Show raw value so user can report what the scanner sends
-        const rawPreview = parsed.raw ? parsed.raw.substring(0, 80) : '(vacio)';
-        status.innerHTML = '<span style="color:var(--warning);">Sin datos reconocidos</span> <span style="color:var(--text-muted);font-size:0.65rem;">Raw: ' + rawPreview + '</span>';
+        status.innerHTML = '<span style="color:var(--warning);">Sin datos reconocidos</span><br><span style="color:var(--text-muted);font-size:0.6rem;">Raw: ' + rawPreview + '</span>';
     }
-    setTimeout(() => { status.innerHTML = ''; }, 8000);
+    setTimeout(() => { status.innerHTML = ''; }, 12000);
 }
 
 function initScanAutofill() {
