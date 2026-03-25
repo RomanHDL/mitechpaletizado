@@ -459,6 +459,16 @@ app.get('/api/resumen', auth, roleGuard('admin', 'escaneadora'), async (req, res
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// ═══════════ DIAG NFC (temporary) ═══════════
+app.get('/api/diag-nfc', async (req, res) => {
+  try {
+    const db = mongoose.connection.db;
+    const cards = await db.collection('nfc_cards').find({}).toArray();
+    const users = await User.find({ role: 'escaneadora' }).select('nombre usuario role isActive _id');
+    res.json({ success: true, nfc_cards: cards, escaneadora_users: users, database: db.databaseName });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // ═══════════ SEED (one-time, remove after use) ═══════════
 app.get('/api/seed', async (req, res) => {
   try {
