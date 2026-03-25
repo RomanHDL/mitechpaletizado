@@ -610,7 +610,7 @@
                                     <input type="text" class="form-input" id="esc-pedido" placeholder="Ej: 18962220">
                                 </div>
                                 <div class="form-group">
-                                    <label><i class="fa-solid fa-boxes-stacked" style="margin-right:5px;color:#8b5cf6;font-size:0.8rem;"></i>Clasificacion <span style="color:var(--text-muted);font-weight:400;">(tipo)</span></label>
+                                    <label><i class="fa-solid fa-boxes-stacked" style="margin-right:5px;color:#8b5cf6;font-size:0.8rem;"></i>Clasificacion <span style="color:var(--danger);">*</span></label>
                                     <select class="form-input" id="esc-clasificacion">
                                         <option value="">Sin clasificacion</option>
                                         <option value="BOX">BOX</option>
@@ -3340,10 +3340,26 @@ function renderCondOptions() {
 function togglePedidoField() {
     const val = document.getElementById('esc-es-pedido').value;
     const wrap = document.getElementById('pedido-fields-wrap');
+    const sel = document.getElementById('esc-clasificacion');
     wrap.style.display = val === 'si' ? '' : 'none';
-    if (val === 'no') {
+    if (val === 'si') {
+        // Replace "Sin clasificacion" with a disabled placeholder
+        const sinOpt = sel.querySelector('option[value=""]');
+        if (sinOpt) { sinOpt.textContent = 'Seleccionar...'; sinOpt.disabled = true; }
+        // If no valid selection, show red border
+        if (!sel.value) {
+            sel.value = '';
+            sel.style.borderColor = 'var(--danger)';
+        }
+        sel.addEventListener('change', function onClasChange() {
+            sel.style.borderColor = sel.value ? '' : 'var(--danger)';
+        });
+    } else {
+        const sinOpt = sel.querySelector('option[value=""]');
+        if (sinOpt) { sinOpt.textContent = 'Sin clasificacion'; sinOpt.disabled = false; }
+        sel.style.borderColor = '';
         document.getElementById('esc-pedido').value = '';
-        document.getElementById('esc-clasificacion').value = '';
+        sel.value = '';
     }
 }
 
