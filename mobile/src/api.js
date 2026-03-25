@@ -23,7 +23,7 @@ export async function checkDuplicate(palletId) {
 // ═══════════════════════════════════════
 // REGISTER PALLET — Direct to MongoDB via Express API
 // ═══════════════════════════════════════
-export async function registerPallet({ palletId, cantidad, condicion, destino, turno, operador, pedido, items }) {
+export async function registerPallet({ palletId, cantidad, condicion, destino, turno, operador, pedido, items, clasificacion }) {
   const timestamp = nowTimestamp();
   const fecha = todayStr();
   const turnoSheet = turno === 'Day' ? 'Day (día)' : 'Night (noche)';
@@ -43,7 +43,8 @@ export async function registerPallet({ palletId, cantidad, condicion, destino, t
         condicion: condicion.join(', '),
         operador,
         pedido: pedido || null,
-        items: items.map(i => ({ sku: i.sku, cantidad: i.qty })),
+        clasificacion: clasificacion || '',
+        items: items ? items.map(i => ({ sku: i.sku, cantidad: i.qty })) : [],
       }),
     }, 8000);
     const j = await r.json();

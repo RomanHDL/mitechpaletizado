@@ -6,7 +6,10 @@
 // CAMBIAR a la IP/URL real del servidor
 // Para desarrollo local: 'http://192.168.1.100:3009'
 // Para producción: la URL de tu backend en Vercel/Railway/etc
-export const API_BASE = 'http://192.168.1.100:3009';
+// Produccion: Vercel
+export const API_BASE = 'https://mitechpaletizado.vercel.app';
+// Desarrollo local: descomentar la siguiente linea
+// export const API_BASE = 'http://192.168.1.100:3009';
 
 // Google Apps Script — YA NO SE USA
 // Todo va directo a MongoDB Atlas via el backend Express
@@ -49,16 +52,22 @@ export const CONDITIONS = [
 // Default: GRB es la condición más frecuente en el Sheet
 export const DEFAULT_CONDITION = 'GRB';
 
-// ── Destinations (valores reales del Google Sheet) ──
+// ── Destinations (solo TRG y Almacen, igual que web) ──
 export const DESTINATIONS = [
-  { value: 'Almacén',          label: 'Almacén',   icon: 'cube' },
-  { value: 'TRG',              label: 'TRG',       icon: 'arrow-forward-circle' },
-  { value: 'HV (High Value)',  label: 'HV',        icon: 'diamond' },
-  { value: 'BOX',              label: 'BOX',       icon: 'archive' },
+  { value: 'TRG',     label: 'TRG',     icon: 'arrow-forward-circle' },
+  { value: 'Almacen', label: 'Almacen', icon: 'cube' },
 ];
 
-// Default: Almacén es el destino más frecuente en el Sheet
-export const DEFAULT_DESTINO = 'Almacén';
+export const DEFAULT_DESTINO = 'Almacen';
+
+// ── Clasificacion (tipo de producto) ──
+export const CLASIFICACIONES = [
+  { value: '',                label: 'Sin clasificacion', icon: 'remove-circle-outline' },
+  { value: 'BOX',            label: 'BOX',               icon: 'archive' },
+  { value: 'BULKY',          label: 'BULKY',             icon: 'resize' },
+  { value: 'HV',             label: 'HV (High Value)',   icon: 'diamond' },
+  { value: 'HV Televisiones',label: 'HV Televisiones',   icon: 'tv' },
+];
 
 // ── Auto-detect shift ──
 export function detectShift() {

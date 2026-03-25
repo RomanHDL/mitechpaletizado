@@ -537,6 +537,76 @@ app.get('/api/seed-nfc', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// ═══════════ MOBILE API ═══════════
+app.get('/api/mobile/check/:palletId', async (req, res) => {
+  try {
+    const doc = await EscReg.findOne({ palletId: req.params.palletId }).sort({ createdAt: -1 });
+    res.json({ exists: !!doc, data: doc || null });
+  } catch (error) { res.status(500).json({ exists: false, error: error.message }); }
+});
+
+app.post('/api/mobile/register', async (req, res) => {
+  try {
+    const { pallet_id, cantidad, destino, fecha, turno, condicion, operador, pedido, clasificacion } = req.body;
+    if (!pallet_id || !destino || !fecha || !turno) return res.status(400).json({ success: false, error: 'Campos requeridos: pallet_id, destino, fecha, turno' });
+    if (!condicion || !condicion.trim()) return res.status(400).json({ success: false, error: 'Condicion es obligatoria' });
+
+    const exists = await EscReg.findOne({ palletId: pallet_id.trim() });
+    if (exists) return res.status(409).json({ success: false, error: `Pallet ${pallet_id.trim()} ya registrado`, duplicate: true });
+
+    // Build observaciones with clasificacion tag (same as web)
+    let obs = '';
+    if (clasificacion) {
+      const tag = clasificacion === 'BULKY' ? 'LPN | BULKY' : clasificacion;
+      obs = tag;
+    }
+
+    const doc = await EscReg.create({
+      palletId: pallet_id.trim(),
+      cantidad: parseInt(cantidad) || 0,
+      condicion: condicion || '',
+      destino,
+      turno,
+      escaneadora: operador || '',
+      fecha,
+      pedido: pedido || '',
+      incidencias: '',
+      observaciones: obs,
+    });
+    res.json({ success: true, id: doc._id, message: 'Registrado desde app movil' });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.get('/api/mobile/recent', async (req, res) => {
+  try {
+    const { operador, limit } = req.query;
+    const filter = {};
+    if (operador) filter.escaneadora = { $regex: operador, $options: 'i' };
+    const docs = await EscReg.find(filter).sort({ createdAt: -1 }).limit(parseInt(limit) || 50);
+    res.json({ success: true, data: docs, total: docs.length });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.get('/api/mobile/stats', async (req, res) => {
+  try {
+    const { operador } = req.query;
+    const now = new Date();
+    const todayStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
+    const filter = { fecha: todayStr };
+    if (operador) filter.escaneadora = { $regex: operador, $options: 'i' };
+    const todayCount = await EscReg.countDocuments(filter);
+    const lastFilter = operador ? { escaneadora: { $regex: operador, $options: 'i' } } : {};
+    const lastDoc = await EscReg.findOne(lastFilter).sort({ createdAt: -1 });
+    const byDestino = await EscReg.aggregate([{ $match: filter }, { $group: { _id: '$destino', total: { $sum: 1 } } }]);
+    res.json({
+      success: true,
+      today: todayCount,
+      last: lastDoc ? { pallet_id: lastDoc.palletId, destino: lastDoc.destino, fecha: lastDoc.fecha, turno: lastDoc.turno } : null,
+      byDestino: byDestino.map(d => ({ destino: d._id, total: d.total }))
+    });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // ═══════════ HEALTH ═══════════
 app.get('/api/health', async (req, res) => {
   try {
