@@ -331,7 +331,7 @@
         .btn-logout-top:hover { border-color:var(--danger); color:var(--danger); }
 
         /* ── Home Module Cards ── */
-        .home-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:calc(100vh - 80px); }
+        .home-screen { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding-top:1.5rem; min-height:0; }
         .home-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:2rem; padding:2rem; width:100%; max-width:1000px; }
         @media (max-width:900px) { .home-grid { grid-template-columns:repeat(2, 1fr); max-width:600px; } }
         @media (max-width:560px) { .home-grid { grid-template-columns:1fr; max-width:380px; } }
@@ -853,6 +853,7 @@
                     </div>
                     <div id="pedidos-info" style="text-align:center;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.25rem;"></div>
                     <canvas id="chart-pedidos" height="160"></canvas>
+                    <div id="pedidos-detail" style="margin-top:0.75rem;max-height:200px;overflow-y:auto;"></div>
                 </div>
             </div>
 
@@ -2284,6 +2285,14 @@ function renderPedidosChart() {
     const colors = entries.map(e => tipoColors[e[0]] || COLORS[entries.indexOf(e) % COLORS.length]);
     const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
 
+    // Store records grouped by tipo for click detail
+    const tipoRecords = {};
+    records.forEach(r => {
+        const tipo = extractTipo(r);
+        if (!tipoRecords[tipo]) tipoRecords[tipo] = [];
+        tipoRecords[tipo].push(r);
+    });
+
     chartPedidos = new Chart(ctx.getContext('2d'), {
         type: 'pie',
         data: {
@@ -2292,6 +2301,14 @@ function renderPedidosChart() {
         },
         options: {
             responsive: true,
+            onClick: (evt, elements) => {
+                const detail = document.getElementById('pedidos-detail');
+                if (!elements.length) { detail.innerHTML = ''; return; }
+                const idx = elements[0].index;
+                const tipo = labels[idx];
+                const recs = tipoRecords[tipo] || [];
+                showPedidosDetail(tipo, recs, colors[idx]);
+            },
             plugins: {
                 legend: { position:'bottom', labels:{ color:'#7b8ba5', padding:8, font:{size:10}, usePointStyle:true, pointStyle:'circle' } },
                 tooltip: { ...tooltipStyle, callbacks: { label: (c) => { const t = c.dataset.data.reduce((a,b)=>a+b,0); return `${c.label}: ${c.parsed} pallet${c.parsed>1?'s':''} (${t>0?Math.round(c.parsed/t*100):0}%)`; } } },
@@ -2307,6 +2324,37 @@ function renderPedidosChart() {
             }
         }
     });
+
+    // Clear detail when chart re-renders
+    document.getElementById('pedidos-detail').innerHTML = '';
+}
+
+function showPedidosDetail(tipo, recs, color) {
+    const detail = document.getElementById('pedidos-detail');
+    if (!recs.length) { detail.innerHTML = ''; return; }
+
+    let h = `<div style="border-top:2px solid ${color};padding-top:0.5rem;">`;
+    h += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">`;
+    h += `<span style="font-weight:600;color:${color};font-size:0.85rem;"><i class="fa-solid fa-list" style="margin-right:4px;"></i>${tipo} — ${recs.length} pallet${recs.length>1?'s':''}</span>`;
+    h += `<span style="font-size:0.7rem;color:var(--text-muted);cursor:pointer;" onclick="document.getElementById('pedidos-detail').innerHTML=''"><i class="fa-solid fa-xmark"></i> cerrar</span>`;
+    h += `</div>`;
+    h += `<table style="width:100%;font-size:0.78rem;border-collapse:collapse;"><thead><tr>`;
+    ['Fecha','Pallet ID','Cant','Pedido','Destino','Escaneadora'].forEach(col => {
+        h += `<th style="padding:0.3rem 0.4rem;text-align:left;color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap;">${col}</th>`;
+    });
+    h += `</tr></thead><tbody>`;
+    recs.forEach(r => {
+        h += `<tr>`;
+        h += `<td style="padding:0.3rem 0.4rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.fecha}</td>`;
+        h += `<td style="padding:0.3rem 0.4rem;border-bottom:1px solid rgba(255,255,255,0.03);font-weight:600;">${r.palletId}</td>`;
+        h += `<td style="padding:0.3rem 0.4rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.cantidad}</td>`;
+        h += `<td style="padding:0.3rem 0.4rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.pedido||'-'}</td>`;
+        h += `<td style="padding:0.3rem 0.4rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.destino}</td>`;
+        h += `<td style="padding:0.3rem 0.4rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.escaneadora}</td>`;
+        h += `</tr>`;
+    });
+    h += `</tbody></table></div>`;
+    detail.innerHTML = h;
 }
 
 function renderPedidosHistorial(body, fechaQuery, textoQuery) {
