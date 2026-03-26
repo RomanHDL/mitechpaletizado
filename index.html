@@ -848,26 +848,26 @@
 
             <!-- Row 1: 4 graficas de pastel en una fila -->
             <div class="charts-grid grid-4" style="gap:0.75rem;">
-                <div class="card" style="padding:0.75rem 1rem;">
-                    <div class="card-title" style="font-size:0.85rem;margin-bottom:0.5rem;"><i class="fa-solid fa-boxes-stacked"></i> Total Pallets</div>
-                    <div id="total-pallets-center" style="text-align:center;margin-bottom:0.15rem;"></div>
-                    <canvas id="chart-total-pallets" height="120"></canvas>
+                <div class="card" style="padding:0.6rem 0.8rem;">
+                    <div class="card-title"><i class="fa-solid fa-boxes-stacked"></i> Total Real de Pallets Procesados</div>
+                    <div id="total-pallets-center" style="text-align:center;margin-bottom:0.25rem;"></div>
+                    <canvas id="chart-total-pallets" height="160"></canvas>
                 </div>
-                <div class="card" style="padding:0.75rem 1rem;">
-                    <div class="card-title" style="font-size:0.85rem;margin-bottom:0.5rem;"><i class="fa-solid fa-cubes"></i> Total Piezas</div>
-                    <div id="total-piezas-center" style="text-align:center;margin-bottom:0.15rem;"></div>
-                    <canvas id="chart-total-piezas" height="120"></canvas>
+                <div class="card" style="padding:0.6rem 0.8rem;">
+                    <div class="card-title"><i class="fa-solid fa-cubes"></i> Total Real de Piezas Paletizadas</div>
+                    <div id="total-piezas-center" style="text-align:center;margin-bottom:0.25rem;"></div>
+                    <canvas id="chart-total-piezas" height="160"></canvas>
                 </div>
-                <div class="card" style="padding:0.75rem 1rem;">
-                    <div class="card-title" style="font-size:0.85rem;margin-bottom:0.5rem;"><i class="fa-solid fa-cubes"></i> Piezas / Escaneadora</div>
+                <div class="card" style="padding:0.6rem 0.8rem;">
+                    <div class="card-title"><i class="fa-solid fa-cubes"></i> Distribucion de Piezas por Escaneadora</div>
                     <div style="display:flex;justify-content:center;align-items:center;flex:1;">
-                        <canvas id="chart-piezas-pie" height="120" style="max-width:180px;"></canvas>
+                        <canvas id="chart-piezas-pie" height="160" style="max-width:220px;"></canvas>
                     </div>
                 </div>
-                <div class="card" style="padding:0.75rem 1rem;">
-                    <div class="card-title" style="font-size:0.85rem;margin-bottom:0.5rem;"><i class="fa-solid fa-chart-pie"></i> Por Destino</div>
+                <div class="card" style="padding:0.6rem 0.8rem;">
+                    <div class="card-title"><i class="fa-solid fa-chart-pie"></i> Distribucion por Destino</div>
                     <div style="display:flex;justify-content:center;align-items:center;flex:1;">
-                        <canvas id="chart-destino" height="120" style="max-width:180px;"></canvas>
+                        <canvas id="chart-destino" height="160" style="max-width:220px;"></canvas>
                     </div>
                 </div>
             </div>
@@ -1603,7 +1603,7 @@ async function loadResumen() {
         // ── PIE: Total Real de Pallets (by destino) ──
         if (chartTotalPallets) chartTotalPallets.destroy();
         const tpEl = document.getElementById('total-pallets-center');
-        if (tpEl) tpEl.innerHTML = `<span style="font-size:1.5rem;font-weight:700;color:var(--text-main);">${data.totalRegistros.toLocaleString()}</span><br><span style="font-size:0.7rem;color:var(--text-muted);">pallets</span>`;
+        if (tpEl) tpEl.innerHTML = `<span style="font-size:2rem;font-weight:700;color:var(--text-main);">${data.totalRegistros.toLocaleString()}</span><br><span style="font-size:0.75rem;color:var(--text-muted);">pallets totales</span>`;
         if (data.porDestino.length > 0) {
             chartTotalPallets = new Chart(document.getElementById('chart-total-pallets').getContext('2d'), {
                 type: 'doughnut',
@@ -1625,7 +1625,7 @@ async function loadResumen() {
         // ── PIE: Total Real de Piezas (by destino) ──
         if (chartTotalPiezas) chartTotalPiezas.destroy();
         const tzEl = document.getElementById('total-piezas-center');
-        if (tzEl) tzEl.innerHTML = `<span style="font-size:1.5rem;font-weight:700;color:var(--text-main);">${data.totalUnidades.toLocaleString()}</span><br><span style="font-size:0.7rem;color:var(--text-muted);">piezas</span>`;
+        if (tzEl) tzEl.innerHTML = `<span style="font-size:2rem;font-weight:700;color:var(--text-main);">${data.totalUnidades.toLocaleString()}</span><br><span style="font-size:0.75rem;color:var(--text-muted);">piezas totales</span>`;
         if (data.porDestino.length > 0) {
             chartTotalPiezas = new Chart(document.getElementById('chart-total-piezas').getContext('2d'), {
                 type: 'doughnut',
