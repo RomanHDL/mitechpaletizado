@@ -254,6 +254,23 @@
             .kpi-grid { grid-template-columns:repeat(2,1fr); }
         }
 
+        /* Capture mode: compact everything to fit in one screen */
+        .capture-mode .page-header { padding:0.4rem 0 !important; margin-bottom:0.5rem !important; }
+        .capture-mode .filter-bar { padding:0.5rem 0.75rem !important; margin-bottom:0.75rem !important; gap:0.5rem !important; }
+        .capture-mode .filter-bar .form-group { min-width:120px !important; }
+        .capture-mode .filter-bar .form-group label { font-size:0.75rem !important; }
+        .capture-mode .filter-bar .form-input { padding:0.4rem 0.6rem !important; font-size:0.82rem !important; }
+        .capture-mode .kpi-grid { gap:0.5rem !important; margin-bottom:0.75rem !important; }
+        .capture-mode .kpi { padding:0.7rem 1rem !important; }
+        .capture-mode .kpi-value { font-size:1.8rem !important; }
+        .capture-mode .kpi-label { font-size:0.75rem !important; }
+        .capture-mode .charts-grid { gap:0.5rem !important; margin-bottom:0.75rem !important; }
+        .capture-mode .charts-grid .card { padding:0.5rem 0.7rem !important; }
+        .capture-mode .card-title { font-size:0.85rem !important; margin-bottom:0.4rem !important; }
+        .capture-mode .card { margin-bottom:0.75rem !important; }
+        .capture-mode #escaneadora-detail { max-height:100px !important; }
+        .capture-mode .pedidos-summary-badges { margin-top:0.3rem !important; }
+
         /* Badge */
         .badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600; }
         .badge-blue { background:rgba(79,124,255,0.15); color:#4f7cff; }
@@ -1165,17 +1182,16 @@ function toggleCaptureMode() {
     if (!currentUser || currentUser.usuario !== '3647') return;
     captureMode = !captureMode;
     const btn = document.getElementById('btn-capture-mode');
-    const header = document.querySelector('.page-header');
-    const filters = document.querySelector('.filter-bar');
+    const dash = document.getElementById('view-dashboard');
     if (captureMode) {
-        // Hide header actions and filters for clean screenshot
+        dash.classList.add('capture-mode');
         if (btn) { btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Salir Captura'; btn.style.background = 'var(--danger)'; btn.style.color = '#fff'; btn.style.border = 'none'; }
-        document.querySelectorAll('.btn-logout-top, #dash-user-info').forEach(el => el.style.display = 'none');
-        if (filters) filters.style.display = 'none';
+        // Hide only non-essential UI: logout, user info, back button
+        document.querySelectorAll('.btn-logout-top, #dash-user-info, .back-btn').forEach(el => el.style.display = 'none');
     } else {
+        dash.classList.remove('capture-mode');
         if (btn) { btn.innerHTML = '<i class="fa-solid fa-camera"></i> Modo Captura'; btn.style.background = ''; btn.style.color = ''; btn.style.border = ''; }
-        document.querySelectorAll('.btn-logout-top, #dash-user-info').forEach(el => el.style.display = '');
-        if (filters) filters.style.display = '';
+        document.querySelectorAll('.btn-logout-top, #dash-user-info, .back-btn').forEach(el => el.style.display = '');
     }
 }
 
