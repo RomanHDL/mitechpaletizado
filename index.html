@@ -16,6 +16,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://js.pusher.com/8.0/pusher.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -270,6 +271,8 @@
         .capture-mode .card { margin-bottom:0.75rem !important; }
         .capture-mode #escaneadora-detail { max-height:100px !important; }
         .capture-mode .pedidos-summary-badges { margin-top:0.3rem !important; }
+        .capture-mode #row-turno-tendencia { display:none !important; }
+        .capture-mode #row-condicion { display:none !important; }
 
         /* Badge */
         .badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600; }
@@ -917,7 +920,7 @@
             </div>
 
             <!-- Row 3: Turno + Tendencia -->
-            <div class="charts-grid">
+            <div class="charts-grid" id="row-turno-tendencia">
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-clock"></i> Registros por Turno</div>
                     <canvas id="chart-turno" height="160"></canvas>
@@ -932,7 +935,7 @@
             </div>
 
             <!-- Row 4: Condicion -->
-            <div class="card" style="margin-bottom:1.5rem;padding:1rem 1.25rem;">
+            <div class="card" id="row-condicion" style="margin-bottom:1.5rem;padding:1rem 1.25rem;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                     <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-tags"></i> Registros por Condicion</div>
                     <button class="btn btn-secondary btn-sm" onclick="openHistorial('condicion')" title="Ver historial completo">
@@ -1178,21 +1181,46 @@ function startOpsUpdates() {
 // ══════════════════════════════════════════════
 // CAPTURE MODE (user 3647 only)
 let captureMode = false;
-function toggleCaptureMode() {
+async function toggleCaptureMode() {
     if (!currentUser || currentUser.usuario !== '3647') return;
-    captureMode = !captureMode;
     const btn = document.getElementById('btn-capture-mode');
     const dash = document.getElementById('view-dashboard');
-    if (captureMode) {
-        dash.classList.add('capture-mode');
-        if (btn) { btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Salir Captura'; btn.style.background = 'var(--danger)'; btn.style.color = '#fff'; btn.style.border = 'none'; }
-        // Hide only non-essential UI: logout, user info, back button
-        document.querySelectorAll('.btn-logout-top, #dash-user-info, .back-btn').forEach(el => el.style.display = 'none');
-    } else {
-        dash.classList.remove('capture-mode');
-        if (btn) { btn.innerHTML = '<i class="fa-solid fa-camera"></i> Modo Captura'; btn.style.background = ''; btn.style.color = ''; btn.style.border = ''; }
-        document.querySelectorAll('.btn-logout-top, #dash-user-info, .back-btn').forEach(el => el.style.display = '');
+    const topbar = document.querySelector('.topbar');
+
+    // Activate capture mode
+    dash.classList.add('capture-mode');
+    if (topbar) topbar.style.display = 'none';
+    document.querySelectorAll('.btn-logout-top, #dash-user-info, .back-btn, #btn-capture-mode').forEach(el => el.style.display = 'none');
+
+    // Wait for DOM to repaint
+    await new Promise(r => setTimeout(r, 300));
+
+    // Capture the dashboard area
+    try {
+        const canvas = await html2canvas(dash, {
+            backgroundColor: '#0a0f1e',
+            scale: 2,
+            useCORS: true,
+            logging: false,
+        });
+
+        // Download
+        const link = document.createElement('a');
+        const now = new Date();
+        const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+        link.download = `Dashboard_FFT_${ts}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    } catch (err) {
+        console.error('[CAPTURE]', err);
+        alert('Error al capturar: ' + err.message);
     }
+
+    // Restore normal mode
+    dash.classList.remove('capture-mode');
+    if (topbar) topbar.style.display = 'none'; // stays hidden on dashboard
+    document.querySelectorAll('.btn-logout-top, #dash-user-info, .back-btn').forEach(el => el.style.display = '');
+    if (btn) btn.style.display = '';
 }
 
 // IMPERSONATION (admin 3647 only)
