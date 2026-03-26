@@ -1745,30 +1745,42 @@ function renderEscaneadoraDetail() {
     const byEsc = {};
     lastTableData.forEach(r => {
         const esc = r.escaneadora || 'Otro';
-        if (!byEsc[esc]) byEsc[esc] = { trg:0, alm:0, pedTRG:0, pedAlm:0, totalPed:new Set() };
+        if (!byEsc[esc]) byEsc[esc] = { trg:0, alm:0, pedTRG:new Set(), pedAlm:new Set() };
         const d = byEsc[esc];
         const dest = (r.destino||'').toUpperCase();
         if (dest === 'TRG') d.trg++; else d.alm++;
         if (r.pedido && r.pedido.trim()) {
-            d.totalPed.add(r.pedido.trim());
-            if (dest === 'TRG') d.pedTRG++; else d.pedAlm++;
+            if (dest === 'TRG') d.pedTRG.add(r.pedido.trim());
+            else d.pedAlm.add(r.pedido.trim());
         }
     });
 
     const sorted = Object.entries(byEsc).sort((a,b) => (b[1].trg+b[1].alm) - (a[1].trg+a[1].alm));
 
-    el.innerHTML = `<div style="display:grid;gap:0.4rem;">` + sorted.map(([nombre, d]) => {
-        const total = d.trg + d.alm;
-        return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0.6rem;background:rgba(15,23,42,0.4);border:1px solid var(--border);border-radius:6px;font-size:0.75rem;">
-            <strong style="color:var(--text-main);min-width:100px;font-size:0.78rem;">${nombre}</strong>
-            <span style="color:#22c55e;" title="Pallets a TRG"><i class="fa-solid fa-arrow-right" style="font-size:0.6rem;"></i> TRG: ${d.trg}</span>
-            <span style="color:#4f7cff;" title="Pallets a Almacen"><i class="fa-solid fa-warehouse" style="font-size:0.6rem;"></i> Alm: ${d.alm}</span>
-            <span style="color:var(--text-muted);">|</span>
-            <span style="color:var(--accent);" title="Pedidos totales"><i class="fa-solid fa-file-invoice" style="font-size:0.6rem;"></i> Ped: ${d.totalPed.size}</span>
-            <span style="color:#22c55e;font-size:0.7rem;" title="Pedidos a TRG">TRG:${d.pedTRG}</span>
-            <span style="color:#4f7cff;font-size:0.7rem;" title="Pedidos a Almacen">Alm:${d.pedAlm}</span>
+    el.innerHTML = sorted.map(([nombre, d]) => {
+        const totalPed = new Set([...d.pedTRG, ...d.pedAlm]);
+        const ptList = [...d.pedTRG];
+        const paList = [...d.pedAlm];
+
+        return `<div style="margin-bottom:0.6rem;padding:0.6rem 0.75rem;background:rgba(15,23,42,0.4);border:1px solid var(--border);border-radius:8px;">
+            <div style="font-weight:600;color:var(--text-main);font-size:0.85rem;margin-bottom:0.5rem;"><i class="fa-solid fa-user" style="color:var(--accent);margin-right:5px;font-size:0.75rem;"></i>${nombre}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="padding:0.35rem 0.5rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:6px;">
+                    <div style="font-size:0.78rem;font-weight:600;color:#22c55e;"><i class="fa-solid fa-arrow-right" style="font-size:0.65rem;margin-right:3px;"></i>TRG: ${d.trg} pallets</div>
+                    ${ptList.length > 0
+                        ? `<div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.2rem;">Pedidos: <span style="color:var(--text-main);">${ptList.join(', ')}</span></div>`
+                        : `<div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.2rem;">Sin pedidos</div>`}
+                </div>
+                <div style="padding:0.35rem 0.5rem;background:rgba(79,124,255,0.08);border:1px solid rgba(79,124,255,0.2);border-radius:6px;">
+                    <div style="font-size:0.78rem;font-weight:600;color:#4f7cff;"><i class="fa-solid fa-warehouse" style="font-size:0.65rem;margin-right:3px;"></i>Almacen: ${d.alm} pallets</div>
+                    ${paList.length > 0
+                        ? `<div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.2rem;">Pedidos: <span style="color:var(--text-main);">${paList.join(', ')}</span></div>`
+                        : `<div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.2rem;">Sin pedidos</div>`}
+                </div>
+            </div>
+            <div style="font-size:0.72rem;color:var(--text-muted);">Total pedidos unicos: <strong style="color:var(--accent);">${totalPed.size}</strong></div>
         </div>`;
-    }).join('') + `</div>`;
+    }).join('');
 }
 
 function splitCondFamilies(condStr) {
