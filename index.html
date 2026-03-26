@@ -2636,24 +2636,37 @@ function showPedidosDetail(tipo, recs, color) {
     }
 
     modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+}
+
+function formatFechaHora(r) {
+    // Use createdAt if available, otherwise fecha field
+    if (r.createdAt) {
+        const d = new Date(r.createdAt);
+        const pad = n => String(n).padStart(2,'0');
+        return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    return r.fecha || '-';
 }
 
 function buildPedidoTable(fecha, recs, color) {
+    const td = 'padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);';
     let h = `<div style="padding:0.6rem 0.8rem;overflow-x:auto;">`;
     h += `<table style="width:100%;font-size:0.8rem;border-collapse:collapse;"><thead><tr>`;
-    ['Pallet ID','Cant','Pedido','Destino','Turno','Escaneadora','Condicion'].forEach(col => {
+    ['Fecha / Hora','Pallet ID','Cant','Pedido','Destino','Turno','Escaneadora','Condicion'].forEach(col => {
         h += `<th style="padding:0.35rem 0.5rem;text-align:left;color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap;">${col}</th>`;
     });
     h += `</tr></thead><tbody>`;
     recs.forEach(r => {
         h += `<tr>`;
-        h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);font-weight:600;">${r.palletId}</td>`;
-        h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.cantidad}</td>`;
-        h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.pedido||'-'}</td>`;
-        h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.destino}</td>`;
-        h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);">${turnoBadge(r.turno)}</td>`;
-        h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.escaneadora}</td>`;
-        h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.condicion||'-'}</td>`;
+        h += `<td style="${td}font-size:0.72rem;white-space:nowrap;">${formatFechaHora(r)}</td>`;
+        h += `<td style="${td}font-weight:600;">${r.palletId}</td>`;
+        h += `<td style="${td}">${r.cantidad}</td>`;
+        h += `<td style="${td}">${r.pedido||'-'}</td>`;
+        h += `<td style="${td}">${r.destino}</td>`;
+        h += `<td style="${td}">${turnoBadge(r.turno)}</td>`;
+        h += `<td style="${td}">${r.escaneadora}</td>`;
+        h += `<td style="${td}">${r.condicion||'-'}</td>`;
         h += `</tr>`;
     });
     h += `</tbody></table></div>`;
@@ -2674,6 +2687,7 @@ function togglePedidoDate(header) {
 
 function closePedidosDetail() {
     document.getElementById('pedidos-detail-modal').style.display = 'none';
+    document.body.style.overflow = '';
 }
 
 function renderPedidosHistorial(body, fechaQuery, textoQuery) {
