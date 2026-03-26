@@ -864,12 +864,12 @@
 
             <!-- Row 2: Produccion + Pedidos -->
             <div class="charts-grid">
-                <div class="card">
+                <div class="card" style="height:420px;">
                     <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Produccion por Escaneadora</div>
                     <canvas id="chart-escaneadora" height="160"></canvas>
-                    <div id="escaneadora-detail" style="margin-top:0.5rem;max-height:150px;overflow-y:auto;"></div>
+                    <div id="escaneadora-detail" style="margin-top:0.5rem;flex:1;overflow-y:auto;"></div>
                 </div>
-                <div class="card">
+                <div class="card" style="height:420px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;flex-wrap:wrap;gap:0.5rem;">
                         <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-file-invoice"></i> Pedidos</div>
                         <div style="display:flex;align-items:center;gap:0.5rem;">
@@ -880,7 +880,7 @@
                         </div>
                     </div>
                     <div id="pedidos-info" style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.2rem;"></div>
-                    <div style="position:relative;height:300px;">
+                    <div style="flex:1;position:relative;">
                         <canvas id="chart-pedidos" style="max-height:none !important;"></canvas>
                     </div>
                 </div>
@@ -2499,17 +2499,41 @@ function renderPedidosChart() {
                 showPedidosDetail(tipo, recs, colors[idx]);
             },
             plugins: {
-                legend: { display: false },
+                legend: { display:true, position:'bottom', labels:{ color:'#7b8ba5', padding:6, font:{size:9}, usePointStyle:true, pointStyle:'circle', boxWidth:8 } },
                 tooltip: { ...tooltipStyle, callbacks: { label: (c) => { const t = c.dataset.data.reduce((a,b)=>a+b,0); return `${c.label}: ${c.parsed} pallet${c.parsed>1?'s':''} (${t>0?Math.round(c.parsed/t*100):0}%)`; } } },
                 datalabels: {
                     display: true,
-                    color: '#fff',
-                    font: { weight:'bold', size: 11 },
+                    color: (ctx) => {
+                        const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                        const pct = total > 0 ? (ctx.dataset.data[ctx.dataIndex]/total*100) : 0;
+                        return pct >= 15 ? '#fff' : '#e8ecf4';
+                    },
+                    anchor: (ctx) => {
+                        const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                        const pct = total > 0 ? (ctx.dataset.data[ctx.dataIndex]/total*100) : 0;
+                        return pct >= 15 ? 'center' : 'end';
+                    },
+                    align: (ctx) => {
+                        const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                        const pct = total > 0 ? (ctx.dataset.data[ctx.dataIndex]/total*100) : 0;
+                        return pct >= 15 ? 'center' : 'end';
+                    },
+                    offset: (ctx) => {
+                        const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                        const pct = total > 0 ? (ctx.dataset.data[ctx.dataIndex]/total*100) : 0;
+                        return pct >= 15 ? 0 : 8;
+                    },
+                    font: (ctx) => {
+                        const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                        const pct = total > 0 ? (ctx.dataset.data[ctx.dataIndex]/total*100) : 0;
+                        return { weight:'bold', size: pct >= 15 ? 13 : 10 };
+                    },
                     formatter: (v, c) => {
                         const total = c.dataset.data.reduce((a,b)=>a+b,0);
                         const pct = total > 0 ? Math.round(v/total*100) : 0;
-                        if (pct < 5) return '';
-                        return c.chart.data.labels[c.dataIndex] + '\n' + v;
+                        if (pct < 3) return '';
+                        const name = c.chart.data.labels[c.dataIndex];
+                        return pct >= 15 ? `${name}\n${v} (${pct}%)` : `${name}: ${v}`;
                     },
                     textAlign: 'center'
                 }
