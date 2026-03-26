@@ -658,9 +658,14 @@
         <!-- ══════════════════════════════════════ -->
         <div class="view" id="view-resumen">
             <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
-            <div class="page-header" style="text-align:center;">
-                <h1><i class="fa-solid fa-clipboard-check"></i> Resumen de Paletizado</h1>
-                <p>Captura rapida del resumen de turno</p>
+            <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
+                <div style="text-align:center;flex:1;">
+                    <h1><i class="fa-solid fa-clipboard-check"></i> Resumen de Paletizado</h1>
+                    <p>Captura rapida del resumen de turno</p>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="openResumenHistorial()" style="margin-top:0.25rem;">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Historial
+                </button>
             </div>
 
             <div class="form-panel">
@@ -738,20 +743,28 @@
                     </form>
                 </div>
 
-                <!-- Historial -->
-                <div class="card" style="margin-top:1.5rem;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;">
-                        <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-clock-rotate-left"></i> Resumenes Anteriores</div>
-                        <div style="display:flex;gap:0.5rem;">
-                            <select class="form-input" id="res-filter-turno" style="width:auto;padding:0.4rem 0.6rem;font-size:0.82rem;" onchange="loadResumenes()">
-                                <option value="">Todos los turnos</option>
-                                <option value="Day">Dia</option>
-                                <option value="Night">Noche</option>
-                            </select>
+                <!-- Resumen Historial Modal -->
+                <div id="resumen-historial-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);">
+                    <div style="position:absolute;inset:1.5rem;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:0.75rem;">
+                            <div style="display:flex;align-items:center;gap:0.75rem;">
+                                <i class="fa-solid fa-clock-rotate-left" style="color:var(--accent);"></i>
+                                <span style="font-size:1.1rem;font-weight:600;">Resumenes Anteriores</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:0.5rem;">
+                                <select class="form-input" id="res-filter-turno" style="width:auto;padding:0.4rem 0.6rem;font-size:0.82rem;" onchange="loadResumenes()">
+                                    <option value="">Todos los turnos</option>
+                                    <option value="Day">Dia</option>
+                                    <option value="Night">Noche</option>
+                                </select>
+                                <button onclick="closeResumenHistorial()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.75rem;color:var(--text-muted);cursor:pointer;font-size:0.9rem;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">
+                                    <i class="fa-solid fa-xmark"></i> Cerrar
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    <div id="resumen-history">
-                        <div style="text-align:center;padding:1.5rem;color:var(--text-muted);">Cargando...</div>
+                        <div id="resumen-history" style="flex:1;overflow-y:auto;padding:1.25rem 1.5rem;">
+                            <div style="text-align:center;padding:1.5rem;color:var(--text-muted);">Cargando...</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1231,7 +1244,7 @@ function switchView(viewName) {
     if (viewName === 'dashboard') { loadDashboard(); }
     else { stopPolling(); }
     if (viewName === 'escaneadoras') setDefaultDate();
-    if (viewName === 'resumen') { setResumenDate(); loadResumenes(); }
+    if (viewName === 'resumen') { setResumenDate(); }
     if (viewName === 'home') loadOpsContext();
 }
 
@@ -2956,6 +2969,17 @@ function exportResumenFecha(fecha) {
     ws['!cols'] = headers.map(() => ({ wch: 16 }));
     XLSX.utils.book_append_sheet(wb, ws, fecha.replace(/\//g, '-'));
     XLSX.writeFile(wb, `Resumen_${fecha.replace(/\//g,'-')}.xlsx`);
+}
+
+function openResumenHistorial() {
+    document.getElementById('resumen-historial-modal').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    loadResumenes();
+}
+
+function closeResumenHistorial() {
+    document.getElementById('resumen-historial-modal').style.display = 'none';
+    document.body.style.overflow = '';
 }
 
 async function loadResumenes() {
