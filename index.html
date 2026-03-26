@@ -2475,6 +2475,26 @@ function renderPedidosChart() {
         tipoRecords[tipo].push(r);
     });
 
+    // Build summary HTML below chart showing ALL categories clearly
+    const totalAll = values.reduce((a,b)=>a+b,0);
+    let summaryHtml = '<div style="display:flex;flex-wrap:wrap;gap:0.35rem;justify-content:center;margin-top:0.5rem;">';
+    entries.forEach(([tipo, count], i) => {
+        const pct = totalAll > 0 ? Math.round(count/totalAll*100) : 0;
+        const col = tipoColors[tipo] || '#6b7280';
+        summaryHtml += `<span onclick="showPedidosDetail('${tipo}',tipoRecords['${tipo}']||[],'${col}')" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600;background:${col}22;color:${col};border:1px solid ${col}44;">`;
+        summaryHtml += `<span style="width:7px;height:7px;border-radius:50%;background:${col};"></span>${tipo}: ${count} (${pct}%)</span>`;
+    });
+    summaryHtml += '</div>';
+
+    // Render into a wrapper: chart + summary
+    const wrapper = ctx.parentElement;
+    let sumEl = wrapper.parentElement.querySelector('.pedidos-summary-badges');
+    if (sumEl) sumEl.remove();
+    const div = document.createElement('div');
+    div.className = 'pedidos-summary-badges';
+    div.innerHTML = summaryHtml;
+    wrapper.parentElement.appendChild(div);
+
     chartPedidos = new Chart(ctx.getContext('2d'), {
         type: 'pie',
         data: {
@@ -2490,7 +2510,7 @@ function renderPedidosChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: { padding: 2 },
+            layout: { padding: 10 },
             onClick: (evt, elements) => {
                 if (!elements.length) return;
                 const idx = elements[0].index;
@@ -2499,41 +2519,17 @@ function renderPedidosChart() {
                 showPedidosDetail(tipo, recs, colors[idx]);
             },
             plugins: {
-                legend: { display:true, position:'bottom', labels:{ color:'#7b8ba5', padding:6, font:{size:9}, usePointStyle:true, pointStyle:'circle', boxWidth:8 } },
+                legend: { display: false },
                 tooltip: { ...tooltipStyle, callbacks: { label: (c) => { const t = c.dataset.data.reduce((a,b)=>a+b,0); return `${c.label}: ${c.parsed} pallet${c.parsed>1?'s':''} (${t>0?Math.round(c.parsed/t*100):0}%)`; } } },
                 datalabels: {
                     display: true,
-                    color: (ctx) => {
-                        const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
-                        const pct = total > 0 ? (ctx.dataset.data[ctx.dataIndex]/total*100) : 0;
-                        return pct >= 15 ? '#fff' : '#e8ecf4';
-                    },
-                    anchor: (ctx) => {
-                        const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
-                        const pct = total > 0 ? (ctx.dataset.data[ctx.dataIndex]/total*100) : 0;
-                        return pct >= 15 ? 'center' : 'end';
-                    },
-                    align: (ctx) => {
-                        const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
-                        const pct = total > 0 ? (ctx.dataset.data[ctx.dataIndex]/total*100) : 0;
-                        return pct >= 15 ? 'center' : 'end';
-                    },
-                    offset: (ctx) => {
-                        const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
-                        const pct = total > 0 ? (ctx.dataset.data[ctx.dataIndex]/total*100) : 0;
-                        return pct >= 15 ? 0 : 8;
-                    },
-                    font: (ctx) => {
-                        const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
-                        const pct = total > 0 ? (ctx.dataset.data[ctx.dataIndex]/total*100) : 0;
-                        return { weight:'bold', size: pct >= 15 ? 13 : 10 };
-                    },
+                    color: '#fff',
+                    font: { weight:'bold', size: 12 },
                     formatter: (v, c) => {
                         const total = c.dataset.data.reduce((a,b)=>a+b,0);
                         const pct = total > 0 ? Math.round(v/total*100) : 0;
-                        if (pct < 3) return '';
-                        const name = c.chart.data.labels[c.dataIndex];
-                        return pct >= 15 ? `${name}\n${v} (${pct}%)` : `${name}: ${v}`;
+                        if (pct < 8) return '';
+                        return c.chart.data.labels[c.dataIndex] + '\n' + v;
                     },
                     textAlign: 'center'
                 }
