@@ -2486,13 +2486,12 @@ function renderPedidosChart() {
                 borderWidth: 2,
                 borderColor: '#0f172a',
                 hoverOffset: 10,
-                spacing: 2,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: { padding: { top: 4, bottom: 4, left: 4, right: 4 } },
+            layout: { padding: 2 },
             onClick: (evt, elements) => {
                 if (!elements.length) return;
                 const idx = elements[0].index;
@@ -2501,23 +2500,17 @@ function renderPedidosChart() {
                 showPedidosDetail(tipo, recs, colors[idx]);
             },
             plugins: {
-                legend: {
-                    position: 'right',
-                    labels: { color:'#7b8ba5', padding:6, font:{size:10}, usePointStyle:true, pointStyle:'circle', boxWidth:10 }
-                },
+                legend: { display: false },
                 tooltip: { ...tooltipStyle, callbacks: { label: (c) => { const t = c.dataset.data.reduce((a,b)=>a+b,0); return `${c.label}: ${c.parsed} pallet${c.parsed>1?'s':''} (${t>0?Math.round(c.parsed/t*100):0}%)`; } } },
                 datalabels: {
-                    display: (ctx) => {
-                        const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
-                        const pct = total > 0 ? (ctx.dataset.data[ctx.dataIndex]/total*100) : 0;
-                        return pct >= 10;
-                    },
+                    display: true,
                     color: '#fff',
-                    font: { weight:'bold', size: 13 },
+                    font: { weight:'bold', size: 11 },
                     formatter: (v, c) => {
                         const total = c.dataset.data.reduce((a,b)=>a+b,0);
                         const pct = total > 0 ? Math.round(v/total*100) : 0;
-                        return `${v}\n${pct}%`;
+                        if (pct < 5) return '';
+                        return c.chart.data.labels[c.dataIndex] + '\n' + v;
                     },
                     textAlign: 'center'
                 }
