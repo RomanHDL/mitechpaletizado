@@ -792,6 +792,9 @@
                     <button class="btn btn-secondary btn-sm admin-only" onclick="exportDashboardExcel()" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
                         <i class="fa-solid fa-file-excel"></i> Excel
                     </button>
+                    <button id="btn-capture-mode" style="display:none;padding:0.3rem 0.6rem;font-size:0.75rem;" class="btn btn-secondary btn-sm" onclick="toggleCaptureMode()">
+                        <i class="fa-solid fa-camera"></i> Modo Captura
+                    </button>
                     <button class="btn-logout-top" onclick="handleLogout()" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
                         <i class="fa-solid fa-right-from-bracket"></i> Salir
                     </button>
@@ -1156,6 +1159,26 @@ function startOpsUpdates() {
 }
 
 // ══════════════════════════════════════════════
+// CAPTURE MODE (user 3647 only)
+let captureMode = false;
+function toggleCaptureMode() {
+    if (!currentUser || currentUser.usuario !== '3647') return;
+    captureMode = !captureMode;
+    const btn = document.getElementById('btn-capture-mode');
+    const header = document.querySelector('.page-header');
+    const filters = document.querySelector('.filter-bar');
+    if (captureMode) {
+        // Hide header actions and filters for clean screenshot
+        if (btn) { btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Salir Captura'; btn.style.background = 'var(--danger)'; btn.style.color = '#fff'; btn.style.border = 'none'; }
+        document.querySelectorAll('.btn-logout-top, #dash-user-info').forEach(el => el.style.display = 'none');
+        if (filters) filters.style.display = 'none';
+    } else {
+        if (btn) { btn.innerHTML = '<i class="fa-solid fa-camera"></i> Modo Captura'; btn.style.background = ''; btn.style.color = ''; btn.style.border = ''; }
+        document.querySelectorAll('.btn-logout-top, #dash-user-info').forEach(el => el.style.display = '');
+        if (filters) filters.style.display = '';
+    }
+}
+
 // IMPERSONATION (admin 3647 only)
 // ══════════════════════════════════════════════
 let originalAdmin = null; // stores admin session when impersonating
@@ -1263,6 +1286,9 @@ function switchView(viewName) {
         const dr = document.getElementById('dash-user-role');
         if (dn) dn.textContent = currentUser.nombre;
         if (dr) dr.textContent = currentUser.role === 'admin' ? 'Administrador' : 'Escaneadora';
+        // Capture mode: only for user 3647
+        const capBtn = document.getElementById('btn-capture-mode');
+        if (capBtn) capBtn.style.display = (currentUser.usuario === '3647') ? '' : 'none';
     }
 
     if (viewName === 'dashboard') { loadDashboard(); }
