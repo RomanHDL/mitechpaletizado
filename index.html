@@ -1645,23 +1645,28 @@ async function loadResumen() {
         }
 
         // ── PIE: Distribucion de Piezas por Escaneadora ──
-        const ctxPZ = document.getElementById('chart-piezas-pie').getContext('2d');
-        if (chartPiezasPie) chartPiezasPie.destroy();
         if (data.porEscaneadora.length > 0) {
-            chartPiezasPie = new Chart(ctxPZ, {
-                type: 'pie',
-                data: {
-                    labels: data.porEscaneadora.map(e => e.nombre),
-                    datasets: [{ data: data.porEscaneadora.map(e => e.unidades), backgroundColor: COLORS, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 10 }]
-                },
-                options: chartOpts({
-                    plugins: {
-                        legend: { position:'bottom', labels: { color:'#7b8ba5', padding:10, font:{size:11}, usePointStyle:true, pointStyle:'circle' } },
-                        tooltip: { ...tooltipStyle, callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed.toLocaleString()} piezas` } },
-                        datalabels: { display: true, color: '#fff', font: { weight:'bold', size:12 }, formatter: (v, ctx) => { const total = ctx.dataset.data.reduce((a,b)=>a+b,0); const pct = total > 0 ? Math.round(v/total*100) : 0; return pct >= 5 ? `${v.toLocaleString()}\n(${pct}%)` : ''; }, textAlign:'center' }
-                    }
-                })
-            });
+            const pzLabels = data.porEscaneadora.map(e => e.nombre);
+            const pzData = data.porEscaneadora.map(e => e.unidades);
+            if (chartPiezasPie) {
+                chartPiezasPie.data.labels = pzLabels;
+                chartPiezasPie.data.datasets[0].data = pzData;
+                chartPiezasPie.update('none');
+            } else {
+                const ctxPZ = document.getElementById('chart-piezas-pie').getContext('2d');
+                chartPiezasPie = new Chart(ctxPZ, {
+                    type: 'pie',
+                    data: { labels: pzLabels, datasets: [{ data: pzData, backgroundColor: COLORS, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 10 }] },
+                    options: chartOpts({
+                        animation: { duration: 300 },
+                        plugins: {
+                            legend: { position:'bottom', labels: { color:'#7b8ba5', padding:10, font:{size:11}, usePointStyle:true, pointStyle:'circle' } },
+                            tooltip: { ...tooltipStyle, callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed.toLocaleString()} piezas` } },
+                            datalabels: { display: true, color: '#fff', font: { weight:'bold', size:12 }, formatter: (v, ctx) => { const total = ctx.dataset.data.reduce((a,b)=>a+b,0); const pct = total > 0 ? Math.round(v/total*100) : 0; return pct >= 5 ? `${v.toLocaleString()}\n(${pct}%)` : ''; }, textAlign:'center' }
+                        }
+                    })
+                });
+            }
         }
 
         // ── BAR HORIZONTAL: Produccion por Escaneadora (Piezas + Pallets) ──
@@ -1707,23 +1712,30 @@ async function loadResumen() {
         renderEscaneadoraDetail();
 
         // ── DOUGHNUT: Distribucion por Destino ──
-        const ctxD = document.getElementById('chart-destino').getContext('2d');
-        if (chartDest) chartDest.destroy();
-        chartDest = new Chart(ctxD, {
-            type: 'doughnut',
-            data: {
-                labels: data.porDestino.map(d => d.destino),
-                datasets: [{ data: data.porDestino.map(d => d.registros), backgroundColor: COLORS, borderWidth: 0, hoverOffset: 8 }]
-            },
-            options: chartOpts({
-                cutout:'40%',
-                plugins: {
-                    legend: { position:'bottom', labels:{color:'#7b8ba5',padding:12,font:{size:11}} },
-                    tooltip: tooltipStyle,
-                    datalabels: { display: true, color:'#fff', font:{weight:'bold',size:12}, formatter:(v,ctx)=>{ const t=ctx.dataset.data.reduce((a,b)=>a+b,0); return t>0&&Math.round(v/t*100)>=5?v:''; } }
-                }
-            })
-        });
+        {
+            const dLabels = data.porDestino.map(d => d.destino);
+            const dData = data.porDestino.map(d => d.registros);
+            if (chartDest) {
+                chartDest.data.labels = dLabels;
+                chartDest.data.datasets[0].data = dData;
+                chartDest.update('none');
+            } else {
+                const ctxD = document.getElementById('chart-destino').getContext('2d');
+                chartDest = new Chart(ctxD, {
+                    type: 'doughnut',
+                    data: { labels: dLabels, datasets: [{ data: dData, backgroundColor: COLORS, borderWidth: 0, hoverOffset: 8 }] },
+                    options: chartOpts({
+                        cutout:'40%',
+                        animation: { duration: 300 },
+                        plugins: {
+                            legend: { position:'bottom', labels:{color:'#7b8ba5',padding:12,font:{size:11}} },
+                            tooltip: tooltipStyle,
+                            datalabels: { display: true, color:'#fff', font:{weight:'bold',size:12}, formatter:(v,ctx)=>{ const t=ctx.dataset.data.reduce((a,b)=>a+b,0); return t>0&&Math.round(v/t*100)>=5?v:''; } }
+                        }
+                    })
+                });
+            }
+        }
 
         // ── DOUGHNUT: Registros por Turno ──
         const turnoColorMap = (name) => {
