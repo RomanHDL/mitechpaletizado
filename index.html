@@ -868,6 +868,7 @@
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Produccion por Escaneadora</div>
                     <canvas id="chart-escaneadora" height="180"></canvas>
+                    <div id="escaneadora-detail" style="margin-top:0.75rem;"></div>
                 </div>
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
@@ -1679,6 +1680,9 @@ async function loadResumen() {
             })
         });
 
+        // ── Escaneadora detail (expandable) ──
+        renderEscaneadoraDetail();
+
         // ── DOUGHNUT: Distribucion por Destino ──
         const ctxD = document.getElementById('chart-destino').getContext('2d');
         if (chartDest) chartDest.destroy();
@@ -1733,6 +1737,89 @@ async function loadResumen() {
 }
 
 // Split "GRA, GRB, GRC" into individual families and extract the base name
+// ══════════════════════════════════════════════
+// ESCANEADORA DETAIL (desglose por destino + pedidos)
+// ══════════════════════════════════════════════
+const escDetailExpanded = new Set();
+
+function renderEscaneadoraDetail() {
+    const container = document.getElementById('escaneadora-detail');
+    if (!container || !lastTableData || lastTableData.length === 0) {
+        if (container) container.innerHTML = '';
+        return;
+    }
+
+    // Group by escaneadora
+    const byEsc = {};
+    lastTableData.forEach(r => {
+        const esc = r.escaneadora || 'Desconocido';
+        if (!byEsc[esc]) byEsc[esc] = { piezas:0, pallets:0, trg:0, almacen:0, pedidosTRG:new Set(), pedidosAlmacen:new Set(), totalPedidos:new Set() };
+        const d = byEsc[esc];
+        d.piezas += (r.cantidad || 0);
+        d.pallets++;
+        const dest = (r.destino || '').toUpperCase();
+        if (dest === 'TRG') d.trg++;
+        else d.almacen++;
+        if (r.pedido && r.pedido.trim()) {
+            const ped = r.pedido.trim();
+            d.totalPedidos.add(ped);
+            if (dest === 'TRG') d.pedidosTRG.add(ped);
+            else d.pedidosAlmacen.add(ped);
+        }
+    });
+
+    const sorted = Object.entries(byEsc).sort((a,b) => b[1].pallets - a[1].pallets);
+
+    container.innerHTML = sorted.map(([nombre, d]) => {
+        const isOpen = escDetailExpanded.has(nombre);
+        const chevron = isOpen ? 'fa-chevron-up' : 'fa-chevron-down';
+        const pedTRG = [...d.pedidosTRG];
+        const pedAlm = [...d.pedidosAlmacen];
+
+        let h = `<div style="margin-bottom:0.4rem;border:1px solid var(--border);border-radius:6px;overflow:hidden;">`;
+        // Header
+        h += `<div onclick="toggleEscDetail('${nombre.replace(/'/g,"\\'")}')" style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0.75rem;background:var(--bg-sidebar);cursor:pointer;user-select:none;font-size:0.8rem;" onmouseover="this.style.background='rgba(79,124,255,0.06)'" onmouseout="this.style.background='var(--bg-sidebar)'">`;
+        h += `<div style="display:flex;align-items:center;gap:0.5rem;">`;
+        h += `<i class="fa-solid fa-user" style="color:var(--accent);font-size:0.7rem;"></i>`;
+        h += `<strong style="color:var(--text-main);">${nombre}</strong>`;
+        h += `<span style="color:var(--text-muted);">${d.pallets} plt &middot; ${d.piezas.toLocaleString()} pz &middot; ${d.totalPedidos.size} ped</span>`;
+        h += `</div>`;
+        h += `<i class="fa-solid ${chevron}" style="color:var(--text-muted);font-size:0.6rem;"></i>`;
+        h += `</div>`;
+
+        if (isOpen) {
+            h += `<div style="padding:0.6rem 0.75rem;font-size:0.78rem;">`;
+            // Destino breakdown
+            h += `<div style="display:flex;gap:1rem;margin-bottom:0.5rem;">`;
+            h += `<div style="flex:1;padding:0.4rem 0.6rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:6px;">`;
+            h += `<div style="font-weight:600;color:#22c55e;">TRG</div>`;
+            h += `<div style="color:var(--text-muted);">${d.trg} pallets</div>`;
+            if (pedTRG.length > 0) h += `<div style="margin-top:0.3rem;font-size:0.72rem;color:var(--text-main);">${pedTRG.length} pedido${pedTRG.length>1?'s':''}: <span style="color:var(--accent);">${pedTRG.join(', ')}</span></div>`;
+            h += `</div>`;
+            h += `<div style="flex:1;padding:0.4rem 0.6rem;background:rgba(79,124,255,0.08);border:1px solid rgba(79,124,255,0.2);border-radius:6px;">`;
+            h += `<div style="font-weight:600;color:#4f7cff;">Almacen</div>`;
+            h += `<div style="color:var(--text-muted);">${d.almacen} pallets</div>`;
+            if (pedAlm.length > 0) h += `<div style="margin-top:0.3rem;font-size:0.72rem;color:var(--text-main);">${pedAlm.length} pedido${pedAlm.length>1?'s':''}: <span style="color:var(--accent);">${pedAlm.join(', ')}</span></div>`;
+            h += `</div>`;
+            h += `</div>`;
+            // Summary
+            if (d.totalPedidos.size > 0) {
+                h += `<div style="font-size:0.72rem;color:var(--text-muted);">Total pedidos unicos: <strong style="color:var(--text-main);">${d.totalPedidos.size}</strong></div>`;
+            }
+            h += `</div>`;
+        }
+
+        h += `</div>`;
+        return h;
+    }).join('');
+}
+
+function toggleEscDetail(nombre) {
+    if (escDetailExpanded.has(nombre)) escDetailExpanded.delete(nombre);
+    else escDetailExpanded.add(nombre);
+    renderEscaneadoraDetail();
+}
+
 function splitCondFamilies(condStr) {
     if (!condStr || condStr === 'Sin condicion') return ['SIN CONDICION'];
     return condStr.split(/[,;\/]+/).map(s => {
