@@ -870,8 +870,8 @@
                 <div class="kpi"><div class="kpi-value" id="kpi-operadoras">-</div><div class="kpi-label">Escaneadoras Activas</div></div>
             </div>
 
-            <!-- Row 1: 4 graficas de pastel en una fila -->
-            <div class="charts-grid grid-4" style="gap:0.75rem;">
+            <!-- Row 1: 3 graficas de pastel -->
+            <div class="charts-grid" style="grid-template-columns:repeat(3,1fr);gap:0.75rem;">
                 <div class="card" style="padding:0.6rem 0.8rem;">
                     <div class="card-title"><i class="fa-solid fa-boxes-stacked"></i> Total Real de Pallets Procesados</div>
                     <div id="total-pallets-center" style="text-align:center;margin-bottom:0.25rem;"></div>
@@ -886,12 +886,6 @@
                     <div class="card-title"><i class="fa-solid fa-cubes"></i> Distribucion de Piezas por Escaneadora</div>
                     <div style="display:flex;justify-content:center;align-items:center;flex:1;">
                         <canvas id="chart-piezas-pie" height="160" style="max-width:220px;"></canvas>
-                    </div>
-                </div>
-                <div class="card" style="padding:0.6rem 0.8rem;">
-                    <div class="card-title"><i class="fa-solid fa-chart-pie"></i> Distribucion por Destino</div>
-                    <div style="display:flex;justify-content:center;align-items:center;flex:1;">
-                        <canvas id="chart-destino" height="160" style="max-width:220px;"></canvas>
                     </div>
                 </div>
             </div>
@@ -920,16 +914,12 @@
                 </div>
             </div>
 
-            <!-- Row 3: Turno + Tendencia -->
-            <div class="charts-grid" id="row-turno-tendencia">
-                <div class="card">
-                    <div class="card-title"><i class="fa-solid fa-clock"></i> Registros por Turno</div>
-                    <canvas id="chart-turno" height="160"></canvas>
-                </div>
+            <!-- Row 3: Tendencia Diaria (full width) -->
+            <div id="row-turno-tendencia" style="margin-bottom:1.5rem;">
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-chart-line"></i> Tendencia Diaria</div>
                     <div id="trend-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;"></div>
-                    <div id="trend-chart-wrap" style="position:relative;height:160px;">
+                    <div id="trend-chart-wrap" style="position:relative;height:180px;">
                         <canvas id="chart-tendencia"></canvas>
                     </div>
                 </div>
@@ -1783,58 +1773,6 @@ async function loadResumen() {
         // ── Detail: desglose por destino + pedidos por escaneadora ──
         renderEscaneadoraDetail();
 
-        // ── DOUGHNUT: Distribucion por Destino ──
-        {
-            const dLabels = data.porDestino.map(d => d.destino);
-            const dData = data.porDestino.map(d => d.registros);
-            if (chartDest) {
-                chartDest.data.labels = dLabels;
-                chartDest.data.datasets[0].data = dData;
-                chartDest.update('none');
-            } else {
-                const ctxD = document.getElementById('chart-destino').getContext('2d');
-                chartDest = new Chart(ctxD, {
-                    type: 'doughnut',
-                    data: { labels: dLabels, datasets: [{ data: dData, backgroundColor: COLORS, borderWidth: 0, hoverOffset: 8 }] },
-                    options: {
-                        responsive: true,
-                        animation: false,
-                        cutout:'40%',
-                        plugins: {
-                            legend: { position:'bottom', labels:{color:'#7b8ba5',padding:12,font:{size:11}} },
-                            tooltip: tooltipStyle,
-                            datalabels: { display: true, color:'#fff', font:{weight:'bold',size:12}, formatter:(v,ctx)=>{ const t=ctx.dataset.data.reduce((a,b)=>a+b,0); return t>0&&Math.round(v/t*100)>=5?v:''; } }
-                        }
-                    }
-                });
-            }
-        }
-
-        // ── DOUGHNUT: Registros por Turno ──
-        const turnoColorMap = (name) => {
-            const n = name.toLowerCase();
-            if (n.includes('día') || n.includes('dia') || n.includes('day')) return '#f59e0b';
-            if (n.includes('noche') || n.includes('night')) return '#4f7cff';
-            return '#22c55e';
-        };
-        const ctxT = document.getElementById('chart-turno').getContext('2d');
-        if (chartTurno) chartTurno.destroy();
-        chartTurno = new Chart(ctxT, {
-            type: 'doughnut',
-            data: {
-                labels: data.porTurno.map(t => t.turno),
-                datasets: [{ data: data.porTurno.map(t => t.registros), backgroundColor: data.porTurno.map(t => turnoColorMap(t.turno)), borderWidth: 0, hoverOffset: 8 }]
-            },
-            options: chartOpts({
-                cutout:'40%',
-                plugins: {
-                    legend: { position:'bottom', labels:{color:'#7b8ba5',padding:12,font:{size:11}} },
-                    tooltip: tooltipStyle,
-                    datalabels: { display: true, color:'#fff', font:{weight:'bold',size:13}, formatter:(v)=>v>0?v:'' }
-                }
-            })
-        });
-
         // ── CONDICION grouped by date ──
         renderCondicionByDate(data);
 
@@ -2130,8 +2068,9 @@ function renderTrendWidget(dateMap) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: { padding: { left: 8, right: 8 } },
-            animation: { duration: 800, easing: 'easeOutQuart' },
+            indexAxis: 'y',
+            layout: { padding: { right: 30 } },
+            animation: { duration: 400 },
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: {
@@ -2143,22 +2082,20 @@ function renderTrendWidget(dateMap) {
                     ...tooltipStyle, mode: 'index', intersect: false,
                     callbacks: {
                         title: (items) => items[0].label,
-                        afterBody: (items) => 'Total: ' + items.reduce((s, i) => s + i.parsed.y, 0)
+                        afterBody: (items) => 'Total: ' + items.reduce((s, i) => s + i.parsed.x, 0)
                     }
                 },
-                datalabels: { display: true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:10}, formatter:(v)=>v>0?v:'' }
+                datalabels: { display: true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:10}, offset:4, formatter:(v)=>v>0?v:'' }
             },
             scales: {
-                y: {
+                x: {
                     beginAtZero: true,
                     ticks: { color: '#7b8ba5', stepSize: 1, font: { size: 11 } },
-                    grid: { color: 'rgba(30,42,66,0.4)' },
-                    title: { display: true, text: 'Registros', color: '#7b8ba5', font: { size: 11 } }
+                    grid: { color: 'rgba(30,42,66,0.4)' }
                 },
-                x: {
+                y: {
                     type: 'category',
                     offset: true,
-                    reverse: false,
                     ticks: { color: '#7b8ba5', font: { size: 12, weight: '500' } },
                     grid: { display: false }
                 }
