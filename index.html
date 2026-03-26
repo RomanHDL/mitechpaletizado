@@ -867,8 +867,7 @@
             <div class="charts-grid">
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Produccion por Escaneadora</div>
-                    <canvas id="chart-escaneadora" height="180"></canvas>
-                    <div id="escaneadora-detail" style="margin-top:0.75rem;"></div>
+                    <canvas id="chart-escaneadora" height="200"></canvas>
                 </div>
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
@@ -1641,47 +1640,70 @@ async function loadResumen() {
             });
         }
 
-        // ── BAR HORIZONTAL: Produccion por Escaneadora (Piezas + Pallets) ──
+        // ── BAR STACKED: Produccion por Escaneadora (clasificacion) ──
         const ctxE = document.getElementById('chart-escaneadora').getContext('2d');
         if (chartEsc) chartEsc.destroy();
+
+        // Build clasificacion breakdown per escaneadora from real data
+        const escNames = data.porEscaneadora.map(e => e.nombre);
+        const clasColors = { 'BULKY':'#f59e0b', 'BOX':'#4f7cff', 'HV':'#8b5cf6', 'HV TELEVISIONES':'#a78bfa', 'JESSY':'#ec4899', 'SIN CLASIF.':'#6b7280' };
+        const escClasMap = {}; // { "Yusley": { BULKY:5, BOX:3, ... } }
+        const allClasSet = new Set();
+
+        (lastTableData || []).forEach(r => {
+            const esc = r.escaneadora || 'Otro';
+            if (!escNames.includes(esc)) return;
+            // Extract clasificacion from observaciones (same as extractTipo)
+            let cls = 'SIN CLASIF.';
+            const obs = (r.observaciones || '').trim();
+            if (obs) {
+                const first = obs.split('|')[0].trim().toUpperCase();
+                if (['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY'].includes(first)) {
+                    cls = first === 'LPN' ? 'BULKY' : first;
+                }
+            }
+            if (cls === 'SIN CLASIF.') {
+                const dest = (r.destino || '').toUpperCase();
+                if (['BULKY','BOX'].includes(dest)) cls = dest;
+                else if (dest.startsWith('HV')) cls = dest;
+            }
+            if (!escClasMap[esc]) escClasMap[esc] = {};
+            if (!escClasMap[esc][cls]) escClasMap[esc][cls] = 0;
+            escClasMap[esc][cls]++;
+            allClasSet.add(cls);
+        });
+
+        const allClas = [...allClasSet].sort((a,b) => {
+            const order = ['BULKY','BOX','HV','HV TELEVISIONES','JESSY','SIN CLASIF.'];
+            return (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) - (order.indexOf(b) === -1 ? 99 : order.indexOf(b));
+        });
+
+        const escDatasets = allClas.map(cls => ({
+            label: cls,
+            data: escNames.map(esc => escClasMap[esc]?.[cls] || 0),
+            backgroundColor: clasColors[cls] || '#6b7280',
+            borderRadius: 2, borderSkipped: false,
+        }));
+
         chartEsc = new Chart(ctxE, {
             type: 'bar',
-            data: {
-                labels: data.porEscaneadora.map(e => e.nombre),
-                datasets: [
-                    {
-                        label: 'Piezas',
-                        data: data.porEscaneadora.map(e => e.unidades),
-                        backgroundColor: '#4f7cffcc',
-                        hoverBackgroundColor: '#4f7cff',
-                        borderRadius: 4, borderSkipped: false, maxBarThickness: 18,
-                    },
-                    {
-                        label: 'Pallets',
-                        data: data.porEscaneadora.map(e => e.registros),
-                        backgroundColor: '#22c55ecc',
-                        hoverBackgroundColor: '#22c55e',
-                        borderRadius: 4, borderSkipped: false, maxBarThickness: 18,
-                    }
-                ]
-            },
+            data: { labels: escNames, datasets: escDatasets },
             options: chartOpts({
                 indexAxis: 'y',
-                layout: { padding: { right: 40 } },
+                layout: { padding: { right: 30 } },
                 plugins: {
-                    legend: { display:true, position:'top', align:'end', labels:{ color:'#7b8ba5', padding:10, font:{size:10}, usePointStyle:true, pointStyle:'rectRounded' } },
-                    tooltip: { ...tooltipStyle, mode:'index', intersect:false },
-                    datalabels: { display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:10}, offset:4, formatter:(v)=>v>0?v.toLocaleString():'' }
+                    legend: { display:true, position:'top', align:'end', labels:{ color:'#7b8ba5', padding:8, font:{size:9}, usePointStyle:true, pointStyle:'rectRounded' } },
+                    tooltip: { ...tooltipStyle, mode:'index', intersect:false, callbacks: {
+                        afterBody: (items) => { const t = items.reduce((s,i)=>s+i.parsed.x,0); return 'Total: ' + t + ' pallets'; }
+                    }},
+                    datalabels: { display:(ctx)=>ctx.dataset.data[ctx.dataIndex]>0, color:'#fff', font:{weight:'bold',size:9}, formatter:(v)=>v>0?v:'' }
                 },
                 scales: {
-                    x: { beginAtZero:true, ticks:{color:'#7b8ba5'}, grid:{color:'rgba(30,42,66,0.5)'} },
-                    y: { ticks:{color:'#7b8ba5',font:{size:11}}, grid:{display:false} }
+                    x: { stacked:true, beginAtZero:true, ticks:{color:'#7b8ba5'}, grid:{color:'rgba(30,42,66,0.5)'} },
+                    y: { stacked:true, ticks:{color:'#7b8ba5',font:{size:11}}, grid:{display:false} }
                 }
             })
         });
-
-        // ── Escaneadora detail (expandable) ──
-        renderEscaneadoraDetail();
 
         // ── DOUGHNUT: Distribucion por Destino ──
         const ctxD = document.getElementById('chart-destino').getContext('2d');
@@ -1737,89 +1759,6 @@ async function loadResumen() {
 }
 
 // Split "GRA, GRB, GRC" into individual families and extract the base name
-// ══════════════════════════════════════════════
-// ESCANEADORA DETAIL (desglose por destino + pedidos)
-// ══════════════════════════════════════════════
-const escDetailExpanded = new Set();
-
-function renderEscaneadoraDetail() {
-    const container = document.getElementById('escaneadora-detail');
-    if (!container || !lastTableData || lastTableData.length === 0) {
-        if (container) container.innerHTML = '';
-        return;
-    }
-
-    // Group by escaneadora
-    const byEsc = {};
-    lastTableData.forEach(r => {
-        const esc = r.escaneadora || 'Desconocido';
-        if (!byEsc[esc]) byEsc[esc] = { piezas:0, pallets:0, trg:0, almacen:0, pedidosTRG:new Set(), pedidosAlmacen:new Set(), totalPedidos:new Set() };
-        const d = byEsc[esc];
-        d.piezas += (r.cantidad || 0);
-        d.pallets++;
-        const dest = (r.destino || '').toUpperCase();
-        if (dest === 'TRG') d.trg++;
-        else d.almacen++;
-        if (r.pedido && r.pedido.trim()) {
-            const ped = r.pedido.trim();
-            d.totalPedidos.add(ped);
-            if (dest === 'TRG') d.pedidosTRG.add(ped);
-            else d.pedidosAlmacen.add(ped);
-        }
-    });
-
-    const sorted = Object.entries(byEsc).sort((a,b) => b[1].pallets - a[1].pallets);
-
-    container.innerHTML = sorted.map(([nombre, d]) => {
-        const isOpen = escDetailExpanded.has(nombre);
-        const chevron = isOpen ? 'fa-chevron-up' : 'fa-chevron-down';
-        const pedTRG = [...d.pedidosTRG];
-        const pedAlm = [...d.pedidosAlmacen];
-
-        let h = `<div style="margin-bottom:0.4rem;border:1px solid var(--border);border-radius:6px;overflow:hidden;">`;
-        // Header
-        h += `<div onclick="toggleEscDetail('${nombre.replace(/'/g,"\\'")}')" style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0.75rem;background:var(--bg-sidebar);cursor:pointer;user-select:none;font-size:0.8rem;" onmouseover="this.style.background='rgba(79,124,255,0.06)'" onmouseout="this.style.background='var(--bg-sidebar)'">`;
-        h += `<div style="display:flex;align-items:center;gap:0.5rem;">`;
-        h += `<i class="fa-solid fa-user" style="color:var(--accent);font-size:0.7rem;"></i>`;
-        h += `<strong style="color:var(--text-main);">${nombre}</strong>`;
-        h += `<span style="color:var(--text-muted);">${d.pallets} plt &middot; ${d.piezas.toLocaleString()} pz &middot; ${d.totalPedidos.size} ped</span>`;
-        h += `</div>`;
-        h += `<i class="fa-solid ${chevron}" style="color:var(--text-muted);font-size:0.6rem;"></i>`;
-        h += `</div>`;
-
-        if (isOpen) {
-            h += `<div style="padding:0.6rem 0.75rem;font-size:0.78rem;">`;
-            // Destino breakdown
-            h += `<div style="display:flex;gap:1rem;margin-bottom:0.5rem;">`;
-            h += `<div style="flex:1;padding:0.4rem 0.6rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:6px;">`;
-            h += `<div style="font-weight:600;color:#22c55e;">TRG</div>`;
-            h += `<div style="color:var(--text-muted);">${d.trg} pallets</div>`;
-            if (pedTRG.length > 0) h += `<div style="margin-top:0.3rem;font-size:0.72rem;color:var(--text-main);">${pedTRG.length} pedido${pedTRG.length>1?'s':''}: <span style="color:var(--accent);">${pedTRG.join(', ')}</span></div>`;
-            h += `</div>`;
-            h += `<div style="flex:1;padding:0.4rem 0.6rem;background:rgba(79,124,255,0.08);border:1px solid rgba(79,124,255,0.2);border-radius:6px;">`;
-            h += `<div style="font-weight:600;color:#4f7cff;">Almacen</div>`;
-            h += `<div style="color:var(--text-muted);">${d.almacen} pallets</div>`;
-            if (pedAlm.length > 0) h += `<div style="margin-top:0.3rem;font-size:0.72rem;color:var(--text-main);">${pedAlm.length} pedido${pedAlm.length>1?'s':''}: <span style="color:var(--accent);">${pedAlm.join(', ')}</span></div>`;
-            h += `</div>`;
-            h += `</div>`;
-            // Summary
-            if (d.totalPedidos.size > 0) {
-                h += `<div style="font-size:0.72rem;color:var(--text-muted);">Total pedidos unicos: <strong style="color:var(--text-main);">${d.totalPedidos.size}</strong></div>`;
-            }
-            h += `</div>`;
-        }
-
-        h += `</div>`;
-        return h;
-    }).join('');
-}
-
-function toggleEscDetail(nombre) {
-    if (escDetailExpanded.has(nombre)) escDetailExpanded.delete(nombre);
-    else escDetailExpanded.add(nombre);
-    renderEscaneadoraDetail();
-}
-
 function splitCondFamilies(condStr) {
     if (!condStr || condStr === 'Sin condicion') return ['SIN CONDICION'];
     return condStr.split(/[,;\/]+/).map(s => {
