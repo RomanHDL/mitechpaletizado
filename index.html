@@ -881,7 +881,7 @@
                         </div>
                     </div>
                     <div id="pedidos-info" style="text-align:center;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.25rem;"></div>
-                    <canvas id="chart-pedidos" height="160"></canvas>
+                    <canvas id="chart-pedidos" height="200"></canvas>
                 </div>
             </div>
 
@@ -2087,10 +2087,12 @@ async function loadTableData() {
         const data = await apiFetch(`${API}/api/dashboard/registros?${params}${extra}&limit=200`);
         if (!data.success) return;
         lastTableData = data.data;
-        renderRecords(data.data);
-        // Re-render condicion chart now that table data is available for date grouping
-        if (lastResumen) renderCondicionByDate(lastResumen);
-        renderPedidosChart();
+        // Batch all secondary renders in one requestAnimationFrame
+        requestAnimationFrame(() => {
+            if (lastResumen) renderCondicionByDate(lastResumen);
+            renderPedidosChart();
+            renderEscaneadoraDetail();
+        });
     } catch (err) {
         console.error('[TABLE]', err);
     }
@@ -3623,6 +3625,24 @@ function resetEscForm() {
     setDefaultDate();
     togglePedidoField();
 }
+
+// Prevent Enter key from auto-submitting the form (scanner sends Enter after data)
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('esc-form');
+    if (form) {
+        form.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+                e.preventDefault();
+                // Move focus to next field instead of submitting
+                const inputs = [...form.querySelectorAll('input, select, textarea')];
+                const idx = inputs.indexOf(e.target);
+                if (idx >= 0 && idx < inputs.length - 1) {
+                    inputs[idx + 1].focus();
+                }
+            }
+        });
+    }
+});
 
 // Close dropdown when clicking outside
 document.addEventListener('click', function(e) {
