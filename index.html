@@ -150,7 +150,7 @@
         }
         .card-title { font-size:1.1rem; font-weight:600; margin-bottom:1rem; display:flex; align-items:center; gap:8px; }
         .card-title i { color:var(--accent); font-size:0.9rem; }
-        .charts-grid .card { padding:1rem 1.25rem; }
+        .charts-grid .card { padding:1rem 1.25rem; overflow:hidden; display:flex; flex-direction:column; }
         .charts-grid .card canvas { max-height:220px; }
 
         /* KPIs */
@@ -166,9 +166,9 @@
         .kpi:nth-child(4) { border-left-color:#8b5cf6; }
 
         /* Charts grid */
-        .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; margin-bottom:1.5rem; align-items:start; }
+        .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; margin-bottom:1.5rem; }
         .charts-grid.grid-4 { grid-template-columns:repeat(4,1fr); }
-        .charts-grid .card { overflow:hidden; min-height:0; }
+        .charts-grid .card canvas { flex-shrink:0; }
         @media (max-width:1100px) { .charts-grid.grid-4 { grid-template-columns:repeat(2,1fr); } }
 
         /* Tables */
@@ -863,12 +863,12 @@
                 </div>
             </div>
 
-            <!-- Row 2: Piezas bar + Pedidos -->
-            <div class="charts-grid">
+            <!-- Row 2: Produccion + Pedidos -->
+            <div class="charts-grid" style="align-items:start;">
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Produccion por Escaneadora</div>
-                    <canvas id="chart-escaneadora" height="180"></canvas>
-                    <div id="escaneadora-detail" style="margin-top:0.5rem;max-height:180px;overflow-y:auto;"></div>
+                    <canvas id="chart-escaneadora" height="160"></canvas>
+                    <div id="escaneadora-detail" style="margin-top:0.5rem;max-height:150px;overflow-y:auto;"></div>
                 </div>
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
