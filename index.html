@@ -773,21 +773,27 @@
         <!-- VIEW: DASHBOARD (Solo admin)           -->
         <!-- ══════════════════════════════════════ -->
         <div class="view" id="view-dashboard">
-            <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
-            <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
-                <div>
-                    <h1><i class="fa-solid fa-chart-pie"></i> Dashboard Paletizado FFT</h1>
-                    <p>Resumen completo de la operacion de paletizado</p>
+            <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;padding:0.75rem 0;border-bottom:1px solid var(--border);margin-bottom:1.25rem;">
+                <div style="display:flex;align-items:center;gap:1rem;">
+                    <button class="back-btn" onclick="switchView('home')" style="margin:0;padding:0.4rem 0.7rem;"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div>
+                        <h1 style="font-size:1.2rem;margin:0;line-height:1.3;"><i class="fa-solid fa-chart-pie"></i> Dashboard Paletizado FFT</h1>
+                        <p style="margin:0;font-size:0.78rem;color:var(--text-muted);">Resumen completo de la operacion de paletizado</p>
+                    </div>
                 </div>
-                <div style="display:flex;gap:0.5rem;margin-top:0.25rem;flex-wrap:wrap;">
-                    <button class="btn btn-secondary btn-sm" onclick="openHistorial('registros')">
+                <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                    <span id="dash-user-info" style="font-size:0.8rem;color:var(--text-muted);margin-right:0.25rem;"><strong id="dash-user-name" style="color:var(--text-main);"></strong> <span id="dash-user-role" style="font-size:0.72rem;"></span></span>
+                    <button class="btn btn-secondary btn-sm" onclick="openHistorial('registros')" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
                         <i class="fa-solid fa-clock-rotate-left"></i> Historial
                     </button>
-                    <button class="btn btn-secondary btn-sm" onclick="openHistorial('pedidos')">
+                    <button class="btn btn-secondary btn-sm" onclick="openHistorial('pedidos')" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
                         <i class="fa-solid fa-file-invoice"></i> Pedidos
                     </button>
-                    <button class="btn btn-secondary btn-sm admin-only" onclick="exportDashboardExcel()">
-                        <i class="fa-solid fa-file-excel"></i> Descargar Dashboard
+                    <button class="btn btn-secondary btn-sm admin-only" onclick="exportDashboardExcel()" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
+                        <i class="fa-solid fa-file-excel"></i> Excel
+                    </button>
+                    <button class="btn-logout-top" onclick="handleLogout()" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
+                        <i class="fa-solid fa-right-from-bracket"></i> Salir
                     </button>
                 </div>
             </div>
@@ -1242,6 +1248,18 @@ function switchView(viewName) {
 
     const view = document.getElementById('view-' + viewName);
     if (view) view.classList.add('active');
+
+    // Hide topbar on dashboard (integrated into dashboard header)
+    const topbar = document.querySelector('.topbar');
+    if (topbar) topbar.style.display = viewName === 'dashboard' ? 'none' : '';
+
+    // Update dashboard header user info
+    if (viewName === 'dashboard' && currentUser) {
+        const dn = document.getElementById('dash-user-name');
+        const dr = document.getElementById('dash-user-role');
+        if (dn) dn.textContent = currentUser.nombre;
+        if (dr) dr.textContent = currentUser.role === 'admin' ? 'Administrador' : 'Escaneadora';
+    }
 
     if (viewName === 'dashboard') { loadDashboard(); }
     else { stopPolling(); }
