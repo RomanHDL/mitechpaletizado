@@ -67,7 +67,7 @@ export const CLASIFICACIONES = [
   { value: 'BULKY',          label: 'BULKY',             icon: 'resize' },
   { value: 'HV',             label: 'HV (High Value)',   icon: 'diamond' },
   { value: 'HV Televisiones',label: 'HV Televisiones',   icon: 'tv' },
-  { value: 'JESSI',          label: 'JESSI',             icon: 'pricetag' },
+  { value: 'JESSY',          label: 'JESSY',             icon: 'pricetag' },
 ];
 
 // ── Auto-detect shift ──

@@ -221,7 +221,7 @@ app.post('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (re
     if (pedido && pedido.trim()) {
       const obs = (observaciones || '').trim().toUpperCase();
       const firstTag = obs.split('|')[0].trim();
-      if (!firstTag || !['BULKY', 'BOX', 'HV', 'HV TELEVISIONES', 'LPN', 'JESSI'].includes(firstTag)) {
+      if (!firstTag || !['BULKY', 'BOX', 'HV', 'HV TELEVISIONES', 'LPN', 'JESSY'].includes(firstTag)) {
         return res.status(400).json({ success: false, error: 'Clasificacion es obligatoria cuando hay pedido' });
       }
     }
