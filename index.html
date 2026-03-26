@@ -867,7 +867,8 @@
             <div class="charts-grid">
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Produccion por Escaneadora</div>
-                    <canvas id="chart-escaneadora" height="200"></canvas>
+                    <canvas id="chart-escaneadora" height="180"></canvas>
+                    <div id="escaneadora-detail" style="margin-top:0.75rem;max-height:250px;overflow-y:auto;"></div>
                 </div>
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
@@ -1640,70 +1641,47 @@ async function loadResumen() {
             });
         }
 
-        // ── BAR STACKED: Produccion por Escaneadora (clasificacion) ──
+        // ── BAR HORIZONTAL: Produccion por Escaneadora (Piezas + Pallets) ──
         const ctxE = document.getElementById('chart-escaneadora').getContext('2d');
         if (chartEsc) chartEsc.destroy();
-
-        // Build clasificacion breakdown per escaneadora from real data
-        const escNames = data.porEscaneadora.map(e => e.nombre);
-        const clasColors = { 'BULKY':'#f59e0b', 'BOX':'#4f7cff', 'HV':'#8b5cf6', 'HV TELEVISIONES':'#a78bfa', 'JESSY':'#ec4899', 'SIN CLASIF.':'#6b7280' };
-        const escClasMap = {}; // { "Yusley": { BULKY:5, BOX:3, ... } }
-        const allClasSet = new Set();
-
-        (lastTableData || []).forEach(r => {
-            const esc = r.escaneadora || 'Otro';
-            if (!escNames.includes(esc)) return;
-            // Extract clasificacion from observaciones (same as extractTipo)
-            let cls = 'SIN CLASIF.';
-            const obs = (r.observaciones || '').trim();
-            if (obs) {
-                const first = obs.split('|')[0].trim().toUpperCase();
-                if (['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY'].includes(first)) {
-                    cls = first === 'LPN' ? 'BULKY' : first;
-                }
-            }
-            if (cls === 'SIN CLASIF.') {
-                const dest = (r.destino || '').toUpperCase();
-                if (['BULKY','BOX'].includes(dest)) cls = dest;
-                else if (dest.startsWith('HV')) cls = dest;
-            }
-            if (!escClasMap[esc]) escClasMap[esc] = {};
-            if (!escClasMap[esc][cls]) escClasMap[esc][cls] = 0;
-            escClasMap[esc][cls]++;
-            allClasSet.add(cls);
-        });
-
-        const allClas = [...allClasSet].sort((a,b) => {
-            const order = ['BULKY','BOX','HV','HV TELEVISIONES','JESSY','SIN CLASIF.'];
-            return (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) - (order.indexOf(b) === -1 ? 99 : order.indexOf(b));
-        });
-
-        const escDatasets = allClas.map(cls => ({
-            label: cls,
-            data: escNames.map(esc => escClasMap[esc]?.[cls] || 0),
-            backgroundColor: clasColors[cls] || '#6b7280',
-            borderRadius: 2, borderSkipped: false,
-        }));
-
         chartEsc = new Chart(ctxE, {
             type: 'bar',
-            data: { labels: escNames, datasets: escDatasets },
+            data: {
+                labels: data.porEscaneadora.map(e => e.nombre),
+                datasets: [
+                    {
+                        label: 'Piezas',
+                        data: data.porEscaneadora.map(e => e.unidades),
+                        backgroundColor: '#4f7cffcc',
+                        hoverBackgroundColor: '#4f7cff',
+                        borderRadius: 4, borderSkipped: false, maxBarThickness: 18,
+                    },
+                    {
+                        label: 'Pallets',
+                        data: data.porEscaneadora.map(e => e.registros),
+                        backgroundColor: '#22c55ecc',
+                        hoverBackgroundColor: '#22c55e',
+                        borderRadius: 4, borderSkipped: false, maxBarThickness: 18,
+                    }
+                ]
+            },
             options: chartOpts({
                 indexAxis: 'y',
-                layout: { padding: { right: 30 } },
+                layout: { padding: { right: 40 } },
                 plugins: {
-                    legend: { display:true, position:'top', align:'end', labels:{ color:'#7b8ba5', padding:8, font:{size:9}, usePointStyle:true, pointStyle:'rectRounded' } },
-                    tooltip: { ...tooltipStyle, mode:'index', intersect:false, callbacks: {
-                        afterBody: (items) => { const t = items.reduce((s,i)=>s+i.parsed.x,0); return 'Total: ' + t + ' pallets'; }
-                    }},
-                    datalabels: { display:(ctx)=>ctx.dataset.data[ctx.dataIndex]>0, color:'#fff', font:{weight:'bold',size:9}, formatter:(v)=>v>0?v:'' }
+                    legend: { display:true, position:'top', align:'end', labels:{ color:'#7b8ba5', padding:10, font:{size:10}, usePointStyle:true, pointStyle:'rectRounded' } },
+                    tooltip: { ...tooltipStyle, mode:'index', intersect:false },
+                    datalabels: { display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:10}, offset:4, formatter:(v)=>v>0?v.toLocaleString():'' }
                 },
                 scales: {
-                    x: { stacked:true, beginAtZero:true, ticks:{color:'#7b8ba5'}, grid:{color:'rgba(30,42,66,0.5)'} },
-                    y: { stacked:true, ticks:{color:'#7b8ba5',font:{size:11}}, grid:{display:false} }
+                    x: { beginAtZero:true, ticks:{color:'#7b8ba5'}, grid:{color:'rgba(30,42,66,0.5)'} },
+                    y: { ticks:{color:'#7b8ba5',font:{size:11}}, grid:{display:false} }
                 }
             })
         });
+
+        // ── Detail: desglose por destino + pedidos por escaneadora ──
+        renderEscaneadoraDetail();
 
         // ── DOUGHNUT: Distribucion por Destino ──
         const ctxD = document.getElementById('chart-destino').getContext('2d');
@@ -1759,6 +1737,40 @@ async function loadResumen() {
 }
 
 // Split "GRA, GRB, GRC" into individual families and extract the base name
+// ── Escaneadora detail (compact, below chart) ──
+function renderEscaneadoraDetail() {
+    const el = document.getElementById('escaneadora-detail');
+    if (!el || !lastTableData || lastTableData.length === 0) { if(el) el.innerHTML=''; return; }
+
+    const byEsc = {};
+    lastTableData.forEach(r => {
+        const esc = r.escaneadora || 'Otro';
+        if (!byEsc[esc]) byEsc[esc] = { trg:0, alm:0, pedTRG:0, pedAlm:0, totalPed:new Set() };
+        const d = byEsc[esc];
+        const dest = (r.destino||'').toUpperCase();
+        if (dest === 'TRG') d.trg++; else d.alm++;
+        if (r.pedido && r.pedido.trim()) {
+            d.totalPed.add(r.pedido.trim());
+            if (dest === 'TRG') d.pedTRG++; else d.pedAlm++;
+        }
+    });
+
+    const sorted = Object.entries(byEsc).sort((a,b) => (b[1].trg+b[1].alm) - (a[1].trg+a[1].alm));
+
+    el.innerHTML = `<div style="display:grid;gap:0.4rem;">` + sorted.map(([nombre, d]) => {
+        const total = d.trg + d.alm;
+        return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0.6rem;background:rgba(15,23,42,0.4);border:1px solid var(--border);border-radius:6px;font-size:0.75rem;">
+            <strong style="color:var(--text-main);min-width:100px;font-size:0.78rem;">${nombre}</strong>
+            <span style="color:#22c55e;" title="Pallets a TRG"><i class="fa-solid fa-arrow-right" style="font-size:0.6rem;"></i> TRG: ${d.trg}</span>
+            <span style="color:#4f7cff;" title="Pallets a Almacen"><i class="fa-solid fa-warehouse" style="font-size:0.6rem;"></i> Alm: ${d.alm}</span>
+            <span style="color:var(--text-muted);">|</span>
+            <span style="color:var(--accent);" title="Pedidos totales"><i class="fa-solid fa-file-invoice" style="font-size:0.6rem;"></i> Ped: ${d.totalPed.size}</span>
+            <span style="color:#22c55e;font-size:0.7rem;" title="Pedidos a TRG">TRG:${d.pedTRG}</span>
+            <span style="color:#4f7cff;font-size:0.7rem;" title="Pedidos a Almacen">Alm:${d.pedAlm}</span>
+        </div>`;
+    }).join('') + `</div>`;
+}
+
 function splitCondFamilies(condStr) {
     if (!condStr || condStr === 'Sin condicion') return ['SIN CONDICION'];
     return condStr.split(/[,;\/]+/).map(s => {
