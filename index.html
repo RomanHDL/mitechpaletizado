@@ -151,6 +151,7 @@
         .card-title { font-size:1.1rem; font-weight:600; margin-bottom:1rem; display:flex; align-items:center; gap:8px; }
         .card-title i { color:var(--accent); font-size:0.9rem; }
         .charts-grid .card { padding:1rem 1.25rem; overflow:hidden; display:flex; flex-direction:column; }
+        .charts-grid .card canvas { max-height:220px; }
 
         /* KPIs */
         .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1rem; margin-bottom:1.5rem; }
@@ -249,6 +250,7 @@
             .main { margin-left:0; padding:1rem; }
             .form-row { grid-template-columns:1fr; }
             .charts-grid { grid-template-columns:1fr; }
+            .charts-grid .card canvas { max-height:220px; }
             .kpi-grid { grid-template-columns:repeat(2,1fr); }
         }
 
@@ -879,7 +881,7 @@
                     </div>
                     <div id="pedidos-info" style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.2rem;"></div>
                     <div style="position:relative;height:300px;">
-                        <canvas id="chart-pedidos"></canvas>
+                        <canvas id="chart-pedidos" style="max-height:none !important;"></canvas>
                     </div>
                 </div>
             </div>
