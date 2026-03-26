@@ -864,14 +864,14 @@
             </div>
 
             <!-- Row 2: Produccion + Pedidos -->
-            <div class="charts-grid" style="align-items:start;">
+            <div class="charts-grid">
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Produccion por Escaneadora</div>
                     <canvas id="chart-escaneadora" height="160"></canvas>
                     <div id="escaneadora-detail" style="margin-top:0.5rem;max-height:150px;overflow-y:auto;"></div>
                 </div>
                 <div class="card">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;flex-wrap:wrap;gap:0.5rem;">
                         <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-file-invoice"></i> Pedidos</div>
                         <div style="display:flex;align-items:center;gap:0.5rem;">
                             <input type="text" class="form-input" id="pedidos-fecha" placeholder="Fecha..." style="width:120px;padding:0.3rem 0.6rem;font-size:0.78rem;">
@@ -880,8 +880,10 @@
                             </button>
                         </div>
                     </div>
-                    <div id="pedidos-info" style="text-align:center;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.25rem;"></div>
-                    <canvas id="chart-pedidos" height="200"></canvas>
+                    <div id="pedidos-info" style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.2rem;"></div>
+                    <div style="flex:1;position:relative;min-height:200px;">
+                        <canvas id="chart-pedidos"></canvas>
+                    </div>
                 </div>
             </div>
 
@@ -2482,6 +2484,7 @@ function renderPedidosChart() {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             onClick: (evt, elements) => {
                 if (!elements.length) return;
                 const idx = elements[0].index;
