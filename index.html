@@ -2493,42 +2493,67 @@ function renderPedidosChart() {
         tipoRecords[tipo].push(r);
     });
 
-    // Build summary HTML below chart showing ALL categories clearly
     const totalAll = values.reduce((a,b)=>a+b,0);
-    let summaryHtml = '<div style="display:flex;flex-wrap:wrap;gap:0.35rem;justify-content:center;margin-top:0.5rem;">';
-    entries.forEach(([tipo, count], i) => {
-        const pct = totalAll > 0 ? Math.round(count/totalAll*100) : 0;
-        const col = tipoColors[tipo] || '#6b7280';
-        summaryHtml += `<span onclick="showPedidosDetail('${tipo}',tipoRecords['${tipo}']||[],'${col}')" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600;background:${col}22;color:${col};border:1px solid ${col}44;">`;
-        summaryHtml += `<span style="width:7px;height:7px;border-radius:50%;background:${col};"></span>${tipo}: ${count} (${pct}%)</span>`;
-    });
-    summaryHtml += '</div>';
 
-    // Render into a wrapper: chart + summary
+    // Clean summary badges below chart
     const wrapper = ctx.parentElement;
     let sumEl = wrapper.parentElement.querySelector('.pedidos-summary-badges');
     if (sumEl) sumEl.remove();
     const div = document.createElement('div');
     div.className = 'pedidos-summary-badges';
+    let summaryHtml = '<div style="display:flex;flex-wrap:wrap;gap:0.35rem;justify-content:center;margin-top:0.5rem;">';
+    entries.forEach(([tipo, count]) => {
+        const pct = totalAll > 0 ? Math.round(count/totalAll*100) : 0;
+        const col = tipoColors[tipo] || '#6b7280';
+        summaryHtml += `<span onclick="showPedidosDetail('${tipo}',tipoRecords['${tipo}']||[],'${col}')" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:500;background:${col}15;color:${col};border:1px solid ${col}33;">`;
+        summaryHtml += `<span style="width:6px;height:6px;border-radius:50%;background:${col};"></span>${tipo} ${count} (${pct}%)</span>`;
+    });
+    summaryHtml += '</div>';
     div.innerHTML = summaryHtml;
     wrapper.parentElement.appendChild(div);
 
+    // Center text plugin (total in donut hole)
+    const centerTextPlugin = {
+        id: 'centerText',
+        afterDraw(chart) {
+            const { ctx: c, width, height } = chart;
+            const meta = chart.getDatasetMeta(0);
+            if (!meta.data.length) return;
+            const centerX = (meta.data[0].x);
+            const centerY = (meta.data[0].y);
+            c.save();
+            c.font = 'bold 1.6rem Inter, sans-serif';
+            c.fillStyle = '#e8ecf4';
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillText(totalAll, centerX, centerY - 8);
+            c.font = '500 0.65rem Inter, sans-serif';
+            c.fillStyle = '#7b8ba5';
+            c.fillText('pallets', centerX, centerY + 12);
+            c.restore();
+        }
+    };
+
     chartPedidos = new Chart(ctx.getContext('2d'), {
-        type: 'pie',
+        type: 'doughnut',
         data: {
             labels,
             datasets: [{
                 data: values,
                 backgroundColor: colors,
-                borderWidth: 2,
-                borderColor: '#0f172a',
-                hoverOffset: 10,
+                borderWidth: 1,
+                borderColor: '#1e293b',
+                hoverOffset: 4,
+                spacing: 1,
             }]
         },
+        plugins: [centerTextPlugin],
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: { padding: 10 },
+            cutout: '55%',
+            animation: { duration: 300, easing: 'linear' },
+            layout: { padding: 8 },
             onClick: (evt, elements) => {
                 if (!elements.length) return;
                 const idx = elements[0].index;
@@ -2538,19 +2563,13 @@ function renderPedidosChart() {
             },
             plugins: {
                 legend: { display: false },
-                tooltip: { ...tooltipStyle, callbacks: { label: (c) => { const t = c.dataset.data.reduce((a,b)=>a+b,0); return `${c.label}: ${c.parsed} pallet${c.parsed>1?'s':''} (${t>0?Math.round(c.parsed/t*100):0}%)`; } } },
-                datalabels: {
-                    display: true,
-                    color: '#fff',
-                    font: { weight:'bold', size: 12 },
-                    formatter: (v, c) => {
-                        const total = c.dataset.data.reduce((a,b)=>a+b,0);
-                        const pct = total > 0 ? Math.round(v/total*100) : 0;
-                        if (pct < 8) return '';
-                        return c.chart.data.labels[c.dataIndex] + '\n' + v;
-                    },
-                    textAlign: 'center'
-                }
+                tooltip: {
+                    backgroundColor: '#1e293b', titleColor: '#e8ecf4', bodyColor: '#94a3b8',
+                    borderColor: '#334155', borderWidth: 1, cornerRadius: 6, padding: 8,
+                    bodyFont: { size: 12 },
+                    callbacks: { label: (c) => { const t = c.dataset.data.reduce((a,b)=>a+b,0); const pct = t>0?Math.round(c.parsed/t*100):0; return ` ${c.label}: ${c.parsed} (${pct}%)`; } }
+                },
+                datalabels: { display: false }
             }
         }
     });
