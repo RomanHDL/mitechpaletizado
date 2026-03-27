@@ -1898,8 +1898,9 @@ function renderProduccionPorHora() {
             },
             scales: {
                 x: { ticks:{color:'#7b8ba5',font:{size:9}}, grid:{display:false} },
-                y: { beginAtZero:true, ticks:{color:'#7b8ba5',font:{size:9},stepSize:1}, grid:{color:'rgba(30,42,66,0.4)'} }
-            }
+                y: { beginAtZero:true, grace:'20%', ticks:{color:'#7b8ba5',font:{size:9}}, grid:{color:'rgba(30,42,66,0.4)'} }
+            },
+            layout: { padding: { top: 20 } }
         }
     });
 }
