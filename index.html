@@ -1020,16 +1020,40 @@
                         </div>
                         <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
                             <select class="form-input" id="audit-filter-action" onchange="loadAuditData()" style="padding:0.3rem 0.5rem;font-size:0.78rem;width:auto;">
-                                <option value="">Todas las acciones</option>
-                                <option value="CREATE">CREATE</option>
-                                <option value="MANUAL_EDIT">MANUAL_EDIT</option>
+                                <option value="">Todas</option>
+                                <option value="UPDATE">Correccion</option>
+                                <option value="DELETE">Eliminacion</option>
+                                <option value="ADD">Agregado</option>
+                                <option value="CORRECTION">Otro</option>
                             </select>
-                            <input type="text" class="form-input" id="audit-filter-esc" placeholder="Escaneadora..." onchange="loadAuditData()" style="width:110px;padding:0.3rem 0.5rem;font-size:0.78rem;">
-                            <input type="text" class="form-input" id="audit-filter-pallet" placeholder="Pallet ID..." onchange="loadAuditData()" style="width:100px;padding:0.3rem 0.5rem;font-size:0.78rem;">
+                            <input type="text" class="form-input" id="audit-filter-esc" placeholder="Escaneadora..." onchange="loadAuditData()" style="width:100px;padding:0.3rem 0.5rem;font-size:0.78rem;">
+                            <input type="text" class="form-input" id="audit-filter-pallet" placeholder="Pallet..." onchange="loadAuditData()" style="width:90px;padding:0.3rem 0.5rem;font-size:0.78rem;">
                             <input type="date" class="form-input" id="audit-filter-fecha" onchange="loadAuditData()" style="padding:0.3rem 0.5rem;font-size:0.78rem;">
                             <button onclick="closeAuditModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.35rem 0.7rem;color:var(--text-muted);cursor:pointer;font-size:0.85rem;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
+                        </div>
+                    </div>
+                    <!-- New correction form -->
+                    <div style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--border);background:rgba(79,124,255,0.03);">
+                        <div style="font-size:0.78rem;font-weight:600;color:var(--accent);margin-bottom:0.4rem;"><i class="fa-solid fa-plus" style="margin-right:4px;"></i>Registrar correccion</div>
+                        <div style="display:flex;gap:0.3rem;flex-wrap:wrap;align-items:end;">
+                            <select class="form-input" id="audit-new-action" style="width:auto;padding:0.25rem 0.4rem;font-size:0.75rem;">
+                                <option value="UPDATE">Correccion</option>
+                                <option value="DELETE">Eliminacion</option>
+                                <option value="ADD">Agregado</option>
+                            </select>
+                            <input class="form-input" id="audit-new-pallet" placeholder="Pallet ID *" style="width:80px;padding:0.25rem 0.4rem;font-size:0.75rem;">
+                            <input class="form-input" id="audit-new-esc" placeholder="Escaneadora" style="width:90px;padding:0.25rem 0.4rem;font-size:0.75rem;">
+                            <input class="form-input" id="audit-new-field" placeholder="Campo" style="width:70px;padding:0.25rem 0.4rem;font-size:0.75rem;">
+                            <input class="form-input" id="audit-new-old" placeholder="Antes" style="width:60px;padding:0.25rem 0.4rem;font-size:0.75rem;">
+                            <input class="form-input" id="audit-new-new" placeholder="Despues" style="width:60px;padding:0.25rem 0.4rem;font-size:0.75rem;">
+                            <select class="form-input" id="audit-new-source" style="width:auto;padding:0.25rem 0.4rem;font-size:0.75rem;">
+                                <option value="APP">APP</option>
+                                <option value="ATLAS">ATLAS</option>
+                            </select>
+                            <input class="form-input" id="audit-new-reason" placeholder="Razon..." style="width:100px;padding:0.25rem 0.4rem;font-size:0.75rem;">
+                            <button class="btn btn-primary btn-sm" onclick="submitAuditEntry()" style="padding:0.25rem 0.5rem;font-size:0.75rem;"><i class="fa-solid fa-check"></i></button>
                         </div>
                     </div>
                     <div id="audit-body" style="flex:1;overflow-y:auto;padding:1rem 1.25rem;overscroll-behavior:contain;"></div>
@@ -1239,10 +1263,28 @@ function closeAuditModal() {
     document.getElementById('audit-modal').style.display = 'none';
     document.body.style.overflow = '';
 }
+async function submitAuditEntry() {
+    const action = document.getElementById('audit-new-action').value;
+    const palletId = document.getElementById('audit-new-pallet').value.trim();
+    const escaneadora = document.getElementById('audit-new-esc').value.trim();
+    const field = document.getElementById('audit-new-field').value.trim();
+    const oldValue = document.getElementById('audit-new-old').value.trim();
+    const newValue = document.getElementById('audit-new-new').value.trim();
+    const reason = document.getElementById('audit-new-reason').value.trim();
+    const source = document.getElementById('audit-new-source').value;
+    if (!palletId) { alert('Pallet ID requerido'); return; }
+    try {
+        const r = await apiFetch(`${API}/api/audit`, { method:'POST', body: JSON.stringify({action,palletId,escaneadora,field,oldValue,newValue,reason,source}) });
+        if (r.success) {
+            ['audit-new-pallet','audit-new-esc','audit-new-field','audit-new-old','audit-new-new','audit-new-reason'].forEach(id => document.getElementById(id).value = '');
+            loadAuditData();
+        } else { alert(r.error); }
+    } catch(e) { alert(e.message); }
+}
 async function loadAuditData() {
     const body = document.getElementById('audit-body');
     const countEl = document.getElementById('audit-count');
-    body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>';
+    body.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>';
     try {
         const params = new URLSearchParams();
         const a = document.getElementById('audit-filter-action').value;
@@ -1255,32 +1297,36 @@ async function loadAuditData() {
         if (f) params.set('fecha', f);
         const resp = await apiFetch(`${API}/api/audit?${params.toString()}`);
         if (!resp.success) { body.innerHTML = '<div style="padding:2rem;color:var(--danger);">Error</div>'; return; }
-        countEl.textContent = resp.total + ' registros';
-        if (resp.data.length === 0) { body.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);">Sin registros de auditoria</div>'; return; }
-        const actionColors = { CREATE:'#22c55e', MANUAL_EDIT:'#f59e0b', UPDATE:'#4f7cff', DELETE:'#ef4444' };
+        countEl.textContent = resp.total + ' correcciones';
+        if (resp.data.length === 0) {
+            body.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);">Sin correcciones registradas</div>';
+            return;
+        }
+        const actionConfig = { UPDATE:{col:'#4f7cff',icon:'fa-pen',label:'Correccion'}, DELETE:{col:'#ef4444',icon:'fa-trash',label:'Eliminacion'}, ADD:{col:'#22c55e',icon:'fa-plus',label:'Agregado'}, CORRECTION:{col:'#f59e0b',icon:'fa-wrench',label:'Correccion'} };
         body.innerHTML = resp.data.map(r => {
             const ts = r.timestamp ? new Date(r.timestamp) : null;
-            const time = ts ? `${ts.getMonth()+1}/${ts.getDate()}/${ts.getFullYear()} ${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}:${String(ts.getSeconds()).padStart(2,'0')}` : '-';
-            const col = actionColors[r.action] || '#7b8ba5';
-            let details = '';
-            if (r.field) details += `<span>Campo: <strong>${r.field}</strong></span> `;
-            if (r.oldValue !== undefined && r.oldValue !== null) details += `<span>Antes: <span style="color:var(--danger);">${r.oldValue}</span></span> `;
-            if (r.newValue !== undefined && r.newValue !== null) details += `<span>Despues: <span style="color:var(--success);">${r.newValue}</span></span> `;
-            if (r.reason) details += `<span>Razon: ${r.reason}</span>`;
-            return `<div style="padding:0.5rem 0.6rem;border-bottom:1px solid var(--border);font-size:0.8rem;">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;">
+            const pad = n => String(n).padStart(2,'0');
+            const date = ts ? `${pad(ts.getDate())}/${pad(ts.getMonth()+1)}/${ts.getFullYear()}` : '-';
+            const time = ts ? `${pad(ts.getHours())}:${pad(ts.getMinutes())}` : '';
+            const cfg = actionConfig[r.action] || {col:'#7b8ba5',icon:'fa-circle-info',label:r.action};
+            return `<div style="padding:0.6rem 0.75rem;border-left:3px solid ${cfg.col};margin-bottom:0.5rem;background:rgba(15,23,42,0.4);border-radius:0 6px 6px 0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem;">
                     <div style="display:flex;align-items:center;gap:0.5rem;">
-                        <span style="padding:1px 6px;border-radius:4px;font-size:0.7rem;font-weight:700;background:${col}22;color:${col};border:1px solid ${col}44;">${r.action}</span>
-                        <strong style="color:var(--text-main);">${r.palletId||'-'}</strong>
-                        <span style="color:var(--text-muted);">${r.escaneadora||''}</span>
+                        <span style="padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:700;background:${cfg.col}22;color:${cfg.col};"><i class="fa-solid ${cfg.icon}" style="margin-right:3px;"></i>${cfg.label}</span>
+                        <strong style="color:var(--text-main);font-size:0.88rem;">${r.palletId||'-'}</strong>
                     </div>
-                    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.72rem;">
-                        <span style="padding:1px 5px;border-radius:3px;background:rgba(255,255,255,0.05);color:var(--text-muted);">${r.source||'APP'}</span>
-                        <span style="color:var(--text-muted);white-space:nowrap;">${time}</span>
+                    <div style="font-size:0.72rem;color:var(--text-muted);display:flex;gap:0.5rem;align-items:center;">
+                        <span style="padding:1px 5px;border-radius:3px;background:rgba(255,255,255,0.05);">${r.source||'APP'}</span>
+                        <span>${date} ${time}</span>
                     </div>
                 </div>
-                ${details ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.2rem;">${details}</div>` : ''}
-                ${r.changedBy ? `<div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.1rem;">Por: ${r.changedBy}</div>` : ''}
+                ${r.escaneadora ? `<div style="font-size:0.78rem;color:var(--text-muted);"><i class="fa-solid fa-user" style="margin-right:3px;font-size:0.65rem;color:var(--accent);"></i>${r.escaneadora}</div>` : ''}
+                ${r.field ? `<div style="font-size:0.78rem;margin-top:0.25rem;display:flex;gap:0.75rem;">
+                    <span style="color:var(--text-muted);">Campo: <strong style="color:var(--text-main);">${r.field}</strong></span>
+                    ${r.oldValue!==undefined&&r.oldValue!==null ? `<span><span style="color:var(--danger);text-decoration:line-through;">${r.oldValue}</span> → <span style="color:var(--success);">${r.newValue||'-'}</span></span>` : ''}
+                </div>` : ''}
+                ${r.reason ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.2rem;font-style:italic;"><i class="fa-solid fa-comment" style="margin-right:3px;"></i>${r.reason}</div>` : ''}
+                <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.15rem;">Admin: ${r.changedBy||'3647'}</div>
             </div>`;
         }).join('');
     } catch(e) { body.innerHTML = '<div style="padding:2rem;color:var(--danger);">Error: '+e.message+'</div>'; }

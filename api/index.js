@@ -241,7 +241,6 @@ app.post('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (re
     }
     const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora, fecha, pedido: pedido || '', incidencias: incidencias || '', observaciones: observaciones || '', capturadoPor: req.user._id });
     emitEvent('paletizado', 'registro:nuevo', { id: doc._id, palletId: pid, cantidad: qty, destino: dest, turno, escaneadora, fecha, condicion: condicion.trim(), source: 'web' });
-    await audit('CREATE', { palletId: pid, escaneadora, cantidad: qty, destino: dest, turno, condicion: condicion.trim(), fecha, pedido: pedido||'', changedBy: req.user?.nombre || req.user?.usuario || 'web', source: 'APP' });
     res.json({ success: true, id: doc._id, message: 'Registro guardado' });
   } catch (error) {
     emitEvent('paletizado', 'registro:error', { error: error.message });
@@ -621,7 +620,6 @@ app.post('/api/mobile/register', async (req, res) => {
 
     const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora: operador || '', fecha, pedido: pedido || '', incidencias: '', observaciones: obs });
     emitEvent('paletizado', 'registro:nuevo', { id: doc._id, palletId: pid, cantidad: qty, destino: dest, turno, escaneadora: operador, fecha, condicion: condicion.trim(), source: 'mobile' });
-    await audit('CREATE', { palletId: pid, escaneadora: operador||'', cantidad: qty, destino: dest, turno, condicion: condicion.trim(), fecha, pedido: pedido||'', changedBy: operador||'mobile', source: 'APP-MOBILE' });
     res.json({ success: true, id: doc._id, message: 'Registrado desde app movil' });
   } catch (error) {
     emitEvent('paletizado', 'registro:error', { error: error.message, source: 'mobile' });
@@ -686,13 +684,15 @@ app.get('/api/audit', auth, roleGuard('admin'), async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// Manual audit entry (for Atlas changes)
+// Admin correction entry (only admin 3647)
 app.post('/api/audit', auth, roleGuard('admin'), async (req, res) => {
   try {
     if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
-    const { action, palletId, escaneadora, field, oldValue, newValue, reason } = req.body;
-    await audit(action || 'MANUAL_EDIT', { palletId, escaneadora, field, oldValue, newValue, reason, changedBy: req.user.nombre, source: 'ATLAS' });
-    res.json({ success: true, message: 'Auditoria registrada' });
+    const { action, palletId, escaneadora, field, oldValue, newValue, reason, source } = req.body;
+    const validActions = ['UPDATE', 'DELETE', 'ADD', 'CORRECTION'];
+    const act = validActions.includes(action) ? action : 'CORRECTION';
+    await audit(act, { palletId, escaneadora, field, oldValue, newValue, reason, changedBy: req.user.nombre, source: source || 'APP' });
+    res.json({ success: true, message: 'Correccion registrada' });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
