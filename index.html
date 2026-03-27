@@ -919,6 +919,7 @@
                         </div>
                     </div>
                     <div id="pedidos-info" style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.2rem;"></div>
+                    <div id="pedidos-legend" style="margin-bottom:0.4rem;"></div>
                     <div style="flex:1;position:relative;">
                         <canvas id="chart-pedidos" style="max-height:none !important;"></canvas>
                     </div>
@@ -2754,22 +2755,20 @@ function renderPedidosChart() {
 
     const totalAll = values.reduce((a,b)=>a+b,0);
 
-    // Clean summary badges below chart
-    const wrapper = ctx.parentElement;
-    let sumEl = wrapper.parentElement.querySelector('.pedidos-summary-badges');
-    if (sumEl) sumEl.remove();
-    const div = document.createElement('div');
-    div.className = 'pedidos-summary-badges';
-    let summaryHtml = '<div style="display:flex;flex-wrap:wrap;gap:0.35rem;justify-content:center;margin-top:0.5rem;">';
-    entries.forEach(([tipo, count]) => {
-        const pct = totalAll > 0 ? Math.round(count/totalAll*100) : 0;
-        const col = tipoColors[tipo] || '#6b7280';
-        summaryHtml += `<span onclick="showPedidosDetail('${tipo}',tipoRecords['${tipo}']||[],'${col}')" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:500;background:${col}15;color:${col};border:1px solid ${col}33;">`;
-        summaryHtml += `<span style="width:6px;height:6px;border-radius:50%;background:${col};"></span>${tipo} ${count} (${pct}%)</span>`;
-    });
-    summaryHtml += '</div>';
-    div.innerHTML = summaryHtml;
-    wrapper.parentElement.appendChild(div);
+    // Render legend ABOVE donut (in dedicated container)
+    const legendEl = document.getElementById('pedidos-legend');
+    if (legendEl) {
+        legendEl.innerHTML = entries.map(([tipo, count]) => {
+            const pct = totalAll > 0 ? Math.round(count/totalAll*100) : 0;
+            const col = tipoColors[tipo] || '#6b7280';
+            return `<div onclick="showPedidosDetail('${tipo}',tipoRecords['${tipo}']||[],'${col}')" style="cursor:pointer;display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.5rem;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''">
+                <span style="width:10px;height:10px;border-radius:3px;background:${col};flex-shrink:0;"></span>
+                <span style="font-size:0.82rem;font-weight:600;color:${col};min-width:50px;">${tipo}</span>
+                <span style="font-size:0.82rem;color:var(--text-main);font-weight:600;">${count}</span>
+                <span style="font-size:0.75rem;color:var(--text-muted);">pallet${count!==1?'s':''} (${pct}%)</span>
+            </div>`;
+        }).join('');
+    }
 
     // Center text plugin (total in donut hole)
     const centerTextPlugin = {
