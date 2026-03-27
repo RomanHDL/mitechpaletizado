@@ -1092,7 +1092,13 @@ const DEVICE_ID = getDeviceId();
 async function apiFetch(url, options = {}) {
     const headers = { 'Content-Type': 'application/json', 'X-Device-Id': DEVICE_ID, ...options.headers };
     if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-    const res = await fetch(url, { ...options, headers });
+    let res;
+    try {
+        res = await fetch(url, { ...options, headers });
+    } catch(e) {
+        // Network error — don't logout, just throw
+        throw new Error('Error de red: ' + e.message);
+    }
     if (res.status === 401) { handleLogout(); throw new Error('Sesion expirada'); }
     return res.json();
 }
@@ -1161,10 +1167,29 @@ function handleLogout() {
 async function checkSession() {
     if (!authToken) return;
     try {
-        const data = await apiFetch(`${API}/api/auth/me`);
+        const res = await fetch(`${API}/api/auth/me`, {
+            headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${authToken}`, 'X-Device-Id': DEVICE_ID }
+        });
+        if (res.status === 401) { handleLogout(); return; }
+        const data = await res.json();
         if (data.success) { currentUser = data.user; enterApp(); }
         else handleLogout();
-    } catch { handleLogout(); }
+    } catch(e) {
+        // Network error: keep token, don't logout, just stay on login screen
+        // User can retry by refreshing again
+        console.warn('[AUTH] Network error on session check:', e.message);
+        // Still try to enter if we have a token — offline tolerance
+        if (authToken) {
+            try {
+                const payload = JSON.parse(atob(authToken.split('.')[1]));
+                if (payload.exp * 1000 > Date.now()) {
+                    currentUser = { id: payload.id, role: payload.role, nombre: 'Offline', usuario: '' };
+                    enterApp();
+                    return;
+                }
+            } catch {}
+        }
+    }
 }
 
 function enterApp() {
@@ -1190,7 +1215,9 @@ function enterApp() {
     setDefaultDate();
     startOpsUpdates();
     loadImpersonatePanel();
-    switchView('home');
+    // Restore last view on refresh, default to home
+    const savedView = sessionStorage.getItem('mitech_view') || 'home';
+    switchView(savedView);
 }
 
 // ══════════════════════════════════════════════
@@ -1468,6 +1495,8 @@ function returnToAdmin() {
 function switchView(viewName) {
     // Role check
     if (viewName === 'dashboard' && (!currentUser || currentUser.role !== 'admin')) return;
+    // Save current view for restore on refresh
+    sessionStorage.setItem('mitech_view', viewName);
 
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
 
