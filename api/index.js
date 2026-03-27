@@ -667,12 +667,12 @@ app.get('/api/realtime-config', (req, res) => {
 app.get('/api/audit', auth, roleGuard('admin'), async (req, res) => {
   try {
     if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
-    const { action, escaneadora, palletId, fecha, source, limit } = req.query;
-    const filter = {};
+    const { action, escaneadora, palletId, fecha, limit } = req.query;
+    // ONLY show admin corrections, never operational creates
+    const filter = { action: { $in: ['UPDATE','DELETE','ADD','CORRECTION','MANUAL_EDIT'] } };
     if (action) filter.action = action;
     if (escaneadora) filter.escaneadora = { $regex: escaneadora, $options: 'i' };
     if (palletId) filter.palletId = { $regex: palletId, $options: 'i' };
-    if (source) filter.source = { $regex: source, $options: 'i' };
     if (fecha) {
       const d = new Date(fecha);
       const next = new Date(d); next.setDate(d.getDate()+1);
