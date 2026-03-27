@@ -659,7 +659,6 @@ app.get('/api/search', async (req, res) => {
   try {
     const q = (req.query.q || '').trim();
     if (!q || q.length < 2) return res.json({ success: true, data: [], total: 0 });
-    console.log('[SEARCH] query:', q);
     const filter = {
       $or: [
         { palletId: { $regex: q, $options: 'i' } },
@@ -667,11 +666,33 @@ app.get('/api/search', async (req, res) => {
         { escaneadora: { $regex: q, $options: 'i' } },
         { destino: { $regex: q, $options: 'i' } },
         { condicion: { $regex: q, $options: 'i' } },
+        { observaciones: { $regex: q, $options: 'i' } },
       ]
     };
-    const data = await EscReg.find(filter).sort({ createdAt: -1 }).limit(30);
-    console.log('[SEARCH] results:', data.length);
-    res.json({ success: true, data, total: data.length });
+    const total = await EscReg.countDocuments(filter);
+    const data = await EscReg.find(filter).sort({ createdAt: -1 }).limit(100);
+    res.json({ success: true, data, total });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ═══════════ HISTORIAL (no date limit, full data) ═══════════
+app.get('/api/historial', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    const { q, fecha } = req.query;
+    const filter = {};
+    if (fecha) filter.fecha = fecha;
+    if (q) {
+      filter.$or = [
+        { palletId: { $regex: q, $options: 'i' } },
+        { pedido: { $regex: q, $options: 'i' } },
+        { escaneadora: { $regex: q, $options: 'i' } },
+        { condicion: { $regex: q, $options: 'i' } },
+        { observaciones: { $regex: q, $options: 'i' } },
+      ];
+    }
+    const data = await EscReg.find(filter).sort({ createdAt: -1 }).limit(1000);
+    const total = await EscReg.countDocuments(filter);
+    res.json({ success: true, data, total });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
