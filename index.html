@@ -813,6 +813,9 @@
                     <button class="btn btn-secondary btn-sm admin-only" onclick="exportDashboardExcel()" style="padding:0.3rem 0.6rem;font-size:0.75rem;">
                         <i class="fa-solid fa-file-excel"></i> Excel
                     </button>
+                    <button id="btn-audit" style="display:none;padding:0.3rem 0.6rem;font-size:0.75rem;" class="btn btn-secondary btn-sm" onclick="openAuditModal()">
+                        <i class="fa-solid fa-shield-halved"></i> Auditoria
+                    </button>
                     <button id="btn-capture-mode" style="display:none;padding:0.3rem 0.6rem;font-size:0.75rem;" class="btn btn-secondary btn-sm" onclick="toggleCaptureMode()">
                         <i class="fa-solid fa-camera"></i> Modo Captura
                     </button>
@@ -1006,6 +1009,33 @@
                 </div>
             </div>
 
+            <!-- Audit Modal -->
+            <div id="audit-modal" style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);">
+                <div style="position:absolute;inset:1.5rem;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:0.5rem;">
+                        <div style="display:flex;align-items:center;gap:0.6rem;">
+                            <i class="fa-solid fa-shield-halved" style="color:var(--accent);"></i>
+                            <span style="font-size:1.05rem;font-weight:600;">Auditoria</span>
+                            <span id="audit-count" style="font-size:0.75rem;color:var(--text-muted);"></span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
+                            <select class="form-input" id="audit-filter-action" onchange="loadAuditData()" style="padding:0.3rem 0.5rem;font-size:0.78rem;width:auto;">
+                                <option value="">Todas las acciones</option>
+                                <option value="CREATE">CREATE</option>
+                                <option value="MANUAL_EDIT">MANUAL_EDIT</option>
+                            </select>
+                            <input type="text" class="form-input" id="audit-filter-esc" placeholder="Escaneadora..." onchange="loadAuditData()" style="width:110px;padding:0.3rem 0.5rem;font-size:0.78rem;">
+                            <input type="text" class="form-input" id="audit-filter-pallet" placeholder="Pallet ID..." onchange="loadAuditData()" style="width:100px;padding:0.3rem 0.5rem;font-size:0.78rem;">
+                            <input type="date" class="form-input" id="audit-filter-fecha" onchange="loadAuditData()" style="padding:0.3rem 0.5rem;font-size:0.78rem;">
+                            <button onclick="closeAuditModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.35rem 0.7rem;color:var(--text-muted);cursor:pointer;font-size:0.85rem;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="audit-body" style="flex:1;overflow-y:auto;padding:1rem 1.25rem;overscroll-behavior:contain;"></div>
+                </div>
+            </div>
+
         </div><!-- /view-dashboard -->
 
     </main>
@@ -1196,6 +1226,66 @@ function startOpsUpdates() {
 }
 
 // ══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// AUDIT MODULE (user 3647 only)
+// ══════════════════════════════════════════════
+function openAuditModal() {
+    if (!currentUser || currentUser.usuario !== '3647') return;
+    document.getElementById('audit-modal').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    loadAuditData();
+}
+function closeAuditModal() {
+    document.getElementById('audit-modal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+async function loadAuditData() {
+    const body = document.getElementById('audit-body');
+    const countEl = document.getElementById('audit-count');
+    body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>';
+    try {
+        const params = new URLSearchParams();
+        const a = document.getElementById('audit-filter-action').value;
+        const e = document.getElementById('audit-filter-esc').value.trim();
+        const p = document.getElementById('audit-filter-pallet').value.trim();
+        const f = document.getElementById('audit-filter-fecha').value;
+        if (a) params.set('action', a);
+        if (e) params.set('escaneadora', e);
+        if (p) params.set('palletId', p);
+        if (f) params.set('fecha', f);
+        const resp = await apiFetch(`${API}/api/audit?${params.toString()}`);
+        if (!resp.success) { body.innerHTML = '<div style="padding:2rem;color:var(--danger);">Error</div>'; return; }
+        countEl.textContent = resp.total + ' registros';
+        if (resp.data.length === 0) { body.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);">Sin registros de auditoria</div>'; return; }
+        const actionColors = { CREATE:'#22c55e', MANUAL_EDIT:'#f59e0b', UPDATE:'#4f7cff', DELETE:'#ef4444' };
+        body.innerHTML = resp.data.map(r => {
+            const ts = r.timestamp ? new Date(r.timestamp) : null;
+            const time = ts ? `${ts.getMonth()+1}/${ts.getDate()}/${ts.getFullYear()} ${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}:${String(ts.getSeconds()).padStart(2,'0')}` : '-';
+            const col = actionColors[r.action] || '#7b8ba5';
+            let details = '';
+            if (r.field) details += `<span>Campo: <strong>${r.field}</strong></span> `;
+            if (r.oldValue !== undefined && r.oldValue !== null) details += `<span>Antes: <span style="color:var(--danger);">${r.oldValue}</span></span> `;
+            if (r.newValue !== undefined && r.newValue !== null) details += `<span>Despues: <span style="color:var(--success);">${r.newValue}</span></span> `;
+            if (r.reason) details += `<span>Razon: ${r.reason}</span>`;
+            return `<div style="padding:0.5rem 0.6rem;border-bottom:1px solid var(--border);font-size:0.8rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;">
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <span style="padding:1px 6px;border-radius:4px;font-size:0.7rem;font-weight:700;background:${col}22;color:${col};border:1px solid ${col}44;">${r.action}</span>
+                        <strong style="color:var(--text-main);">${r.palletId||'-'}</strong>
+                        <span style="color:var(--text-muted);">${r.escaneadora||''}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.72rem;">
+                        <span style="padding:1px 5px;border-radius:3px;background:rgba(255,255,255,0.05);color:var(--text-muted);">${r.source||'APP'}</span>
+                        <span style="color:var(--text-muted);white-space:nowrap;">${time}</span>
+                    </div>
+                </div>
+                ${details ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.2rem;">${details}</div>` : ''}
+                ${r.changedBy ? `<div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.1rem;">Por: ${r.changedBy}</div>` : ''}
+            </div>`;
+        }).join('');
+    } catch(e) { body.innerHTML = '<div style="padding:2rem;color:var(--danger);">Error: '+e.message+'</div>'; }
+}
+
 // CAPTURE MODE (user 3647 only)
 let captureMode = false;
 async function toggleCaptureMode() {
@@ -1350,6 +1440,8 @@ function switchView(viewName) {
         // Capture mode: only for user 3647
         const capBtn = document.getElementById('btn-capture-mode');
         if (capBtn) capBtn.style.display = (currentUser.usuario === '3647') ? '' : 'none';
+        const auditBtn = document.getElementById('btn-audit');
+        if (auditBtn) auditBtn.style.display = (currentUser.usuario === '3647') ? '' : 'none';
     }
 
     if (viewName === 'dashboard') { loadDashboard(); }

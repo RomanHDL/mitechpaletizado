@@ -26,6 +26,15 @@ function emitEvent(channel, event, data) {
   if (pusher) { try { pusher.trigger(channel, event, data); } catch(e) { console.error('[PUSHER]', e.message); } }
 }
 
+// ── Audit helper ──
+async function audit(action, data) {
+  try {
+    const doc = { action, entityType: 'pallet', timestamp: new Date(), source: data.source || 'APP', ...data };
+    await mongoose.connection.db.collection('audit_logs').insertOne(doc);
+    emitEvent('paletizado', 'audit:new', { action, palletId: data.palletId, escaneadora: data.escaneadora });
+  } catch(e) { console.error('[AUDIT]', e.message); }
+}
+
 // ── Validation helpers ──
 const VALID_DESTINOS = ['TRG', 'ALMACEN'];
 const VALID_CLASIFICACIONES = ['', 'BOX', 'BULKY', 'HV', 'HV TELEVISIONES'];
@@ -232,6 +241,7 @@ app.post('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (re
     }
     const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora, fecha, pedido: pedido || '', incidencias: incidencias || '', observaciones: observaciones || '', capturadoPor: req.user._id });
     emitEvent('paletizado', 'registro:nuevo', { id: doc._id, palletId: pid, cantidad: qty, destino: dest, turno, escaneadora, fecha, condicion: condicion.trim(), source: 'web' });
+    await audit('CREATE', { palletId: pid, escaneadora, cantidad: qty, destino: dest, turno, condicion: condicion.trim(), fecha, pedido: pedido||'', changedBy: req.user?.nombre || req.user?.usuario || 'web', source: 'APP' });
     res.json({ success: true, id: doc._id, message: 'Registro guardado' });
   } catch (error) {
     emitEvent('paletizado', 'registro:error', { error: error.message });
@@ -611,6 +621,7 @@ app.post('/api/mobile/register', async (req, res) => {
 
     const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora: operador || '', fecha, pedido: pedido || '', incidencias: '', observaciones: obs });
     emitEvent('paletizado', 'registro:nuevo', { id: doc._id, palletId: pid, cantidad: qty, destino: dest, turno, escaneadora: operador, fecha, condicion: condicion.trim(), source: 'mobile' });
+    await audit('CREATE', { palletId: pid, escaneadora: operador||'', cantidad: qty, destino: dest, turno, condicion: condicion.trim(), fecha, pedido: pedido||'', changedBy: operador||'mobile', source: 'APP-MOBILE' });
     res.json({ success: true, id: doc._id, message: 'Registrado desde app movil' });
   } catch (error) {
     emitEvent('paletizado', 'registro:error', { error: error.message, source: 'mobile' });
@@ -652,6 +663,37 @@ app.get('/api/mobile/stats', async (req, res) => {
 app.get('/api/realtime-config', (req, res) => {
   if (!process.env.PUSHER_KEY) return res.json({ enabled: false });
   res.json({ enabled: true, key: process.env.PUSHER_KEY, cluster: process.env.PUSHER_CLUSTER || 'us2' });
+});
+
+// ═══════════ AUDIT ═══════════
+app.get('/api/audit', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+    const { action, escaneadora, palletId, fecha, source, limit } = req.query;
+    const filter = {};
+    if (action) filter.action = action;
+    if (escaneadora) filter.escaneadora = { $regex: escaneadora, $options: 'i' };
+    if (palletId) filter.palletId = { $regex: palletId, $options: 'i' };
+    if (source) filter.source = { $regex: source, $options: 'i' };
+    if (fecha) {
+      const d = new Date(fecha);
+      const next = new Date(d); next.setDate(d.getDate()+1);
+      filter.timestamp = { $gte: d, $lt: next };
+    }
+    const data = await mongoose.connection.db.collection('audit_logs').find(filter).sort({ timestamp: -1 }).limit(parseInt(limit)||200).toArray();
+    const total = await mongoose.connection.db.collection('audit_logs').countDocuments(filter);
+    res.json({ success: true, data, total });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Manual audit entry (for Atlas changes)
+app.post('/api/audit', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+    const { action, palletId, escaneadora, field, oldValue, newValue, reason } = req.body;
+    await audit(action || 'MANUAL_EDIT', { palletId, escaneadora, field, oldValue, newValue, reason, changedBy: req.user.nombre, source: 'ATLAS' });
+    res.json({ success: true, message: 'Auditoria registrada' });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 // ═══════════ GLOBAL SEARCH ═══════════
