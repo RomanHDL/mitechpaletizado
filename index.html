@@ -867,7 +867,8 @@
                 <div style="display:flex;align-items:center;gap:0.5rem;">
                     <i class="fa-solid fa-search" style="color:var(--accent);"></i>
                     <input type="text" class="form-input" id="global-search" placeholder="Buscar pallet, pedido, escaneadora..." style="flex:1;padding:0.55rem 0.9rem;font-size:0.9rem;" oninput="onGlobalSearch()">
-                    <span id="global-search-count" style="font-size:0.75rem;color:var(--text-muted);min-width:60px;text-align:right;"></span>
+                    <button id="global-search-clear" onclick="clearGlobalSearch()" style="display:none;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;padding:0.3rem;" title="Limpiar busqueda"><i class="fa-solid fa-xmark"></i></button>
+                    <span id="global-search-count" style="font-size:0.75rem;color:var(--text-muted);min-width:50px;text-align:right;"></span>
                 </div>
                 <div id="global-search-results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 10px 10px;max-height:350px;overflow-y:auto;overscroll-behavior:contain;box-shadow:0 12px 32px rgba(0,0,0,0.4);"></div>
             </div>
@@ -1613,11 +1614,21 @@ function debouncedSearch() {
 
 // ── Global Search ──
 let globalSearchTimer = null;
+function clearGlobalSearch() {
+    document.getElementById('global-search').value = '';
+    document.getElementById('global-search-results').style.display = 'none';
+    document.getElementById('global-search-results').innerHTML = '';
+    document.getElementById('global-search-count').textContent = '';
+    document.getElementById('global-search-clear').style.display = 'none';
+}
+
 function onGlobalSearch() {
     clearTimeout(globalSearchTimer);
     const q = document.getElementById('global-search').value.trim();
     const resultsEl = document.getElementById('global-search-results');
     const countEl = document.getElementById('global-search-count');
+    const clearBtn = document.getElementById('global-search-clear');
+    clearBtn.style.display = q.length > 0 ? '' : 'none';
     if (q.length < 2) {
         resultsEl.style.display = 'none';
         resultsEl.innerHTML = '';
@@ -2491,11 +2502,18 @@ async function doFilterHistorial() {
 
 function toggleHistorialDate(fecha) {
     if (historialExpandedDates.has(fecha)) {
-        historialExpandedDates.delete(fecha);
+        historialExpandedDates.clear();
     } else {
+        historialExpandedDates.clear();
         historialExpandedDates.add(fecha);
     }
-    filterHistorial();
+    // Re-render without re-fetching (use cached historialData)
+    const body = document.getElementById('historial-body');
+    if (historialData.length > 0) {
+        if (historialMode === 'condicion') renderCondicionHistorial(body, '', historialData);
+        else if (historialMode === 'pedidos') renderPedidosHistorial(body, '', '', historialData);
+        else renderRegistrosHistorial(body, '', '', historialData);
+    }
 }
 
 function renderCondicionHistorial(body, searchQuery, sourceData) {
@@ -2611,34 +2629,42 @@ function renderRegistrosHistorial(body, fechaQuery, textoQuery, sourceData) {
         h += `<i class="fa-solid ${chevron}" style="color:var(--text-muted);font-size:0.7rem;transition:transform 0.2s;"></i>`;
         h += `</div>`;
 
-        // Body (collapsible)
+        // Body (collapsible, grouped by escaneadora)
         if (isOpen) {
-            h += `<div style="overflow-x:auto;">`;
-            h += `<table style="width:100%;font-size:0.82rem;border-collapse:collapse;"><thead><tr>`;
-            ['Pallet ID','Cant','Destino','Tipo','Turno','Escaneadora','Condicion','Pedido','Incidencias'].forEach(col => {
-                h += `<th style="padding:0.5rem 0.6rem;text-align:left;color:var(--text-muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid var(--border);white-space:nowrap;">${col}</th>`;
+            // Group records by escaneadora
+            const byEsc = {};
+            recs.forEach(r => { const e = r.escaneadora||'Otro'; if(!byEsc[e]) byEsc[e]=[]; byEsc[e].push(r); });
+            const escSorted = Object.entries(byEsc).sort((a,b) => b[1].length - a[1].length);
+            const td = 'padding:0.4rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);';
+
+            h += `<div style="padding:0.5rem;">`;
+            escSorted.forEach(([escName, escRecs]) => {
+                const escQty = escRecs.reduce((s,r) => s+(r.cantidad||0), 0);
+                h += `<div style="margin-bottom:0.6rem;">`;
+                h += `<div style="font-size:0.8rem;font-weight:600;color:var(--accent);padding:0.3rem 0.5rem;background:rgba(79,124,255,0.06);border-radius:4px;margin-bottom:0.3rem;"><i class="fa-solid fa-user" style="margin-right:4px;font-size:0.7rem;"></i>${escName} <span style="color:var(--text-muted);font-weight:400;">(${escRecs.length} pallets, ${escQty} pz)</span></div>`;
+                h += `<div style="overflow-x:auto;"><table style="width:100%;font-size:0.8rem;border-collapse:collapse;"><thead><tr>`;
+                ['Pallet ID','Cant','Destino','Tipo','Turno','Condicion','Pedido'].forEach(col => {
+                    h += `<th style="${td}text-align:left;color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;white-space:nowrap;">${col}</th>`;
+                });
+                h += `</tr></thead><tbody>`;
+                escRecs.forEach(r => {
+                    const obs = (r.observaciones||'').trim();
+                    let tipo = '-';
+                    if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY'].includes(f)) tipo = f === 'LPN' ? 'BULKY' : f; }
+                    if (tipo === '-') { const d = (r.destino||'').toUpperCase(); if (['BULKY','BOX'].includes(d) || d.startsWith('HV')) tipo = d; }
+                    h += `<tr>`;
+                    h += `<td style="${td}font-weight:600;">${r.palletId}</td>`;
+                    h += `<td style="${td}">${r.cantidad}</td>`;
+                    h += `<td style="${td}">${r.destino}</td>`;
+                    h += `<td style="${td}">${tipo !== '-' ? `<span class="badge badge-green">${tipo}</span>` : '-'}</td>`;
+                    h += `<td style="${td}">${turnoBadge(r.turno)}</td>`;
+                    h += `<td style="${td}">${r.condicion ? `<span class="badge badge-blue">${r.condicion}</span>` : '-'}</td>`;
+                    h += `<td style="${td}">${r.pedido || '-'}</td>`;
+                    h += `</tr>`;
+                });
+                h += `</tbody></table></div></div>`;
             });
-            h += `</tr></thead><tbody>`;
-            recs.forEach(r => {
-                const highlight = textoQuery ? 'background:rgba(79,124,255,0.04);' : '';
-                // Extract tipo from observaciones (same logic as pedidos chart)
-                const obs = (r.observaciones || '').trim();
-                let tipo = '-';
-                if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY'].includes(f)) tipo = f === 'LPN' ? 'BULKY' : f; }
-                if (tipo === '-') { const d = (r.destino||'').toUpperCase(); if (['BULKY','BOX'].includes(d) || d.startsWith('HV')) tipo = d; }
-                h += `<tr style="${highlight}">`;
-                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);font-weight:600;">${r.palletId}</td>`;
-                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.cantidad}</td>`;
-                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.destino}</td>`;
-                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${tipo !== '-' ? `<span class="badge badge-green">${tipo}</span>` : '-'}</td>`;
-                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${turnoBadge(r.turno)}</td>`;
-                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.escaneadora}</td>`;
-                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.condicion ? `<span class="badge badge-blue">${r.condicion}</span>` : '-'}</td>`;
-                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.pedido || '-'}</td>`;
-                h += `<td style="padding:0.45rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.03);color:${r.incidencias ? 'var(--danger)' : 'var(--text-muted)'};">${r.incidencias || '-'}</td>`;
-                h += `</tr>`;
-            });
-            h += `</tbody></table></div>`;
+            h += `</div>`;
         }
 
         h += `</div>`;
