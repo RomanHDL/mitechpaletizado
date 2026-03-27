@@ -931,18 +931,7 @@
                 </div>
             </div>
 
-            <!-- Row 3: Tendencia Diaria (full width) -->
-            <div id="row-turno-tendencia" style="margin-bottom:1.5rem;">
-                <div class="card">
-                    <div class="card-title"><i class="fa-solid fa-chart-line"></i> Tendencia Diaria</div>
-                    <div id="trend-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.5rem;"></div>
-                    <div id="trend-chart-wrap" style="position:relative;height:200px;">
-                        <canvas id="chart-tendencia"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Row 4: Produccion por Hora + Turno resumen -->
+            <!-- Row 3: Produccion por Hora + Dia vs Noche -->
             <div class="charts-grid">
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-clock"></i> Produccion por Hora</div>
@@ -950,8 +939,14 @@
                 </div>
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-sun"></i> Dia vs Noche</div>
-                    <canvas id="chart-dia-noche" height="160"></canvas>
+                    <canvas id="chart-dia-noche" height="180"></canvas>
                 </div>
+            </div>
+            <!-- Hidden containers for tendencia data (used by other logic) -->
+            <div style="display:none;">
+                <div id="row-turno-tendencia"></div>
+                <div id="trend-summary"></div>
+                <div id="trend-chart-wrap"><canvas id="chart-tendencia"></canvas></div>
             </div>
 
             <!-- Row 5: Condicion -->
