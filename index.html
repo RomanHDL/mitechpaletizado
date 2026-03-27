@@ -919,9 +919,11 @@
                         </div>
                     </div>
                     <div id="pedidos-info" style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.2rem;"></div>
-                    <div id="pedidos-legend" style="margin-bottom:0.4rem;"></div>
-                    <div style="flex:1;position:relative;">
-                        <canvas id="chart-pedidos" style="max-height:none !important;"></canvas>
+                    <div style="flex:1;display:flex;align-items:center;gap:0.5rem;min-height:0;">
+                        <div id="pedidos-legend" style="flex-shrink:0;min-width:110px;"></div>
+                        <div style="flex:1;position:relative;min-height:0;">
+                            <canvas id="chart-pedidos" style="max-height:none !important;"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
