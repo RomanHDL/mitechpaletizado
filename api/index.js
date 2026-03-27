@@ -659,19 +659,33 @@ app.get('/api/search', async (req, res) => {
   try {
     const q = (req.query.q || '').trim();
     if (!q || q.length < 2) return res.json({ success: true, data: [], total: 0 });
-    const filter = {
+
+    // 1. Exact palletId match first
+    const exact = await EscReg.find({ palletId: q }).sort({ createdAt: -1 }).limit(5);
+
+    // 2. PalletId starts with query
+    const startsWith = await EscReg.find({ palletId: { $regex: '^' + q, $options: 'i' }, palletId: { $ne: q } }).sort({ createdAt: -1 }).limit(20);
+
+    // 3. Broader match (palletId contains, or pedido match)
+    const broader = await EscReg.find({
+      palletId: { $ne: q },
       $or: [
         { palletId: { $regex: q, $options: 'i' } },
         { pedido: { $regex: q, $options: 'i' } },
-        { escaneadora: { $regex: q, $options: 'i' } },
-        { destino: { $regex: q, $options: 'i' } },
-        { condicion: { $regex: q, $options: 'i' } },
-        { observaciones: { $regex: q, $options: 'i' } },
       ]
-    };
-    const total = await EscReg.countDocuments(filter);
-    const data = await EscReg.find(filter).sort({ createdAt: -1 }).limit(100);
-    res.json({ success: true, data, total });
+    }).sort({ createdAt: -1 }).limit(30);
+
+    // Deduplicate by _id, preserve order (exact → startsWith → broader)
+    const seen = new Set();
+    const data = [];
+    for (const arr of [exact, startsWith, broader]) {
+      for (const r of arr) {
+        const id = r._id.toString();
+        if (!seen.has(id)) { seen.add(id); data.push(r); }
+      }
+    }
+
+    res.json({ success: true, data: data.slice(0, 50), total: data.length });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 

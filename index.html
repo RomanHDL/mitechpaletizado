@@ -869,7 +869,7 @@
                     <input type="text" class="form-input" id="global-search" placeholder="Buscar pallet, pedido, escaneadora..." style="flex:1;padding:0.55rem 0.9rem;font-size:0.9rem;" oninput="onGlobalSearch()">
                     <span id="global-search-count" style="font-size:0.75rem;color:var(--text-muted);min-width:60px;text-align:right;"></span>
                 </div>
-                <div id="global-search-results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 10px 10px;max-height:350px;overflow-y:auto;box-shadow:0 12px 32px rgba(0,0,0,0.4);"></div>
+                <div id="global-search-results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 10px 10px;max-height:350px;overflow-y:auto;overscroll-behavior:contain;box-shadow:0 12px 32px rgba(0,0,0,0.4);"></div>
             </div>
 
             <!-- KPIs -->
@@ -1635,12 +1635,16 @@ function onGlobalSearch() {
                 resultsEl.style.display = 'block';
                 return;
             }
+            const searchVal = document.getElementById('global-search').value.trim().toUpperCase();
             resultsEl.innerHTML = data.data.map(r => {
                 const obs = (r.observaciones||'').split('|')[0].trim();
                 const tipo = obs && ['BULKY','BOX','HV','JESSY','LPN'].includes(obs.toUpperCase()) ? obs.toUpperCase() : '';
-                return `<div style="padding:0.5rem 0.75rem;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(79,124,255,0.06)'" onmouseout="this.style.background=''">
+                const isExact = r.palletId && r.palletId.toUpperCase() === searchVal;
+                const exactBadge = isExact ? '<span style="font-size:0.6rem;padding:1px 5px;border-radius:3px;background:var(--success);color:#fff;margin-left:4px;">EXACTO</span>' : '';
+                const bg = isExact ? 'background:rgba(34,197,94,0.06);' : '';
+                return `<div style="padding:0.5rem 0.75rem;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:pointer;transition:background 0.15s;${bg}" onmouseover="this.style.background='rgba(79,124,255,0.08)'" onmouseout="this.style.background='${isExact?'rgba(34,197,94,0.06)':''}'">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <span><strong style="color:var(--text-main);">${r.palletId}</strong> <span style="color:var(--text-muted);">&middot; ${r.cantidad} pz &middot; ${r.destino}</span></span>
+                        <span><strong style="color:var(--text-main);">${r.palletId}</strong>${exactBadge} <span style="color:var(--text-muted);">&middot; ${r.cantidad} pz &middot; ${r.destino}</span></span>
                         <span style="font-size:0.72rem;color:var(--text-muted);">${r.fecha}</span>
                     </div>
                     <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.15rem;">
