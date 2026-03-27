@@ -933,7 +933,7 @@
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-chart-line"></i> Tendencia Diaria</div>
                     <div id="trend-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.5rem;"></div>
-                    <div id="trend-chart-wrap" style="position:relative;height:220px;">
+                    <div id="trend-chart-wrap" style="position:relative;height:200px;">
                         <canvas id="chart-tendencia"></canvas>
                     </div>
                 </div>
@@ -2236,9 +2236,8 @@ function renderTrendWidget(dateMap) {
                     hoverBackgroundColor: '#f59e0b',
                     borderRadius: 3,
                     borderSkipped: false,
-                    maxBarThickness: 34,
-                    barPercentage: 0.7,
-                    categoryPercentage: 0.55,
+                    barPercentage: 0.9,
+                    categoryPercentage: 0.85,
                 },
                 {
                     label: 'Noche',
@@ -2247,9 +2246,8 @@ function renderTrendWidget(dateMap) {
                     hoverBackgroundColor: '#4f7cff',
                     borderRadius: 3,
                     borderSkipped: false,
-                    maxBarThickness: 34,
-                    barPercentage: 0.7,
-                    categoryPercentage: 0.55,
+                    barPercentage: 0.9,
+                    categoryPercentage: 0.85,
                 }
             ]
         },
