@@ -862,6 +862,16 @@
                 </div>
             </div>
 
+            <!-- Global Search -->
+            <div style="margin-bottom:1rem;position:relative;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <i class="fa-solid fa-search" style="color:var(--accent);"></i>
+                    <input type="text" class="form-input" id="global-search" placeholder="Buscar pallet, pedido, escaneadora..." style="flex:1;padding:0.55rem 0.9rem;font-size:0.9rem;" oninput="onGlobalSearch()">
+                    <span id="global-search-count" style="font-size:0.75rem;color:var(--text-muted);min-width:60px;text-align:right;"></span>
+                </div>
+                <div id="global-search-results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 10px 10px;max-height:350px;overflow-y:auto;box-shadow:0 12px 32px rgba(0,0,0,0.4);"></div>
+            </div>
+
             <!-- KPIs -->
             <div class="kpi-grid" id="dash-kpis">
                 <div class="kpi"><div class="kpi-value" id="kpi-total">-</div><div class="kpi-label">Total Registros</div></div>
@@ -1600,6 +1610,57 @@ function debouncedSearch() {
     if (searchTimer) clearTimeout(searchTimer);
     searchTimer = setTimeout(() => loadTableData(), 300);
 }
+
+// ── Global Search ──
+let globalSearchTimer = null;
+function onGlobalSearch() {
+    clearTimeout(globalSearchTimer);
+    const q = document.getElementById('global-search').value.trim();
+    const resultsEl = document.getElementById('global-search-results');
+    const countEl = document.getElementById('global-search-count');
+    if (q.length < 2) {
+        resultsEl.style.display = 'none';
+        resultsEl.innerHTML = '';
+        countEl.textContent = '';
+        return;
+    }
+    countEl.textContent = '...';
+    globalSearchTimer = setTimeout(async () => {
+        try {
+            const data = await apiFetch(`${API}/api/search?q=${encodeURIComponent(q)}`);
+            if (!data.success) { countEl.textContent = 'Error'; return; }
+            countEl.textContent = data.total + ' resultado' + (data.total !== 1 ? 's' : '');
+            if (data.data.length === 0) {
+                resultsEl.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-muted);font-size:0.85rem;">Sin resultados para "' + q + '"</div>';
+                resultsEl.style.display = 'block';
+                return;
+            }
+            resultsEl.innerHTML = data.data.map(r => {
+                const obs = (r.observaciones||'').split('|')[0].trim();
+                const tipo = obs && ['BULKY','BOX','HV','JESSY','LPN'].includes(obs.toUpperCase()) ? obs.toUpperCase() : '';
+                return `<div style="padding:0.5rem 0.75rem;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(79,124,255,0.06)'" onmouseout="this.style.background=''">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span><strong style="color:var(--text-main);">${r.palletId}</strong> <span style="color:var(--text-muted);">&middot; ${r.cantidad} pz &middot; ${r.destino}</span></span>
+                        <span style="font-size:0.72rem;color:var(--text-muted);">${r.fecha}</span>
+                    </div>
+                    <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.15rem;">
+                        ${r.escaneadora} &middot; ${turnoBadge(r.turno)} ${r.pedido ? ' &middot; Ped: '+r.pedido : ''} ${tipo ? ' &middot; '+tipo : ''} ${r.condicion ? ' &middot; <span class="badge badge-blue" style="font-size:0.65rem;">'+r.condicion+'</span>' : ''}
+                    </div>
+                </div>`;
+            }).join('');
+            resultsEl.style.display = 'block';
+        } catch(e) { countEl.textContent = 'Error'; }
+    }, 300);
+}
+
+// Close search results when clicking outside
+document.addEventListener('click', function(e) {
+    const search = document.getElementById('global-search');
+    const results = document.getElementById('global-search-results');
+    if (search && results && !search.contains(e.target) && !results.contains(e.target)) {
+        results.style.display = 'none';
+    }
+});
 
 function getFilterParams() {
     const p = new URLSearchParams();

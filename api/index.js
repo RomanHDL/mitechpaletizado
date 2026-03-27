@@ -654,6 +654,27 @@ app.get('/api/realtime-config', (req, res) => {
   res.json({ enabled: true, key: process.env.PUSHER_KEY, cluster: process.env.PUSHER_CLUSTER || 'us2' });
 });
 
+// ═══════════ GLOBAL SEARCH ═══════════
+app.get('/api/search', async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (!q || q.length < 2) return res.json({ success: true, data: [], total: 0 });
+    console.log('[SEARCH] query:', q);
+    const filter = {
+      $or: [
+        { palletId: { $regex: q, $options: 'i' } },
+        { pedido: { $regex: q, $options: 'i' } },
+        { escaneadora: { $regex: q, $options: 'i' } },
+        { destino: { $regex: q, $options: 'i' } },
+        { condicion: { $regex: q, $options: 'i' } },
+      ]
+    };
+    const data = await EscReg.find(filter).sort({ createdAt: -1 }).limit(30);
+    console.log('[SEARCH] results:', data.length);
+    res.json({ success: true, data, total: data.length });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // ═══════════ HEALTH ═══════════
 app.get('/api/health', async (req, res) => {
   try {
