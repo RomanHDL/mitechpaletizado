@@ -3574,24 +3574,41 @@ async function exportDashboardExcel() {
     const EJS = window.ExcelJS;
     if (!EJS) { alert('ExcelJS no cargado'); return; }
 
+    // Fetch FRESH data from API (not cached lastTableData)
+    const btn = document.querySelector('[onclick="exportDashboardExcel()"]');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generando...'; }
+    let freshData, freshResumen;
+    try {
+        const params = getFilterParams();
+        const [regResp, resResp] = await Promise.all([
+            apiFetch(`${API}/api/dashboard/registros?${params}&limit=5000`),
+            apiFetch(`${API}/api/dashboard/resumen?${params}`)
+        ]);
+        freshData = regResp.success ? regResp.data : lastTableData;
+        freshResumen = resResp.success ? resResp : lastResumen;
+    } catch(e) {
+        freshData = lastTableData;
+        freshResumen = lastResumen;
+    }
+
     const wb = new EJS.Workbook();
     wb.creator = 'Dashboard Paletizado FFT';
     wb.created = new Date();
     const today = new Date();
     const todayStr = today.toLocaleDateString('es-MX', {year:'numeric',month:'long',day:'numeric'});
-    const res = lastResumen || {};
+    const res = freshResumen || {};
 
-    // Compute aggregated data
+    // Compute aggregated data from FRESH records
     const byDate = {};
     let sumRD=0,sumRN=0,sumUD=0,sumUN=0;
-    lastTableData.forEach(rec => {
+    freshData.forEach(rec => {
         if (!byDate[rec.fecha]) byDate[rec.fecha]={dia:0,noche:0,uDia:0,uNoche:0};
         if (isDiaTurno(rec.turno)){byDate[rec.fecha].dia++;byDate[rec.fecha].uDia+=(rec.cantidad||0);}
         else{byDate[rec.fecha].noche++;byDate[rec.fecha].uNoche+=(rec.cantidad||0);}
     });
     Object.values(byDate).forEach(d=>{sumRD+=d.dia;sumRN+=d.noche;sumUD+=d.uDia;sumUN+=d.uNoche;});
     const sortedDates = Object.keys(byDate).sort();
-    const tR = lastTableData.length||1;
+    const tR = freshData.length||1;
     const tU = (res.totalUnidades||0)||1;
 
     // ═══ Sheet 1: Resumen ═══
@@ -3602,7 +3619,7 @@ async function exportDashboardExcel() {
     let r=4;
     exSection(ws1,'INDICADORES',r,2);r++;
     exHeaders(ws1,['Metrica','Valor'],r);r++;
-    [['Total Registros',res.totalRegistros||lastTableData.length],['Registros Hoy',res.registrosHoy||0],['Unidades Totales',res.totalUnidades||0],['Escaneadoras Activas',(res.escaneadoras||[]).length],['Fechas con actividad',sortedDates.length],['Promedio reg/dia',sortedDates.length>0?+((lastTableData.length/sortedDates.length).toFixed(1)):0]].forEach(row=>{exRow(ws1,row,r);r++;});
+    [['Total Registros',res.totalRegistros||freshData.length],['Registros Hoy',res.registrosHoy||0],['Unidades Totales',res.totalUnidades||0],['Escaneadoras Activas',(res.escaneadoras||[]).length],['Fechas con actividad',sortedDates.length],['Promedio reg/dia',sortedDates.length>0?+((freshData.length/sortedDates.length).toFixed(1)):0]].forEach(row=>{exRow(ws1,row,r);r++;});
     r++;exSection(ws1,'DISTRIBUCION POR TURNO',r,3);r++;
     exHeaders(ws1,['','Registros','Unidades'],r);r++;
     exRow(ws1,['Dia',sumRD,sumUD],r);r++;exRow(ws1,['Noche',sumRN,sumUN],r);r++;
@@ -3615,7 +3632,7 @@ async function exportDashboardExcel() {
     const ws2 = wb.addWorksheet('Registros');
     ws2.columns=EXPORT_COLS.map(h=>({header:h,width:16}));
     exHeaders(ws2,EXPORT_COLS,1);
-    lastTableData.forEach((rec,i)=>{exRow(ws2,recordToRow(rec),i+2);});
+    freshData.forEach((rec,i)=>{exRow(ws2,recordToRow(rec),i+2);});
     ws2.autoFilter={from:'A1',to:String.fromCharCode(64+EXPORT_COLS.length)+'1'};
 
     // ═══ Sheet 3: Tendencia (data for native chart) ═══
@@ -3661,7 +3678,7 @@ async function exportDashboardExcel() {
     ws8.columns=[{width:16},{width:16},{width:14},{width:16}];
     exHeaders(ws8,['Turno','Total Registros','Promedio Reg/Dia','Dias Trabajados'],1);
     const dayDates=new Set(),nightDates=new Set();
-    lastTableData.forEach(rec=>{
+    freshData.forEach(rec=>{
         if(isDiaTurno(rec.turno))dayDates.add(rec.fecha);else nightDates.add(rec.fecha);
     });
     exRow(ws8,['Dia',sumRD,dayDates.size>0?+(sumRD/dayDates.size).toFixed(1):0,dayDates.size],2);
@@ -3750,9 +3767,12 @@ async function exportDashboardExcel() {
     const url = URL.createObjectURL(finalBuf);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Dashboard_MI-TECH_${today.toISOString().split('T')[0]}.xlsx`;
+    a.download = `Dashboard_FFT_${today.toISOString().split('T')[0]}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
+    // Restore button
+    const btnR = document.querySelector('[onclick="exportDashboardExcel()"]');
+    if (btnR) { btnR.disabled = false; btnR.innerHTML = '<i class="fa-solid fa-file-excel"></i> Excel'; }
 }
 
 // Export records for a specific date
