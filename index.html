@@ -2233,9 +2233,9 @@ function renderTrendWidget(dateMap) {
                     hoverBackgroundColor: '#f59e0b',
                     borderRadius: 3,
                     borderSkipped: false,
-                    maxBarThickness: 24,
-                    barPercentage: 0.5,
-                    categoryPercentage: 0.4,
+                    maxBarThickness: 30,
+                    barPercentage: 0.65,
+                    categoryPercentage: 0.5,
                 },
                 {
                     label: 'Noche',
@@ -2244,9 +2244,9 @@ function renderTrendWidget(dateMap) {
                     hoverBackgroundColor: '#4f7cff',
                     borderRadius: 3,
                     borderSkipped: false,
-                    maxBarThickness: 24,
-                    barPercentage: 0.5,
-                    categoryPercentage: 0.4,
+                    maxBarThickness: 30,
+                    barPercentage: 0.65,
+                    categoryPercentage: 0.5,
                 }
             ]
         },
@@ -2270,12 +2270,13 @@ function renderTrendWidget(dateMap) {
                         afterBody: (items) => 'Total: ' + items.reduce((s, i) => s + i.parsed.x, 0)
                     }
                 },
-                datalabels: { display: true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:10}, offset:4, formatter:(v)=>v>0?v:'' }
+                datalabels: { display: true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:11}, offset:6, clamp:true, clip:false, formatter:(v)=>v>0?v:'' }
             },
             scales: {
                 x: {
                     beginAtZero: true,
-                    ticks: { color: '#7b8ba5', stepSize: 1, font: { size: 11 } },
+                    grace: '15%',
+                    ticks: { color: '#7b8ba5', font: { size: 11 } },
                     grid: { color: 'rgba(30,42,66,0.4)' }
                 },
                 y: {
