@@ -354,7 +354,7 @@ app.get('/api/dashboard/registros', auth, roleGuard('admin'), async (req, res) =
     }
     let query = EscReg.find(filter).sort({ createdAt: -1 });
     if (skip) query = query.skip(parseInt(skip));
-    query = query.limit(parseInt(limit) || 100);
+    query = query.limit(parseInt(limit) || 2000);
     let registros = await query.populate('capturadoPor', 'nombre');
 
     if (!fecha && fecha_inicio && fecha_fin) {

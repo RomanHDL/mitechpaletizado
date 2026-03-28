@@ -2479,7 +2479,7 @@ async function loadTableData() {
         const busqueda = document.getElementById('dash-busqueda').value;
         const params = getFilterParams();
         const extra = busqueda ? `&busqueda=${encodeURIComponent(busqueda)}` : '';
-        const data = await apiFetch(`${API}/api/dashboard/registros?${params}${extra}&limit=200`);
+        const data = await apiFetch(`${API}/api/dashboard/registros?${params}${extra}&limit=2000`);
         if (!data.success) return;
         lastTableData = data.data;
         // Batch all secondary renders in one requestAnimationFrame
