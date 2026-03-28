@@ -696,6 +696,55 @@ app.post('/api/audit', auth, roleGuard('admin'), async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// Scan for recent DB changes (compares records vs audit_logs)
+app.get('/api/audit/scan', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+    const col = mongoose.connection.db.collection('audit_logs');
+    // Get all audited palletIds
+    const auditedDeletes = await col.distinct('palletId', { action: 'DELETE' });
+    // Get recently modified records (last 24h) that might have been changed in Atlas
+    const since = new Date(Date.now() - 24*60*60*1000);
+    const recentRecords = await EscReg.find({ updatedAt: { $gte: since } }).sort({ updatedAt: -1 }).limit(100);
+    const recentCreated = await EscReg.find({ createdAt: { $gte: since } }).sort({ createdAt: -1 }).limit(50);
+    // Find records created recently that have no audit CREATE (could be Atlas inserts)
+    // We don't audit normal creates anymore, so just report them as "recent activity"
+    res.json({
+      success: true,
+      recentlyModified: recentRecords.length,
+      recentlyCreated: recentCreated.length,
+      records: recentRecords.map(r => ({
+        palletId: r.palletId, escaneadora: r.escaneadora, destino: r.destino,
+        cantidad: r.cantidad, pedido: r.pedido, condicion: r.condicion,
+        fecha: r.fecha, turno: r.turno, updatedAt: r.updatedAt, createdAt: r.createdAt
+      }))
+    });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Audit stats for chart
+app.get('/api/audit/stats', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+    const col = mongoose.connection.db.collection('audit_logs');
+    const filter = { action: { $in: ['UPDATE','DELETE','ADD','CORRECTION','MANUAL_EDIT'] } };
+    // By escaneadora
+    const byEsc = await col.aggregate([
+      { $match: filter },
+      { $group: { _id: '$escaneadora', total: { $sum: 1 } } },
+      { $sort: { total: -1 } }
+    ]).toArray();
+    // By action
+    const byAction = await col.aggregate([
+      { $match: filter },
+      { $group: { _id: '$action', total: { $sum: 1 } } },
+      { $sort: { total: -1 } }
+    ]).toArray();
+    const total = await col.countDocuments(filter);
+    res.json({ success: true, total, byEscaneadora: byEsc, byAction: byAction });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // ═══════════ GLOBAL SEARCH ═══════════
 app.get('/api/search', async (req, res) => {
   try {
