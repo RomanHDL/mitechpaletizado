@@ -939,35 +939,32 @@
                 </div>
             </div>
 
-            <!-- Row: Pedidos Bulky por dia (premium card) -->
-            <div style="margin-bottom:1.5rem;background:linear-gradient(135deg,var(--bg-card) 0%,rgba(245,158,11,0.03) 100%);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.15);">
-                <!-- Header -->
-                <div style="padding:0.85rem 1.25rem;border-bottom:1px solid rgba(245,158,11,0.1);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
-                    <div>
-                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.15rem;">
-                            <span style="width:28px;height:28px;border-radius:8px;background:rgba(245,158,11,0.12);display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-boxes-stacked" style="color:#f59e0b;font-size:0.85rem;"></i></span>
-                            <span style="font-size:1.05rem;font-weight:700;color:var(--text-main);">Pedidos BULKY</span>
-                        </div>
-                        <div style="font-size:0.72rem;color:var(--text-muted);padding-left:2.4rem;">Comportamiento diario de pedidos bulky</div>
+            <!-- Row: Dia vs Noche (full width, premium style) -->
+            <div style="margin-bottom:1.5rem;background:linear-gradient(135deg,var(--bg-card) 0%,rgba(79,124,255,0.03) 100%);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.15);">
+                <div style="padding:0.85rem 1.25rem;border-bottom:1px solid rgba(79,124,255,0.1);display:flex;justify-content:space-between;align-items:center;">
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <span style="width:28px;height:28px;border-radius:8px;background:rgba(79,124,255,0.12);display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-sun" style="color:#4f7cff;font-size:0.85rem;"></i></span>
+                        <span style="font-size:1.05rem;font-weight:700;color:var(--text-main);">Dia vs Noche</span>
                     </div>
-                    <div id="bulky-kpi" style="display:flex;gap:0.5rem;align-items:center;"></div>
                 </div>
-                <!-- Chart -->
                 <div style="padding:0.6rem 1rem 0.75rem;">
                     <div style="position:relative;height:180px;">
-                        <canvas id="chart-bulky-dia"></canvas>
+                        <canvas id="chart-dia-noche"></canvas>
                     </div>
                 </div>
             </div>
-            <!-- Row: Produccion por Hora + Dia vs Noche -->
+            <!-- Row: Produccion por Hora + Pedidos BULKY -->
             <div class="charts-grid">
                 <div class="card">
                     <div class="card-title"><i class="fa-solid fa-clock"></i> Produccion por Hora</div>
                     <canvas id="chart-por-hora" height="160"></canvas>
                 </div>
                 <div class="card">
-                    <div class="card-title"><i class="fa-solid fa-sun"></i> Dia vs Noche</div>
-                    <canvas id="chart-dia-noche" height="180"></canvas>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
+                        <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-boxes-stacked" style="color:#f59e0b;"></i> Pedidos BULKY</div>
+                        <div id="bulky-kpi" style="display:flex;gap:0.4rem;align-items:center;"></div>
+                    </div>
+                    <canvas id="chart-bulky-dia" height="160"></canvas>
                 </div>
             </div>
 
