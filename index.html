@@ -950,14 +950,24 @@
                     <canvas id="chart-dia-noche" height="180"></canvas>
                 </div>
             </div>
-            <!-- Row: Pedidos Bulky por dia -->
-            <div class="card" style="margin-bottom:1.5rem;padding:0.75rem 1rem;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
-                    <div class="card-title" style="margin-bottom:0;font-size:0.9rem;"><i class="fa-solid fa-boxes-stacked" style="color:#f59e0b;"></i> Pedidos BULKY</div>
-                    <div id="bulky-kpi" style="display:flex;gap:0.75rem;align-items:center;"></div>
+            <!-- Row: Pedidos Bulky por dia (premium card) -->
+            <div style="margin-bottom:1.5rem;background:linear-gradient(135deg,var(--bg-card) 0%,rgba(245,158,11,0.03) 100%);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.15);">
+                <!-- Header -->
+                <div style="padding:0.85rem 1.25rem;border-bottom:1px solid rgba(245,158,11,0.1);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+                    <div>
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.15rem;">
+                            <span style="width:28px;height:28px;border-radius:8px;background:rgba(245,158,11,0.12);display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-boxes-stacked" style="color:#f59e0b;font-size:0.85rem;"></i></span>
+                            <span style="font-size:1.05rem;font-weight:700;color:var(--text-main);">Pedidos BULKY</span>
+                        </div>
+                        <div style="font-size:0.72rem;color:var(--text-muted);padding-left:2.4rem;">Comportamiento diario de pedidos bulky</div>
+                    </div>
+                    <div id="bulky-kpi" style="display:flex;gap:0.5rem;align-items:center;"></div>
                 </div>
-                <div style="position:relative;height:170px;">
-                    <canvas id="chart-bulky-dia"></canvas>
+                <!-- Chart -->
+                <div style="padding:0.6rem 1rem 0.75rem;">
+                    <div style="position:relative;height:180px;">
+                        <canvas id="chart-bulky-dia"></canvas>
+                    </div>
                 </div>
             </div>
 
@@ -2318,10 +2328,15 @@ function renderBulkyPorDia() {
     const totalBulky = dates.reduce((s,d) => s + byDate[d], 0);
     const promedio = dates.length > 0 ? (totalBulky / dates.length).toFixed(1) : 0;
 
-    if (kpiEl) kpiEl.innerHTML = `
-        <span style="padding:0.2rem 0.5rem;border-radius:6px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);font-size:0.78rem;"><strong style="color:#f59e0b;font-size:0.9rem;">${totalBulky}</strong> <span style="color:var(--text-muted);">total</span></span>
-        <span style="padding:0.2rem 0.5rem;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid var(--border);font-size:0.78rem;"><strong style="color:var(--text-main);">${promedio}</strong> <span style="color:var(--text-muted);">/dia</span></span>
-        <span style="font-size:0.72rem;color:var(--text-muted);">${dates.length} dia${dates.length!==1?'s':''}</span>`;
+    if (kpiEl) {
+        function kpiChip(value, label, color) {
+            return `<div style="text-align:center;padding:0.35rem 0.7rem;border-radius:8px;background:rgba(${color},0.08);border:1px solid rgba(${color},0.2);min-width:55px;">
+                <div style="font-size:1.1rem;font-weight:700;color:rgb(${color});line-height:1.1;">${value}</div>
+                <div style="font-size:0.62rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:1px;">${label}</div>
+            </div>`;
+        }
+        kpiEl.innerHTML = kpiChip(totalBulky, 'Total', '245,158,11') + kpiChip(promedio, 'Prom/dia', '226,232,240') + kpiChip(dates.length, dates.length!==1?'Dias':'Dia', '148,163,184');
+    }
 
     if (dates.length === 0) return;
 
