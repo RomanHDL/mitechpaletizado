@@ -1944,7 +1944,15 @@ async function loadResumen() {
         lastResumen = data;
 
         document.getElementById('kpi-total').textContent = data.totalRegistros.toLocaleString();
-        document.getElementById('kpi-hoy').textContent = data.registrosHoy.toLocaleString();
+        // Show today's date on KPI if filter is a different day
+        const hoyKpiEl = document.getElementById('kpi-hoy');
+        const now = new Date();
+        const todayStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
+        const filterFecha = document.getElementById('dash-fecha').value.trim();
+        const isFilteringOtherDay = filterFecha && filterFecha !== todayStr;
+        hoyKpiEl.innerHTML = isFilteringOtherDay
+            ? `${data.registrosHoy.toLocaleString()} <span style="display:block;font-size:0.55em;font-weight:400;color:var(--text-muted);margin-top:2px;">${data.fechaHoy}</span>`
+            : data.registrosHoy.toLocaleString();
         document.getElementById('kpi-unidades').textContent = data.totalUnidades.toLocaleString();
         document.getElementById('kpi-operadoras').textContent = data.escaneadoras.length;
 
