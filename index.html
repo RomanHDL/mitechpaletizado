@@ -2860,36 +2860,42 @@ function renderRegistrosHistorial(body, fechaQuery, textoQuery, sourceData) {
                 const almRecs = escRecs.filter(r => (r.destino||'').toUpperCase() !== 'TRG');
                 const trgQty = trgRecs.reduce((s,r) => s+(r.cantidad||0), 0);
                 const almQty = almRecs.reduce((s,r) => s+(r.cantidad||0), 0);
+                const maxRows = Math.max(trgRecs.length, almRecs.length);
 
-                h += `<div style="margin-bottom:0.75rem;">`;
-                h += `<div style="font-size:0.82rem;font-weight:600;color:var(--accent);padding:0.35rem 0.5rem;background:rgba(79,124,255,0.06);border-radius:4px;margin-bottom:0.4rem;"><i class="fa-solid fa-user" style="margin-right:4px;font-size:0.7rem;"></i>${escName} <span style="color:var(--text-muted);font-weight:400;">(${escRecs.length} pallets, ${escQty} pz)</span></div>`;
-
-                // Helper to render a destino table
-                function renderDestinoBlock(label, icon, color, recs, qty) {
-                    if (recs.length === 0) return '';
-                    let t = `<div style="margin-bottom:0.5rem;">`;
-                    t += `<div style="display:flex;align-items:center;gap:0.4rem;padding:0.25rem 0.4rem;margin-bottom:0.3rem;"><i class="fa-solid ${icon}" style="color:${color};font-size:0.75rem;"></i><span style="font-size:0.8rem;font-weight:700;color:${color};">${label}</span><span style="font-size:0.75rem;color:var(--text-muted);">${recs.length} pallets &middot; ${qty.toLocaleString()} pz</span></div>`;
-                    t += `<div style="display:flex;flex-direction:column;gap:0.35rem;border-left:2px solid ${color};padding-left:0.5rem;">`;
-                    recs.forEach(r => {
-                        const obs = (r.observaciones||'').trim();
-                        let tipo = '-';
-                        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY'].includes(f)) tipo = f === 'LPN' ? 'BULKY' : f; }
-                        if (tipo === '-') { const d2 = (r.destino||'').toUpperCase(); if (['BULKY','BOX'].includes(d2) || d2.startsWith('HV')) tipo = d2; }
-                        t += `<div style="background:rgba(15,23,42,0.4);border:1px solid var(--border);border-radius:6px;padding:0.45rem 0.6rem;font-size:0.78rem;display:flex;align-items:center;gap:0.75rem;transition:background 0.15s;" onmouseover="this.style.background='rgba(79,124,255,0.04)'" onmouseout="this.style.background='rgba(15,23,42,0.4)'">`;
-                        t += `<strong style="color:var(--text-main);font-size:0.88rem;min-width:70px;">${r.palletId}</strong>`;
-                        t += `<span style="color:var(--text-main);min-width:40px;">${r.cantidad} pz</span>`;
-                        t += `<span>${turnoBadge(r.turno)}</span>`;
-                        t += `<span>${tipo !== '-' ? `<span class="badge badge-green" style="font-size:0.68rem;">${tipo}</span>` : '<span style="color:var(--text-muted);">-</span>'}</span>`;
-                        t += `<span>${r.condicion ? `<span class="badge badge-blue" style="font-size:0.68rem;">${r.condicion}</span>` : '<span style="color:var(--text-muted);">-</span>'}</span>`;
-                        t += `<span style="color:var(--text-muted);font-size:0.75rem;">${r.pedido ? 'Ped: '+r.pedido : ''}</span>`;
-                        t += `</div>`;
-                    });
-                    t += `</div></div>`;
-                    return t;
+                h += `<div style="margin-bottom:0.75rem;border:1px solid var(--border);border-radius:8px;overflow:hidden;">`;
+                // Escaneadora header
+                h += `<div style="text-align:center;padding:0.4rem 0.5rem;background:rgba(79,124,255,0.08);border-bottom:1px solid var(--border);">`;
+                h += `<span style="font-size:0.85rem;font-weight:700;color:var(--accent);"><i class="fa-solid fa-user" style="margin-right:4px;font-size:0.7rem;"></i>${escName}</span>`;
+                h += `<span style="font-size:0.75rem;color:var(--text-muted);margin-left:0.5rem;">${escRecs.length} pallets &middot; ${escQty} pz</span>`;
+                h += `</div>`;
+                // Column headers
+                h += `<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border);">`;
+                h += `<div style="padding:0.3rem 0.5rem;text-align:center;font-size:0.75rem;font-weight:700;color:#22c55e;border-right:1px solid var(--border);background:rgba(34,197,94,0.05);"><i class="fa-solid fa-arrow-right" style="margin-right:3px;font-size:0.65rem;"></i>TRG <span style="font-weight:400;color:var(--text-muted);">(${trgRecs.length} plt, ${trgQty} pz)</span></div>`;
+                h += `<div style="padding:0.3rem 0.5rem;text-align:center;font-size:0.75rem;font-weight:700;color:#4f7cff;background:rgba(79,124,255,0.05);"><i class="fa-solid fa-warehouse" style="margin-right:3px;font-size:0.65rem;"></i>Almacen <span style="font-weight:400;color:var(--text-muted);">(${almRecs.length} plt, ${almQty} pz)</span></div>`;
+                h += `</div>`;
+                // Comparative rows
+                for (let i = 0; i < maxRows; i++) {
+                    const tR = trgRecs[i];
+                    const aR = almRecs[i];
+                    h += `<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.78rem;">`;
+                    // TRG cell
+                    h += `<div style="padding:0.3rem 0.5rem;border-right:1px solid var(--border);">`;
+                    if (tR) {
+                        h += `<strong style="color:var(--text-main);">${tR.palletId}</strong> <span style="color:var(--text-muted);">${tR.cantidad}pz</span>`;
+                        if (tR.condicion) h += ` <span class="badge badge-blue" style="font-size:0.6rem;">${tR.condicion}</span>`;
+                        if (tR.pedido) h += ` <span style="color:var(--text-muted);font-size:0.7rem;">P:${tR.pedido}</span>`;
+                    }
+                    h += `</div>`;
+                    // Almacen cell
+                    h += `<div style="padding:0.3rem 0.5rem;">`;
+                    if (aR) {
+                        h += `<strong style="color:var(--text-main);">${aR.palletId}</strong> <span style="color:var(--text-muted);">${aR.cantidad}pz</span>`;
+                        if (aR.condicion) h += ` <span class="badge badge-blue" style="font-size:0.6rem;">${aR.condicion}</span>`;
+                        if (aR.pedido) h += ` <span style="color:var(--text-muted);font-size:0.7rem;">P:${aR.pedido}</span>`;
+                    }
+                    h += `</div>`;
+                    h += `</div>`;
                 }
-
-                h += renderDestinoBlock('TRG', 'fa-arrow-right', '#22c55e', trgRecs, trgQty);
-                h += renderDestinoBlock('Almacen', 'fa-warehouse', '#4f7cff', almRecs, almQty);
                 h += `</div>`;
             });
             h += `</div>`;
