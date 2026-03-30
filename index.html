@@ -950,6 +950,17 @@
                     <canvas id="chart-dia-noche" height="180"></canvas>
                 </div>
             </div>
+            <!-- Row: Pedidos Bulky por dia -->
+            <div class="card" style="margin-bottom:1.5rem;padding:1rem 1.25rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                    <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-boxes-stacked" style="color:#f59e0b;"></i> Pedidos BULKY por Dia</div>
+                    <div id="bulky-kpi" style="font-size:0.82rem;color:var(--text-muted);"></div>
+                </div>
+                <div style="position:relative;height:200px;">
+                    <canvas id="chart-bulky-dia"></canvas>
+                </div>
+            </div>
+
             <!-- Hidden containers for tendencia data (used by other logic) -->
             <div style="display:none;">
                 <div id="row-turno-tendencia"></div>
@@ -1720,7 +1731,7 @@ async function handleEscSubmit(e) {
 
 let chartEsc = null, chartDest = null, chartTrend = null, chartTurno = null, chartCond = null;
 let chartPalletsPie = null, chartPiezasPie = null, chartPedidos = null;
-let chartPorHora = null, chartDiaNoche = null;
+let chartPorHora = null, chartDiaNoche = null, chartBulkyDia = null;
 let chartTotalPallets = null, chartTotalPiezas = null;
 
 // Register datalabels plugin globally
@@ -2270,6 +2281,84 @@ function renderDiaNoche() {
     });
 }
 
+// ── Pedidos BULKY por dia ──
+function renderBulkyPorDia() {
+    if (chartBulkyDia) { chartBulkyDia.destroy(); chartBulkyDia = null; }
+    const ctx = document.getElementById('chart-bulky-dia');
+    const kpiEl = document.getElementById('bulky-kpi');
+    if (!ctx || !lastTableData || lastTableData.length === 0) {
+        if (kpiEl) kpiEl.textContent = 'Sin datos';
+        return;
+    }
+
+    // Detect BULKY using same logic as pedidos chart
+    function isBulky(r) {
+        if (!(r.pedido && r.pedido.trim())) return false;
+        const obs = (r.observaciones||'').trim();
+        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (f === 'BULKY' || f === 'LPN') return true; }
+        const d = (r.destino||'').toUpperCase(); if (d === 'BULKY') return true;
+        return false;
+    }
+
+    // Group BULKY records by fecha
+    const byDate = {};
+    lastTableData.forEach(r => {
+        if (!isBulky(r)) return;
+        const f = r.fecha || 'Sin fecha';
+        if (!byDate[f]) byDate[f] = 0;
+        byDate[f]++;
+    });
+
+    const dates = Object.keys(byDate).sort((a,b) => {
+        const pa = a.split('/'), pb = b.split('/');
+        if (pa.length !== 3 || pb.length !== 3) return 0;
+        return new Date(pa[2],pa[0]-1,pa[1]) - new Date(pb[2],pb[0]-1,pb[1]);
+    });
+
+    const totalBulky = dates.reduce((s,d) => s + byDate[d], 0);
+    const promedio = dates.length > 0 ? (totalBulky / dates.length).toFixed(1) : 0;
+
+    if (kpiEl) kpiEl.innerHTML = `Total: <strong style="color:#f59e0b;">${totalBulky}</strong> &middot; Promedio: <strong style="color:var(--text-main);">${promedio}</strong> /dia &middot; ${dates.length} dia${dates.length!==1?'s':''}`;
+
+    if (dates.length === 0) return;
+
+    const labels = dates.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
+    const values = dates.map(d => byDate[d]);
+
+    chartBulkyDia = new Chart(ctx.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'BULKY',
+                data: values,
+                backgroundColor: '#f59e0bcc',
+                hoverBackgroundColor: '#f59e0b',
+                borderRadius: 4,
+                barPercentage: 0.7,
+                categoryPercentage: 0.6,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            layout: { padding: { top: 20 } },
+            plugins: {
+                legend: { display: false },
+                tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:6, padding:8,
+                    callbacks: { label: (c) => `${c.parsed.y} pedidos BULKY` }
+                },
+                datalabels: { display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:14}, offset:4, formatter:(v)=>v>0?v:'' }
+            },
+            scales: {
+                x: { ticks:{color:'#7b8ba5',font:{size:11}}, grid:{display:false} },
+                y: { beginAtZero:true, grace:'15%', ticks:{color:'#7b8ba5',font:{size:11}}, grid:{color:'rgba(30,42,66,0.4)'} }
+            }
+        }
+    });
+}
+
 function splitCondFamilies(condStr) {
     if (!condStr || condStr === 'Sin condicion') return ['SIN CONDICION'];
     return condStr.split(/[,;\/]+/).map(s => {
@@ -2568,6 +2657,7 @@ async function loadTableData() {
             renderEscaneadoraDetail();
             renderProduccionPorHora();
             renderDiaNoche();
+            renderBulkyPorDia();
         });
     } catch (err) {
         console.error('[TABLE]', err);
