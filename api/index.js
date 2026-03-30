@@ -300,7 +300,8 @@ app.get('/api/dashboard/resumen', auth, roleGuard('admin'), async (req, res) => 
 
     const now = new Date();
     const hoyStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
-    const registrosHoy = registros.filter(r => r.fecha === hoyStr);
+    // "Registros Hoy" is ALWAYS today's real count, independent of filters
+    const registrosHoyCount = await EscReg.countDocuments({ fecha: hoyStr });
 
     const porEscaneadora = {}, porTurno = {}, porDestino = {}, porCondicion = {};
     let totalUnidades = 0;
@@ -323,7 +324,7 @@ app.get('/api/dashboard/resumen', auth, roleGuard('admin'), async (req, res) => 
     res.json({
       success: true,
       totalRegistros: registros.length,
-      registrosHoy: registrosHoy.length,
+      registrosHoy: registrosHoyCount,
       totalUnidades,
       fechaHoy: hoyStr,
       porEscaneadora: Object.entries(porEscaneadora).map(([nombre, d]) => ({ nombre, ...d })),
