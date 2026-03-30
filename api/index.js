@@ -60,7 +60,7 @@ const userSchema = new mongoose.Schema({
   nombre: { type: String, required: true },
   usuario: { type: String, required: true, unique: true, lowercase: true, trim: true },
   passwordHash: { type: String, required: true },
-  role: { type: String, enum: ['admin', 'escaneadora'], required: true },
+  role: { type: String, enum: ['admin', 'escaneadora', 'viewer'], required: true },
   isActive: { type: Boolean, default: true },
 }, { timestamps: true });
 
@@ -277,7 +277,7 @@ function normalizeTurno(t) {
   return t;
 }
 
-app.get('/api/dashboard/resumen', auth, roleGuard('admin'), async (req, res) => {
+app.get('/api/dashboard/resumen', auth, roleGuard('admin', 'viewer'), async (req, res) => {
   try {
     const { fecha, fecha_inicio, fecha_fin, escaneadora, turno } = req.query;
     const filter = {};
@@ -337,7 +337,7 @@ app.get('/api/dashboard/resumen', auth, roleGuard('admin'), async (req, res) => 
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-app.get('/api/dashboard/registros', auth, roleGuard('admin'), async (req, res) => {
+app.get('/api/dashboard/registros', auth, roleGuard('admin', 'viewer'), async (req, res) => {
   try {
     const { fecha, fecha_inicio, fecha_fin, escaneadora, turno, busqueda, limit, skip } = req.query;
     const filter = {};
@@ -386,7 +386,7 @@ function calcTurnoFromHour(date) {
   return 'Otro';
 }
 
-app.get('/api/dashboard/tendencias', auth, roleGuard('admin'), async (req, res) => {
+app.get('/api/dashboard/tendencias', auth, roleGuard('admin', 'viewer'), async (req, res) => {
   try {
     const limit = parseInt(req.query.dias) || 7;
     const { fecha, fecha_inicio, fecha_fin, escaneadora, turno } = req.query;
@@ -455,7 +455,7 @@ app.get('/api/dashboard/tendencias', auth, roleGuard('admin'), async (req, res) 
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-app.get('/api/dashboard/catalogos', auth, roleGuard('admin'), async (req, res) => {
+app.get('/api/dashboard/catalogos', auth, roleGuard('admin', 'viewer'), async (req, res) => {
   try {
     const escaneadoras = await EscReg.distinct('escaneadora');
     const destinos = await EscReg.distinct('destino');
@@ -538,6 +538,8 @@ app.get('/api/seed', async (req, res) => {
       { nombre: 'Cecilia Perez',   usuario: '1003',      password: '333333', role: 'escaneadora' },
       { nombre: 'Nathalie Lopez',  usuario: 'nathalie',  password: '444444', role: 'escaneadora' },
       { nombre: 'Nathalie Lopez',  usuario: '1004',      password: '444444', role: 'escaneadora' },
+      // Viewer: solo dashboard
+      { nombre: 'Viewer Dashboard', usuario: '2678',     password: 'Sonyqled75', role: 'viewer' },
     ];
     const results = [];
     for (const u of seedUsers) {
@@ -782,7 +784,7 @@ app.get('/api/search', async (req, res) => {
 });
 
 // ═══════════ HISTORIAL (no date limit, full data) ═══════════
-app.get('/api/historial', auth, roleGuard('admin'), async (req, res) => {
+app.get('/api/historial', auth, roleGuard('admin', 'viewer'), async (req, res) => {
   try {
     const { q, fecha } = req.query;
     const filter = {};

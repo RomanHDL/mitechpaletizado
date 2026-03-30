@@ -457,8 +457,8 @@
                 <input type="text" class="form-input" id="login-user" placeholder="Ej: 3647" autocomplete="username" inputmode="numeric" required>
             </div>
             <div class="form-group">
-                <label>Contrasena (6 digitos)</label>
-                <input type="password" class="form-input" id="login-pass" placeholder="000000" autocomplete="current-password" inputmode="numeric" maxlength="6" pattern="\d{6}" required>
+                <label>Contrasena</label>
+                <input type="password" class="form-input" id="login-pass" placeholder="Contrasena" autocomplete="current-password" required>
             </div>
             <button type="submit" class="btn btn-primary" id="login-btn">
                 <i class="fa-solid fa-right-to-bracket"></i> Iniciar Sesion
@@ -1121,8 +1121,8 @@ async function handleLogin(e) {
     const errEl = document.getElementById('login-error');
     errEl.style.display = 'none';
 
-    if (!/^\d{6}$/.test(password)) {
-        errEl.textContent = 'La contrasena debe ser exactamente 6 digitos.';
+    if (!password || password.length < 4) {
+        errEl.textContent = 'La contrasena debe tener al menos 4 caracteres.';
         errEl.style.display = 'block';
         return;
     }
@@ -1206,16 +1206,30 @@ function enterApp() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').classList.add('active');
     document.getElementById('user-display-name').textContent = currentUser.nombre;
-    document.getElementById('user-display-role').textContent = currentUser.role === 'admin' ? 'Administrador' : 'Escaneadora';
+    const roleLabels = { admin:'Administrador', escaneadora:'Escaneadora', viewer:'Dashboard' };
+    document.getElementById('user-display-role').textContent = roleLabels[currentUser.role] || currentUser.role;
 
-    // Role-based: hide dashboard card and export buttons for non-admin
+    // Role-based visibility
     const dashCard = document.getElementById('home-dash-card');
-    if (currentUser.role === 'admin') {
+    if (currentUser.role === 'admin' || currentUser.role === 'viewer') {
         if (dashCard) dashCard.style.display = 'flex';
-        document.querySelectorAll('.admin-only').forEach(el => el.classList.add('visible'));
     } else {
         if (dashCard) dashCard.style.display = 'none';
+    }
+    if (currentUser.role === 'admin') {
+        document.querySelectorAll('.admin-only').forEach(el => el.classList.add('visible'));
+    } else {
         document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('visible'));
+    }
+
+    // Viewer: go directly to dashboard, hide other module cards
+    if (currentUser.role === 'viewer') {
+        const escCard = document.querySelector('.mod-esc');
+        const resCard = document.querySelector('.mod-resumen');
+        if (escCard) escCard.style.display = 'none';
+        if (resCard) resCard.style.display = 'none';
+        switchView('dashboard');
+        return;
     }
 
     // Greeting
@@ -1536,8 +1550,10 @@ function returnToAdmin() {
 // ══════════════════════════════════════════════
 
 function switchView(viewName) {
-    // Role check
-    if (viewName === 'dashboard' && (!currentUser || currentUser.role !== 'admin')) return;
+    // Role checks
+    if (viewName === 'dashboard' && (!currentUser || !['admin','viewer'].includes(currentUser.role))) return;
+    // Viewer can ONLY access dashboard
+    if (currentUser && currentUser.role === 'viewer' && viewName !== 'dashboard') { switchView('dashboard'); return; }
     // Save current view for restore on refresh
     sessionStorage.setItem('mitech_view', viewName);
 
