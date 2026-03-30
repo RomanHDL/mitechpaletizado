@@ -2856,29 +2856,45 @@ function renderRegistrosHistorial(body, fechaQuery, textoQuery, sourceData) {
             h += `<div style="padding:0.5rem;">`;
             escSorted.forEach(([escName, escRecs]) => {
                 const escQty = escRecs.reduce((s,r) => s+(r.cantidad||0), 0);
-                h += `<div style="margin-bottom:0.6rem;">`;
-                h += `<div style="font-size:0.8rem;font-weight:600;color:var(--accent);padding:0.3rem 0.5rem;background:rgba(79,124,255,0.06);border-radius:4px;margin-bottom:0.3rem;"><i class="fa-solid fa-user" style="margin-right:4px;font-size:0.7rem;"></i>${escName} <span style="color:var(--text-muted);font-weight:400;">(${escRecs.length} pallets, ${escQty} pz)</span></div>`;
-                h += `<div style="overflow-x:auto;"><table style="width:100%;font-size:0.8rem;border-collapse:collapse;"><thead><tr>`;
-                ['Pallet ID','Cant','Destino','Tipo','Turno','Condicion','Pedido'].forEach(col => {
-                    h += `<th style="${td}text-align:left;color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;white-space:nowrap;">${col}</th>`;
-                });
-                h += `</tr></thead><tbody>`;
-                escRecs.forEach(r => {
-                    const obs = (r.observaciones||'').trim();
-                    let tipo = '-';
-                    if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY'].includes(f)) tipo = f === 'LPN' ? 'BULKY' : f; }
-                    if (tipo === '-') { const d = (r.destino||'').toUpperCase(); if (['BULKY','BOX'].includes(d) || d.startsWith('HV')) tipo = d; }
-                    h += `<tr>`;
-                    h += `<td style="${td}font-weight:600;">${r.palletId}</td>`;
-                    h += `<td style="${td}">${r.cantidad}</td>`;
-                    h += `<td style="${td}">${r.destino}</td>`;
-                    h += `<td style="${td}">${tipo !== '-' ? `<span class="badge badge-green">${tipo}</span>` : '-'}</td>`;
-                    h += `<td style="${td}">${turnoBadge(r.turno)}</td>`;
-                    h += `<td style="${td}">${r.condicion ? `<span class="badge badge-blue">${r.condicion}</span>` : '-'}</td>`;
-                    h += `<td style="${td}">${r.pedido || '-'}</td>`;
-                    h += `</tr>`;
-                });
-                h += `</tbody></table></div></div>`;
+                const trgRecs = escRecs.filter(r => (r.destino||'').toUpperCase() === 'TRG');
+                const almRecs = escRecs.filter(r => (r.destino||'').toUpperCase() !== 'TRG');
+                const trgQty = trgRecs.reduce((s,r) => s+(r.cantidad||0), 0);
+                const almQty = almRecs.reduce((s,r) => s+(r.cantidad||0), 0);
+
+                h += `<div style="margin-bottom:0.75rem;">`;
+                h += `<div style="font-size:0.82rem;font-weight:600;color:var(--accent);padding:0.35rem 0.5rem;background:rgba(79,124,255,0.06);border-radius:4px;margin-bottom:0.4rem;"><i class="fa-solid fa-user" style="margin-right:4px;font-size:0.7rem;"></i>${escName} <span style="color:var(--text-muted);font-weight:400;">(${escRecs.length} pallets, ${escQty} pz)</span></div>`;
+
+                // Helper to render a destino table
+                function renderDestinoTable(label, icon, color, recs, qty) {
+                    if (recs.length === 0) return '';
+                    let t = `<div style="margin-bottom:0.4rem;">`;
+                    t += `<div style="display:flex;align-items:center;gap:0.4rem;padding:0.2rem 0.4rem;margin-bottom:0.2rem;"><i class="fa-solid ${icon}" style="color:${color};font-size:0.7rem;"></i><span style="font-size:0.78rem;font-weight:600;color:${color};">${label}</span><span style="font-size:0.72rem;color:var(--text-muted);">${recs.length} pallets &middot; ${qty} pz</span></div>`;
+                    t += `<div style="overflow-x:auto;border-left:2px solid ${color};padding-left:0.4rem;"><table style="width:100%;font-size:0.78rem;border-collapse:collapse;"><thead><tr>`;
+                    ['Pallet ID','Cant','Tipo','Turno','Condicion','Pedido'].forEach(col => {
+                        t += `<th style="${td}text-align:left;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase;white-space:nowrap;">${col}</th>`;
+                    });
+                    t += `</tr></thead><tbody>`;
+                    recs.forEach(r => {
+                        const obs = (r.observaciones||'').trim();
+                        let tipo = '-';
+                        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY'].includes(f)) tipo = f === 'LPN' ? 'BULKY' : f; }
+                        if (tipo === '-') { const d = (r.destino||'').toUpperCase(); if (['BULKY','BOX'].includes(d) || d.startsWith('HV')) tipo = d; }
+                        t += `<tr>`;
+                        t += `<td style="${td}font-weight:600;">${r.palletId}</td>`;
+                        t += `<td style="${td}">${r.cantidad}</td>`;
+                        t += `<td style="${td}">${tipo !== '-' ? `<span class="badge badge-green">${tipo}</span>` : '-'}</td>`;
+                        t += `<td style="${td}">${turnoBadge(r.turno)}</td>`;
+                        t += `<td style="${td}">${r.condicion ? `<span class="badge badge-blue">${r.condicion}</span>` : '-'}</td>`;
+                        t += `<td style="${td}">${r.pedido || '-'}</td>`;
+                        t += `</tr>`;
+                    });
+                    t += `</tbody></table></div></div>`;
+                    return t;
+                }
+
+                h += renderDestinoTable('TRG', 'fa-arrow-right', '#22c55e', trgRecs, trgQty);
+                h += renderDestinoTable('Almacen', 'fa-warehouse', '#4f7cff', almRecs, almQty);
+                h += `</div>`;
             });
             h += `</div>`;
         }
