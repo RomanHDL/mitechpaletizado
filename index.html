@@ -2865,35 +2865,31 @@ function renderRegistrosHistorial(body, fechaQuery, textoQuery, sourceData) {
                 h += `<div style="font-size:0.82rem;font-weight:600;color:var(--accent);padding:0.35rem 0.5rem;background:rgba(79,124,255,0.06);border-radius:4px;margin-bottom:0.4rem;"><i class="fa-solid fa-user" style="margin-right:4px;font-size:0.7rem;"></i>${escName} <span style="color:var(--text-muted);font-weight:400;">(${escRecs.length} pallets, ${escQty} pz)</span></div>`;
 
                 // Helper to render a destino table
-                function renderDestinoTable(label, icon, color, recs, qty) {
+                function renderDestinoBlock(label, icon, color, recs, qty) {
                     if (recs.length === 0) return '';
-                    let t = `<div style="margin-bottom:0.4rem;">`;
-                    t += `<div style="display:flex;align-items:center;gap:0.4rem;padding:0.2rem 0.4rem;margin-bottom:0.2rem;"><i class="fa-solid ${icon}" style="color:${color};font-size:0.7rem;"></i><span style="font-size:0.78rem;font-weight:600;color:${color};">${label}</span><span style="font-size:0.72rem;color:var(--text-muted);">${recs.length} pallets &middot; ${qty} pz</span></div>`;
-                    t += `<div style="overflow-x:auto;border-left:2px solid ${color};padding-left:0.4rem;"><table style="width:100%;font-size:0.78rem;border-collapse:collapse;"><thead><tr>`;
-                    ['Pallet ID','Cant','Tipo','Turno','Condicion','Pedido'].forEach(col => {
-                        t += `<th style="${td}text-align:left;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase;white-space:nowrap;">${col}</th>`;
-                    });
-                    t += `</tr></thead><tbody>`;
+                    let t = `<div style="margin-bottom:0.5rem;">`;
+                    t += `<div style="display:flex;align-items:center;gap:0.4rem;padding:0.25rem 0.4rem;margin-bottom:0.3rem;"><i class="fa-solid ${icon}" style="color:${color};font-size:0.75rem;"></i><span style="font-size:0.8rem;font-weight:700;color:${color};">${label}</span><span style="font-size:0.75rem;color:var(--text-muted);">${recs.length} pallets &middot; ${qty.toLocaleString()} pz</span></div>`;
+                    t += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.35rem;border-left:2px solid ${color};padding-left:0.5rem;">`;
                     recs.forEach(r => {
                         const obs = (r.observaciones||'').trim();
                         let tipo = '-';
                         if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY'].includes(f)) tipo = f === 'LPN' ? 'BULKY' : f; }
-                        if (tipo === '-') { const d = (r.destino||'').toUpperCase(); if (['BULKY','BOX'].includes(d) || d.startsWith('HV')) tipo = d; }
-                        t += `<tr>`;
-                        t += `<td style="${td}font-weight:600;">${r.palletId}</td>`;
-                        t += `<td style="${td}">${r.cantidad}</td>`;
-                        t += `<td style="${td}">${tipo !== '-' ? `<span class="badge badge-green">${tipo}</span>` : '-'}</td>`;
-                        t += `<td style="${td}">${turnoBadge(r.turno)}</td>`;
-                        t += `<td style="${td}">${r.condicion ? `<span class="badge badge-blue">${r.condicion}</span>` : '-'}</td>`;
-                        t += `<td style="${td}">${r.pedido || '-'}</td>`;
-                        t += `</tr>`;
+                        if (tipo === '-') { const d2 = (r.destino||'').toUpperCase(); if (['BULKY','BOX'].includes(d2) || d2.startsWith('HV')) tipo = d2; }
+                        t += `<div style="background:rgba(15,23,42,0.5);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.5rem;font-size:0.78rem;">`;
+                        t += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.2rem;"><strong style="color:var(--text-main);font-size:0.85rem;">${r.palletId}</strong><span style="color:var(--text-muted);font-size:0.72rem;">${r.cantidad} pz</span></div>`;
+                        t += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.15rem 0.5rem;font-size:0.72rem;color:var(--text-muted);">`;
+                        t += `<span>Turno: ${turnoBadge(r.turno)}</span>`;
+                        t += `<span>Tipo: ${tipo !== '-' ? `<span class="badge badge-green" style="font-size:0.65rem;">${tipo}</span>` : '-'}</span>`;
+                        t += `<span>Cond: ${r.condicion ? `<span class="badge badge-blue" style="font-size:0.65rem;">${r.condicion}</span>` : '-'}</span>`;
+                        t += `<span>Pedido: ${r.pedido || '-'}</span>`;
+                        t += `</div></div>`;
                     });
-                    t += `</tbody></table></div></div>`;
+                    t += `</div></div>`;
                     return t;
                 }
 
-                h += renderDestinoTable('TRG', 'fa-arrow-right', '#22c55e', trgRecs, trgQty);
-                h += renderDestinoTable('Almacen', 'fa-warehouse', '#4f7cff', almRecs, almQty);
+                h += renderDestinoBlock('TRG', 'fa-arrow-right', '#22c55e', trgRecs, trgQty);
+                h += renderDestinoBlock('Almacen', 'fa-warehouse', '#4f7cff', almRecs, almQty);
                 h += `</div>`;
             });
             h += `</div>`;
