@@ -939,11 +939,18 @@
                 </div>
             </div>
 
-            <!-- Row: Dia vs Noche + Pedidos BULKY -->
+            <!-- Row: Dia vs Noche (full width) -->
+            <div class="card" style="margin-bottom:1.5rem;">
+                <div class="card-title"><i class="fa-solid fa-sun" style="color:#4f7cff;"></i> Dia vs Noche</div>
+                <div style="position:relative;height:140px;">
+                    <canvas id="chart-dia-noche" style="max-height:none !important;"></canvas>
+                </div>
+            </div>
+            <!-- Row: Produccion por Hora + Pedidos BULKY -->
             <div class="charts-grid">
                 <div class="card">
-                    <div class="card-title"><i class="fa-solid fa-sun" style="color:#4f7cff;"></i> Dia vs Noche</div>
-                    <canvas id="chart-dia-noche" height="160"></canvas>
+                    <div class="card-title"><i class="fa-solid fa-clock"></i> Produccion por Hora</div>
+                    <canvas id="chart-por-hora" height="160"></canvas>
                 </div>
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
@@ -952,11 +959,6 @@
                     </div>
                     <canvas id="chart-bulky-dia" height="160"></canvas>
                 </div>
-            </div>
-            <!-- Row: Produccion por Hora (full width) -->
-            <div class="card" style="margin-bottom:1.5rem;">
-                <div class="card-title"><i class="fa-solid fa-clock"></i> Produccion por Hora</div>
-                <canvas id="chart-por-hora" height="160"></canvas>
             </div>
 
             <!-- Hidden containers for tendencia data (used by other logic) -->
@@ -2257,15 +2259,16 @@ function renderDiaNoche() {
         data: {
             labels,
             datasets: [
-                { label: 'Pallets', data: pallets, backgroundColor: bgColors.map(c=>c+'cc'), borderRadius: 4, maxBarThickness: 28 },
-                { label: 'Piezas', data: piezas, backgroundColor: bgColors.map(c=>c+'66'), borderRadius: 4, maxBarThickness: 28 }
+                { label: 'Pallets', data: pallets, backgroundColor: bgColors.map(c=>c+'cc'), borderRadius: 4, barPercentage: 0.9, categoryPercentage: 0.8 },
+                { label: 'Piezas', data: piezas, backgroundColor: bgColors.map(c=>c+'66'), borderRadius: 4, barPercentage: 0.9, categoryPercentage: 0.8 }
             ]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             indexAxis: 'y',
             animation: false,
-            layout: { padding: { right: 35 } },
+            layout: { padding: { right: 40 } },
             plugins: {
                 legend: { display:true, position:'top', align:'end', labels:{color:'#7b8ba5',padding:8,font:{size:9},usePointStyle:true,pointStyle:'rectRounded'} },
                 tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:6, padding:8 },
