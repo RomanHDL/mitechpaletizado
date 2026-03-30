@@ -951,12 +951,12 @@
                 </div>
             </div>
             <!-- Row: Pedidos Bulky por dia -->
-            <div class="card" style="margin-bottom:1.5rem;padding:1rem 1.25rem;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
-                    <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-boxes-stacked" style="color:#f59e0b;"></i> Pedidos BULKY por Dia</div>
-                    <div id="bulky-kpi" style="font-size:0.82rem;color:var(--text-muted);"></div>
+            <div class="card" style="margin-bottom:1.5rem;padding:0.75rem 1rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
+                    <div class="card-title" style="margin-bottom:0;font-size:0.9rem;"><i class="fa-solid fa-boxes-stacked" style="color:#f59e0b;"></i> Pedidos BULKY</div>
+                    <div id="bulky-kpi" style="display:flex;gap:0.75rem;align-items:center;"></div>
                 </div>
-                <div style="position:relative;height:200px;">
+                <div style="position:relative;height:170px;">
                     <canvas id="chart-bulky-dia"></canvas>
                 </div>
             </div>
@@ -2318,7 +2318,10 @@ function renderBulkyPorDia() {
     const totalBulky = dates.reduce((s,d) => s + byDate[d], 0);
     const promedio = dates.length > 0 ? (totalBulky / dates.length).toFixed(1) : 0;
 
-    if (kpiEl) kpiEl.innerHTML = `Total: <strong style="color:#f59e0b;">${totalBulky}</strong> &middot; Promedio: <strong style="color:var(--text-main);">${promedio}</strong> /dia &middot; ${dates.length} dia${dates.length!==1?'s':''}`;
+    if (kpiEl) kpiEl.innerHTML = `
+        <span style="padding:0.2rem 0.5rem;border-radius:6px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);font-size:0.78rem;"><strong style="color:#f59e0b;font-size:0.9rem;">${totalBulky}</strong> <span style="color:var(--text-muted);">total</span></span>
+        <span style="padding:0.2rem 0.5rem;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid var(--border);font-size:0.78rem;"><strong style="color:var(--text-main);">${promedio}</strong> <span style="color:var(--text-muted);">/dia</span></span>
+        <span style="font-size:0.72rem;color:var(--text-muted);">${dates.length} dia${dates.length!==1?'s':''}</span>`;
 
     if (dates.length === 0) return;
 
@@ -2334,16 +2337,16 @@ function renderBulkyPorDia() {
                 data: values,
                 backgroundColor: '#f59e0bcc',
                 hoverBackgroundColor: '#f59e0b',
-                borderRadius: 4,
-                barPercentage: 0.7,
-                categoryPercentage: 0.6,
+                borderRadius: 3,
+                barPercentage: 0.85,
+                categoryPercentage: 0.8,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             animation: false,
-            layout: { padding: { top: 20 } },
+            layout: { padding: { top: 16, left: 4, right: 4 } },
             plugins: {
                 legend: { display: false },
                 tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:6, padding:8,
