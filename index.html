@@ -794,41 +794,39 @@
         <!-- VIEW: DASHBOARD (Solo admin)           -->
         <!-- ══════════════════════════════════════ -->
         <div class="view" id="view-dashboard">
-            <div class="page-header" style="padding:1rem 0 0.75rem;border-bottom:1px solid var(--border);margin-bottom:1.25rem;">
-                <!-- Row 1: Logo + Title + User -->
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.6rem;">
-                    <div style="display:flex;align-items:center;gap:0.75rem;">
-                        <button class="back-btn" onclick="switchView('home')" style="margin:0;padding:0.5rem 0.75rem;font-size:1rem;"><i class="fa-solid fa-arrow-left"></i></button>
-                        <img src="https://resellers.mitechnologiesinc.com/images/MI_Technologies_blue.png" alt="MI Technologies" style="height:38px;width:auto;">
-                        <div>
-                            <h1 style="font-size:1.35rem;margin:0;line-height:1.25;letter-spacing:-0.3px;">Dashboard Paletizado FFT</h1>
-                            <p style="margin:0;font-size:0.82rem;color:var(--text-muted);">Resumen completo de la operacion de paletizado</p>
-                        </div>
-                    </div>
-                    <div id="dash-user-info" style="text-align:right;">
-                        <div id="dash-user-name" style="font-size:0.9rem;font-weight:600;color:var(--text-main);"></div>
-                        <div id="dash-user-role" style="font-size:0.72rem;color:var(--text-muted);"></div>
+            <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;padding:0.85rem 0;border-bottom:1px solid var(--border);margin-bottom:1.25rem;">
+                <!-- Left: Back + Logo + Title -->
+                <div style="display:flex;align-items:center;gap:0.75rem;">
+                    <button class="back-btn" onclick="switchView('home')" style="margin:0;padding:0.5rem 0.75rem;font-size:1rem;"><i class="fa-solid fa-arrow-left"></i></button>
+                    <img src="https://resellers.mitechnologiesinc.com/images/MI_Technologies_blue.png" alt="MI Technologies" style="height:36px;width:auto;">
+                    <div>
+                        <h1 style="font-size:1.3rem;margin:0;line-height:1.25;letter-spacing:-0.3px;">Dashboard Paletizado FFT</h1>
+                        <p style="margin:0;font-size:0.78rem;color:var(--text-muted);">Resumen completo de la operacion de paletizado</p>
                     </div>
                 </div>
-                <!-- Row 2: Action buttons -->
-                <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
-                    <button class="btn btn-secondary btn-sm" onclick="openHistorial('registros')" style="padding:0.35rem 0.7rem;font-size:0.8rem;">
+                <!-- Right: Buttons + User + Salir -->
+                <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                    <button class="btn btn-secondary btn-sm" onclick="openHistorial('registros')" style="padding:0.35rem 0.7rem;font-size:0.78rem;">
                         <i class="fa-solid fa-clock-rotate-left"></i> Historial
                     </button>
-                    <button class="btn btn-secondary btn-sm" onclick="openHistorial('pedidos')" style="padding:0.35rem 0.7rem;font-size:0.8rem;">
+                    <button class="btn btn-secondary btn-sm" onclick="openHistorial('pedidos')" style="padding:0.35rem 0.7rem;font-size:0.78rem;">
                         <i class="fa-solid fa-file-invoice"></i> Pedidos
                     </button>
-                    <button class="btn btn-secondary btn-sm admin-only" onclick="exportDashboardExcel()" style="padding:0.35rem 0.7rem;font-size:0.8rem;">
+                    <button class="btn btn-secondary btn-sm admin-only" onclick="exportDashboardExcel()" style="padding:0.35rem 0.7rem;font-size:0.78rem;">
                         <i class="fa-solid fa-file-excel"></i> Excel
                     </button>
-                    <button id="btn-audit" style="display:none;padding:0.35rem 0.7rem;font-size:0.8rem;" class="btn btn-secondary btn-sm" onclick="openAuditModal()">
+                    <button id="btn-audit" style="display:none;padding:0.35rem 0.7rem;font-size:0.78rem;" class="btn btn-secondary btn-sm" onclick="openAuditModal()">
                         <i class="fa-solid fa-shield-halved"></i> Auditoria
                     </button>
-                    <button id="btn-capture-mode" style="display:none;padding:0.35rem 0.7rem;font-size:0.8rem;" class="btn btn-secondary btn-sm" onclick="toggleCaptureMode()">
+                    <button id="btn-capture-mode" style="display:none;padding:0.35rem 0.7rem;font-size:0.78rem;" class="btn btn-secondary btn-sm" onclick="toggleCaptureMode()">
                         <i class="fa-solid fa-camera"></i> Captura
                     </button>
-                    <div style="flex:1;"></div>
-                    <button class="btn-logout-top" onclick="handleLogout()" style="padding:0.35rem 0.7rem;font-size:0.8rem;">
+                    <span style="width:1px;height:20px;background:var(--border);margin:0 0.25rem;"></span>
+                    <div id="dash-user-info" style="text-align:right;margin:0 0.15rem;">
+                        <div id="dash-user-name" style="font-size:0.82rem;font-weight:600;color:var(--text-main);line-height:1.2;"></div>
+                        <div id="dash-user-role" style="font-size:0.68rem;color:var(--text-muted);"></div>
+                    </div>
+                    <button class="btn-logout-top" onclick="handleLogout()" style="padding:0.35rem 0.7rem;font-size:0.78rem;">
                         <i class="fa-solid fa-right-from-bracket"></i> Salir
                     </button>
                 </div>
