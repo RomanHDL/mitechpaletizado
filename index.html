@@ -1169,9 +1169,19 @@ function handleLogout() {
     authToken = null;
     currentUser = null;
     localStorage.removeItem('mitech_token');
+    // Restore clean UI state
+    document.body.style.overflow = '';
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app').classList.remove('active');
-    document.getElementById('login-form').reset();
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) loginForm.reset();
+    // Re-enable login button in case it was stuck
+    const loginBtn = document.getElementById('login-btn');
+    if (loginBtn) { loginBtn.disabled = false; loginBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Iniciar Sesion'; }
+    // Close any open modals
+    document.querySelectorAll('[id$="-modal"]').forEach(m => m.style.display = 'none');
+    // Reset NFC state
+    resetNfcBtn();
 }
 
 async function checkSession() {
@@ -1571,7 +1581,8 @@ function switchView(viewName) {
         const dn = document.getElementById('dash-user-name');
         const dr = document.getElementById('dash-user-role');
         if (dn) dn.textContent = currentUser.nombre;
-        if (dr) dr.textContent = currentUser.role === 'admin' ? 'Administrador' : 'Escaneadora';
+        const rl = { admin:'Administrador', escaneadora:'Escaneadora', viewer:'Dashboard' };
+        if (dr) dr.textContent = rl[currentUser.role] || currentUser.role;
         // Capture mode: only for user 3647
         const capBtn = document.getElementById('btn-capture-mode');
         if (capBtn) capBtn.style.display = (currentUser.usuario === '3647') ? '' : 'none';
