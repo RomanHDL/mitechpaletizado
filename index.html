@@ -939,25 +939,11 @@
                 </div>
             </div>
 
-            <!-- Row: Dia vs Noche (full width, premium style) -->
-            <div style="margin-bottom:1.5rem;background:linear-gradient(135deg,var(--bg-card) 0%,rgba(79,124,255,0.03) 100%);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.15);">
-                <div style="padding:0.85rem 1.25rem;border-bottom:1px solid rgba(79,124,255,0.1);display:flex;justify-content:space-between;align-items:center;">
-                    <div style="display:flex;align-items:center;gap:0.5rem;">
-                        <span style="width:28px;height:28px;border-radius:8px;background:rgba(79,124,255,0.12);display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-sun" style="color:#4f7cff;font-size:0.85rem;"></i></span>
-                        <span style="font-size:1.05rem;font-weight:700;color:var(--text-main);">Dia vs Noche</span>
-                    </div>
-                </div>
-                <div style="padding:0.6rem 1rem 0.75rem;">
-                    <div style="position:relative;height:180px;">
-                        <canvas id="chart-dia-noche"></canvas>
-                    </div>
-                </div>
-            </div>
-            <!-- Row: Produccion por Hora + Pedidos BULKY -->
+            <!-- Row: Dia vs Noche + Pedidos BULKY -->
             <div class="charts-grid">
                 <div class="card">
-                    <div class="card-title"><i class="fa-solid fa-clock"></i> Produccion por Hora</div>
-                    <canvas id="chart-por-hora" height="160"></canvas>
+                    <div class="card-title"><i class="fa-solid fa-sun" style="color:#4f7cff;"></i> Dia vs Noche</div>
+                    <canvas id="chart-dia-noche" height="160"></canvas>
                 </div>
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
@@ -966,6 +952,11 @@
                     </div>
                     <canvas id="chart-bulky-dia" height="160"></canvas>
                 </div>
+            </div>
+            <!-- Row: Produccion por Hora (full width) -->
+            <div class="card" style="margin-bottom:1.5rem;">
+                <div class="card-title"><i class="fa-solid fa-clock"></i> Produccion por Hora</div>
+                <canvas id="chart-por-hora" height="160"></canvas>
             </div>
 
             <!-- Hidden containers for tendencia data (used by other logic) -->
