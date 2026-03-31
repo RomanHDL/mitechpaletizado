@@ -946,11 +946,14 @@
                     <canvas id="chart-por-hora" height="160"></canvas>
                 </div>
                 <div class="card">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
-                        <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-boxes-stacked" style="color:#f59e0b;"></i> Pedidos BULKY</div>
-                        <div id="bulky-kpi" style="display:flex;gap:0.4rem;align-items:center;"></div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;flex-wrap:wrap;gap:0.3rem;">
+                        <div class="card-title" style="margin-bottom:0;font-size:0.85rem;"><i class="fa-solid fa-boxes-stacked" style="color:#f59e0b;"></i> BULKY</div>
+                        <select class="form-input" id="bulky-week-select" onchange="renderBulkyPorDia()" style="padding:0.2rem 0.4rem;font-size:0.72rem;width:auto;min-width:120px;">
+                            <option value="all">Todas</option>
+                        </select>
                     </div>
-                    <canvas id="chart-bulky-dia" height="160"></canvas>
+                    <div id="bulky-kpi" style="display:flex;gap:0.3rem;align-items:center;margin-bottom:0.3rem;flex-wrap:wrap;"></div>
+                    <canvas id="chart-bulky-dia" height="140"></canvas>
                 </div>
             </div>
             <!-- Row: Dia vs Noche (full width) -->
@@ -2282,17 +2285,17 @@ function renderDiaNoche() {
     });
 }
 
-// ── Pedidos BULKY por dia ──
+// ── Pedidos BULKY por dia (with week selector) ──
 function renderBulkyPorDia() {
     if (chartBulkyDia) { chartBulkyDia.destroy(); chartBulkyDia = null; }
     const ctx = document.getElementById('chart-bulky-dia');
     const kpiEl = document.getElementById('bulky-kpi');
+    const weekSel = document.getElementById('bulky-week-select');
     if (!ctx || !lastTableData || lastTableData.length === 0) {
         if (kpiEl) kpiEl.textContent = 'Sin datos';
         return;
     }
 
-    // Detect BULKY using same logic as pedidos chart
     function isBulky(r) {
         if (!(r.pedido && r.pedido.trim())) return false;
         const obs = (r.observaciones||'').trim();
@@ -2301,68 +2304,75 @@ function renderBulkyPorDia() {
         return false;
     }
 
-    // Group BULKY records by fecha
+    function parseDate(f) { const p = f.split('/'); return p.length===3 ? new Date(parseInt(p[2]),parseInt(p[0])-1,parseInt(p[1])) : null; }
+    function getMonday(d) { const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); return new Date(d.getFullYear(), d.getMonth(), diff); }
+    function fmtShort(d) { return `${d.getDate()}/${d.getMonth()+1}`; }
+
+    // Group ALL BULKY by date
     const byDate = {};
-    lastTableData.forEach(r => {
-        if (!isBulky(r)) return;
-        const f = r.fecha || 'Sin fecha';
-        if (!byDate[f]) byDate[f] = 0;
-        byDate[f]++;
+    lastTableData.forEach(r => { if (!isBulky(r)) return; const f = r.fecha||'Sin fecha'; byDate[f] = (byDate[f]||0)+1; });
+    const allDates = Object.keys(byDate).sort((a,b) => { const da=parseDate(a),db=parseDate(b); return da&&db?da-db:0; });
+    const globalTotal = allDates.reduce((s,d) => s+byDate[d], 0);
+    const globalAvg = allDates.length > 0 ? (globalTotal / allDates.length).toFixed(1) : 0;
+
+    // Build weeks
+    const weeks = [];
+    const weekMap = {};
+    allDates.forEach(f => {
+        const d = parseDate(f); if (!d) return;
+        const mon = getMonday(d);
+        const key = mon.toISOString().split('T')[0];
+        if (!weekMap[key]) { weekMap[key] = { start:mon, dates:[], label:'' }; weeks.push(weekMap[key]); }
+        weekMap[key].dates.push(f);
+    });
+    weeks.sort((a,b) => a.start - b.start);
+    weeks.forEach((w,i) => {
+        const end = new Date(w.start); end.setDate(end.getDate()+6);
+        w.label = `Sem ${i+1} (${fmtShort(w.start)}-${fmtShort(end)})`;
+        w.key = w.start.toISOString().split('T')[0];
     });
 
-    const dates = Object.keys(byDate).sort((a,b) => {
-        const pa = a.split('/'), pb = b.split('/');
-        if (pa.length !== 3 || pb.length !== 3) return 0;
-        return new Date(pa[2],pa[0]-1,pa[1]) - new Date(pb[2],pb[0]-1,pb[1]);
-    });
-
-    const totalBulky = dates.reduce((s,d) => s + byDate[d], 0);
-    const promedio = dates.length > 0 ? (totalBulky / dates.length).toFixed(1) : 0;
-
-    if (kpiEl) {
-        function kpiChip(value, label, color) {
-            return `<div style="text-align:center;padding:0.35rem 0.7rem;border-radius:8px;background:rgba(${color},0.08);border:1px solid rgba(${color},0.2);min-width:55px;">
-                <div style="font-size:1.1rem;font-weight:700;color:rgb(${color});line-height:1.1;">${value}</div>
-                <div style="font-size:0.62rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:1px;">${label}</div>
-            </div>`;
-        }
-        kpiEl.innerHTML = kpiChip(totalBulky, 'Total', '245,158,11') + kpiChip(promedio, 'Prom/dia', '226,232,240') + kpiChip(dates.length, dates.length!==1?'Dias':'Dia', '148,163,184');
+    // Populate selector (preserve current selection)
+    const curVal = weekSel ? weekSel.value : 'all';
+    if (weekSel) {
+        weekSel.innerHTML = '<option value="all">Todas</option>' + weeks.map(w => `<option value="${w.key}">${w.label}</option>`).join('');
+        weekSel.value = curVal;
+        if (!weekSel.value) weekSel.value = 'all';
     }
 
-    if (dates.length === 0) return;
+    // Filter dates by selected week
+    const selWeek = weekSel ? weekSel.value : 'all';
+    let filteredDates = allDates;
+    if (selWeek !== 'all' && weekMap[selWeek]) {
+        filteredDates = weekMap[selWeek].dates;
+    }
+    const weekTotal = filteredDates.reduce((s,d) => s+byDate[d], 0);
+    const weekAvg = filteredDates.length > 0 ? (weekTotal / filteredDates.length).toFixed(1) : 0;
 
-    const labels = dates.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
-    const values = dates.map(d => byDate[d]);
+    // KPIs
+    if (kpiEl) {
+        function chip(v,l,c) { return `<span style="padding:0.15rem 0.45rem;border-radius:5px;font-size:0.7rem;background:rgba(${c},0.08);border:1px solid rgba(${c},0.2);"><strong style="color:rgb(${c});">${v}</strong> <span style="color:var(--text-muted);">${l}</span></span>`; }
+        kpiEl.innerHTML = chip(weekTotal,'total','245,158,11') + chip(weekAvg,'/dia','226,232,240') + chip(globalAvg,'global','148,163,184');
+    }
+
+    if (filteredDates.length === 0) return;
+    const labels = filteredDates.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
+    const values = filteredDates.map(d => byDate[d]);
 
     chartBulkyDia = new Chart(ctx.getContext('2d'), {
         type: 'bar',
-        data: {
-            labels,
-            datasets: [{
-                label: 'BULKY',
-                data: values,
-                backgroundColor: '#f59e0bcc',
-                hoverBackgroundColor: '#f59e0b',
-                borderRadius: 3,
-                barPercentage: 0.85,
-                categoryPercentage: 0.8,
-            }]
-        },
+        data: { labels, datasets: [{ label:'BULKY', data:values, backgroundColor:'#f59e0bcc', hoverBackgroundColor:'#f59e0b', borderRadius:3, barPercentage:0.85, categoryPercentage:0.8 }] },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,
+            responsive: true, animation: false,
             layout: { padding: { top: 16, left: 4, right: 4 } },
             plugins: {
-                legend: { display: false },
-                tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:6, padding:8,
-                    callbacks: { label: (c) => `${c.parsed.y} pedidos BULKY` }
-                },
-                datalabels: { display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:14}, offset:4, formatter:(v)=>v>0?v:'' }
+                legend: { display:false },
+                tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:6, padding:8, callbacks:{ label:(c)=>`${c.parsed.y} BULKY` } },
+                datalabels: { display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:13}, offset:4, formatter:(v)=>v>0?v:'' }
             },
             scales: {
-                x: { ticks:{color:'#7b8ba5',font:{size:11}}, grid:{display:false} },
-                y: { beginAtZero:true, grace:'15%', ticks:{color:'#7b8ba5',font:{size:11}}, grid:{color:'rgba(30,42,66,0.4)'} }
+                x: { ticks:{color:'#7b8ba5',font:{size:10}}, grid:{display:false} },
+                y: { beginAtZero:true, grace:'15%', ticks:{color:'#7b8ba5',font:{size:10}}, grid:{color:'rgba(30,42,66,0.4)'} }
             }
         }
     });
