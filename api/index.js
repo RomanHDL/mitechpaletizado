@@ -268,6 +268,54 @@ app.get('/api/escaneadoras/:id', auth, roleGuard('admin', 'escaneadora'), async 
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// ── UPDATE pallet (admin only, with audit) ──
+app.put('/api/escaneadoras/:id', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    const doc = await EscReg.findById(req.params.id);
+    if (!doc) return res.status(404).json({ success: false, error: 'No encontrado' });
+    const oldData = doc.toObject();
+    const allowed = ['palletId','cantidad','condicion','destino','turno','escaneadora','fecha','pedido','incidencias','observaciones'];
+    const changes = [];
+    allowed.forEach(f => {
+      if (req.body[f] !== undefined && String(req.body[f]) !== String(oldData[f])) {
+        changes.push({ field: f, oldValue: String(oldData[f]), newValue: String(req.body[f]) });
+        doc[f] = f === 'cantidad' ? parseInt(req.body[f]) || 0 : (f === 'palletId' ? normalizePalletId(req.body[f]) : (f === 'destino' ? normalizeDestino(req.body[f]) : req.body[f]));
+      }
+    });
+    if (changes.length === 0) return res.json({ success: true, message: 'Sin cambios', data: doc });
+    await doc.save();
+    // Audit each changed field
+    for (const ch of changes) {
+      await audit('UPDATE', { palletId: doc.palletId, escaneadora: doc.escaneadora, field: ch.field, oldValue: ch.oldValue, newValue: ch.newValue, changedBy: req.user.nombre || req.user.usuario, source: 'APP', reason: req.body.reason || '' });
+    }
+    emitEvent('paletizado', 'registro:updated', { id: doc._id, palletId: doc.palletId, changes, updatedBy: req.user.nombre || req.user.usuario });
+    res.json({ success: true, message: `${changes.length} campo(s) actualizado(s)`, data: doc, changes });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ── DELETE pallet (admin only, with audit) ──
+app.delete('/api/escaneadoras/:id', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    const doc = await EscReg.findById(req.params.id);
+    if (!doc) return res.status(404).json({ success: false, error: 'No encontrado' });
+    const snapshot = doc.toObject();
+    await EscReg.deleteOne({ _id: doc._id });
+    // Audit the deletion with full snapshot of deleted data
+    await audit('DELETE', {
+      palletId: snapshot.palletId, escaneadora: snapshot.escaneadora,
+      field: 'REGISTRO COMPLETO',
+      oldValue: JSON.stringify({ cantidad: snapshot.cantidad, condicion: snapshot.condicion, destino: snapshot.destino, turno: snapshot.turno, fecha: snapshot.fecha, pedido: snapshot.pedido, incidencias: snapshot.incidencias, observaciones: snapshot.observaciones }),
+      newValue: 'ELIMINADO',
+      changedBy: req.user.nombre || req.user.usuario,
+      source: 'APP',
+      reason: req.body?.reason || 'Eliminado por admin',
+      deletedData: snapshot
+    });
+    emitEvent('paletizado', 'registro:deleted', { palletId: snapshot.palletId, deletedBy: req.user.nombre || req.user.usuario });
+    res.json({ success: true, message: `Pallet ${snapshot.palletId} eliminado`, deletedPallet: snapshot });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // ═══════════ DASHBOARD (admin only) ═══════════
 function normalizeTurno(t) {
   if (!t) return 'Otro';
@@ -731,6 +779,12 @@ app.get('/api/audit/stats', auth, roleGuard('admin'), async (req, res) => {
     if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
     const col = mongoose.connection.db.collection('audit_logs');
     const filter = { action: { $in: ['UPDATE','DELETE','ADD','CORRECTION','MANUAL_EDIT'] } };
+    // Support date filtering for stats too
+    if (req.query.fecha) {
+      const d = new Date(req.query.fecha);
+      const next = new Date(d); next.setDate(d.getDate()+1);
+      filter.timestamp = { $gte: d, $lt: next };
+    }
     // By escaneadora
     const byEsc = await col.aggregate([
       { $match: filter },
