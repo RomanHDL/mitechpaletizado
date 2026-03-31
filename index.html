@@ -2351,7 +2351,7 @@ function renderBulkyPorDia() {
 
     // KPIs
     if (kpiEl) {
-        function chip(v,l,c) { return `<span style="padding:0.15rem 0.45rem;border-radius:5px;font-size:0.7rem;background:rgba(${c},0.08);border:1px solid rgba(${c},0.2);"><strong style="color:rgb(${c});">${v}</strong> <span style="color:var(--text-muted);">${l}</span></span>`; }
+        function chip(v,l,c) { return `<div style="text-align:center;padding:0.3rem 0.6rem;border-radius:8px;background:rgba(${c},0.08);border:1px solid rgba(${c},0.18);min-width:50px;"><div style="font-size:1.25rem;font-weight:700;color:rgb(${c});line-height:1.1;">${v}</div><div style="font-size:0.58rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin-top:1px;">${l}</div></div>`; }
         kpiEl.innerHTML = chip(weekTotal,'total','245,158,11') + chip(weekAvg,'/dia','226,232,240') + chip(globalAvg,'global','148,163,184');
     }
 
