@@ -587,8 +587,9 @@ app.get('/api/seed', async (req, res) => {
       { nombre: 'Cecilia Perez',   usuario: '1003',      password: '333333', role: 'escaneadora' },
       { nombre: 'Nathalie Lopez',  usuario: 'nathalie',  password: '444444', role: 'escaneadora' },
       { nombre: 'Nathalie Lopez',  usuario: '1004',      password: '444444', role: 'escaneadora' },
-      // Viewer: solo dashboard
+      // Viewers: solo dashboard (read-only)
       { nombre: 'Viewer Dashboard', usuario: '2678',     password: 'Sonyqled75', role: 'viewer' },
+      { nombre: 'Victor',           usuario: 'victor',   password: '123456',     role: 'viewer' },
     ];
     const results = [];
     for (const u of seedUsers) {
