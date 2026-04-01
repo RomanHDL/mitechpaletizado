@@ -3952,71 +3952,73 @@ function downloadXlsx(wb, filename) {
 // Helper: isDia check
 function isDiaTurno(t) { const l = (t||'').toLowerCase(); return l.includes('day') || l.includes('dia'); }
 
-// ExcelJS helpers
-function exTitle(ws,t,r,c){ws.getRow(r).getCell(1).value=t;ws.getRow(r).getCell(1).font={bold:true,size:14,color:{argb:'FF1E293B'}};ws.getRow(r).height=24;if(c>1)ws.mergeCells(r,1,r,c);}
-function exSection(ws,t,r,c){ws.getRow(r).getCell(1).value=t;ws.getRow(r).getCell(1).font={bold:true,size:11,color:{argb:'FF4F7CFF'}};if(c>1)ws.mergeCells(r,1,r,c);}
-function exHeaders(ws,h,r){h.forEach((v,i)=>{const c=ws.getRow(r).getCell(i+1);c.value=v;c.font={bold:true,size:10,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF334155'}};c.alignment={horizontal:'center'};});ws.getRow(r).height=20;}
-function exRow(ws,v,r){v.forEach((val,i)=>{const c=ws.getRow(r).getCell(i+1);c.value=val;c.font={size:10};c.border={bottom:{style:'hair',color:{argb:'FFE2E8F0'}}};});}
+// ExcelJS helpers — centered dashboard style
+const EX_ACCENT = 'FF4F7CFF';
+const EX_DARK = 'FF1E293B';
+const EX_HEAD_BG = 'FF334155';
+const EX_LIGHT_BG = 'FFF1F5F9';
+const EX_KPI_BG = 'FF0F172A';
+const EX_BORDER = {style:'thin',color:{argb:'FFE2E8F0'}};
+const EX_CENTER = {horizontal:'center',vertical:'middle',wrapText:true};
+const EX_LEFT_C = {horizontal:'left',vertical:'middle',wrapText:true};
 
-// ── Native Excel chart XML generators ──
-function chartBarXML(sheetName, lastRow, series, title) {
-    const serXML = series.map((s, i) => `<c:ser><c:idx val="${i}"/><c:order val="${i}"/>
-<c:tx><c:strRef><c:f>'${sheetName}'!$${String.fromCharCode(66+i)}$1</c:f><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>${s.name}</c:v></c:pt></c:strCache></c:strRef></c:tx>
-<c:spPr><a:solidFill><a:srgbClr val="${s.color}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr>
-<c:cat><c:strRef><c:f>'${sheetName}'!$A$2:$A$${lastRow}</c:f></c:strRef></c:cat>
-<c:val><c:numRef><c:f>'${sheetName}'!$${String.fromCharCode(66+i)}$2:$${String.fromCharCode(66+i)}$${lastRow}</c:f></c:numRef></c:val></c:ser>`).join('');
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="es-MX" sz="1100" b="1"/><a:t>${title}</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title>
-<c:autoTitleDeleted val="0"/><c:plotArea><c:layout/>
-<c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:varyColors val="0"/>
-${serXML}<c:axId val="111"/><c:axId val="222"/></c:barChart>
-<c:catAx><c:axId val="111"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:crossAx val="222"/><c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="es-MX"/></a:p></c:txPr></c:catAx>
-<c:valAx><c:axId val="222"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111"/><c:numFmt formatCode="General" sourceLinked="1"/><c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="es-MX"/></a:p></c:txPr></c:valAx>
-</c:plotArea><c:legend><c:legendPos val="b"/></c:legend><c:plotVisOnly val="1"/></c:chart></c:chartSpace>`;
+function exTitle(ws,t,r,startCol,endCol){
+    ws.mergeCells(r,startCol,r,endCol);
+    const c=ws.getRow(r).getCell(startCol);
+    c.value=t;c.font={bold:true,size:16,color:{argb:EX_DARK}};c.alignment=EX_CENTER;
+    ws.getRow(r).height=30;
+}
+function exSubtitle(ws,t,r,startCol,endCol){
+    ws.mergeCells(r,startCol,r,endCol);
+    const c=ws.getRow(r).getCell(startCol);
+    c.value=t;c.font={size:10,italic:true,color:{argb:'FF7B8BA5'}};c.alignment=EX_CENTER;
+}
+function exSection(ws,t,r,startCol,endCol){
+    ws.mergeCells(r,startCol,r,endCol);
+    const c=ws.getRow(r).getCell(startCol);
+    c.value=t;c.font={bold:true,size:12,color:{argb:EX_ACCENT}};c.alignment={horizontal:'left',vertical:'middle'};
+    c.border={bottom:{style:'medium',color:{argb:EX_ACCENT}}};
+    ws.getRow(r).height=22;
+}
+function exHeaders(ws,h,r,startCol){
+    const sc=startCol||1;
+    h.forEach((v,i)=>{
+        const c=ws.getRow(r).getCell(sc+i);c.value=v;
+        c.font={bold:true,size:10,color:{argb:'FFFFFFFF'}};
+        c.fill={type:'pattern',pattern:'solid',fgColor:{argb:EX_HEAD_BG}};
+        c.alignment=EX_CENTER;
+        c.border={top:EX_BORDER,bottom:EX_BORDER,left:EX_BORDER,right:EX_BORDER};
+    });
+    ws.getRow(r).height=22;
+}
+function exRow(ws,v,r,startCol){
+    const sc=startCol||1;
+    v.forEach((val,i)=>{
+        const c=ws.getRow(r).getCell(sc+i);c.value=val;c.font={size:10};
+        c.alignment=EX_CENTER;
+        c.border={bottom:{style:'hair',color:{argb:'FFE2E8F0'}},left:EX_BORDER,right:EX_BORDER};
+    });
+}
+function exKPI(ws,label,value,r,col,bgColor){
+    ws.mergeCells(r,col,r,col+1);
+    const hdr=ws.getRow(r).getCell(col);
+    hdr.value=label;hdr.font={bold:true,size:9,color:{argb:'FF94A3B8'}};
+    hdr.fill={type:'pattern',pattern:'solid',fgColor:{argb:bgColor||EX_KPI_BG}};
+    hdr.alignment=EX_CENTER;hdr.border={top:EX_BORDER,bottom:EX_BORDER,left:EX_BORDER,right:EX_BORDER};
+    ws.mergeCells(r+1,col,r+1,col+1);
+    const val=ws.getRow(r+1).getCell(col);
+    val.value=value;val.font={bold:true,size:16,color:{argb:'FFFFFFFF'}};
+    val.fill={type:'pattern',pattern:'solid',fgColor:{argb:bgColor||EX_KPI_BG}};
+    val.alignment=EX_CENTER;val.border={top:EX_BORDER,bottom:EX_BORDER,left:EX_BORDER,right:EX_BORDER};
+    ws.getRow(r).height=18;ws.getRow(r+1).height=28;
 }
 
-function chartPieXML(sheetName, lastRow, colorMap, title) {
-    const ptColors = colorMap.map((clr, i) => `<c:dPt><c:idx val="${i}"/><c:spPr><a:solidFill><a:srgbClr val="${clr}"/></a:solidFill></c:spPr></c:dPt>`).join('');
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="es-MX" sz="1100" b="1"/><a:t>${title}</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title>
-<c:autoTitleDeleted val="0"/><c:plotArea><c:layout/>
-<c:pieChart><c:varyColors val="1"/>
-<c:ser><c:idx val="0"/><c:order val="0"/>
-${ptColors}
-<c:cat><c:strRef><c:f>'${sheetName}'!$A$2:$A$${lastRow}</c:f></c:strRef></c:cat>
-<c:val><c:numRef><c:f>'${sheetName}'!$B$2:$B$${lastRow}</c:f></c:numRef></c:val></c:ser>
-</c:pieChart></c:plotArea>
-<c:legend><c:legendPos val="b"/></c:legend><c:plotVisOnly val="1"/></c:chart></c:chartSpace>`;
-}
-
-function drawingXML(chartRId, fromCol, fromRow, toCol, toRow, id) {
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<xdr:twoCellAnchor><xdr:from><xdr:col>${fromCol}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${fromRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>
-<xdr:to><xdr:col>${toCol}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${toRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>
-<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="${id}" name="Chart ${id}"/><xdr:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></xdr:cNvGraphicFramePr></xdr:nvGraphicFramePr>
-<xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>
-<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">
-<c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" r:id="${chartRId}"/></a:graphicData></a:graphic>
-</xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor></xdr:wsDr>`;
-}
-
-function relsXML(rels) {
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-${rels.map(r => `<Relationship Id="${r.id}" Type="${r.type}" Target="${r.target}"/>`).join('\n')}
-</Relationships>`;
-}
-
-// Export dashboard with NATIVE Excel charts
+// Export dashboard — SINGLE SHEET, centered, landscape, professional
 async function exportDashboardExcel() {
     if (!currentUser || currentUser.role !== 'admin') return;
     const EJS = window.ExcelJS;
     if (!EJS) { alert('ExcelJS no cargado'); return; }
 
-    // Fetch FRESH data from API (not cached lastTableData)
     const btn = document.querySelector('[onclick="exportDashboardExcel()"]');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generando...'; }
     let freshData, freshResumen;
@@ -4034,13 +4036,13 @@ async function exportDashboardExcel() {
     }
 
     const wb = new EJS.Workbook();
-    wb.creator = 'Dashboard Paletizado FFT';
+    wb.creator = 'MI-TECH Paletizado FFT';
     wb.created = new Date();
     const today = new Date();
     const todayStr = today.toLocaleDateString('es-MX', {year:'numeric',month:'long',day:'numeric'});
     const res = freshResumen || {};
 
-    // Compute aggregated data from FRESH records
+    // Aggregate data
     const byDate = {};
     let sumRD=0,sumRN=0,sumUD=0,sumUN=0;
     freshData.forEach(rec => {
@@ -4050,169 +4052,143 @@ async function exportDashboardExcel() {
     });
     Object.values(byDate).forEach(d=>{sumRD+=d.dia;sumRN+=d.noche;sumUD+=d.uDia;sumUN+=d.uNoche;});
     const sortedDates = Object.keys(byDate).sort();
-    const tR = freshData.length||1;
-    const tU = (res.totalUnidades||0)||1;
-
-    // ═══ Sheet 1: Resumen ═══
-    const ws1 = wb.addWorksheet('Resumen');
-    ws1.columns=[{width:28},{width:16},{width:16}];
-    exTitle(ws1,'MI-TECH PALETIZADO — REPORTE',1,3);
-    ws1.getRow(2).getCell(1).value='Generado: '+todayStr;ws1.getRow(2).getCell(1).font={size:10,italic:true,color:{argb:'FF7B8BA5'}};ws1.mergeCells(2,1,2,3);
-    let r=4;
-    exSection(ws1,'INDICADORES',r,2);r++;
-    exHeaders(ws1,['Metrica','Valor'],r);r++;
-    [['Total Registros',res.totalRegistros||freshData.length],['Registros Hoy',res.registrosHoy||0],['Unidades Totales',res.totalUnidades||0],['Escaneadoras Activas',(res.escaneadoras||[]).length],['Fechas con actividad',sortedDates.length],['Promedio reg/dia',sortedDates.length>0?+((freshData.length/sortedDates.length).toFixed(1)):0]].forEach(row=>{exRow(ws1,row,r);r++;});
-    r++;exSection(ws1,'DISTRIBUCION POR TURNO',r,3);r++;
-    exHeaders(ws1,['','Registros','Unidades'],r);r++;
-    exRow(ws1,['Dia',sumRD,sumUD],r);r++;exRow(ws1,['Noche',sumRN,sumUN],r);r++;
-    r++;exSection(ws1,'POR DESTINO',r,3);r++;exHeaders(ws1,['Destino','Registros','Unidades'],r);r++;
-    (res.porDestino||[]).forEach(d=>{exRow(ws1,[d.destino,d.registros,d.unidades],r);r++;});
-    r++;exSection(ws1,'POR CONDICION',r,2);r++;exHeaders(ws1,['Condicion','Registros'],r);r++;
-    (res.porCondicion||[]).forEach(c=>{exRow(ws1,[c.condicion,c.total],r);r++;});
-
-    // ═══ Sheet 2: Registros ═══
-    const ws2 = wb.addWorksheet('Registros');
-    ws2.columns=EXPORT_COLS.map(h=>({header:h,width:16}));
-    exHeaders(ws2,EXPORT_COLS,1);
-    freshData.forEach((rec,i)=>{exRow(ws2,recordToRow(rec),i+2);});
-    ws2.autoFilter={from:'A1',to:String.fromCharCode(64+EXPORT_COLS.length)+'1'};
-
-    // ═══ Sheet 3: Tendencia (data for native chart) ═══
-    const ws3 = wb.addWorksheet('Tendencia');
-    ws3.columns=[{width:14},{width:12},{width:13},{width:12},{width:12},{width:13},{width:12}];
-    exHeaders(ws3,['Fecha','Dia','Noche','Total','Uds Dia','Uds Noche','Uds Total'],1);
-    sortedDates.forEach((f,i)=>{const d=byDate[f];exRow(ws3,[f,d.dia,d.noche,d.dia+d.noche,d.uDia,d.uNoche,d.uDia+d.uNoche],i+2);});
-    const tendLastRow = sortedDates.length+1;
-
-    // ═══ Sheet 4: Turno (data for native chart) ═══
-    const ws4 = wb.addWorksheet('Por Turno');
-    ws4.columns=[{width:16},{width:14},{width:14}];
-    exHeaders(ws4,['Turno','Registros','Unidades'],1);
-    exRow(ws4,['Dia',sumRD,sumUD],2);
-    exRow(ws4,['Noche',sumRN,sumUN],3);
-
-    // ═══ Sheet 5: Escaneadora (data for native chart) ═══
-    const ws5 = wb.addWorksheet('Por Escaneadora');
-    ws5.columns=[{width:22},{width:14},{width:14}];
-    exHeaders(ws5,['Escaneadora','Registros','Unidades'],1);
-    const escData = (res.porEscaneadora||[]).sort((a,b)=>b.registros-a.registros);
-    escData.forEach((e,i)=>{exRow(ws5,[e.nombre,e.registros,e.unidades],i+2);});
-    const escLastRow = escData.length+1;
-
-    // ═══ Sheet 6: Por Destino (data for native chart) ═══
-    const ws6 = wb.addWorksheet('Por Destino');
-    ws6.columns=[{width:20},{width:14},{width:14}];
-    exHeaders(ws6,['Destino','Registros','Unidades'],1);
-    const destData = (res.porDestino||[]).sort((a,b)=>b.registros-a.registros);
-    destData.forEach((d,i)=>{exRow(ws6,[d.destino,d.registros,d.unidades],i+2);});
-    const destLastRow = destData.length+1;
-
-    // ═══ Sheet 7: Por Condicion (data for native chart) ═══
-    const ws7 = wb.addWorksheet('Por Condicion');
-    ws7.columns=[{width:18},{width:14}];
-    exHeaders(ws7,['Condicion','Registros'],1);
-    const condData = (res.porCondicion||[]).sort((a,b)=>b.total-a.total);
-    condData.forEach((c,i)=>{exRow(ws7,[c.condicion,c.total],i+2);});
-    const condLastRow = condData.length+1;
-
-    // ═══ Sheet 8: Promedios por Turno ═══
-    const ws8 = wb.addWorksheet('Promedios');
-    ws8.columns=[{width:16},{width:16},{width:14},{width:16}];
-    exHeaders(ws8,['Turno','Total Registros','Promedio Reg/Dia','Dias Trabajados'],1);
     const dayDates=new Set(),nightDates=new Set();
-    freshData.forEach(rec=>{
-        if(isDiaTurno(rec.turno))dayDates.add(rec.fecha);else nightDates.add(rec.fecha);
+    freshData.forEach(rec=>{ if(isDiaTurno(rec.turno))dayDates.add(rec.fecha);else nightDates.add(rec.fecha); });
+    const escData = (res.porEscaneadora||[]).sort((a,b)=>b.registros-a.registros);
+    const destData = (res.porDestino||[]).sort((a,b)=>b.registros-a.registros);
+    const condData = (res.porCondicion||[]).sort((a,b)=>b.total-a.total);
+
+    // ═══════════════════════════════════════════
+    // SINGLE SHEET — Dashboard Report
+    // ═══════════════════════════════════════════
+    const ws = wb.addWorksheet('Dashboard FFT', {
+        pageSetup: {
+            orientation: 'landscape',
+            fitToPage: true,
+            fitToWidth: 1,
+            fitToHeight: 0,
+            horizontalCentered: true,
+            verticalCentered: false,
+            margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 }
+        }
     });
-    exRow(ws8,['Dia',sumRD,dayDates.size>0?+(sumRD/dayDates.size).toFixed(1):0,dayDates.size],2);
-    exRow(ws8,['Noche',sumRN,nightDates.size>0?+(sumRN/nightDates.size).toFixed(1):0,nightDates.size],3);
-    // Generate ExcelJS buffer
+
+    // Column widths: 12 columns for balanced layout
+    // A=spacer, B-K=content (10 cols), L=spacer
+    ws.getColumn(1).width = 3;   // spacer
+    ws.getColumn(2).width = 18;  // labels
+    ws.getColumn(3).width = 14;
+    ws.getColumn(4).width = 14;
+    ws.getColumn(5).width = 14;
+    ws.getColumn(6).width = 14;
+    ws.getColumn(7).width = 14;
+    ws.getColumn(8).width = 14;
+    ws.getColumn(9).width = 14;
+    ws.getColumn(10).width = 14;
+    ws.getColumn(11).width = 14;
+    ws.getColumn(12).width = 3;  // spacer
+
+    const SC = 2;  // start col
+    const EC = 11; // end col
+
+    let r = 1;
+
+    // ── HEADER ──
+    exTitle(ws, 'MI-TECH PALETIZADO — DASHBOARD FFT', r, SC, EC); r++;
+    exSubtitle(ws, `Reporte generado: ${todayStr}`, r, SC, EC); r++;
+    r++; // spacer
+
+    // ── KPI CARDS (row of 5 cards) ──
+    exKPI(ws, 'TOTAL REGISTROS', res.totalRegistros||freshData.length, r, SC, 'FF1E3A5F');
+    exKPI(ws, 'REGISTROS HOY', res.registrosHoy||0, r, SC+2, 'FF1E3A5F');
+    exKPI(ws, 'UNIDADES TOTALES', res.totalUnidades||0, r, SC+4, 'FF1E3A5F');
+    exKPI(ws, 'ESCANEADORAS', (res.escaneadoras||[]).length, r, SC+6, 'FF1E3A5F');
+    exKPI(ws, 'DIAS ACTIVOS', sortedDates.length, r, SC+8, 'FF1E3A5F');
+    r += 3; // 2 rows for KPIs + 1 spacer
+
+    // ── DISTRIBUCION POR TURNO ──
+    exSection(ws, 'DISTRIBUCION POR TURNO', r, SC, EC); r++;
+    exHeaders(ws, ['', 'Registros', '%', 'Unidades', '%', 'Prom/Dia', 'Dias'], r, SC);
+    r++;
+    const totalR = sumRD+sumRN||1;
+    const totalU = sumUD+sumUN||1;
+    exRow(ws, ['Dia', sumRD, `${Math.round(sumRD/totalR*100)}%`, sumUD, `${Math.round(sumUD/totalU*100)}%`, dayDates.size>0?+(sumRD/dayDates.size).toFixed(1):0, dayDates.size], r, SC);
+    // Color band for Dia row
+    for(let i=SC;i<=SC+6;i++){ws.getRow(r).getCell(i).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFBEB'}};}
+    r++;
+    exRow(ws, ['Noche', sumRN, `${Math.round(sumRN/totalR*100)}%`, sumUN, `${Math.round(sumUN/totalU*100)}%`, nightDates.size>0?+(sumRN/nightDates.size).toFixed(1):0, nightDates.size], r, SC);
+    for(let i=SC;i<=SC+6;i++){ws.getRow(r).getCell(i).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEFF6FF'}};}
+    r++;
+    r++; // spacer
+
+    // ── POR ESCANEADORA & POR DESTINO (side by side) ──
+    const escStartR = r;
+    exSection(ws, 'POR ESCANEADORA', r, SC, SC+4); r++;
+    exHeaders(ws, ['Escaneadora', 'Registros', 'Unidades', '%Reg', '%Uds'], r, SC); r++;
+    escData.forEach(e => {
+        exRow(ws, [e.nombre, e.registros, e.unidades, `${Math.round(e.registros/totalR*100)}%`, `${Math.round(e.unidades/totalU*100)}%`], r, SC);
+        if ((r-escStartR)%2===0) for(let i=SC;i<=SC+4;i++){ws.getRow(r).getCell(i).fill={type:'pattern',pattern:'solid',fgColor:{argb:EX_LIGHT_BG}};}
+        r++;
+    });
+
+    // Por Destino — to the right
+    let r2 = escStartR;
+    exSection(ws, 'POR DESTINO', r2, SC+6, EC);
+    // We need a separate header for the right side
+    r2++;
+    exHeaders(ws, ['Destino', 'Registros', 'Unidades', '%'], r2, SC+6); r2++;
+    destData.forEach(d => {
+        exRow(ws, [d.destino, d.registros, d.unidades, `${Math.round(d.registros/totalR*100)}%`], r2, SC+6);
+        r2++;
+    });
+    r = Math.max(r, r2) + 1; // spacer
+
+    // ── POR CONDICION ──
+    exSection(ws, 'POR CONDICION', r, SC, EC); r++;
+    exHeaders(ws, ['Condicion', 'Registros', '%'], r, SC); r++;
+    condData.forEach((c, idx) => {
+        exRow(ws, [c.condicion, c.total, `${Math.round(c.total/totalR*100)}%`], r, SC);
+        if (idx%2===0) for(let i=SC;i<=SC+2;i++){ws.getRow(r).getCell(i).fill={type:'pattern',pattern:'solid',fgColor:{argb:EX_LIGHT_BG}};}
+        r++;
+    });
+    r++; // spacer
+
+    // ── TENDENCIA DIARIA ──
+    exSection(ws, 'TENDENCIA DIARIA', r, SC, EC); r++;
+    exHeaders(ws, ['Fecha', 'Dia', 'Noche', 'Total', 'Uds Dia', 'Uds Noche', 'Uds Total'], r, SC); r++;
+    sortedDates.forEach((f, idx) => {
+        const d = byDate[f];
+        exRow(ws, [f, d.dia, d.noche, d.dia+d.noche, d.uDia, d.uNoche, d.uDia+d.uNoche], r, SC);
+        if (idx%2===0) for(let i=SC;i<=SC+6;i++){ws.getRow(r).getCell(i).fill={type:'pattern',pattern:'solid',fgColor:{argb:EX_LIGHT_BG}};}
+        r++;
+    });
+    r++; // spacer
+
+    // ── REGISTROS DETALLADOS ──
+    exSection(ws, 'REGISTROS DETALLADOS', r, SC, EC); r++;
+    const regCols = ['Fecha','Pallet ID','Cantidad','Condicion','Destino','Turno','Escaneadora','Pedido','Incidencias','Obs.'];
+    exHeaders(ws, regCols, r, SC); r++;
+    freshData.forEach((rec, idx) => {
+        exRow(ws, recordToRow(rec), r, SC);
+        if (idx%2===0) for(let i=SC;i<=SC+regCols.length-1;i++){ws.getRow(r).getCell(i).fill={type:'pattern',pattern:'solid',fgColor:{argb:EX_LIGHT_BG}};}
+        r++;
+    });
+
+    // ── Auto-filter on registros section ──
+    ws.autoFilter = { from: { row: r - freshData.length - 1, column: SC }, to: { row: r - 1, column: SC + regCols.length - 1 } };
+
+    // ── Print area ──
+    ws.pageSetup.printArea = `A1:L${r}`;
+
+    // Generate buffer and download
     const buf = await wb.xlsx.writeBuffer();
-
-    // ═══ Inject native Excel charts via OOXML + JSZip ═══
-    const zip = await JSZip.loadAsync(buf);
-
-    // Native chart colors
-    const PIE_COLORS = ['4F7CFF','22C55E','F59E0B','EF4444','8B5CF6','EC4899','14B8A6','F97316','6366F1','06B6D4'];
-
-    // Chart definitions — ALL 6 dashboard visualizations
-    const chartFiles = [
-        // 1. Tendencia Diaria (grouped column: Dia vs Noche per date)
-        { id: 1, xml: chartBarXML('Tendencia', tendLastRow, [{name:'Dia',color:'F59E0B'},{name:'Noche',color:'4F7CFF'}], 'Tendencia Diaria'), sheetIdx: 3, fromCol:0, fromRow:tendLastRow+1, toCol:7, toRow:tendLastRow+16 },
-        // 2. Registros por Turno (pie)
-        { id: 2, xml: chartPieXML('Por Turno', 3, ['F59E0B','4F7CFF'], 'Registros por Turno'), sheetIdx: 4, fromCol:0, fromRow:4, toCol:5, toRow:18 },
-        // 3. Registros por Escaneadora (bar)
-        { id: 3, xml: chartBarXML('Por Escaneadora', escLastRow, [{name:'Registros',color:'4F7CFF'}], 'Registros por Escaneadora'), sheetIdx: 5, fromCol:0, fromRow:escLastRow+1, toCol:5, toRow:escLastRow+16 },
-        // 4. Distribucion por Destino (pie)
-        { id: 4, xml: chartPieXML('Por Destino', destLastRow, PIE_COLORS.slice(0, destData.length), 'Distribucion por Destino'), sheetIdx: 6, fromCol:0, fromRow:destLastRow+1, toCol:5, toRow:destLastRow+15 },
-        // 5. Registros por Condicion (bar)
-        { id: 5, xml: chartBarXML('Por Condicion', condLastRow, [{name:'Registros',color:'8B5CF6'}], 'Registros por Condicion'), sheetIdx: 7, fromCol:0, fromRow:condLastRow+1, toCol:4, toRow:condLastRow+15 },
-        // 6. Promedios por Turno (bar — Total + Promedio)
-        { id: 6, xml: chartBarXML('Promedios', 3, [{name:'Total Registros',color:'4F7CFF'},{name:'Promedio Reg/Dia',color:'22C55E'}], 'Promedios por Turno'), sheetIdx: 8, fromCol:0, fromRow:4, toCol:5, toRow:18 },
-    ];
-
-    for (const cf of chartFiles) {
-        // Add chart XML
-        zip.file(`xl/charts/chart${cf.id}.xml`, cf.xml);
-
-        // Add drawing XML
-        zip.file(`xl/drawings/drawing${cf.id}.xml`, drawingXML('rId1', cf.fromCol, cf.fromRow, cf.toCol, cf.toRow, 2));
-
-        // Drawing rels → points to chart
-        zip.file(`xl/drawings/_rels/drawing${cf.id}.xml.rels`, relsXML([
-            { id: 'rId1', type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart', target: `../charts/chart${cf.id}.xml` }
-        ]));
-
-        // Sheet rels → points to drawing
-        const sheetRelsPath = `xl/worksheets/_rels/sheet${cf.sheetIdx}.xml.rels`;
-        const existingRels = zip.file(sheetRelsPath);
-        if (existingRels) {
-            let relsContent = await existingRels.async('string');
-            relsContent = relsContent.replace('</Relationships>', `<Relationship Id="rIdDrawing" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing${cf.id}.xml"/>\n</Relationships>`);
-            zip.file(sheetRelsPath, relsContent);
-        } else {
-            zip.file(sheetRelsPath, relsXML([
-                { id: 'rIdDrawing', type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing', target: `../drawings/drawing${cf.id}.xml` }
-            ]));
-        }
-
-        // Add <drawing> reference in sheet XML
-        const sheetPath = `xl/worksheets/sheet${cf.sheetIdx}.xml`;
-        let sheetXML = await zip.file(sheetPath).async('string');
-        if (!sheetXML.includes('<drawing')) {
-            sheetXML = sheetXML.replace('</worksheet>', `<drawing r:id="rIdDrawing"/></worksheet>`);
-            // Ensure r: namespace
-            if (!sheetXML.includes('xmlns:r=')) {
-                sheetXML = sheetXML.replace('<worksheet', '<worksheet xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"');
-            }
-            zip.file(sheetPath, sheetXML);
-        }
-    }
-
-    // Update [Content_Types].xml
-    let ct = await zip.file('[Content_Types].xml').async('string');
-    const additions = [];
-    for (const cf of chartFiles) {
-        if (!ct.includes(`/xl/charts/chart${cf.id}.xml`)) {
-            additions.push(`<Override PartName="/xl/charts/chart${cf.id}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`);
-        }
-        if (!ct.includes(`/xl/drawings/drawing${cf.id}.xml`)) {
-            additions.push(`<Override PartName="/xl/drawings/drawing${cf.id}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`);
-        }
-    }
-    if (additions.length > 0) {
-        ct = ct.replace('</Types>', additions.join('\n') + '\n</Types>');
-        zip.file('[Content_Types].xml', ct);
-    }
-
-    // Download
-    const finalBuf = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(finalBuf);
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `Dashboard_FFT_${today.toISOString().split('T')[0]}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
-    // Restore button
     const btnR = document.querySelector('[onclick="exportDashboardExcel()"]');
     if (btnR) { btnR.disabled = false; btnR.innerHTML = '<i class="fa-solid fa-file-excel"></i> Excel'; }
 }
