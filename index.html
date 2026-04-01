@@ -1072,10 +1072,12 @@
                         <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600;">Filtrar:</span>
                         <select class="form-input" id="audit-filter-action" onchange="loadAuditData()" style="padding:0.35rem 0.6rem;font-size:0.8rem;width:auto;">
                             <option value="">Todas las acciones</option>
-                            <option value="UPDATE">Correccion</option>
+                            <option value="CREATE">Creacion</option>
+                            <option value="UPDATE">Modificacion</option>
                             <option value="DELETE">Eliminacion</option>
+                            <option value="MANUAL_EDIT">Edicion Atlas</option>
                             <option value="ADD">Agregado</option>
-                            <option value="CORRECTION">Otro</option>
+                            <option value="CORRECTION">Correccion</option>
                         </select>
                         <input type="text" class="form-input" id="audit-filter-esc" placeholder="Escaneadora..." oninput="loadAuditData()" style="width:130px;padding:0.35rem 0.6rem;font-size:0.8rem;">
                         <input type="text" class="form-input" id="audit-filter-pallet" placeholder="Pallet ID..." oninput="loadAuditData()" style="width:110px;padding:0.35rem 0.6rem;font-size:0.8rem;">
@@ -1360,24 +1362,34 @@ function startOpsUpdates() {
 // AUDIT MODULE (user 3647 only)
 // ══════════════════════════════════════════════
 let auditRefreshInterval = null;
-function openAuditModal() {
+async function openAuditModal() {
     if (!currentUser || currentUser.usuario !== '3647') return;
     document.getElementById('audit-modal').style.display = 'block';
     document.body.style.overflow = 'hidden';
-    // Auto-set date filter to today
+    // Auto-set date filter to today (local time)
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth()+1).padStart(2,'0');
     const dd = String(today.getDate()).padStart(2,'0');
     document.getElementById('audit-filter-fecha').value = `${yyyy}-${mm}-${dd}`;
+    // First: scan for undetected changes (Atlas direct edits)
+    try {
+        const scanResp = await apiFetch(`${API}/api/audit/scan`);
+        if (scanResp.success && scanResp.detected > 0) {
+            console.log(`[AUDIT] Scan detected ${scanResp.detected} unlogged changes`);
+        }
+    } catch(e) { console.warn('[AUDIT] Scan failed:', e.message); }
+    // Then load data
     loadAuditData();
     loadAuditStats();
-    // Auto-refresh every 10 seconds while open
+    // Auto-refresh every 5 seconds while open
     if (auditRefreshInterval) clearInterval(auditRefreshInterval);
     auditRefreshInterval = setInterval(() => {
-        if (document.getElementById('audit-modal').style.display !== 'none') { loadAuditData(); }
-        else { clearInterval(auditRefreshInterval); auditRefreshInterval = null; }
-    }, 10000);
+        if (document.getElementById('audit-modal').style.display !== 'none') {
+            loadAuditData();
+            loadAuditStats();
+        } else { clearInterval(auditRefreshInterval); auditRefreshInterval = null; }
+    }, 5000);
 }
 async function loadAuditStats() {
     try {
@@ -1452,12 +1464,12 @@ async function loadAuditData() {
         if (f) params.set('fecha', f);
         const resp = await apiFetch(`${API}/api/audit?${params.toString()}`);
         if (!resp.success) { body.innerHTML = '<div style="padding:2rem;color:var(--danger);">Error</div>'; return; }
-        countEl.textContent = resp.total + ' correcciones';
+        countEl.textContent = resp.total + ' registros';
         if (resp.data.length === 0) {
-            body.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);">Sin correcciones registradas</div>';
+            body.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);"><i class="fa-solid fa-clipboard-check" style="font-size:1.5rem;margin-bottom:0.5rem;display:block;opacity:0.4;"></i>Sin eventos de auditoria para este filtro.<br><span style="font-size:0.72rem;">Los cambios hechos via la API (editar/eliminar) se registran automaticamente.</span></div>';
             return;
         }
-        const actionConfig = { UPDATE:{col:'#4f7cff',icon:'fa-pen',label:'Correccion'}, DELETE:{col:'#ef4444',icon:'fa-trash',label:'Eliminacion'}, ADD:{col:'#22c55e',icon:'fa-plus',label:'Agregado'}, CORRECTION:{col:'#f59e0b',icon:'fa-wrench',label:'Correccion'}, MANUAL_EDIT:{col:'#8b5cf6',icon:'fa-pen-ruler',label:'Edicion Manual'} };
+        const actionConfig = { CREATE:{col:'#22c55e',icon:'fa-plus-circle',label:'Creado'}, UPDATE:{col:'#4f7cff',icon:'fa-pen',label:'Modificado'}, DELETE:{col:'#ef4444',icon:'fa-trash',label:'Eliminado'}, ADD:{col:'#22c55e',icon:'fa-plus',label:'Agregado'}, CORRECTION:{col:'#f59e0b',icon:'fa-wrench',label:'Correccion'}, MANUAL_EDIT:{col:'#8b5cf6',icon:'fa-pen-ruler',label:'Edicion Atlas'} };
         body.innerHTML = resp.data.map(r => {
             const ts = r.timestamp ? new Date(r.timestamp) : null;
             const pad = n => String(n).padStart(2,'0');
@@ -1495,13 +1507,14 @@ async function loadAuditData() {
                     </div>
                 </div>
                 ${r.escaneadora ? `<div style="font-size:0.78rem;color:var(--text-muted);"><i class="fa-solid fa-user" style="margin-right:3px;font-size:0.65rem;color:var(--accent);"></i>${r.escaneadora}</div>` : ''}
-                ${r.field && r.action !== 'DELETE' ? `<div style="font-size:0.78rem;margin-top:0.25rem;display:flex;gap:0.75rem;flex-wrap:wrap;">
+                ${r.field && r.action === 'UPDATE' ? `<div style="font-size:0.78rem;margin-top:0.25rem;display:flex;gap:0.75rem;flex-wrap:wrap;">
                     <span style="color:var(--text-muted);">Campo: <strong style="color:var(--text-main);">${r.field}</strong></span>
                     ${r.oldValue!==undefined&&r.oldValue!==null ? `<span><span style="color:var(--danger);text-decoration:line-through;">${r.oldValue}</span> → <span style="color:var(--success);">${r.newValue||'-'}</span></span>` : ''}
                 </div>` : ''}
                 ${deletedDetails}
+                ${(r.action === 'CREATE' || r.action === 'MANUAL_EDIT') && r.newValue && r.newValue.startsWith('{') ? (() => { try { const cd = JSON.parse(r.newValue); const bgCol = r.action==='CREATE'?'rgba(34,197,94,0.08)':'rgba(139,92,246,0.08)'; const bdCol = r.action==='CREATE'?'rgba(34,197,94,0.15)':'rgba(139,92,246,0.15)'; return `<div style="font-size:0.72rem;margin-top:0.3rem;padding:0.4rem 0.5rem;background:${bgCol};border:1px solid ${bdCol};border-radius:5px;"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:0.15rem 0.5rem;">${Object.entries(cd).map(([k,v])=>v?`<span><span style="color:var(--text-muted);">${k}:</span> <strong>${v}</strong></span>`:'').join('')}</div></div>`; } catch(e) { return ''; } })() : ''}
                 ${r.reason ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.2rem;font-style:italic;"><i class="fa-solid fa-comment" style="margin-right:3px;"></i>${r.reason}</div>` : ''}
-                <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.15rem;">Admin: ${r.changedBy||'3647'}</div>
+                <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.15rem;">Por: ${r.changedBy||'Sistema'}</div>
             </div>`;
         }).join('');
     } catch(e) { body.innerHTML = '<div style="padding:2rem;color:var(--danger);">Error: '+e.message+'</div>'; }

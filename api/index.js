@@ -240,6 +240,7 @@ app.post('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (re
       return res.status(409).json({ success: false, error: `Pallet ID duplicado. El pallet ${pid} ya fue registrado.`, duplicate: true });
     }
     const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora, fecha, pedido: pedido || '', incidencias: incidencias || '', observaciones: observaciones || '', capturadoPor: req.user._id });
+    await audit('CREATE', { palletId: pid, escaneadora, field: 'REGISTRO NUEVO', newValue: JSON.stringify({ cantidad: qty, condicion: condicion.trim(), destino: dest, turno, fecha, pedido: pedido || '' }), changedBy: req.user.nombre || req.user.usuario, source: 'WEB' });
     emitEvent('paletizado', 'registro:nuevo', { id: doc._id, palletId: pid, cantidad: qty, destino: dest, turno, escaneadora, fecha, condicion: condicion.trim(), source: 'web' });
     res.json({ success: true, id: doc._id, message: 'Registro guardado' });
   } catch (error) {
@@ -670,6 +671,7 @@ app.post('/api/mobile/register', async (req, res) => {
     if (clasificacion) { obs = clasificacion === 'BULKY' ? 'LPN | BULKY' : clasificacion; }
 
     const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora: operador || '', fecha, pedido: pedido || '', incidencias: '', observaciones: obs });
+    await audit('CREATE', { palletId: pid, escaneadora: operador || '', field: 'REGISTRO NUEVO', newValue: JSON.stringify({ cantidad: qty, condicion: condicion.trim(), destino: dest, turno, fecha }), changedBy: operador || 'mobile', source: 'MOBILE' });
     emitEvent('paletizado', 'registro:nuevo', { id: doc._id, palletId: pid, cantidad: qty, destino: dest, turno, escaneadora: operador, fecha, condicion: condicion.trim(), source: 'mobile' });
     res.json({ success: true, id: doc._id, message: 'Registrado desde app movil' });
   } catch (error) {
@@ -719,17 +721,18 @@ app.get('/api/audit', auth, roleGuard('admin'), async (req, res) => {
   try {
     if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
     const { action, escaneadora, palletId, fecha, limit } = req.query;
-    // ONLY show admin corrections, never operational creates
-    const filter = { action: { $in: ['UPDATE','DELETE','ADD','CORRECTION','MANUAL_EDIT'] } };
+    const filter = { action: { $in: ['UPDATE','DELETE','ADD','CORRECTION','MANUAL_EDIT','CREATE'] } };
     if (action) filter.action = action;
     if (escaneadora) filter.escaneadora = { $regex: escaneadora, $options: 'i' };
     if (palletId) filter.palletId = { $regex: palletId, $options: 'i' };
     if (fecha) {
-      const d = new Date(fecha);
-      const next = new Date(d); next.setDate(d.getDate()+1);
+      // Use timezone-aware range: the date string is LOCAL (Mexico CST = UTC-6)
+      // Build range from local midnight to local midnight+24h
+      const d = new Date(fecha + 'T00:00:00-06:00');
+      const next = new Date(d.getTime() + 24*60*60*1000);
       filter.timestamp = { $gte: d, $lt: next };
     }
-    const data = await mongoose.connection.db.collection('audit_logs').find(filter).sort({ timestamp: -1 }).limit(parseInt(limit)||200).toArray();
+    const data = await mongoose.connection.db.collection('audit_logs').find(filter).sort({ timestamp: -1 }).limit(parseInt(limit)||500).toArray();
     const total = await mongoose.connection.db.collection('audit_logs').countDocuments(filter);
     res.json({ success: true, data, total });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
@@ -747,29 +750,42 @@ app.post('/api/audit', auth, roleGuard('admin'), async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// Scan for recent DB changes (compares records vs audit_logs)
+// Scan for recent DB changes — auto-detect modifications made outside the API
+// (e.g. Atlas UI edits, direct DB updates) and create audit entries for them
 app.get('/api/audit/scan', auth, roleGuard('admin'), async (req, res) => {
   try {
     if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
-    const col = mongoose.connection.db.collection('audit_logs');
-    // Get all audited palletIds
-    const auditedDeletes = await col.distinct('palletId', { action: 'DELETE' });
-    // Get recently modified records (last 24h) that might have been changed in Atlas
+    const auditCol = mongoose.connection.db.collection('audit_logs');
     const since = new Date(Date.now() - 24*60*60*1000);
-    const recentRecords = await EscReg.find({ updatedAt: { $gte: since } }).sort({ updatedAt: -1 }).limit(100);
-    const recentCreated = await EscReg.find({ createdAt: { $gte: since } }).sort({ createdAt: -1 }).limit(50);
-    // Find records created recently that have no audit CREATE (could be Atlas inserts)
-    // We don't audit normal creates anymore, so just report them as "recent activity"
-    res.json({
-      success: true,
-      recentlyModified: recentRecords.length,
-      recentlyCreated: recentCreated.length,
-      records: recentRecords.map(r => ({
-        palletId: r.palletId, escaneadora: r.escaneadora, destino: r.destino,
-        cantidad: r.cantidad, pedido: r.pedido, condicion: r.condicion,
-        fecha: r.fecha, turno: r.turno, updatedAt: r.updatedAt, createdAt: r.createdAt
-      }))
-    });
+    let detected = 0;
+
+    // 1. Find records where updatedAt != createdAt (modified) in last 24h
+    //    that have NO corresponding audit UPDATE entry after their updatedAt
+    const modified = await EscReg.find({
+      updatedAt: { $gte: since },
+      $expr: { $ne: ['$updatedAt', '$createdAt'] }
+    }).sort({ updatedAt: -1 }).limit(200);
+
+    for (const rec of modified) {
+      // Check if there's already an audit entry for this pallet around this time
+      const existing = await auditCol.findOne({
+        palletId: rec.palletId,
+        action: { $in: ['UPDATE', 'MANUAL_EDIT'] },
+        timestamp: { $gte: new Date(rec.updatedAt.getTime() - 60000) } // within 1 min
+      });
+      if (!existing) {
+        await audit('MANUAL_EDIT', {
+          palletId: rec.palletId, escaneadora: rec.escaneadora,
+          field: 'DETECTADO POR SCAN',
+          newValue: JSON.stringify({ cantidad: rec.cantidad, condicion: rec.condicion, destino: rec.destino, turno: rec.turno }),
+          changedBy: 'Detectado automaticamente', source: 'ATLAS',
+          reason: 'Modificacion detectada en DB (no hecha via API)'
+        });
+        detected++;
+      }
+    }
+
+    res.json({ success: true, detected, scanned: modified.length });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -778,11 +794,10 @@ app.get('/api/audit/stats', auth, roleGuard('admin'), async (req, res) => {
   try {
     if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
     const col = mongoose.connection.db.collection('audit_logs');
-    const filter = { action: { $in: ['UPDATE','DELETE','ADD','CORRECTION','MANUAL_EDIT'] } };
-    // Support date filtering for stats too
+    const filter = { action: { $in: ['UPDATE','DELETE','ADD','CORRECTION','MANUAL_EDIT','CREATE'] } };
     if (req.query.fecha) {
-      const d = new Date(req.query.fecha);
-      const next = new Date(d); next.setDate(d.getDate()+1);
+      const d = new Date(req.query.fecha + 'T00:00:00-06:00');
+      const next = new Date(d.getTime() + 24*60*60*1000);
       filter.timestamp = { $gte: d, $lt: next };
     }
     // By escaneadora
