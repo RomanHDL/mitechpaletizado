@@ -4080,27 +4080,28 @@ async function exportDashboardExcel() {
     const totalR = sumRD+sumRN||1;
     const totalU = sumUD+sumUN||1;
 
-    // ═══ SINGLE SHEET ═══
+    // ═══ SINGLE SHEET — strict vertical layout (no overlaps) ═══
     const SN = 'Dashboard FFT';
     const ws = wb.addWorksheet(SN, {
         pageSetup: { orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0,
-            horizontalCentered:true, margins:{left:0.3,right:0.3,top:0.4,bottom:0.4,header:0.15,footer:0.15} }
+            horizontalCentered:true, margins:{left:0.25,right:0.25,top:0.4,bottom:0.3,header:0.15,footer:0.15} }
     });
 
-    // 14 columns: A=spacer(5), B-M=content(12 cols), N=spacer(5)
-    ws.getColumn(1).width = 5;
-    for (let i=2;i<=13;i++) ws.getColumn(i).width = 13;
-    ws.getColumn(14).width = 5;
-    const SC = 2, EC = 13; // content B(2) to M(13)
+    // 14 columns: A=spacer, B-M=content(12), N=spacer
+    ws.getColumn(1).width = 4;
+    for (let i=2;i<=13;i++) ws.getColumn(i).width = 13.5;
+    ws.getColumn(14).width = 4;
+    const SC = 2, EC = 13;
+    const CHART_H = 14; // rows reserved per chart
 
     let r = 1;
 
-    // ── HEADER ──
+    // ════════════ ROW 1-2: HEADER ════════════
     exTitle(ws, 'MI-TECH PALETIZADO — DASHBOARD FFT', r, SC, EC); r++;
     exSubtitle(ws, `Reporte generado: ${todayStr}`, r, SC, EC); r++;
-    r++;
+    r++; // spacer
 
-    // ── KPI CARDS — 6 cards across 12 columns (2 cols each) ──
+    // ════════════ ROW 4-5: KPI CARDS ════════════
     const kpiColor = 'FF1E3A5F';
     exKPI(ws,'TOTAL REGISTROS',res.totalRegistros||freshData.length,r,SC,kpiColor);
     exKPI(ws,'REGISTROS HOY',res.registrosHoy||0,r,SC+2,kpiColor);
@@ -4108,49 +4109,66 @@ async function exportDashboardExcel() {
     exKPI(ws,'ESCANEADORAS',(res.escaneadoras||[]).length,r,SC+6,kpiColor);
     exKPI(ws,'DIAS ACTIVOS',sortedDates.length,r,SC+8,kpiColor);
     exKPI(ws,'PROM REG/DIA',sortedDates.length>0?+((freshData.length/sortedDates.length).toFixed(1)):0,r,SC+10,kpiColor);
-    r += 3;
+    r += 3; // 2 rows KPI + 1 spacer
 
-    // ── DISTRIBUCION POR TURNO (left) & POR DESTINO (right) ──
-    const turnoR = r;
-    exSection(ws,'DISTRIBUCION POR TURNO',r,SC,SC+6); r++;
-    exHeaders(ws,['','Registros','%','Unidades','%','Prom/Dia','Dias'],r,SC); r++;
+    // ════════════ BLOCK 1: TURNO (left) + DESTINO (right) — same rows ════════════
+    const block1Start = r;
+    exSection(ws,'DISTRIBUCION POR TURNO',r,SC,SC+6);
+    exSection(ws,'POR DESTINO',r,SC+8,EC);
+    r++;
+    exHeaders(ws,['','Registros','%','Unidades','%','Prom/Dia','Dias'],r,SC);
+    exHeaders(ws,['Destino','Registros','Unidades','%'],r,SC+8);
+    r++;
+    // Turno data
     exRow(ws,['Dia',sumRD,`${Math.round(sumRD/totalR*100)}%`,sumUD,`${Math.round(sumUD/totalU*100)}%`,dayDates.size>0?+(sumRD/dayDates.size).toFixed(1):0,dayDates.size],r,SC);
-    exStripe(ws,r,SC,SC+6,'FFFFFBEB'); r++;
+    exStripe(ws,r,SC,SC+6,'FFFFFBEB');
+    // Destino data row 1
+    if (destData[0]) exRow(ws,[destData[0].destino,destData[0].registros,destData[0].unidades,`${Math.round(destData[0].registros/totalR*100)}%`],r,SC+8);
+    r++;
     exRow(ws,['Noche',sumRN,`${Math.round(sumRN/totalR*100)}%`,sumUN,`${Math.round(sumUN/totalU*100)}%`,nightDates.size>0?+(sumRN/nightDates.size).toFixed(1):0,nightDates.size],r,SC);
-    exStripe(ws,r,SC,SC+6,'FFEFF6FF'); r++;
+    exStripe(ws,r,SC,SC+6,'FFEFF6FF');
+    if (destData[1]) exRow(ws,[destData[1].destino,destData[1].registros,destData[1].unidades,`${Math.round(destData[1].registros/totalR*100)}%`],r,SC+8);
+    r++;
+    // Extra destino rows if > 2
+    for (let di=2; di<destData.length; di++) {
+        exRow(ws,[destData[di].destino,destData[di].registros,destData[di].unidades,`${Math.round(destData[di].registros/totalR*100)}%`],r,SC+8);
+        r++;
+    }
+    r++; // spacer
 
-    // Destino on the right
-    let rd = turnoR;
-    exSection(ws,'POR DESTINO',rd,SC+8,EC); rd++;
-    exHeaders(ws,['Destino','Registros','Unidades','%'],rd,SC+8); rd++;
-    destData.forEach(d=>{
-        exRow(ws,[d.destino,d.registros,d.unidades,`${Math.round(d.registros/totalR*100)}%`],rd,SC+8); rd++;
-    });
-    r = Math.max(r, rd) + 1;
-
-    // ── POR ESCANEADORA (left) & POR CONDICION (right) ──
-    const escR = r;
-    exSection(ws,'POR ESCANEADORA',r,SC,SC+5); r++;
+    // ════════════ BLOCK 2: ESCANEADORA (left) + CONDICION (right) — same rows ════════════
+    const block2Start = r;
+    exSection(ws,'POR ESCANEADORA',r,SC,SC+5);
+    exSection(ws,'POR CONDICION',r,SC+7,EC);
+    r++;
     const escHdrR = r;
-    exHeaders(ws,['Escaneadora','Registros','Unidades','%Reg','%Uds'],r,SC); r++;
-    escData.forEach((e,idx)=>{
-        exRow(ws,[e.nombre,e.registros,e.unidades,`${Math.round(e.registros/totalR*100)}%`,`${Math.round(e.unidades/totalU*100)}%`],r,SC);
-        if(idx%2===0) exStripe(ws,r,SC,SC+4,EX_LIGHT_BG); r++;
-    });
-    const escEndR = r - 1;
+    exHeaders(ws,['Escaneadora','Registros','Unidades','%Reg','%Uds'],r,SC);
+    const condHdrR = r;
+    exHeaders(ws,['Condicion','Registros','%','','',''],r,SC+7);
+    r++;
+    const maxRows = Math.max(escData.length, condData.length);
+    for (let i=0; i<maxRows; i++) {
+        if (i < escData.length) {
+            const e = escData[i];
+            exRow(ws,[e.nombre,e.registros,e.unidades,`${Math.round(e.registros/totalR*100)}%`,`${Math.round(e.unidades/totalU*100)}%`],r,SC);
+            if (i%2===0) exStripe(ws,r,SC,SC+4,EX_LIGHT_BG);
+        }
+        if (i < condData.length) {
+            const c = condData[i];
+            exRow(ws,[c.condicion,c.total,`${Math.round(c.total/totalR*100)}%`],r,SC+7);
+            if (i%2===0) exStripe(ws,r,SC+7,SC+9,EX_LIGHT_BG);
+        }
+        r++;
+    }
+    const escEndR = escHdrR + escData.length;
+    const condEndR = condHdrR + condData.length;
+    r++; // spacer
 
-    let rc = escR;
-    exSection(ws,'POR CONDICION',rc,SC+7,EC); rc++;
-    const condHdrR = rc;
-    exHeaders(ws,['Condicion','Registros','%'],rc,SC+7); rc++;
-    condData.forEach((c,idx)=>{
-        exRow(ws,[c.condicion,c.total,`${Math.round(c.total/totalR*100)}%`],rc,SC+7);
-        if(idx%2===0) exStripe(ws,rc,SC+7,SC+9,EX_LIGHT_BG); rc++;
-    });
-    const condEndR = rc - 1;
-    r = Math.max(r, rc) + 1;
+    // ════════════ CHART ZONE 1: Escaneadora bar (left) + Condicion pie (right) ════════════
+    const chartZone1 = r;
+    r += CHART_H + 1; // reserve chart rows + spacer
 
-    // ── TENDENCIA DIARIA (data table + chart will be placed below) ──
+    // ════════════ BLOCK 3: TENDENCIA DIARIA ════════════
     exSection(ws,'TENDENCIA DIARIA',r,SC,EC); r++;
     const tendHdrR = r;
     exHeaders(ws,['Fecha','Dia','Noche','Total','Uds Dia','Uds Noche','Uds Total'],r,SC); r++;
@@ -4160,19 +4178,22 @@ async function exportDashboardExcel() {
         if(idx%2===0) exStripe(ws,r,SC,SC+6,EX_LIGHT_BG); r++;
     });
     const tendEndR = r - 1;
-    // Reserve 15 rows for the Tendencia chart
-    const tendChartStart = r;
-    r += 16;
+    r++; // spacer
 
-    // ── REGISTROS DETALLADOS ──
+    // ════════════ CHART ZONE 2: Tendencia bar (left) + Destino pie (right) ════════════
+    const chartZone2 = r;
+    r += CHART_H + 1;
+
+    // ════════════ BLOCK 4: REGISTROS DETALLADOS ════════════
     exSection(ws,'REGISTROS DETALLADOS',r,SC,EC); r++;
     const regCols=['Fecha','Pallet ID','Cantidad','Condicion','Destino','Turno','Escaneadora','Pedido','Incidencias','Obs.'];
     exHeaders(ws,regCols,r,SC); r++;
+    const regStartR = r;
     freshData.forEach((rec,idx)=>{
         exRow(ws,recordToRow(rec),r,SC);
         if(idx%2===0) exStripe(ws,r,SC,SC+regCols.length-1,EX_LIGHT_BG); r++;
     });
-    ws.autoFilter={from:{row:r-freshData.length-1,column:SC},to:{row:r-1,column:SC+regCols.length-1}};
+    if (freshData.length > 0) ws.autoFilter={from:{row:regStartR-1,column:SC},to:{row:r-1,column:SC+regCols.length-1}};
     ws.pageSetup.printArea = `A1:N${r}`;
 
     // ═══ Generate ExcelJS buffer, then inject native charts via OOXML ═══
@@ -4180,48 +4201,53 @@ async function exportDashboardExcel() {
     const zip = await JSZip.loadAsync(buf);
     const PIE_COLORS = ['4F7CFF','22C55E','F59E0B','EF4444','8B5CF6','EC4899','14B8A6','F97316','6366F1','06B6D4'];
 
-    // Chart 1: Tendencia Diaria bar (Dia vs Noche) — reference cols B,C,D rows tendHdrR..tendEndR
-    const ch1 = chartBarXML(SN, tendHdrR, tendEndR,
-        [{name:'Dia',color:'F59E0B'},{name:'Noche',color:'4F7CFF'}], 'Tendencia Diaria');
-    // Chart 2: Escaneadora bar — cols B,C rows escHdrR..escEndR
-    const ch2 = chartBarXML(SN, escHdrR+1, escEndR,
-        [{name:'Registros',color:'4F7CFF'}], 'Por Escaneadora');
-    // Chart 3: Condicion pie — cols SC+7, SC+8 (mapped to B,C in chart ref — need offset)
-    // For pie charts we reference the actual columns
-    const ch3Pts = condData.map((_,i)=>`<c:dPt><c:idx val="${i}"/><c:spPr><a:solidFill><a:srgbClr val="${PIE_COLORS[i%PIE_COLORS.length]}"/></a:solidFill></c:spPr></c:dPt>`).join('');
-    const condCatCol = String.fromCharCode(64+SC+7); // col for condicion labels
-    const condValCol = String.fromCharCode(64+SC+8); // col for condicion values
-    const ch3 = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    // Build chart XML — all reference the single sheet
+    // Chart 1: Escaneadora bar — data at cols B(labels), C(registros), rows escHdrR..escEndR
+    const ch1 = chartBarXML(SN, escHdrR, escEndR,
+        [{name:'Registros',color:'4F7CFF'},{name:'Unidades',color:'22C55E'}], 'Por Escaneadora');
+
+    // Chart 2: Condicion pie — data at cols I(labels), J(values)
+    const condCatCol = String.fromCharCode(64+SC+7);
+    const condValCol = String.fromCharCode(64+SC+8);
+    const ch2Pts = condData.map((_,i)=>`<c:dPt><c:idx val="${i}"/><c:spPr><a:solidFill><a:srgbClr val="${PIE_COLORS[i%PIE_COLORS.length]}"/></a:solidFill></c:spPr></c:dPt>`).join('');
+    const ch2 = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
 <c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="es-MX" sz="1100" b="1"/><a:t>Por Condicion</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title>
 <c:autoTitleDeleted val="0"/><c:plotArea><c:layout/>
 <c:pieChart><c:varyColors val="1"/>
-<c:ser><c:idx val="0"/><c:order val="0"/>${ch3Pts}
+<c:ser><c:idx val="0"/><c:order val="0"/>${ch2Pts}
 <c:cat><c:strRef><c:f>'${SN}'!$${condCatCol}$${condHdrR+2}:$${condCatCol}$${condEndR+1}</c:f></c:strRef></c:cat>
 <c:val><c:numRef><c:f>'${SN}'!$${condValCol}$${condHdrR+2}:$${condValCol}$${condEndR+1}</c:f></c:numRef></c:val></c:ser>
 </c:pieChart></c:plotArea><c:legend><c:legendPos val="b"/></c:legend><c:plotVisOnly val="1"/></c:chart></c:chartSpace>`;
-    // Chart 4: Destino pie
+
+    // Chart 3: Tendencia bar — data at cols B(fecha), C(dia), D(noche), rows tendHdrR..tendEndR
+    const ch3 = chartBarXML(SN, tendHdrR, tendEndR,
+        [{name:'Dia',color:'F59E0B'},{name:'Noche',color:'4F7CFF'}], 'Tendencia Diaria');
+
+    // Chart 4: Destino pie — data in Block 1 right side
     const destCatCol = String.fromCharCode(64+SC+8);
     const destValCol = String.fromCharCode(64+SC+9);
     const destPts = destData.map((_,i)=>`<c:dPt><c:idx val="${i}"/><c:spPr><a:solidFill><a:srgbClr val="${PIE_COLORS[i%PIE_COLORS.length]}"/></a:solidFill></c:spPr></c:dPt>`).join('');
-    const destDataStartR = turnoR + 2; // header+1 data starts
-    const destDataEndR = destDataStartR + destData.length - 1;
+    const destDataR1 = block1Start + 2;
+    const destDataR2 = destDataR1 + destData.length - 1;
     const ch4 = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
-<c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="es-MX" sz="1100" b="1"/><a:t>Distribucion por Destino</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title>
+<c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="es-MX" sz="1100" b="1"/><a:t>Por Destino</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title>
 <c:autoTitleDeleted val="0"/><c:plotArea><c:layout/>
 <c:pieChart><c:varyColors val="1"/>
 <c:ser><c:idx val="0"/><c:order val="0"/>${destPts}
-<c:cat><c:strRef><c:f>'${SN}'!$${destCatCol}$${destDataStartR}:$${destCatCol}$${destDataEndR}</c:f></c:strRef></c:cat>
-<c:val><c:numRef><c:f>'${SN}'!$${destValCol}$${destDataStartR}:$${destValCol}$${destDataEndR}</c:f></c:numRef></c:val></c:ser>
+<c:cat><c:strRef><c:f>'${SN}'!$${destCatCol}$${destDataR1}:$${destCatCol}$${destDataR2}</c:f></c:strRef></c:cat>
+<c:val><c:numRef><c:f>'${SN}'!$${destValCol}$${destDataR1}:$${destValCol}$${destDataR2}</c:f></c:numRef></c:val></c:ser>
 </c:pieChart></c:plotArea><c:legend><c:legendPos val="b"/></c:legend><c:plotVisOnly val="1"/></c:chart></c:chartSpace>`;
 
-    // Chart positions: col/row anchors (0-indexed for OOXML)
+    // Chart positions — 0-indexed col/row anchors — NO OVERLAPS
+    // Zone 1: Escaneadora bar left half, Condicion pie right half
+    // Zone 2: Tendencia bar left half, Destino pie right half
     const chartDefs = [
-        { xml: ch1, fr: tendChartStart-1, tr: tendChartStart+14, fc: SC-1, tc: SC+7 },   // tendencia below data
-        { xml: ch2, fr: escEndR, tr: escEndR+13, fc: SC-1, tc: SC+5 },                    // escaneadora below its table
-        { xml: ch3, fr: condEndR, tr: condEndR+13, fc: SC+6, tc: EC },                    // condicion below its table
-        { xml: ch4, fr: turnoR+3, tr: turnoR+14, fc: SC+8, tc: EC },                      // destino pie right of turno
+        { xml: ch1, fr: chartZone1-1, tr: chartZone1+CHART_H-1, fc: SC-1,  tc: SC+5 },    // esc bar — left
+        { xml: ch2, fr: chartZone1-1, tr: chartZone1+CHART_H-1, fc: SC+6,  tc: EC },       // cond pie — right
+        { xml: ch3, fr: chartZone2-1, tr: chartZone2+CHART_H-1, fc: SC-1,  tc: SC+7 },     // tend bar — left
+        { xml: ch4, fr: chartZone2-1, tr: chartZone2+CHART_H-1, fc: SC+8,  tc: EC },       // dest pie — right
     ];
 
     // Write chart files
