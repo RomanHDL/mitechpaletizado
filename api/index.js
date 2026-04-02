@@ -884,6 +884,17 @@ app.get('/api/historial', auth, roleGuard('admin', 'viewer'), async (req, res) =
 });
 
 // ═══════════ HEALTH ═══════════
+// Temporary cleanup — remove after use
+app.get('/api/cleanup-test-audit', async (req, res) => {
+  try {
+    const col = mongoose.connection.db.collection('audit_logs');
+    const ids = ['69ce7c163c87f8cf873f1551','69ce7b06966aa8a352ed2891','69ce7b05966aa8a352ed288b','69ce7af3966aa8a352ed2878'];
+    const oids = ids.map(id => new mongoose.Types.ObjectId(id));
+    const result = await col.deleteMany({ _id: { $in: oids } });
+    res.json({ success: true, deleted: result.deletedCount });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 app.get('/api/health', async (req, res) => {
   try {
     const registros = await EscReg.countDocuments();

@@ -1361,34 +1361,27 @@ function startOpsUpdates() {
 // AUDIT MODULE (user 3647 only)
 // ══════════════════════════════════════════════
 let auditRefreshInterval = null;
+let auditLastHash = '';   // track data to avoid re-render flicker
+let auditFirstLoad = true;
 async function openAuditModal() {
     if (!currentUser || currentUser.usuario !== '3647') return;
     document.getElementById('audit-modal').style.display = 'block';
     document.body.style.overflow = 'hidden';
-    // Auto-set date filter to today (local time)
+    auditFirstLoad = true;
+    auditLastHash = '';
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth()+1).padStart(2,'0');
-    const dd = String(today.getDate()).padStart(2,'0');
-    document.getElementById('audit-filter-fecha').value = `${yyyy}-${mm}-${dd}`;
-    // First: scan for undetected changes (Atlas direct edits)
-    try {
-        const scanResp = await apiFetch(`${API}/api/audit/scan`);
-        if (scanResp.success && scanResp.detected > 0) {
-            console.log(`[AUDIT] Scan detected ${scanResp.detected} unlogged changes`);
-        }
-    } catch(e) { console.warn('[AUDIT] Scan failed:', e.message); }
-    // Then load data
+    document.getElementById('audit-filter-fecha').value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    // Scan for undetected Atlas edits
+    try { await apiFetch(`${API}/api/audit/scan`); } catch(e) {}
     loadAuditData();
     loadAuditStats();
-    // Auto-refresh every 5 seconds while open
+    // Silent refresh every 15s — no flicker
     if (auditRefreshInterval) clearInterval(auditRefreshInterval);
     auditRefreshInterval = setInterval(() => {
         if (document.getElementById('audit-modal').style.display !== 'none') {
             loadAuditData();
-            loadAuditStats();
         } else { clearInterval(auditRefreshInterval); auditRefreshInterval = null; }
-    }, 5000);
+    }, 15000);
 }
 async function loadAuditStats() {
     try {
@@ -1450,7 +1443,8 @@ async function submitAuditEntry() {
 async function loadAuditData() {
     const body = document.getElementById('audit-body');
     const countEl = document.getElementById('audit-count');
-    body.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>';
+    // Only show spinner on first load — silent on background refreshes
+    if (auditFirstLoad) body.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i></div>';
     try {
         const params = new URLSearchParams();
         const a = document.getElementById('audit-filter-action').value;
@@ -1464,6 +1458,11 @@ async function loadAuditData() {
         if (fl) params.set('field', fl);
         if (f) params.set('fecha', f);
         const resp = await apiFetch(`${API}/api/audit?${params.toString()}`);
+        // Skip re-render if data hasn't changed (prevents flicker)
+        const newHash = resp.total + '_' + (resp.data.length > 0 ? resp.data[0]._id : '');
+        if (!auditFirstLoad && newHash === auditLastHash) return;
+        auditLastHash = newHash;
+        auditFirstLoad = false;
         if (!resp.success) { body.innerHTML = '<div style="padding:2rem;color:var(--danger);">Error</div>'; return; }
         countEl.textContent = resp.total + ' cambios';
         if (resp.data.length === 0) {
