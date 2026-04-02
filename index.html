@@ -1062,7 +1062,7 @@
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem 1.25rem;border-bottom:1px solid var(--border);">
                         <div style="display:flex;align-items:center;gap:0.5rem;">
                             <i class="fa-solid fa-shield-halved" style="color:var(--accent);font-size:1rem;"></i>
-                            <span style="font-size:1rem;font-weight:700;">Auditoria de Correcciones</span>
+                            <span style="font-size:1rem;font-weight:700;">Auditoria de Cambios</span>
                             <span id="audit-count" style="font-size:0.75rem;color:var(--text-muted);background:rgba(255,255,255,0.05);padding:1px 8px;border-radius:10px;"></span>
                         </div>
                         <button onclick="closeAuditModal()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;color:var(--text-muted);cursor:pointer;font-size:0.85rem;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'"><i class="fa-solid fa-xmark"></i> Cerrar</button>
@@ -1072,12 +1072,10 @@
                         <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600;">Filtrar:</span>
                         <select class="form-input" id="audit-filter-action" onchange="loadAuditData()" style="padding:0.35rem 0.6rem;font-size:0.8rem;width:auto;">
                             <option value="">Todas las acciones</option>
-                            <option value="CREATE">Creacion</option>
                             <option value="UPDATE">Modificacion</option>
                             <option value="DELETE">Eliminacion</option>
+                            <option value="CORRECTION">Correccion Manual</option>
                             <option value="MANUAL_EDIT">Edicion Atlas</option>
-                            <option value="ADD">Agregado</option>
-                            <option value="CORRECTION">Correccion</option>
                         </select>
                         <input type="text" class="form-input" id="audit-filter-esc" placeholder="Escaneadora..." oninput="loadAuditData()" style="width:130px;padding:0.35rem 0.6rem;font-size:0.8rem;">
                         <input type="text" class="form-input" id="audit-filter-pallet" placeholder="Pallet ID..." oninput="loadAuditData()" style="width:110px;padding:0.35rem 0.6rem;font-size:0.8rem;">
@@ -1464,57 +1462,64 @@ async function loadAuditData() {
         if (f) params.set('fecha', f);
         const resp = await apiFetch(`${API}/api/audit?${params.toString()}`);
         if (!resp.success) { body.innerHTML = '<div style="padding:2rem;color:var(--danger);">Error</div>'; return; }
-        countEl.textContent = resp.total + ' registros';
+        countEl.textContent = resp.total + ' cambios';
         if (resp.data.length === 0) {
-            body.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);"><i class="fa-solid fa-clipboard-check" style="font-size:1.5rem;margin-bottom:0.5rem;display:block;opacity:0.4;"></i>Sin eventos de auditoria para este filtro.<br><span style="font-size:0.72rem;">Los cambios hechos via la API (editar/eliminar) se registran automaticamente.</span></div>';
+            body.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);"><i class="fa-solid fa-clipboard-check" style="font-size:1.5rem;margin-bottom:0.5rem;display:block;opacity:0.4;"></i>Sin cambios registrados para este filtro.</div>';
             return;
         }
-        const actionConfig = { CREATE:{col:'#22c55e',icon:'fa-plus-circle',label:'Creado'}, UPDATE:{col:'#4f7cff',icon:'fa-pen',label:'Modificado'}, DELETE:{col:'#ef4444',icon:'fa-trash',label:'Eliminado'}, ADD:{col:'#22c55e',icon:'fa-plus',label:'Agregado'}, CORRECTION:{col:'#f59e0b',icon:'fa-wrench',label:'Correccion'}, MANUAL_EDIT:{col:'#8b5cf6',icon:'fa-pen-ruler',label:'Edicion Atlas'} };
+        const actionCfg = { UPDATE:{col:'#4f7cff',icon:'fa-pen',label:'MODIFICADO'}, DELETE:{col:'#ef4444',icon:'fa-trash',label:'ELIMINADO'}, CORRECTION:{col:'#f59e0b',icon:'fa-wrench',label:'CORRECCION'}, MANUAL_EDIT:{col:'#8b5cf6',icon:'fa-pen-ruler',label:'EDICION ATLAS'} };
         body.innerHTML = resp.data.map(r => {
             const ts = r.timestamp ? new Date(r.timestamp) : null;
             const pad = n => String(n).padStart(2,'0');
-            const date = ts ? `${pad(ts.getDate())}/${pad(ts.getMonth()+1)}/${ts.getFullYear()}` : '-';
-            const time = ts ? `${pad(ts.getHours())}:${pad(ts.getMinutes())}:${pad(ts.getSeconds())}` : '';
-            const cfg = actionConfig[r.action] || {col:'#7b8ba5',icon:'fa-circle-info',label:r.action};
-            // Parse deleted data snapshot for DELETE actions
-            let deletedDetails = '';
-            if (r.action === 'DELETE' && r.oldValue && r.oldValue.startsWith('{')) {
-                try {
-                    const dd = JSON.parse(r.oldValue);
-                    deletedDetails = `<div style="font-size:0.72rem;margin-top:0.3rem;padding:0.4rem 0.5rem;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15);border-radius:5px;">
-                        <div style="font-weight:600;color:var(--danger);margin-bottom:0.2rem;"><i class="fa-solid fa-box-archive" style="margin-right:3px;"></i>Datos del pallet eliminado:</div>
-                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0.15rem 0.5rem;">
-                            ${dd.cantidad !== undefined ? `<span><span style="color:var(--text-muted);">Cantidad:</span> <strong>${dd.cantidad}</strong></span>` : ''}
-                            ${dd.condicion ? `<span><span style="color:var(--text-muted);">Condicion:</span> <strong>${dd.condicion}</strong></span>` : ''}
-                            ${dd.destino ? `<span><span style="color:var(--text-muted);">Destino:</span> <strong>${dd.destino}</strong></span>` : ''}
-                            ${dd.turno ? `<span><span style="color:var(--text-muted);">Turno:</span> <strong>${dd.turno}</strong></span>` : ''}
-                            ${dd.fecha ? `<span><span style="color:var(--text-muted);">Fecha:</span> <strong>${dd.fecha}</strong></span>` : ''}
-                            ${dd.pedido ? `<span><span style="color:var(--text-muted);">Pedido:</span> <strong>${dd.pedido}</strong></span>` : ''}
-                            ${dd.observaciones ? `<span><span style="color:var(--text-muted);">Obs:</span> <strong>${dd.observaciones}</strong></span>` : ''}
-                        </div>
-                    </div>`;
-                } catch(e) { /* not JSON, show raw */ }
-            }
-            return `<div style="padding:0.6rem 0.75rem;border-left:3px solid ${cfg.col};margin-bottom:0.5rem;background:rgba(15,23,42,0.4);border-radius:0 6px 6px 0;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem;">
-                    <div style="display:flex;align-items:center;gap:0.5rem;">
-                        <span style="padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:700;background:${cfg.col}22;color:${cfg.col};"><i class="fa-solid ${cfg.icon}" style="margin-right:3px;"></i>${cfg.label}</span>
-                        <strong style="color:var(--text-main);font-size:0.88rem;">${r.palletId||'-'}</strong>
+            const dateStr = ts ? `${pad(ts.getDate())}/${pad(ts.getMonth()+1)}/${ts.getFullYear()}` : '-';
+            const timeStr = ts ? `${pad(ts.getHours())}:${pad(ts.getMinutes())}:${pad(ts.getSeconds())}` : '';
+            const ac = actionCfg[r.action] || {col:'#7b8ba5',icon:'fa-circle-info',label:r.action};
+
+            // Build changes HTML — new format (changes array) or legacy (flat fields)
+            const changes = r.changes && r.changes.length > 0 ? r.changes : (r.field ? [{ field: r.field, before: r.oldValue||'', after: r.newValue||'' }] : []);
+            let changesHTML = '';
+            if (r.action === 'DELETE' && r.snapshot) {
+                // DELETE: show full snapshot
+                const sn = r.snapshot;
+                changesHTML = `<div style="margin-top:0.4rem;padding:0.5rem 0.6rem;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.12);border-radius:6px;">
+                    <div style="font-size:0.7rem;font-weight:700;color:var(--danger);margin-bottom:0.3rem;"><i class="fa-solid fa-box-archive" style="margin-right:4px;"></i>Datos del pallet eliminado</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.2rem 0.6rem;font-size:0.75rem;">
+                        ${Object.entries(sn).filter(([,v])=>v!==''&&v!==null&&v!==undefined).map(([k,v])=>`<div><span style="color:var(--text-muted);">${k}:</span> <strong style="color:var(--text-main);">${v}</strong></div>`).join('')}
                     </div>
-                    <div style="font-size:0.72rem;color:var(--text-muted);display:flex;gap:0.5rem;align-items:center;">
-                        <span style="padding:1px 5px;border-radius:3px;background:rgba(255,255,255,0.05);">${r.source||'APP'}</span>
-                        <span>${date} ${time}</span>
+                </div>`;
+            } else if (r.action === 'DELETE' && r.oldValue && r.oldValue.startsWith('{')) {
+                // Legacy DELETE format
+                try { const dd=JSON.parse(r.oldValue); changesHTML=`<div style="margin-top:0.4rem;padding:0.5rem 0.6rem;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.12);border-radius:6px;"><div style="font-size:0.7rem;font-weight:700;color:var(--danger);margin-bottom:0.3rem;"><i class="fa-solid fa-box-archive" style="margin-right:4px;"></i>Datos eliminados</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.2rem 0.6rem;font-size:0.75rem;">${Object.entries(dd).filter(([,v])=>v!==''&&v!==null).map(([k,v])=>`<div><span style="color:var(--text-muted);">${k}:</span> <strong>${v}</strong></div>`).join('')}</div></div>`; } catch(e){}
+            }
+            if (changes.length > 0 && r.action !== 'DELETE') {
+                changesHTML = `<div style="margin-top:0.4rem;">
+                    ${changes.map(ch => `<div style="display:flex;align-items:baseline;gap:0.5rem;padding:0.3rem 0.5rem;margin-bottom:0.2rem;background:rgba(79,124,255,0.04);border:1px solid rgba(79,124,255,0.1);border-radius:5px;font-size:0.78rem;">
+                        <span style="min-width:80px;font-weight:600;color:var(--accent);font-size:0.72rem;text-transform:uppercase;">${ch.field}</span>
+                        <span style="color:var(--danger);text-decoration:line-through;opacity:0.8;">${ch.before||'(vacio)'}</span>
+                        <i class="fa-solid fa-arrow-right" style="color:var(--text-muted);font-size:0.6rem;"></i>
+                        <span style="color:var(--success);font-weight:600;">${ch.after||'(vacio)'}</span>
+                    </div>`).join('')}
+                </div>`;
+            }
+
+            return `<div style="padding:0.75rem 0.85rem;border-left:4px solid ${ac.col};margin-bottom:0.6rem;background:rgba(15,23,42,0.35);border-radius:0 8px 8px 0;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.35rem;">
+                    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                        <span style="padding:3px 10px;border-radius:4px;font-size:0.7rem;font-weight:800;letter-spacing:0.5px;background:${ac.col}22;color:${ac.col};"><i class="fa-solid ${ac.icon}" style="margin-right:4px;"></i>${ac.label}</span>
+                        <strong style="color:var(--text-main);font-size:0.95rem;font-family:monospace;">${r.palletId||'-'}</strong>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0;">
+                        <div style="font-size:0.78rem;color:var(--text-main);font-weight:600;">${dateStr}</div>
+                        <div style="font-size:0.72rem;color:var(--text-muted);">${timeStr}</div>
                     </div>
                 </div>
-                ${r.escaneadora ? `<div style="font-size:0.78rem;color:var(--text-muted);"><i class="fa-solid fa-user" style="margin-right:3px;font-size:0.65rem;color:var(--accent);"></i>${r.escaneadora}</div>` : ''}
-                ${r.field && r.action === 'UPDATE' ? `<div style="font-size:0.78rem;margin-top:0.25rem;display:flex;gap:0.75rem;flex-wrap:wrap;">
-                    <span style="color:var(--text-muted);">Campo: <strong style="color:var(--text-main);">${r.field}</strong></span>
-                    ${r.oldValue!==undefined&&r.oldValue!==null ? `<span><span style="color:var(--danger);text-decoration:line-through;">${r.oldValue}</span> → <span style="color:var(--success);">${r.newValue||'-'}</span></span>` : ''}
-                </div>` : ''}
-                ${deletedDetails}
-                ${(r.action === 'CREATE' || r.action === 'MANUAL_EDIT') && r.newValue && r.newValue.startsWith('{') ? (() => { try { const cd = JSON.parse(r.newValue); const bgCol = r.action==='CREATE'?'rgba(34,197,94,0.08)':'rgba(139,92,246,0.08)'; const bdCol = r.action==='CREATE'?'rgba(34,197,94,0.15)':'rgba(139,92,246,0.15)'; return `<div style="font-size:0.72rem;margin-top:0.3rem;padding:0.4rem 0.5rem;background:${bgCol};border:1px solid ${bdCol};border-radius:5px;"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:0.15rem 0.5rem;">${Object.entries(cd).map(([k,v])=>v?`<span><span style="color:var(--text-muted);">${k}:</span> <strong>${v}</strong></span>`:'').join('')}</div></div>`; } catch(e) { return ''; } })() : ''}
-                ${r.reason ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.2rem;font-style:italic;"><i class="fa-solid fa-comment" style="margin-right:3px;"></i>${r.reason}</div>` : ''}
-                <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.15rem;">Por: ${r.changedBy||'Sistema'}</div>
+                <div style="display:flex;gap:1rem;font-size:0.78rem;color:var(--text-muted);margin-bottom:0.2rem;flex-wrap:wrap;">
+                    <span><i class="fa-solid fa-user" style="margin-right:3px;color:var(--accent);font-size:0.65rem;"></i><strong style="color:var(--text-main);">${r.changedBy||'Sistema'}</strong></span>
+                    ${r.escaneadora && r.escaneadora !== r.changedBy ? `<span><i class="fa-solid fa-barcode" style="margin-right:3px;font-size:0.65rem;"></i>${r.escaneadora}</span>` : ''}
+                    <span style="padding:1px 6px;border-radius:3px;background:rgba(255,255,255,0.05);font-size:0.68rem;">${r.source||'APP'}</span>
+                </div>
+                ${changesHTML}
+                ${r.reason ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.3rem;padding:0.25rem 0.5rem;background:rgba(255,255,255,0.03);border-radius:4px;font-style:italic;"><i class="fa-solid fa-comment" style="margin-right:4px;opacity:0.5;"></i>${r.reason}</div>` : ''}
             </div>`;
         }).join('');
     } catch(e) { body.innerHTML = '<div style="padding:2rem;color:var(--danger);">Error: '+e.message+'</div>'; }

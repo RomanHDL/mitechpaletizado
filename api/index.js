@@ -26,12 +26,23 @@ function emitEvent(channel, event, data) {
   if (pusher) { try { pusher.trigger(channel, event, data); } catch(e) { console.error('[PUSHER]', e.message); } }
 }
 
-// ── Audit helper ──
+// ── Audit helper (SAP-style: one doc per event with changes array) ──
 async function audit(action, data) {
   try {
-    const doc = { action, entityType: 'pallet', timestamp: new Date(), source: data.source || 'APP', ...data };
+    const doc = {
+      action,
+      entityType: 'pallet',
+      palletId: data.palletId || '',
+      escaneadora: data.escaneadora || '',
+      changedBy: data.changedBy || '',
+      source: data.source || 'APP',
+      reason: data.reason || '',
+      timestamp: new Date(),
+      changes: data.changes || [],        // [{field, before, after}]
+      snapshot: data.snapshot || null,     // full object for DELETE
+    };
     await mongoose.connection.db.collection('audit_logs').insertOne(doc);
-    emitEvent('paletizado', 'audit:new', { action, palletId: data.palletId, escaneadora: data.escaneadora });
+    emitEvent('paletizado', 'audit:new', { action, palletId: doc.palletId });
   } catch(e) { console.error('[AUDIT]', e.message); }
 }
 
@@ -240,7 +251,6 @@ app.post('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (re
       return res.status(409).json({ success: false, error: `Pallet ID duplicado. El pallet ${pid} ya fue registrado.`, duplicate: true });
     }
     const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora, fecha, pedido: pedido || '', incidencias: incidencias || '', observaciones: observaciones || '', capturadoPor: req.user._id });
-    await audit('CREATE', { palletId: pid, escaneadora, field: 'REGISTRO NUEVO', newValue: JSON.stringify({ cantidad: qty, condicion: condicion.trim(), destino: dest, turno, fecha, pedido: pedido || '' }), changedBy: req.user.nombre || req.user.usuario, source: 'WEB' });
     emitEvent('paletizado', 'registro:nuevo', { id: doc._id, palletId: pid, cantidad: qty, destino: dest, turno, escaneadora, fecha, condicion: condicion.trim(), source: 'web' });
     res.json({ success: true, id: doc._id, message: 'Registro guardado' });
   } catch (error) {
@@ -285,10 +295,12 @@ app.put('/api/escaneadoras/:id', auth, roleGuard('admin'), async (req, res) => {
     });
     if (changes.length === 0) return res.json({ success: true, message: 'Sin cambios', data: doc });
     await doc.save();
-    // Audit each changed field
-    for (const ch of changes) {
-      await audit('UPDATE', { palletId: doc.palletId, escaneadora: doc.escaneadora, field: ch.field, oldValue: ch.oldValue, newValue: ch.newValue, changedBy: req.user.nombre || req.user.usuario, source: 'APP', reason: req.body.reason || '' });
-    }
+    await audit('UPDATE', {
+      palletId: doc.palletId, escaneadora: doc.escaneadora,
+      changedBy: req.user.nombre || req.user.usuario,
+      source: 'APP', reason: req.body.reason || '',
+      changes: changes.map(ch => ({ field: ch.field, before: ch.oldValue, after: ch.newValue }))
+    });
     emitEvent('paletizado', 'registro:updated', { id: doc._id, palletId: doc.palletId, changes, updatedBy: req.user.nombre || req.user.usuario });
     res.json({ success: true, message: `${changes.length} campo(s) actualizado(s)`, data: doc, changes });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
@@ -301,16 +313,12 @@ app.delete('/api/escaneadoras/:id', auth, roleGuard('admin'), async (req, res) =
     if (!doc) return res.status(404).json({ success: false, error: 'No encontrado' });
     const snapshot = doc.toObject();
     await EscReg.deleteOne({ _id: doc._id });
-    // Audit the deletion with full snapshot of deleted data
     await audit('DELETE', {
       palletId: snapshot.palletId, escaneadora: snapshot.escaneadora,
-      field: 'REGISTRO COMPLETO',
-      oldValue: JSON.stringify({ cantidad: snapshot.cantidad, condicion: snapshot.condicion, destino: snapshot.destino, turno: snapshot.turno, fecha: snapshot.fecha, pedido: snapshot.pedido, incidencias: snapshot.incidencias, observaciones: snapshot.observaciones }),
-      newValue: 'ELIMINADO',
       changedBy: req.user.nombre || req.user.usuario,
-      source: 'APP',
-      reason: req.body?.reason || 'Eliminado por admin',
-      deletedData: snapshot
+      source: 'APP', reason: req.body?.reason || 'Eliminado por admin',
+      snapshot: { cantidad: snapshot.cantidad, condicion: snapshot.condicion, destino: snapshot.destino, turno: snapshot.turno, fecha: snapshot.fecha, pedido: snapshot.pedido, incidencias: snapshot.incidencias, observaciones: snapshot.observaciones },
+      changes: [{ field: 'REGISTRO COMPLETO', before: `Pallet ${snapshot.palletId}`, after: 'ELIMINADO' }]
     });
     emitEvent('paletizado', 'registro:deleted', { palletId: snapshot.palletId, deletedBy: req.user.nombre || req.user.usuario });
     res.json({ success: true, message: `Pallet ${snapshot.palletId} eliminado`, deletedPallet: snapshot });
@@ -672,7 +680,6 @@ app.post('/api/mobile/register', async (req, res) => {
     if (clasificacion) { obs = clasificacion === 'BULKY' ? 'LPN | BULKY' : clasificacion; }
 
     const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora: operador || '', fecha, pedido: pedido || '', incidencias: '', observaciones: obs });
-    await audit('CREATE', { palletId: pid, escaneadora: operador || '', field: 'REGISTRO NUEVO', newValue: JSON.stringify({ cantidad: qty, condicion: condicion.trim(), destino: dest, turno, fecha }), changedBy: operador || 'mobile', source: 'MOBILE' });
     emitEvent('paletizado', 'registro:nuevo', { id: doc._id, palletId: pid, cantidad: qty, destino: dest, turno, escaneadora: operador, fecha, condicion: condicion.trim(), source: 'mobile' });
     res.json({ success: true, id: doc._id, message: 'Registrado desde app movil' });
   } catch (error) {
@@ -722,9 +729,9 @@ app.get('/api/audit', auth, roleGuard('admin'), async (req, res) => {
   try {
     if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
     const { action, escaneadora, palletId, fecha, limit } = req.query;
-    const filter = { action: { $in: ['UPDATE','DELETE','ADD','CORRECTION','MANUAL_EDIT','CREATE'] } };
+    const filter = { action: { $in: ['UPDATE','DELETE','CORRECTION','MANUAL_EDIT'] } };
     if (action) filter.action = action;
-    if (escaneadora) filter.escaneadora = { $regex: escaneadora, $options: 'i' };
+    if (escaneadora) { filter.$or = [{ escaneadora: { $regex: escaneadora, $options: 'i' } }, { changedBy: { $regex: escaneadora, $options: 'i' } }]; }
     if (palletId) filter.palletId = { $regex: palletId, $options: 'i' };
     if (fecha) {
       // Use timezone-aware range: the date string is LOCAL (Mexico CST = UTC-6)
@@ -744,9 +751,11 @@ app.post('/api/audit', auth, roleGuard('admin'), async (req, res) => {
   try {
     if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
     const { action, palletId, escaneadora, field, oldValue, newValue, reason, source } = req.body;
-    const validActions = ['UPDATE', 'DELETE', 'ADD', 'CORRECTION'];
+    const validActions = ['UPDATE', 'DELETE', 'CORRECTION'];
     const act = validActions.includes(action) ? action : 'CORRECTION';
-    await audit(act, { palletId, escaneadora, field, oldValue, newValue, reason, changedBy: req.user.nombre, source: source || 'APP' });
+    await audit(act, { palletId, escaneadora, reason, changedBy: req.user.nombre || req.user.usuario, source: source || 'APP',
+      changes: field ? [{ field, before: oldValue || '', after: newValue || '' }] : []
+    });
     res.json({ success: true, message: 'Correccion registrada' });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
@@ -777,10 +786,9 @@ app.get('/api/audit/scan', auth, roleGuard('admin'), async (req, res) => {
       if (!existing) {
         await audit('MANUAL_EDIT', {
           palletId: rec.palletId, escaneadora: rec.escaneadora,
-          field: 'DETECTADO POR SCAN',
-          newValue: JSON.stringify({ cantidad: rec.cantidad, condicion: rec.condicion, destino: rec.destino, turno: rec.turno }),
           changedBy: 'Detectado automaticamente', source: 'ATLAS',
-          reason: 'Modificacion detectada en DB (no hecha via API)'
+          reason: 'Modificacion detectada en DB (no hecha via API)',
+          changes: [{ field: 'Estado actual', before: '(desconocido)', after: JSON.stringify({ cantidad: rec.cantidad, condicion: rec.condicion, destino: rec.destino, turno: rec.turno }) }]
         });
         detected++;
       }
@@ -795,7 +803,7 @@ app.get('/api/audit/stats', auth, roleGuard('admin'), async (req, res) => {
   try {
     if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
     const col = mongoose.connection.db.collection('audit_logs');
-    const filter = { action: { $in: ['UPDATE','DELETE','ADD','CORRECTION','MANUAL_EDIT','CREATE'] } };
+    const filter = { action: { $in: ['UPDATE','DELETE','CORRECTION','MANUAL_EDIT'] } };
     if (req.query.fecha) {
       const d = new Date(req.query.fecha + 'T00:00:00-06:00');
       const next = new Date(d.getTime() + 24*60*60*1000);
