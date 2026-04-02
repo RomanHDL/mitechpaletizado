@@ -317,8 +317,8 @@ app.delete('/api/escaneadoras/:id', auth, roleGuard('admin'), async (req, res) =
       palletId: snapshot.palletId, escaneadora: snapshot.escaneadora,
       changedBy: req.user.nombre || req.user.usuario,
       source: 'APP', reason: req.body?.reason || 'Eliminado por admin',
-      snapshot: { cantidad: snapshot.cantidad, condicion: snapshot.condicion, destino: snapshot.destino, turno: snapshot.turno, fecha: snapshot.fecha, pedido: snapshot.pedido, incidencias: snapshot.incidencias, observaciones: snapshot.observaciones },
-      changes: [{ field: 'REGISTRO COMPLETO', before: `Pallet ${snapshot.palletId}`, after: 'ELIMINADO' }]
+      snapshot: { palletId: snapshot.palletId, cantidad: snapshot.cantidad, condicion: snapshot.condicion, destino: snapshot.destino, turno: snapshot.turno, escaneadora: snapshot.escaneadora, fecha: snapshot.fecha, pedido: snapshot.pedido || '', incidencias: snapshot.incidencias || '', observaciones: snapshot.observaciones || '' },
+      changes: [{ field: 'registro', before: 'ACTIVO', after: 'ELIMINADO' }]
     });
     emitEvent('paletizado', 'registro:deleted', { palletId: snapshot.palletId, deletedBy: req.user.nombre || req.user.usuario });
     res.json({ success: true, message: `Pallet ${snapshot.palletId} eliminado`, deletedPallet: snapshot });
@@ -728,11 +728,12 @@ app.get('/api/realtime-config', (req, res) => {
 app.get('/api/audit', auth, roleGuard('admin'), async (req, res) => {
   try {
     if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
-    const { action, escaneadora, palletId, fecha, limit } = req.query;
+    const { action, escaneadora, palletId, fecha, field, limit } = req.query;
     const filter = { action: { $in: ['UPDATE','DELETE','CORRECTION','MANUAL_EDIT'] } };
     if (action) filter.action = action;
     if (escaneadora) { filter.$or = [{ escaneadora: { $regex: escaneadora, $options: 'i' } }, { changedBy: { $regex: escaneadora, $options: 'i' } }]; }
     if (palletId) filter.palletId = { $regex: palletId, $options: 'i' };
+    if (field) filter['changes.field'] = { $regex: field, $options: 'i' };
     if (fecha) {
       // Use timezone-aware range: the date string is LOCAL (Mexico CST = UTC-6)
       // Build range from local midnight to local midnight+24h

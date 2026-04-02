@@ -1077,8 +1077,9 @@
                             <option value="CORRECTION">Correccion Manual</option>
                             <option value="MANUAL_EDIT">Edicion Atlas</option>
                         </select>
-                        <input type="text" class="form-input" id="audit-filter-esc" placeholder="Escaneadora..." oninput="loadAuditData()" style="width:130px;padding:0.35rem 0.6rem;font-size:0.8rem;">
+                        <input type="text" class="form-input" id="audit-filter-esc" placeholder="Usuario..." oninput="loadAuditData()" style="width:120px;padding:0.35rem 0.6rem;font-size:0.8rem;">
                         <input type="text" class="form-input" id="audit-filter-pallet" placeholder="Pallet ID..." oninput="loadAuditData()" style="width:110px;padding:0.35rem 0.6rem;font-size:0.8rem;">
+                        <input type="text" class="form-input" id="audit-filter-field" placeholder="Campo..." oninput="loadAuditData()" style="width:100px;padding:0.35rem 0.6rem;font-size:0.8rem;">
                         <input type="date" class="form-input" id="audit-filter-fecha" onchange="loadAuditData()" style="padding:0.35rem 0.6rem;font-size:0.8rem;">
                     </div>
                     <!-- New correction form -->
@@ -1455,10 +1456,12 @@ async function loadAuditData() {
         const a = document.getElementById('audit-filter-action').value;
         const e = document.getElementById('audit-filter-esc').value.trim();
         const p = document.getElementById('audit-filter-pallet').value.trim();
+        const fl = document.getElementById('audit-filter-field').value.trim();
         const f = document.getElementById('audit-filter-fecha').value;
         if (a) params.set('action', a);
         if (e) params.set('escaneadora', e);
         if (p) params.set('palletId', p);
+        if (fl) params.set('field', fl);
         if (f) params.set('fecha', f);
         const resp = await apiFetch(`${API}/api/audit?${params.toString()}`);
         if (!resp.success) { body.innerHTML = '<div style="padding:2rem;color:var(--danger);">Error</div>'; return; }
