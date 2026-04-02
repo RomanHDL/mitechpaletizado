@@ -68,6 +68,7 @@ export const CLASIFICACIONES = [
   { value: 'HV',             label: 'HV (High Value)',   icon: 'diamond' },
   { value: 'HV Televisiones',label: 'HV Televisiones',   icon: 'tv' },
   { value: 'JESSY',          label: 'JESSY',             icon: 'pricetag' },
+  { value: '9X7251Z',        label: '9X7251Z',           icon: 'barcode' },
 ];
 
 // ── Auto-detect shift ──

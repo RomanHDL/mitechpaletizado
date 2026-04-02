@@ -646,6 +646,7 @@
                                         <option value="HV">HV (High Value)</option>
                                         <option value="HV Televisiones">HV Televisiones</option>
                                         <option value="JESSY">JESSY</option>
+                                        <option value="9X7251Z">9X7251Z</option>
                                     </select>
                                 </div>
                             </div>
@@ -2069,7 +2070,7 @@ function onGlobalSearch() {
             const searchVal = document.getElementById('global-search').value.trim().toUpperCase();
             resultsEl.innerHTML = data.data.map(r => {
                 const obs = (r.observaciones||'').split('|')[0].trim();
-                const tipo = obs && ['BULKY','BOX','HV','JESSY','LPN'].includes(obs.toUpperCase()) ? obs.toUpperCase() : '';
+                const tipo = obs && ['BULKY','BOX','HV','JESSY','LPN','9X7251Z'].includes(obs.toUpperCase()) ? obs.toUpperCase() : '';
                 const isExact = r.palletId && r.palletId.toUpperCase() === searchVal;
                 const exactBadge = isExact ? '<span style="font-size:0.6rem;padding:1px 5px;border-radius:3px;background:var(--success);color:#fff;margin-left:4px;">EXACTO</span>' : '';
                 const bg = isExact ? 'background:rgba(34,197,94,0.06);' : '';
@@ -2303,11 +2304,11 @@ function renderEscaneadoraDetail() {
     // Extract clasificacion (same logic as chart)
     function getClas(r) {
         const obs = (r.observaciones||'').trim();
-        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY'].includes(f)) return f === 'LPN' ? 'BULKY' : f; }
+        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'].includes(f)) return f === 'LPN' ? 'BULKY' : f; }
         const d = (r.destino||'').toUpperCase(); if (['BULKY','BOX'].includes(d)) return d; if (d.startsWith('HV')) return d;
         return null;
     }
-    const clasColors = {'BULKY':'#f59e0b','BOX':'#4f7cff','HV':'#8b5cf6','JESSY':'#ec4899'};
+    const clasColors = {'BULKY':'#f59e0b','BOX':'#4f7cff','HV':'#8b5cf6','JESSY':'#ec4899','9X7251Z':'#14b8a6'};
 
     const byEsc = {};
     lastTableData.forEach(r => {
@@ -3282,7 +3283,7 @@ function renderPedidosChart() {
         infoEl.innerHTML = `<span>${label}</span> &mdash; <strong style="color:var(--accent);">${records.length}</strong> pallets en <strong style="color:var(--text-main);">${entries.length}</strong> tipo${entries.length>1?'s':''}` + (sinPedido > 0 ? ` <span style="font-size:0.75rem;color:var(--text-muted);">(${sinPedido} sin pedido)</span>` : '');
     }
 
-    const tipoColors = { 'BULKY':'#f59e0b', 'BOX':'#4f7cff', 'HV':'#22c55e', 'HV TELEVISIONES':'#8b5cf6', 'HV (HIGH VALUE)':'#22c55e', 'JESSY':'#ec4899', 'OTRO':'#6b7280' };
+    const tipoColors = { 'BULKY':'#f59e0b', 'BOX':'#4f7cff', 'HV':'#22c55e', 'HV TELEVISIONES':'#8b5cf6', 'HV (HIGH VALUE)':'#22c55e', 'JESSY':'#ec4899', '9X7251Z':'#14b8a6', 'OTRO':'#6b7280' };
     const labels = entries.map(e => e[0]);
     const values = entries.map(e => e[1]);
     const colors = entries.map(e => tipoColors[e[0]] || COLORS[entries.indexOf(e) % COLORS.length]);
@@ -3482,12 +3483,12 @@ function renderPedidosHistorial(body, fechaQuery, textoQuery, sourceData) {
     // Same extractTipo logic as chart
     function getTipo(r) {
         const obs = (r.observaciones || '').trim();
-        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY'].includes(f)) return f === 'LPN' ? 'BULKY' : f; }
+        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'].includes(f)) return f === 'LPN' ? 'BULKY' : f; }
         const d = (r.destino||'').trim().toUpperCase(); if (['BULKY','BOX'].includes(d)) return d; if (d.startsWith('HV')) return d;
         return 'OTRO';
     }
 
-    const tipoColors = { 'BULKY':'#f59e0b','BOX':'#4f7cff','HV':'#22c55e','HV TELEVISIONES':'#8b5cf6','JESSY':'#ec4899','OTRO':'#6b7280' };
+    const tipoColors = { 'BULKY':'#f59e0b','BOX':'#4f7cff','HV':'#22c55e','HV TELEVISIONES':'#8b5cf6','JESSY':'#ec4899','9X7251Z':'#14b8a6','OTRO':'#6b7280' };
 
     // Only records WITH pedido
     let filtered = records.filter(r => r.pedido && r.pedido.trim());

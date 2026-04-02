@@ -48,7 +48,7 @@ async function audit(action, data) {
 
 // ── Validation helpers ──
 const VALID_DESTINOS = ['TRG', 'ALMACEN'];
-const VALID_CLASIFICACIONES = ['', 'BOX', 'BULKY', 'HV', 'HV TELEVISIONES'];
+const VALID_CLASIFICACIONES = ['', 'BOX', 'BULKY', 'HV', 'HV TELEVISIONES', '9X7251Z'];
 function normalizeDestino(d) { const u = (d||'').trim(); const up = u.toUpperCase(); if (up === 'ALMACEN' || up === 'ALMACÉN') return 'Almacen'; if (up === 'TRG') return 'TRG'; return u; }
 function normalizePalletId(id) { return (id||'').trim().toUpperCase(); }
 
@@ -241,7 +241,7 @@ app.post('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (re
     if (pedido && pedido.trim()) {
       const obs = (observaciones || '').trim().toUpperCase();
       const firstTag = obs.split('|')[0].trim();
-      if (!firstTag || !['BULKY', 'BOX', 'HV', 'HV TELEVISIONES', 'LPN', 'JESSY'].includes(firstTag)) {
+      if (!firstTag || !['BULKY', 'BOX', 'HV', 'HV TELEVISIONES', 'LPN', 'JESSY', '9X7251Z'].includes(firstTag)) {
         return res.status(400).json({ success: false, error: 'Clasificacion es obligatoria cuando hay pedido' });
       }
     }
