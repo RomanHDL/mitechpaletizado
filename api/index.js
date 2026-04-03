@@ -884,6 +884,25 @@ app.get('/api/historial', auth, roleGuard('admin', 'viewer'), async (req, res) =
 });
 
 // ═══════════ HEALTH ═══════════
+// Temp: fix 339317 pedido
+app.get('/api/fix-339317', async (req, res) => {
+  try {
+    const doc = await EscReg.findOne({ palletId: '339317' });
+    if (!doc) return res.json({ success: false, error: 'NOT_FOUND' });
+    const old = doc.pedido || '';
+    if (old === '9X7251Z') return res.json({ success: true, status: 'ALREADY_CORRECT' });
+    doc.pedido = '9X7251Z';
+    await doc.save();
+    await audit('CORRECTION', {
+      palletId: '339317', escaneadora: doc.escaneadora,
+      changedBy: 'Admin (correccion)', source: 'SCRIPT',
+      reason: 'Correccion pedido → 9X7251Z',
+      changes: [{ field: 'pedido', before: old, after: '9X7251Z' }]
+    });
+    res.json({ success: true, status: 'CORRECTED', before: old, after: '9X7251Z' });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 app.get('/api/health', async (req, res) => {
   try {
     const registros = await EscReg.countDocuments();

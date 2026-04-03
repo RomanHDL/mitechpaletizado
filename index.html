@@ -2303,8 +2303,10 @@ function renderEscaneadoraDetail() {
 
     // Extract clasificacion (same logic as chart)
     function getClas(r) {
+        const VT = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
         const obs = (r.observaciones||'').trim();
-        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'].includes(f)) return f === 'LPN' ? 'BULKY' : f; }
+        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (VT.includes(f)) return f === 'LPN' ? 'BULKY' : f; }
+        const ped = (r.pedido||'').trim().toUpperCase(); if (VT.includes(ped)) return ped;
         const d = (r.destino||'').toUpperCase(); if (['BULKY','BOX'].includes(d)) return d; if (d.startsWith('HV')) return d;
         return null;
     }
@@ -3254,15 +3256,17 @@ function renderPedidosChart() {
 
     // Extract tipo/clasificacion from each record
     function extractTipo(r) {
-        // Check observaciones for tag (first segment before |)
+        const VALID_TIPOS = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
+        // 1. Check observaciones tag
         const obs = (r.observaciones || '').trim();
         if (obs) {
             const first = obs.split('|')[0].trim().toUpperCase();
-            if (['BULKY', 'BOX', 'HV', 'HV TELEVISIONES', 'LPN', 'JESSY'].includes(first)) {
-                return first === 'LPN' ? 'BULKY' : first;
-            }
+            if (VALID_TIPOS.includes(first)) return first === 'LPN' ? 'BULKY' : first;
         }
-        // Check destino for legacy records where type was stored there
+        // 2. Check pedido field (e.g. pedido="9X7251Z")
+        const ped = (r.pedido || '').trim().toUpperCase();
+        if (VALID_TIPOS.includes(ped)) return ped;
+        // 3. Check destino for legacy records
         const dest = (r.destino || '').trim().toUpperCase();
         if (['BULKY', 'BOX'].includes(dest)) return dest;
         if (dest.startsWith('HV')) return dest;
@@ -3482,8 +3486,10 @@ function renderPedidosHistorial(body, fechaQuery, textoQuery, sourceData) {
 
     // Same extractTipo logic as chart
     function getTipo(r) {
+        const VT = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
         const obs = (r.observaciones || '').trim();
-        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'].includes(f)) return f === 'LPN' ? 'BULKY' : f; }
+        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (VT.includes(f)) return f === 'LPN' ? 'BULKY' : f; }
+        const ped = (r.pedido||'').trim().toUpperCase(); if (VT.includes(ped)) return ped;
         const d = (r.destino||'').trim().toUpperCase(); if (['BULKY','BOX'].includes(d)) return d; if (d.startsWith('HV')) return d;
         return 'OTRO';
     }
