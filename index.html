@@ -940,11 +940,17 @@
                 </div>
             </div>
 
-            <!-- Row: Produccion por Hora + Pedidos BULKY -->
+            <!-- Row: Pallets por Dia + Pedidos BULKY -->
             <div class="charts-grid">
                 <div class="card">
-                    <div class="card-title"><i class="fa-solid fa-clock"></i> Produccion por Hora</div>
-                    <canvas id="chart-por-hora" height="160"></canvas>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;flex-wrap:wrap;gap:0.3rem;">
+                        <div class="card-title" style="margin-bottom:0;font-size:0.85rem;"><i class="fa-solid fa-calendar-days" style="color:#4f7cff;"></i> Pallets por Dia</div>
+                        <select class="form-input" id="ppd-week-select" onchange="renderPalletsPorDia()" style="padding:0.2rem 0.4rem;font-size:0.72rem;width:auto;min-width:120px;">
+                            <option value="all">Todas</option>
+                        </select>
+                    </div>
+                    <div id="ppd-kpi" style="display:flex;gap:0.4rem;margin-bottom:0.4rem;flex-wrap:wrap;"></div>
+                    <canvas id="chart-pallets-dia" height="160"></canvas>
                 </div>
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;flex-wrap:wrap;gap:0.3rem;">
@@ -2355,54 +2361,85 @@ function renderEscaneadoraDetail() {
     }).join('');
 }
 
-// ── Produccion por Hora (bar chart from createdAt) ──
-function renderProduccionPorHora() {
+// ── Pallets por Dia (bar chart with week selector, same pattern as BULKY) ──
+function renderPalletsPorDia() {
     if (chartPorHora) { chartPorHora.destroy(); chartPorHora = null; }
-    const ctx = document.getElementById('chart-por-hora');
-    if (!ctx || !lastTableData || lastTableData.length === 0) return;
+    const ctx = document.getElementById('chart-pallets-dia');
+    const kpiEl = document.getElementById('ppd-kpi');
+    const weekSel = document.getElementById('ppd-week-select');
+    if (!ctx || !lastTableData || lastTableData.length === 0) {
+        if (kpiEl) kpiEl.textContent = 'Sin datos';
+        return;
+    }
 
-    // Count records per hour from createdAt
-    const hourCounts = new Array(24).fill(0);
-    lastTableData.forEach(r => {
-        if (r.createdAt) {
-            const h = new Date(r.createdAt).getHours();
-            hourCounts[h]++;
-        }
+    function parseDate(f) { const p = f.split('/'); return p.length===3 ? new Date(parseInt(p[2]),parseInt(p[0])-1,parseInt(p[1])) : null; }
+    function getMonday(d) { const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); return new Date(d.getFullYear(), d.getMonth(), diff); }
+    function fmtShort(d) { return `${d.getDate()}/${d.getMonth()+1}`; }
+
+    // Group ALL pallets by date
+    const byDate = {};
+    lastTableData.forEach(r => { const f = r.fecha||'Sin fecha'; byDate[f] = (byDate[f]||0)+1; });
+    const allDates = Object.keys(byDate).sort((a,b) => { const da=parseDate(a),db=parseDate(b); return da&&db?da-db:0; });
+    const globalTotal = allDates.reduce((s,d) => s+byDate[d], 0);
+    const globalAvg = allDates.length > 0 ? (globalTotal / allDates.length).toFixed(1) : 0;
+
+    // Build weeks
+    const weeks = [];
+    const weekMap = {};
+    allDates.forEach(f => {
+        const d = parseDate(f); if (!d) return;
+        const mon = getMonday(d);
+        const key = mon.toISOString().split('T')[0];
+        if (!weekMap[key]) { weekMap[key] = { start:mon, dates:[], label:'' }; weeks.push(weekMap[key]); }
+        weekMap[key].dates.push(f);
+    });
+    weeks.sort((a,b) => a.start - b.start);
+    weeks.forEach((w,i) => {
+        const end = new Date(w.start); end.setDate(end.getDate()+6);
+        w.label = `Sem ${i+1} (${fmtShort(w.start)}-${fmtShort(end)})`;
+        w.key = w.start.toISOString().split('T')[0];
     });
 
-    // Only show hours that have data or are in the working range (6-23, 0-7)
-    const labels = [];
-    const values = [];
-    const colors = [];
-    for (let i = 0; i < 24; i++) {
-        if (hourCounts[i] > 0 || (i >= 6 && i <= 22)) {
-            const ampm = i === 0 ? '12am' : i < 12 ? i + 'am' : i === 12 ? '12pm' : (i-12) + 'pm';
-            labels.push(ampm);
-            values.push(hourCounts[i]);
-            // Color by shift: 7-17 = amber (day), rest = blue (night)
-            colors.push((i >= 7 && i <= 17) ? '#f59e0bcc' : '#4f7cffcc');
-        }
+    // Populate selector
+    const curVal = weekSel ? weekSel.value : 'all';
+    if (weekSel) {
+        weekSel.innerHTML = '<option value="all">Todas</option>' + weeks.map(w => `<option value="${w.key}">${w.label}</option>`).join('');
+        weekSel.value = curVal;
+        if (!weekSel.value) weekSel.value = 'all';
     }
+
+    // Filter dates by selected week
+    const selWeek = weekSel ? weekSel.value : 'all';
+    let filteredDates = allDates;
+    if (selWeek !== 'all' && weekMap[selWeek]) filteredDates = weekMap[selWeek].dates;
+    const weekTotal = filteredDates.reduce((s,d) => s+byDate[d], 0);
+    const weekAvg = filteredDates.length > 0 ? (weekTotal / filteredDates.length).toFixed(1) : 0;
+
+    // KPIs
+    if (kpiEl) {
+        function chip(v,l,c) { return `<div style="text-align:center;padding:0.3rem 0.6rem;border-radius:8px;background:rgba(${c},0.08);border:1px solid rgba(${c},0.18);min-width:50px;"><div style="font-size:1.25rem;font-weight:700;color:rgb(${c});line-height:1.1;">${v}</div><div style="font-size:0.58rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin-top:1px;">${l}</div></div>`; }
+        kpiEl.innerHTML = chip(weekTotal,'total','79,124,255') + chip(weekAvg,'/dia','226,232,240') + chip(filteredDates.length,'dias','148,163,184') + chip(globalAvg,'global','148,163,184');
+    }
+
+    if (filteredDates.length === 0) return;
+    const labels = filteredDates.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
+    const values = filteredDates.map(d => byDate[d]);
 
     chartPorHora = new Chart(ctx.getContext('2d'), {
         type: 'bar',
-        data: {
-            labels,
-            datasets: [{ data: values, backgroundColor: colors, borderRadius: 3, maxBarThickness: 20 }]
-        },
+        data: { labels, datasets: [{ label:'Pallets', data:values, backgroundColor:'#4f7cffcc', hoverBackgroundColor:'#4f7cff', borderRadius:3, barPercentage:0.85, categoryPercentage:0.8 }] },
         options: {
-            responsive: true,
-            animation: false,
+            responsive: true, animation: false,
+            layout: { padding: { top: 16, left: 4, right: 4 } },
             plugins: {
-                legend: { display: false },
+                legend: { display:false },
                 tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:6, padding:8 },
-                datalabels: { display: (c) => c.dataset.data[c.dataIndex] > 0, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:14}, formatter:(v)=>v>0?v:'' }
+                datalabels: { display:(c)=>c.dataset.data[c.dataIndex]>0, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:13}, formatter:(v)=>v>0?v:'' }
             },
             scales: {
-                x: { ticks:{color:'#7b8ba5',font:{size:12}}, grid:{display:false} },
-                y: { beginAtZero:true, grace:'20%', ticks:{color:'#7b8ba5',font:{size:12}}, grid:{color:'rgba(30,42,66,0.4)'} }
-            },
-            layout: { padding: { top: 20 } }
+                x: { ticks:{color:'#7b8ba5',font:{size:10}}, grid:{display:false} },
+                y: { beginAtZero:true, grace:'15%', ticks:{color:'#7b8ba5',font:{size:10}}, grid:{color:'rgba(30,42,66,0.4)'} }
+            }
         }
     });
 }
@@ -2841,7 +2878,7 @@ async function loadTableData() {
             if (lastResumen) renderCondicionByDate(lastResumen);
             renderPedidosChart();
             renderEscaneadoraDetail();
-            renderProduccionPorHora();
+            renderPalletsPorDia();
             renderDiaNoche();
             renderBulkyPorDia();
         });
