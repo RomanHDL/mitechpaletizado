@@ -884,6 +884,30 @@ app.get('/api/historial', auth, roleGuard('admin', 'viewer'), async (req, res) =
 });
 
 // ═══════════ HEALTH ═══════════
+// Temporary: correct pedido OTROS → 9X7251Z with audit
+app.get('/api/fix-pedido-9x', async (req, res) => {
+  try {
+    const pallets = ['339370','339641','339710','339715','339219','339371','339514','339578','339689','339638','339733','339770'];
+    const results = [];
+    for (const pid of pallets) {
+      const doc = await EscReg.findOne({ palletId: pid });
+      if (!doc) { results.push({ palletId: pid, status: 'NOT_FOUND' }); continue; }
+      const oldPedido = doc.pedido || '';
+      if (oldPedido === '9X7251Z') { results.push({ palletId: pid, status: 'ALREADY_CORRECT' }); continue; }
+      doc.pedido = '9X7251Z';
+      await doc.save();
+      await audit('CORRECTION', {
+        palletId: pid, escaneadora: doc.escaneadora,
+        changedBy: 'Admin (correccion masiva)', source: 'SCRIPT',
+        reason: 'Correccion pedido OTROS → 9X7251Z',
+        changes: [{ field: 'pedido', before: oldPedido, after: '9X7251Z' }]
+      });
+      results.push({ palletId: pid, status: 'CORRECTED', before: oldPedido, after: '9X7251Z' });
+    }
+    res.json({ success: true, total: pallets.length, results });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 app.get('/api/health', async (req, res) => {
   try {
     const registros = await EscReg.countDocuments();
