@@ -347,7 +347,7 @@ app.get('/api/dashboard/resumen', auth, roleGuard('admin', 'viewer'), async (req
   try {
     const { fecha, fecha_inicio, fecha_fin, escaneadora, turno } = req.query;
     const filter = {};
-    if (fecha) filter.fecha = fecha;
+    if (fecha) filter.$or = [{ fecha }, { fechaSalida: fecha }];
     if (escaneadora) filter.escaneadora = { $regex: escaneadora, $options: 'i' };
     if (turno) filter.turno = { $regex: turno, $options: 'i' };
 
@@ -407,17 +407,27 @@ app.get('/api/dashboard/registros', auth, roleGuard('admin', 'viewer'), async (r
   try {
     const { fecha, fecha_inicio, fecha_fin, escaneadora, turno, busqueda, limit, skip } = req.query;
     const filter = {};
-    if (fecha) filter.fecha = fecha;
+    // Include records where fecha OR fechaSalida matches (so pedidos shipped today show up)
+    if (fecha) filter.$or = [{ fecha }, { fechaSalida: fecha }];
     if (escaneadora) filter.escaneadora = { $regex: escaneadora, $options: 'i' };
     if (turno) filter.turno = { $regex: turno, $options: 'i' };
     if (busqueda) {
-      filter.$or = [
+      // When both fecha and busqueda have $or, combine them
+      const searchOr = [
         { palletId: { $regex: busqueda, $options: 'i' } },
         { escaneadora: { $regex: busqueda, $options: 'i' } },
         { destino: { $regex: busqueda, $options: 'i' } },
         { pedido: { $regex: busqueda, $options: 'i' } },
         { observaciones: { $regex: busqueda, $options: 'i' } },
       ];
+      if (filter.$or) {
+        // fecha $or already set — combine with $and
+        const fechaOr = filter.$or;
+        delete filter.$or;
+        filter.$and = [{ $or: fechaOr }, { $or: searchOr }];
+      } else {
+        filter.$or = searchOr;
+      }
     }
     let query = EscReg.find(filter).sort({ createdAt: -1 });
     if (skip) query = query.skip(parseInt(skip));
