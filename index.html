@@ -2493,6 +2493,7 @@ function renderDiaNoche() {
 }
 
 // ── Pedidos BULKY por dia (with week selector) ──
+// Uses same extractTipo() logic as Pedidos chart above to stay in sync
 function renderBulkyPorDia() {
     if (chartBulkyDia) { chartBulkyDia.destroy(); chartBulkyDia = null; }
     const ctx = document.getElementById('chart-bulky-dia');
@@ -2503,12 +2504,20 @@ function renderBulkyPorDia() {
         return;
     }
 
+    // Shared classification logic (same as Pedidos chart)
+    const VALID_TIPOS = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
+    function normTipo(v) { return (v === 'LPN' || v === '9X7251Z') ? 'BULKY' : v; }
     function isBulky(r) {
         if (!(r.pedido && r.pedido.trim())) return false;
-        const ped = r.pedido.trim().toUpperCase(); if (ped === '9X7251Z') return true;
+        // 1. observaciones tag
         const obs = (r.observaciones||'').trim();
-        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (f === 'BULKY' || f === 'LPN') return true; }
-        const d = (r.destino||'').toUpperCase(); if (d === 'BULKY') return true;
+        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (VALID_TIPOS.includes(f)) return normTipo(f) === 'BULKY'; }
+        // 2. pedido field
+        const ped = (r.pedido||'').trim().toUpperCase();
+        if (VALID_TIPOS.includes(ped)) return normTipo(ped) === 'BULKY';
+        // 3. destino legacy
+        const d = (r.destino||'').toUpperCase();
+        if (d === 'BULKY') return true;
         return false;
     }
 
@@ -2516,7 +2525,7 @@ function renderBulkyPorDia() {
     function getMonday(d) { const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); return new Date(d.getFullYear(), d.getMonth(), diff); }
     function fmtShort(d) { return `${d.getDate()}/${d.getMonth()+1}`; }
 
-    // Group ALL BULKY by date
+    // Group ALL BULKY by date (uses same logic as Pedidos chart extractTipo)
     const byDate = {};
     lastTableData.forEach(r => { if (!isBulky(r)) return; const f = r.fecha||'Sin fecha'; byDate[f] = (byDate[f]||0)+1; });
     const allDates = Object.keys(byDate).sort((a,b) => { const da=parseDate(a),db=parseDate(b); return da&&db?da-db:0; });
