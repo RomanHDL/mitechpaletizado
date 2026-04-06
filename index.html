@@ -2525,9 +2525,9 @@ function renderBulkyPorDia() {
     function getMonday(d) { const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); return new Date(d.getFullYear(), d.getMonth(), diff); }
     function fmtShort(d) { return `${d.getDate()}/${d.getMonth()+1}`; }
 
-    // Group ALL BULKY by date (uses same logic as Pedidos chart extractTipo)
+    // Group ALL BULKY by fechaSalida (when it shipped, not when produced)
     const byDate = {};
-    lastTableData.forEach(r => { if (!isBulky(r)) return; const f = r.fecha||'Sin fecha'; byDate[f] = (byDate[f]||0)+1; });
+    lastTableData.forEach(r => { if (!isBulky(r)) return; const f = r.fechaSalida || r.fecha || 'Sin fecha'; byDate[f] = (byDate[f]||0)+1; });
     const allDates = Object.keys(byDate).sort((a,b) => { const da=parseDate(a),db=parseDate(b); return da&&db?da-db:0; });
     const globalTotal = allDates.reduce((s,d) => s+byDate[d], 0);
     const globalAvg = allDates.length > 0 ? (globalTotal / allDates.length).toFixed(1) : 0;
@@ -3289,11 +3289,11 @@ function renderPedidosChart() {
     // Get selected date from pedidos picker (empty = use dashboard filters)
     const fechaSel = (document.getElementById('pedidos-fecha') || {}).value || '';
 
-    // Filter to selected date if any, then only records WITH pedido
+    // Filter to selected date if any — use fechaSalida for pedido records
     let source = lastTableData;
     let label = 'Filtro actual';
     if (fechaSel) {
-        source = lastTableData.filter(r => r.fecha === fechaSel);
+        source = lastTableData.filter(r => (r.fechaSalida || r.fecha) === fechaSel);
         label = fechaSel;
     }
     const records = source.filter(r => r.pedido && r.pedido.trim());
@@ -4006,9 +4006,9 @@ async function loadResumenes() {
 // EXCEL EXPORTS
 // ══════════════════════════════════════════════
 
-const EXPORT_COLS = ['Fecha','Pallet ID','Cantidad','Condicion','Destino','Turno','Escaneadora','Pedido','Incidencias','Observaciones'];
+const EXPORT_COLS = ['Fecha Produccion','Fecha Salida','Pallet ID','Cantidad','Condicion','Destino','Turno','Escaneadora','Pedido','Incidencias','Observaciones'];
 function recordToRow(r) {
-    return [r.fecha, r.palletId, r.cantidad, r.condicion||'', r.destino, r.turno, r.escaneadora, r.pedido||'', r.incidencias||'', r.observaciones||''];
+    return [r.fecha, r.fechaSalida||'', r.palletId, r.cantidad, r.condicion||'', r.destino, r.turno, r.escaneadora, r.pedido||'', r.incidencias||'', r.observaciones||''];
 }
 
 function downloadXlsx(wb, filename) {

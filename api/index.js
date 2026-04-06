@@ -87,6 +87,7 @@ const escRegSchema = new mongoose.Schema({
   escaneadora: { type: String, required: true, index: true },
   fecha: { type: String, required: true, index: true },
   pedido: { type: String, default: '' },
+  fechaSalida: { type: String, default: '' },
   incidencias: { type: String, default: '' },
   observaciones: { type: String, default: '' },
   capturadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -250,7 +251,8 @@ app.post('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (re
       emitEvent('paletizado', 'registro:duplicado', { palletId: pid, escaneadora, fecha });
       return res.status(409).json({ success: false, error: `Pallet ID duplicado. El pallet ${pid} ya fue registrado.`, duplicate: true });
     }
-    const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora, fecha, pedido: pedido || '', incidencias: incidencias || '', observaciones: observaciones || '', capturadoPor: req.user._id });
+    const hasPedido = pedido && pedido.trim();
+    const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora, fecha, pedido: pedido || '', fechaSalida: hasPedido ? fecha : '', incidencias: incidencias || '', observaciones: observaciones || '', capturadoPor: req.user._id });
     emitEvent('paletizado', 'registro:nuevo', { id: doc._id, palletId: pid, cantidad: qty, destino: dest, turno, escaneadora, fecha, condicion: condicion.trim(), source: 'web' });
     res.json({ success: true, id: doc._id, message: 'Registro guardado' });
   } catch (error) {
@@ -285,7 +287,7 @@ app.put('/api/escaneadoras/:id', auth, roleGuard('admin'), async (req, res) => {
     const doc = await EscReg.findById(req.params.id);
     if (!doc) return res.status(404).json({ success: false, error: 'No encontrado' });
     const oldData = doc.toObject();
-    const allowed = ['palletId','cantidad','condicion','destino','turno','escaneadora','fecha','pedido','incidencias','observaciones'];
+    const allowed = ['palletId','cantidad','condicion','destino','turno','escaneadora','fecha','pedido','fechaSalida','incidencias','observaciones'];
     const changes = [];
     allowed.forEach(f => {
       if (req.body[f] !== undefined && String(req.body[f]) !== String(oldData[f])) {
@@ -293,6 +295,13 @@ app.put('/api/escaneadoras/:id', auth, roleGuard('admin'), async (req, res) => {
         doc[f] = f === 'cantidad' ? parseInt(req.body[f]) || 0 : (f === 'palletId' ? normalizePalletId(req.body[f]) : (f === 'destino' ? normalizeDestino(req.body[f]) : req.body[f]));
       }
     });
+    // Auto-set fechaSalida when pedido is assigned for the first time
+    if (req.body.pedido && req.body.pedido.trim() && !oldData.fechaSalida) {
+      const now = new Date();
+      const todayStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
+      doc.fechaSalida = todayStr;
+      changes.push({ field: 'fechaSalida', oldValue: '', newValue: todayStr });
+    }
     if (changes.length === 0) return res.json({ success: true, message: 'Sin cambios', data: doc });
     await doc.save();
     await audit('UPDATE', {
@@ -317,7 +326,7 @@ app.delete('/api/escaneadoras/:id', auth, roleGuard('admin'), async (req, res) =
       palletId: snapshot.palletId, escaneadora: snapshot.escaneadora,
       changedBy: req.user.nombre || req.user.usuario,
       source: 'APP', reason: req.body?.reason || 'Eliminado por admin',
-      snapshot: { palletId: snapshot.palletId, cantidad: snapshot.cantidad, condicion: snapshot.condicion, destino: snapshot.destino, turno: snapshot.turno, escaneadora: snapshot.escaneadora, fecha: snapshot.fecha, pedido: snapshot.pedido || '', incidencias: snapshot.incidencias || '', observaciones: snapshot.observaciones || '' },
+      snapshot: { palletId: snapshot.palletId, cantidad: snapshot.cantidad, condicion: snapshot.condicion, destino: snapshot.destino, turno: snapshot.turno, escaneadora: snapshot.escaneadora, fecha: snapshot.fecha, fechaSalida: snapshot.fechaSalida || '', pedido: snapshot.pedido || '', incidencias: snapshot.incidencias || '', observaciones: snapshot.observaciones || '' },
       changes: [{ field: 'registro', before: 'ACTIVO', after: 'ELIMINADO' }]
     });
     emitEvent('paletizado', 'registro:deleted', { palletId: snapshot.palletId, deletedBy: req.user.nombre || req.user.usuario });
@@ -679,7 +688,8 @@ app.post('/api/mobile/register', async (req, res) => {
     let obs = '';
     if (clasificacion) { obs = clasificacion === 'BULKY' ? 'LPN | BULKY' : clasificacion; }
 
-    const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora: operador || '', fecha, pedido: pedido || '', incidencias: '', observaciones: obs });
+    const hasPed = pedido && pedido.trim();
+    const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora: operador || '', fecha, pedido: pedido || '', fechaSalida: hasPed ? fecha : '', incidencias: '', observaciones: obs });
     emitEvent('paletizado', 'registro:nuevo', { id: doc._id, palletId: pid, cantidad: qty, destino: dest, turno, escaneadora: operador, fecha, condicion: condicion.trim(), source: 'mobile' });
     res.json({ success: true, id: doc._id, message: 'Registrado desde app movil' });
   } catch (error) {
@@ -890,6 +900,41 @@ app.get('/api/health', async (req, res) => {
     const usuarios = await User.countDocuments();
     res.json({ success: true, status: 'OK', database: 'MongoDB Atlas', registros, usuarios, timestamp: new Date().toISOString() });
   } catch (error) { res.status(500).json({ success: false, status: 'ERROR', error: error.message }); }
+});
+
+// Temp: backfill fechaSalida for existing pedido records + fix 339952
+app.get('/api/migrate-fechaSalida', async (req, res) => {
+  try {
+    // 1. Fix 339952 specifically: produccion=4/3, salida=today
+    const p339952 = await EscReg.findOne({ palletId: '339952' });
+    let fix339952 = 'NOT_FOUND';
+    if (p339952) {
+      const now = new Date();
+      const todayStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
+      const oldFS = p339952.fechaSalida || '';
+      p339952.fechaSalida = todayStr;
+      await p339952.save();
+      await audit('CORRECTION', {
+        palletId: '339952', escaneadora: p339952.escaneadora,
+        changedBy: 'Admin (migracion)', source: 'SCRIPT',
+        reason: 'Separacion produccion vs salida (pedido 9X7251Z)',
+        changes: [{ field: 'fechaSalida', before: oldFS, after: todayStr }]
+      });
+      fix339952 = `CORRECTED: fechaSalida=${todayStr}, fecha(produccion)=${p339952.fecha}`;
+    }
+
+    // 2. Backfill: records WITH pedido but WITHOUT fechaSalida → set fechaSalida = fecha
+    const needFix = await EscReg.find({ pedido: { $nin: [null, ''] }, $or: [{ fechaSalida: null }, { fechaSalida: '' }, { fechaSalida: { $exists: false } }] });
+    let backfilled = 0;
+    for (const doc of needFix) {
+      if (doc.palletId === '339952') continue; // already handled
+      doc.fechaSalida = doc.fecha; // default: salida = same day as production
+      await doc.save();
+      backfilled++;
+    }
+
+    res.json({ success: true, fix339952, backfilled, totalWithPedido: needFix.length + 1 });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 module.exports = app;
