@@ -2076,7 +2076,9 @@ function onGlobalSearch() {
             const searchVal = document.getElementById('global-search').value.trim().toUpperCase();
             resultsEl.innerHTML = data.data.map(r => {
                 const obs = (r.observaciones||'').split('|')[0].trim();
-                const tipo = obs && ['BULKY','BOX','HV','JESSY','LPN','9X7251Z'].includes(obs.toUpperCase()) ? obs.toUpperCase() : '';
+                let tipo = obs && ['BULKY','BOX','HV','JESSY','LPN','9X7251Z'].includes(obs.toUpperCase()) ? obs.toUpperCase() : '';
+                if (!tipo && r.pedido) { const pu = r.pedido.trim().toUpperCase(); if (['BULKY','BOX','HV','JESSY','9X7251Z'].includes(pu)) tipo = pu; }
+                if (tipo === 'LPN' || tipo === '9X7251Z') tipo = 'BULKY';
                 const isExact = r.palletId && r.palletId.toUpperCase() === searchVal;
                 const exactBadge = isExact ? '<span style="font-size:0.6rem;padding:1px 5px;border-radius:3px;background:var(--success);color:#fff;margin-left:4px;">EXACTO</span>' : '';
                 const bg = isExact ? 'background:rgba(34,197,94,0.06);' : '';
@@ -2310,13 +2312,14 @@ function renderEscaneadoraDetail() {
     // Extract clasificacion (same logic as chart)
     function getClas(r) {
         const VT = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
+        function norm(v) { return (v === 'LPN' || v === '9X7251Z') ? 'BULKY' : v; }
         const obs = (r.observaciones||'').trim();
-        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (VT.includes(f)) return f === 'LPN' ? 'BULKY' : f; }
-        const ped = (r.pedido||'').trim().toUpperCase(); if (VT.includes(ped)) return ped;
+        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (VT.includes(f)) return norm(f); }
+        const ped = (r.pedido||'').trim().toUpperCase(); if (VT.includes(ped)) return norm(ped);
         const d = (r.destino||'').toUpperCase(); if (['BULKY','BOX'].includes(d)) return d; if (d.startsWith('HV')) return d;
         return null;
     }
-    const clasColors = {'BULKY':'#f59e0b','BOX':'#4f7cff','HV':'#8b5cf6','JESSY':'#ec4899','9X7251Z':'#14b8a6'};
+    const clasColors = {'BULKY':'#f59e0b','BOX':'#4f7cff','HV':'#8b5cf6','JESSY':'#ec4899'};
 
     const byEsc = {};
     lastTableData.forEach(r => {
@@ -2502,6 +2505,7 @@ function renderBulkyPorDia() {
 
     function isBulky(r) {
         if (!(r.pedido && r.pedido.trim())) return false;
+        const ped = r.pedido.trim().toUpperCase(); if (ped === '9X7251Z') return true;
         const obs = (r.observaciones||'').trim();
         if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (f === 'BULKY' || f === 'LPN') return true; }
         const d = (r.destino||'').toUpperCase(); if (d === 'BULKY') return true;
@@ -3294,15 +3298,16 @@ function renderPedidosChart() {
     // Extract tipo/clasificacion from each record
     function extractTipo(r) {
         const VALID_TIPOS = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
+        function norm(v) { return (v === 'LPN' || v === '9X7251Z') ? 'BULKY' : v; }
         // 1. Check observaciones tag
         const obs = (r.observaciones || '').trim();
         if (obs) {
             const first = obs.split('|')[0].trim().toUpperCase();
-            if (VALID_TIPOS.includes(first)) return first === 'LPN' ? 'BULKY' : first;
+            if (VALID_TIPOS.includes(first)) return norm(first);
         }
         // 2. Check pedido field (e.g. pedido="9X7251Z")
         const ped = (r.pedido || '').trim().toUpperCase();
-        if (VALID_TIPOS.includes(ped)) return ped;
+        if (VALID_TIPOS.includes(ped)) return norm(ped);
         // 3. Check destino for legacy records
         const dest = (r.destino || '').trim().toUpperCase();
         if (['BULKY', 'BOX'].includes(dest)) return dest;
@@ -3524,9 +3529,10 @@ function renderPedidosHistorial(body, fechaQuery, textoQuery, sourceData) {
     // Same extractTipo logic as chart
     function getTipo(r) {
         const VT = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
+        function norm(v) { return (v === 'LPN' || v === '9X7251Z') ? 'BULKY' : v; }
         const obs = (r.observaciones || '').trim();
-        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (VT.includes(f)) return f === 'LPN' ? 'BULKY' : f; }
-        const ped = (r.pedido||'').trim().toUpperCase(); if (VT.includes(ped)) return ped;
+        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (VT.includes(f)) return norm(f); }
+        const ped = (r.pedido||'').trim().toUpperCase(); if (VT.includes(ped)) return norm(ped);
         const d = (r.destino||'').trim().toUpperCase(); if (['BULKY','BOX'].includes(d)) return d; if (d.startsWith('HV')) return d;
         return 'OTRO';
     }
