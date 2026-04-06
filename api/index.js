@@ -902,39 +902,4 @@ app.get('/api/health', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, status: 'ERROR', error: error.message }); }
 });
 
-// Temp: backfill fechaSalida for existing pedido records + fix 339952
-app.get('/api/migrate-fechaSalida', async (req, res) => {
-  try {
-    // 1. Fix 339952 specifically: produccion=4/3, salida=today
-    const p339952 = await EscReg.findOne({ palletId: '339952' });
-    let fix339952 = 'NOT_FOUND';
-    if (p339952) {
-      const now = new Date();
-      const todayStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
-      const oldFS = p339952.fechaSalida || '';
-      p339952.fechaSalida = todayStr;
-      await p339952.save();
-      await audit('CORRECTION', {
-        palletId: '339952', escaneadora: p339952.escaneadora,
-        changedBy: 'Admin (migracion)', source: 'SCRIPT',
-        reason: 'Separacion produccion vs salida (pedido 9X7251Z)',
-        changes: [{ field: 'fechaSalida', before: oldFS, after: todayStr }]
-      });
-      fix339952 = `CORRECTED: fechaSalida=${todayStr}, fecha(produccion)=${p339952.fecha}`;
-    }
-
-    // 2. Backfill: records WITH pedido but WITHOUT fechaSalida → set fechaSalida = fecha
-    const needFix = await EscReg.find({ pedido: { $nin: [null, ''] }, $or: [{ fechaSalida: null }, { fechaSalida: '' }, { fechaSalida: { $exists: false } }] });
-    let backfilled = 0;
-    for (const doc of needFix) {
-      if (doc.palletId === '339952') continue; // already handled
-      doc.fechaSalida = doc.fecha; // default: salida = same day as production
-      await doc.save();
-      backfilled++;
-    }
-
-    res.json({ success: true, fix339952, backfilled, totalWithPedido: needFix.length + 1 });
-  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
-});
-
 module.exports = app;
