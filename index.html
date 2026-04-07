@@ -439,6 +439,10 @@
         @keyframes ops-glow-amber { 0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0);} 50%{box-shadow:0 0 8px 0 rgba(245,158,11,0.2);} }
         @keyframes ops-glow-blue { 0%,100%{box-shadow:0 0 0 0 rgba(79,124,255,0);} 50%{box-shadow:0 0 8px 0 rgba(79,124,255,0.2);} }
         @keyframes ops-glow-orange { 0%,100%{box-shadow:0 0 0 0 rgba(249,115,22,0);} 50%{box-shadow:0 0 8px 0 rgba(249,115,22,0.2);} }
+        #ppd-scroll::-webkit-scrollbar, #bulky-scroll::-webkit-scrollbar { height:6px; }
+        #ppd-scroll::-webkit-scrollbar-track, #bulky-scroll::-webkit-scrollbar-track { background:rgba(30,42,66,0.3);border-radius:3px; }
+        #ppd-scroll::-webkit-scrollbar-thumb, #bulky-scroll::-webkit-scrollbar-thumb { background:rgba(79,124,255,0.3);border-radius:3px; }
+        #ppd-scroll::-webkit-scrollbar-thumb:hover, #bulky-scroll::-webkit-scrollbar-thumb:hover { background:rgba(79,124,255,0.5); }
     </style>
 </head>
 <body>
@@ -950,7 +954,7 @@
                         </select>
                     </div>
                     <div id="ppd-kpi" style="display:flex;gap:0.4rem;margin-bottom:0.4rem;flex-wrap:wrap;"></div>
-                    <canvas id="chart-pallets-dia" height="160"></canvas>
+                    <div id="ppd-scroll" style="overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;"><div id="ppd-inner" style="min-width:100%;"><canvas id="chart-pallets-dia" height="160"></canvas></div></div>
                 </div>
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;flex-wrap:wrap;gap:0.3rem;">
@@ -960,7 +964,7 @@
                         </select>
                     </div>
                     <div id="bulky-kpi" style="display:flex;gap:0.3rem;align-items:center;margin-bottom:0.3rem;flex-wrap:wrap;"></div>
-                    <canvas id="chart-bulky-dia" height="140"></canvas>
+                    <div id="bulky-scroll" style="overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;"><div id="bulky-inner" style="min-width:100%;"><canvas id="chart-bulky-dia" height="140"></canvas></div></div>
                 </div>
             </div>
             <!-- Row: Dia vs Noche (full width) -->
@@ -2428,11 +2432,17 @@ function renderPalletsPorDia() {
     const labels = filteredDates.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
     const values = filteredDates.map(d => byDate[d]);
 
+    // Dynamic width: 60px per bar, minimum 100% container
+    const BAR_W = 60, VISIBLE = 7;
+    const innerEl = document.getElementById('ppd-inner');
+    const scrollEl = document.getElementById('ppd-scroll');
+    if (innerEl) innerEl.style.width = filteredDates.length > VISIBLE ? (filteredDates.length * BAR_W) + 'px' : '100%';
+
     chartPorHora = new Chart(ctx.getContext('2d'), {
         type: 'bar',
         data: { labels, datasets: [{ label:'Pallets', data:values, backgroundColor:'#4f7cffcc', hoverBackgroundColor:'#4f7cff', borderRadius:3, barPercentage:0.85, categoryPercentage:0.8 }] },
         options: {
-            responsive: true, animation: false,
+            responsive: true, maintainAspectRatio: false, animation: false,
             layout: { padding: { top: 16, left: 4, right: 4 } },
             plugins: {
                 legend: { display:false },
@@ -2445,6 +2455,8 @@ function renderPalletsPorDia() {
             }
         }
     });
+    // Scroll to most recent (right end)
+    if (scrollEl && filteredDates.length > VISIBLE) requestAnimationFrame(() => { scrollEl.scrollLeft = scrollEl.scrollWidth; });
 }
 
 // ── Dia vs Noche (horizontal grouped bar: pallets + piezas) ──
@@ -2576,11 +2588,17 @@ function renderBulkyPorDia() {
     const labels = filteredDates.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
     const values = filteredDates.map(d => byDate[d]);
 
+    // Dynamic width: 60px per bar, minimum 100%
+    const BAR_W = 60, VISIBLE = 7;
+    const innerEl = document.getElementById('bulky-inner');
+    const scrollEl = document.getElementById('bulky-scroll');
+    if (innerEl) innerEl.style.width = filteredDates.length > VISIBLE ? (filteredDates.length * BAR_W) + 'px' : '100%';
+
     chartBulkyDia = new Chart(ctx.getContext('2d'), {
         type: 'bar',
         data: { labels, datasets: [{ label:'BULKY', data:values, backgroundColor:'#f59e0bcc', hoverBackgroundColor:'#f59e0b', borderRadius:3, barPercentage:0.85, categoryPercentage:0.8 }] },
         options: {
-            responsive: true, animation: false,
+            responsive: true, maintainAspectRatio: false, animation: false,
             layout: { padding: { top: 16, left: 4, right: 4 } },
             plugins: {
                 legend: { display:false },
@@ -2593,6 +2611,8 @@ function renderBulkyPorDia() {
             }
         }
     });
+    // Scroll to most recent (right end)
+    if (scrollEl && filteredDates.length > VISIBLE) requestAnimationFrame(() => { scrollEl.scrollLeft = scrollEl.scrollWidth; });
 }
 
 function splitCondFamilies(condStr) {
