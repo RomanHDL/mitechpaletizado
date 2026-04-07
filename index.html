@@ -439,10 +439,13 @@
         @keyframes ops-glow-amber { 0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0);} 50%{box-shadow:0 0 8px 0 rgba(245,158,11,0.2);} }
         @keyframes ops-glow-blue { 0%,100%{box-shadow:0 0 0 0 rgba(79,124,255,0);} 50%{box-shadow:0 0 8px 0 rgba(79,124,255,0.2);} }
         @keyframes ops-glow-orange { 0%,100%{box-shadow:0 0 0 0 rgba(249,115,22,0);} 50%{box-shadow:0 0 8px 0 rgba(249,115,22,0.2);} }
-        #ppd-scroll::-webkit-scrollbar, #bulky-scroll::-webkit-scrollbar { height:6px; }
-        #ppd-scroll::-webkit-scrollbar-track, #bulky-scroll::-webkit-scrollbar-track { background:rgba(30,42,66,0.3);border-radius:3px; }
-        #ppd-scroll::-webkit-scrollbar-thumb, #bulky-scroll::-webkit-scrollbar-thumb { background:rgba(79,124,255,0.3);border-radius:3px; }
-        #ppd-scroll::-webkit-scrollbar-thumb:hover, #bulky-scroll::-webkit-scrollbar-thumb:hover { background:rgba(79,124,255,0.5); }
+        .chart-slider-nav{display:flex;align-items:center;justify-content:center;gap:0.5rem;}
+        .chart-slider-btn{background:rgba(79,124,255,0.1);border:1px solid rgba(79,124,255,0.25);color:var(--accent);border-radius:6px;padding:0.25rem 0.6rem;cursor:pointer;font-size:0.78rem;transition:all 0.15s;}
+        .chart-slider-btn:hover{background:rgba(79,124,255,0.2);border-color:var(--accent);}
+        .chart-slider-btn:disabled{opacity:0.3;cursor:default;background:transparent;}
+        .chart-slider-info{font-size:0.7rem;color:var(--text-muted);min-width:80px;text-align:center;}
+        .chart-slider-track{flex:1;max-width:200px;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;position:relative;overflow:hidden;}
+        .chart-slider-fill{position:absolute;top:0;height:100%;background:var(--accent);border-radius:2px;transition:left 0.2s,width 0.2s;}
     </style>
 </head>
 <body>
@@ -954,7 +957,8 @@
                         </select>
                     </div>
                     <div id="ppd-kpi" style="display:flex;gap:0.4rem;margin-bottom:0.4rem;flex-wrap:wrap;"></div>
-                    <div id="ppd-scroll" style="overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;"><div id="ppd-inner" style="min-width:100%;"><canvas id="chart-pallets-dia" height="160"></canvas></div></div>
+                    <canvas id="chart-pallets-dia" height="160"></canvas>
+                    <div id="ppd-nav" style="display:none;margin-top:0.4rem;"></div>
                 </div>
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;flex-wrap:wrap;gap:0.3rem;">
@@ -964,7 +968,8 @@
                         </select>
                     </div>
                     <div id="bulky-kpi" style="display:flex;gap:0.3rem;align-items:center;margin-bottom:0.3rem;flex-wrap:wrap;"></div>
-                    <div id="bulky-scroll" style="overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;"><div id="bulky-inner" style="min-width:100%;"><canvas id="chart-bulky-dia" height="140"></canvas></div></div>
+                    <canvas id="chart-bulky-dia" height="140"></canvas>
+                    <div id="bulky-nav" style="display:none;margin-top:0.4rem;"></div>
                 </div>
             </div>
             <!-- Row: Dia vs Noche (full width) -->
@@ -2368,14 +2373,18 @@ function renderEscaneadoraDetail() {
     }).join('');
 }
 
-// ── Pallets por Dia (bar chart with week selector, same pattern as BULKY) ──
+// ── Pallets por Dia (7-day sliding window) ──
+let ppdWindowStart = -1; // -1 = auto (show last 7)
+let ppdAllDates = [], ppdByDate = {};
 function renderPalletsPorDia() {
     if (chartPorHora) { chartPorHora.destroy(); chartPorHora = null; }
     const ctx = document.getElementById('chart-pallets-dia');
     const kpiEl = document.getElementById('ppd-kpi');
+    const navEl = document.getElementById('ppd-nav');
     const weekSel = document.getElementById('ppd-week-select');
     if (!ctx || !lastTableData || lastTableData.length === 0) {
         if (kpiEl) kpiEl.textContent = 'Sin datos';
+        if (navEl) navEl.style.display = 'none';
         return;
     }
 
@@ -2383,80 +2392,79 @@ function renderPalletsPorDia() {
     function getMonday(d) { const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); return new Date(d.getFullYear(), d.getMonth(), diff); }
     function fmtShort(d) { return `${d.getDate()}/${d.getMonth()+1}`; }
 
-    // Group ALL pallets by date
-    const byDate = {};
-    lastTableData.forEach(r => { const f = r.fecha||'Sin fecha'; byDate[f] = (byDate[f]||0)+1; });
-    const allDates = Object.keys(byDate).sort((a,b) => { const da=parseDate(a),db=parseDate(b); return da&&db?da-db:0; });
-    const globalTotal = allDates.reduce((s,d) => s+byDate[d], 0);
-    const globalAvg = allDates.length > 0 ? (globalTotal / allDates.length).toFixed(1) : 0;
+    ppdByDate = {};
+    lastTableData.forEach(r => { const f = r.fecha||'Sin fecha'; ppdByDate[f] = (ppdByDate[f]||0)+1; });
+    ppdAllDates = Object.keys(ppdByDate).sort((a,b) => { const da=parseDate(a),db=parseDate(b); return da&&db?da-db:0; });
+    const globalTotal = ppdAllDates.reduce((s,d) => s+ppdByDate[d], 0);
+    const globalAvg = ppdAllDates.length > 0 ? (globalTotal / ppdAllDates.length).toFixed(1) : 0;
 
-    // Build weeks
-    const weeks = [];
-    const weekMap = {};
-    allDates.forEach(f => {
+    // Build weeks for selector
+    const weeks = [], weekMap = {};
+    ppdAllDates.forEach(f => {
         const d = parseDate(f); if (!d) return;
-        const mon = getMonday(d);
-        const key = mon.toISOString().split('T')[0];
+        const mon = getMonday(d); const key = mon.toISOString().split('T')[0];
         if (!weekMap[key]) { weekMap[key] = { start:mon, dates:[], label:'' }; weeks.push(weekMap[key]); }
         weekMap[key].dates.push(f);
     });
     weeks.sort((a,b) => a.start - b.start);
-    weeks.forEach((w,i) => {
-        const end = new Date(w.start); end.setDate(end.getDate()+6);
-        w.label = `Sem ${i+1} (${fmtShort(w.start)}-${fmtShort(end)})`;
-        w.key = w.start.toISOString().split('T')[0];
-    });
-
-    // Populate selector
+    weeks.forEach((w,i) => { const end = new Date(w.start); end.setDate(end.getDate()+6); w.label = `Sem ${i+1} (${fmtShort(w.start)}-${fmtShort(end)})`; w.key = w.start.toISOString().split('T')[0]; });
     const curVal = weekSel ? weekSel.value : 'all';
-    if (weekSel) {
-        weekSel.innerHTML = '<option value="all">Todas</option>' + weeks.map(w => `<option value="${w.key}">${w.label}</option>`).join('');
-        weekSel.value = curVal;
-        if (!weekSel.value) weekSel.value = 'all';
-    }
-
-    // Filter dates by selected week
+    if (weekSel) { weekSel.innerHTML = '<option value="all">Todas</option>' + weeks.map(w => `<option value="${w.key}">${w.label}</option>`).join(''); weekSel.value = curVal; if (!weekSel.value) weekSel.value = 'all'; }
     const selWeek = weekSel ? weekSel.value : 'all';
-    let filteredDates = allDates;
+    let filteredDates = ppdAllDates;
     if (selWeek !== 'all' && weekMap[selWeek]) filteredDates = weekMap[selWeek].dates;
-    const weekTotal = filteredDates.reduce((s,d) => s+byDate[d], 0);
-    const weekAvg = filteredDates.length > 0 ? (weekTotal / filteredDates.length).toFixed(1) : 0;
 
-    // KPIs
+    const weekTotal = filteredDates.reduce((s,d) => s+ppdByDate[d], 0);
+    const weekAvg = filteredDates.length > 0 ? (weekTotal / filteredDates.length).toFixed(1) : 0;
     if (kpiEl) {
         function chip(v,l,c) { return `<div style="text-align:center;padding:0.3rem 0.6rem;border-radius:8px;background:rgba(${c},0.08);border:1px solid rgba(${c},0.18);min-width:50px;"><div style="font-size:1.25rem;font-weight:700;color:rgb(${c});line-height:1.1;">${v}</div><div style="font-size:0.58rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin-top:1px;">${l}</div></div>`; }
         kpiEl.innerHTML = chip(weekTotal,'total','79,124,255') + chip(weekAvg,'/dia','226,232,240') + chip(filteredDates.length,'dias','148,163,184') + chip(globalAvg,'global','148,163,184');
     }
+    if (filteredDates.length === 0) { if (navEl) navEl.style.display='none'; return; }
 
-    if (filteredDates.length === 0) return;
-    const labels = filteredDates.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
-    const values = filteredDates.map(d => byDate[d]);
-
-    // Dynamic width: 60px per bar, minimum 100% container
-    const BAR_W = 60, VISIBLE = 7;
-    const innerEl = document.getElementById('ppd-inner');
-    const scrollEl = document.getElementById('ppd-scroll');
-    if (innerEl) innerEl.style.width = filteredDates.length > VISIBLE ? (filteredDates.length * BAR_W) + 'px' : '100%';
+    // Store filtered for window rendering
+    ppdAllDates = filteredDates;
+    if (ppdWindowStart < 0 || ppdWindowStart > filteredDates.length - 7) ppdWindowStart = Math.max(0, filteredDates.length - 7);
+    drawPpdWindow();
+}
+function drawPpdWindow() {
+    if (chartPorHora) { chartPorHora.destroy(); chartPorHora = null; }
+    const ctx = document.getElementById('chart-pallets-dia');
+    const navEl = document.getElementById('ppd-nav');
+    if (!ctx || ppdAllDates.length === 0) return;
+    const W = 7;
+    const total = ppdAllDates.length;
+    const start = Math.max(0, Math.min(ppdWindowStart, total - W));
+    ppdWindowStart = start;
+    const windowDates = ppdAllDates.slice(start, start + W);
+    const labels = windowDates.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
+    const values = windowDates.map(d => ppdByDate[d] || 0);
 
     chartPorHora = new Chart(ctx.getContext('2d'), {
         type: 'bar',
-        data: { labels, datasets: [{ label:'Pallets', data:values, backgroundColor:'#4f7cffcc', hoverBackgroundColor:'#4f7cff', borderRadius:3, barPercentage:0.85, categoryPercentage:0.8 }] },
+        data: { labels, datasets: [{ label:'Pallets', data:values, backgroundColor:'#4f7cffcc', hoverBackgroundColor:'#4f7cff', borderRadius:4, barPercentage:0.75, categoryPercentage:0.8 }] },
         options: {
-            responsive: true, maintainAspectRatio: false, animation: false,
+            responsive: true, animation: false,
             layout: { padding: { top: 16, left: 4, right: 4 } },
-            plugins: {
-                legend: { display:false },
-                tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:6, padding:8 },
-                datalabels: { display:(c)=>c.dataset.data[c.dataIndex]>0, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:13}, formatter:(v)=>v>0?v:'' }
-            },
-            scales: {
-                x: { ticks:{color:'#7b8ba5',font:{size:10}}, grid:{display:false} },
-                y: { beginAtZero:true, grace:'15%', ticks:{color:'#7b8ba5',font:{size:10}}, grid:{color:'rgba(30,42,66,0.4)'} }
-            }
+            plugins: { legend:{display:false}, tooltip:{backgroundColor:'#1e293b',titleColor:'#e8ecf4',bodyColor:'#94a3b8',borderColor:'#334155',borderWidth:1,cornerRadius:6,padding:8}, datalabels:{display:(c)=>c.dataset.data[c.dataIndex]>0,anchor:'end',align:'end',color:'#e8ecf4',font:{weight:'bold',size:14},formatter:(v)=>v>0?v:''} },
+            scales: { x:{ticks:{color:'#7b8ba5',font:{size:11}},grid:{display:false}}, y:{beginAtZero:true,grace:'15%',ticks:{color:'#7b8ba5',font:{size:10}},grid:{color:'rgba(30,42,66,0.4)'}} }
         }
     });
-    // Scroll to most recent (right end)
-    if (scrollEl && filteredDates.length > VISIBLE) requestAnimationFrame(() => { scrollEl.scrollLeft = scrollEl.scrollWidth; });
+    // Nav controls
+    if (navEl) {
+        if (total <= W) { navEl.style.display = 'none'; return; }
+        navEl.style.display = '';
+        const pct = total > W ? (start / (total - W)) * 100 : 0;
+        const fillW = (W / total) * 100;
+        navEl.innerHTML = `<div class="chart-slider-nav">
+            <button class="chart-slider-btn" onclick="ppdWindowStart=0;drawPpdWindow()" ${start===0?'disabled':''}><i class="fa-solid fa-angles-left"></i></button>
+            <button class="chart-slider-btn" onclick="ppdWindowStart--;drawPpdWindow()" ${start===0?'disabled':''}><i class="fa-solid fa-chevron-left"></i></button>
+            <div class="chart-slider-track"><div class="chart-slider-fill" style="left:${pct}%;width:${fillW}%;"></div></div>
+            <button class="chart-slider-btn" onclick="ppdWindowStart++;drawPpdWindow()" ${start>=total-W?'disabled':''}><i class="fa-solid fa-chevron-right"></i></button>
+            <button class="chart-slider-btn" onclick="ppdWindowStart=${total-W};drawPpdWindow()" ${start>=total-W?'disabled':''}><i class="fa-solid fa-angles-right"></i></button>
+            <span class="chart-slider-info">${start+1}-${Math.min(start+W,total)} de ${total}</span>
+        </div>`;
+    }
 }
 
 // ── Dia vs Noche (horizontal grouped bar: pallets + piezas) ──
@@ -2504,115 +2512,107 @@ function renderDiaNoche() {
     });
 }
 
-// ── Pedidos BULKY por dia (with week selector) ──
-// Uses same extractTipo() logic as Pedidos chart above to stay in sync
+// ── Pedidos BULKY por dia (7-day sliding window) ──
+let bulkyWindowStart = -1;
+let bulkyAllDates = [], bulkyByDate = {};
 function renderBulkyPorDia() {
     if (chartBulkyDia) { chartBulkyDia.destroy(); chartBulkyDia = null; }
     const ctx = document.getElementById('chart-bulky-dia');
     const kpiEl = document.getElementById('bulky-kpi');
+    const navEl = document.getElementById('bulky-nav');
     const weekSel = document.getElementById('bulky-week-select');
     if (!ctx || !lastTableData || lastTableData.length === 0) {
         if (kpiEl) kpiEl.textContent = 'Sin datos';
+        if (navEl) navEl.style.display = 'none';
         return;
     }
 
-    // Shared classification logic (same as Pedidos chart)
     const VALID_TIPOS = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
     function normTipo(v) { return (v === 'LPN' || v === '9X7251Z') ? 'BULKY' : v; }
     function isBulky(r) {
         if (!(r.pedido && r.pedido.trim())) return false;
-        // 1. observaciones tag
         const obs = (r.observaciones||'').trim();
         if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (VALID_TIPOS.includes(f)) return normTipo(f) === 'BULKY'; }
-        // 2. pedido field
         const ped = (r.pedido||'').trim().toUpperCase();
         if (VALID_TIPOS.includes(ped)) return normTipo(ped) === 'BULKY';
-        // 3. destino legacy
-        const d = (r.destino||'').toUpperCase();
-        if (d === 'BULKY') return true;
+        const d = (r.destino||'').toUpperCase(); if (d === 'BULKY') return true;
         return false;
     }
-
     function parseDate(f) { const p = f.split('/'); return p.length===3 ? new Date(parseInt(p[2]),parseInt(p[0])-1,parseInt(p[1])) : null; }
     function getMonday(d) { const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); return new Date(d.getFullYear(), d.getMonth(), diff); }
     function fmtShort(d) { return `${d.getDate()}/${d.getMonth()+1}`; }
 
-    // Group ALL BULKY by fechaSalida (when it shipped, not when produced)
-    const byDate = {};
-    lastTableData.forEach(r => { if (!isBulky(r)) return; const f = r.fechaSalida || r.fecha || 'Sin fecha'; byDate[f] = (byDate[f]||0)+1; });
-    const allDates = Object.keys(byDate).sort((a,b) => { const da=parseDate(a),db=parseDate(b); return da&&db?da-db:0; });
-    const globalTotal = allDates.reduce((s,d) => s+byDate[d], 0);
-    const globalAvg = allDates.length > 0 ? (globalTotal / allDates.length).toFixed(1) : 0;
+    bulkyByDate = {};
+    lastTableData.forEach(r => { if (!isBulky(r)) return; const f = r.fechaSalida || r.fecha || 'Sin fecha'; bulkyByDate[f] = (bulkyByDate[f]||0)+1; });
+    const allDatesRaw = Object.keys(bulkyByDate).sort((a,b) => { const da=parseDate(a),db=parseDate(b); return da&&db?da-db:0; });
+    const globalTotal = allDatesRaw.reduce((s,d) => s+bulkyByDate[d], 0);
+    const globalAvg = allDatesRaw.length > 0 ? (globalTotal / allDatesRaw.length).toFixed(1) : 0;
 
     // Build weeks
-    const weeks = [];
-    const weekMap = {};
-    allDates.forEach(f => {
+    const weeks = [], weekMap = {};
+    allDatesRaw.forEach(f => {
         const d = parseDate(f); if (!d) return;
-        const mon = getMonday(d);
-        const key = mon.toISOString().split('T')[0];
+        const mon = getMonday(d); const key = mon.toISOString().split('T')[0];
         if (!weekMap[key]) { weekMap[key] = { start:mon, dates:[], label:'' }; weeks.push(weekMap[key]); }
         weekMap[key].dates.push(f);
     });
     weeks.sort((a,b) => a.start - b.start);
-    weeks.forEach((w,i) => {
-        const end = new Date(w.start); end.setDate(end.getDate()+6);
-        w.label = `Sem ${i+1} (${fmtShort(w.start)}-${fmtShort(end)})`;
-        w.key = w.start.toISOString().split('T')[0];
-    });
-
-    // Populate selector (preserve current selection)
+    weeks.forEach((w,i) => { const end = new Date(w.start); end.setDate(end.getDate()+6); w.label = `Sem ${i+1} (${fmtShort(w.start)}-${fmtShort(end)})`; w.key = w.start.toISOString().split('T')[0]; });
     const curVal = weekSel ? weekSel.value : 'all';
-    if (weekSel) {
-        weekSel.innerHTML = '<option value="all">Todas</option>' + weeks.map(w => `<option value="${w.key}">${w.label}</option>`).join('');
-        weekSel.value = curVal;
-        if (!weekSel.value) weekSel.value = 'all';
-    }
-
-    // Filter dates by selected week
+    if (weekSel) { weekSel.innerHTML = '<option value="all">Todas</option>' + weeks.map(w => `<option value="${w.key}">${w.label}</option>`).join(''); weekSel.value = curVal; if (!weekSel.value) weekSel.value = 'all'; }
     const selWeek = weekSel ? weekSel.value : 'all';
-    let filteredDates = allDates;
-    if (selWeek !== 'all' && weekMap[selWeek]) {
-        filteredDates = weekMap[selWeek].dates;
-    }
-    const weekTotal = filteredDates.reduce((s,d) => s+byDate[d], 0);
-    const weekAvg = filteredDates.length > 0 ? (weekTotal / filteredDates.length).toFixed(1) : 0;
+    let filteredDates = allDatesRaw;
+    if (selWeek !== 'all' && weekMap[selWeek]) filteredDates = weekMap[selWeek].dates;
 
-    // KPIs
+    const weekTotal = filteredDates.reduce((s,d) => s+bulkyByDate[d], 0);
+    const weekAvg = filteredDates.length > 0 ? (weekTotal / filteredDates.length).toFixed(1) : 0;
     if (kpiEl) {
         function chip(v,l,c) { return `<div style="text-align:center;padding:0.3rem 0.6rem;border-radius:8px;background:rgba(${c},0.08);border:1px solid rgba(${c},0.18);min-width:50px;"><div style="font-size:1.25rem;font-weight:700;color:rgb(${c});line-height:1.1;">${v}</div><div style="font-size:0.58rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin-top:1px;">${l}</div></div>`; }
         kpiEl.innerHTML = chip(weekTotal,'total','245,158,11') + chip(weekAvg,'/dia','226,232,240') + chip(globalAvg,'global','148,163,184');
     }
+    if (filteredDates.length === 0) { if (navEl) navEl.style.display='none'; return; }
 
-    if (filteredDates.length === 0) return;
-    const labels = filteredDates.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
-    const values = filteredDates.map(d => byDate[d]);
-
-    // Dynamic width: 60px per bar, minimum 100%
-    const BAR_W = 60, VISIBLE = 7;
-    const innerEl = document.getElementById('bulky-inner');
-    const scrollEl = document.getElementById('bulky-scroll');
-    if (innerEl) innerEl.style.width = filteredDates.length > VISIBLE ? (filteredDates.length * BAR_W) + 'px' : '100%';
+    bulkyAllDates = filteredDates;
+    if (bulkyWindowStart < 0 || bulkyWindowStart > filteredDates.length - 7) bulkyWindowStart = Math.max(0, filteredDates.length - 7);
+    drawBulkyWindow();
+}
+function drawBulkyWindow() {
+    if (chartBulkyDia) { chartBulkyDia.destroy(); chartBulkyDia = null; }
+    const ctx = document.getElementById('chart-bulky-dia');
+    const navEl = document.getElementById('bulky-nav');
+    if (!ctx || bulkyAllDates.length === 0) return;
+    const W = 7;
+    const total = bulkyAllDates.length;
+    const start = Math.max(0, Math.min(bulkyWindowStart, total - W));
+    bulkyWindowStart = start;
+    const windowDates = bulkyAllDates.slice(start, start + W);
+    const labels = windowDates.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
+    const values = windowDates.map(d => bulkyByDate[d] || 0);
 
     chartBulkyDia = new Chart(ctx.getContext('2d'), {
         type: 'bar',
-        data: { labels, datasets: [{ label:'BULKY', data:values, backgroundColor:'#f59e0bcc', hoverBackgroundColor:'#f59e0b', borderRadius:3, barPercentage:0.85, categoryPercentage:0.8 }] },
+        data: { labels, datasets: [{ label:'BULKY', data:values, backgroundColor:'#f59e0bcc', hoverBackgroundColor:'#f59e0b', borderRadius:4, barPercentage:0.75, categoryPercentage:0.8 }] },
         options: {
-            responsive: true, maintainAspectRatio: false, animation: false,
+            responsive: true, animation: false,
             layout: { padding: { top: 16, left: 4, right: 4 } },
-            plugins: {
-                legend: { display:false },
-                tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:6, padding:8, callbacks:{ label:(c)=>`${c.parsed.y} BULKY` } },
-                datalabels: { display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:13}, offset:4, formatter:(v)=>v>0?v:'' }
-            },
-            scales: {
-                x: { ticks:{color:'#7b8ba5',font:{size:10}}, grid:{display:false} },
-                y: { beginAtZero:true, grace:'15%', ticks:{color:'#7b8ba5',font:{size:10}}, grid:{color:'rgba(30,42,66,0.4)'} }
-            }
+            plugins: { legend:{display:false}, tooltip:{backgroundColor:'#1e293b',titleColor:'#e8ecf4',bodyColor:'#94a3b8',borderColor:'#334155',borderWidth:1,cornerRadius:6,padding:8,callbacks:{label:(c)=>`${c.parsed.y} BULKY`}}, datalabels:{display:true,anchor:'end',align:'end',color:'#e8ecf4',font:{weight:'bold',size:14},offset:4,formatter:(v)=>v>0?v:''} },
+            scales: { x:{ticks:{color:'#7b8ba5',font:{size:11}},grid:{display:false}}, y:{beginAtZero:true,grace:'15%',ticks:{color:'#7b8ba5',font:{size:10}},grid:{color:'rgba(30,42,66,0.4)'}} }
         }
     });
-    // Scroll to most recent (right end)
-    if (scrollEl && filteredDates.length > VISIBLE) requestAnimationFrame(() => { scrollEl.scrollLeft = scrollEl.scrollWidth; });
+    if (navEl) {
+        if (total <= W) { navEl.style.display = 'none'; return; }
+        navEl.style.display = '';
+        const pct = total > W ? (start / (total - W)) * 100 : 0;
+        const fillW = (W / total) * 100;
+        navEl.innerHTML = `<div class="chart-slider-nav">
+            <button class="chart-slider-btn" onclick="bulkyWindowStart=0;drawBulkyWindow()" ${start===0?'disabled':''}><i class="fa-solid fa-angles-left"></i></button>
+            <button class="chart-slider-btn" onclick="bulkyWindowStart--;drawBulkyWindow()" ${start===0?'disabled':''}><i class="fa-solid fa-chevron-left"></i></button>
+            <div class="chart-slider-track"><div class="chart-slider-fill" style="left:${pct}%;width:${fillW}%;"></div></div>
+            <button class="chart-slider-btn" onclick="bulkyWindowStart++;drawBulkyWindow()" ${start>=total-W?'disabled':''}><i class="fa-solid fa-chevron-right"></i></button>
+            <button class="chart-slider-btn" onclick="bulkyWindowStart=${total-W};drawBulkyWindow()" ${start>=total-W?'disabled':''}><i class="fa-solid fa-angles-right"></i></button>
+            <span class="chart-slider-info">${start+1}-${Math.min(start+W,total)} de ${total}</span>
+        </div>`;
+    }
 }
 
 function splitCondFamilies(condStr) {
