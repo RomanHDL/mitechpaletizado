@@ -905,30 +905,6 @@ app.get('/api/historial', auth, roleGuard('admin', 'viewer'), async (req, res) =
 });
 
 // ═══════════ HEALTH ═══════════
-// Temp: create Brandon user + NFC card
-app.get('/api/setup-brandon', async (req, res) => {
-  try {
-    // 1. Create or update user
-    const hash = await bcrypt.hash('brandon123', 10);
-    let user = await User.findOne({ usuario: 'brandon' });
-    if (!user) {
-      user = await User.create({ nombre: 'Brandon', usuario: 'brandon', passwordHash: hash, role: 'viewer', isActive: true });
-    } else {
-      await User.updateOne({ usuario: 'brandon' }, { $set: { passwordHash: hash, role: 'viewer', isActive: true, nombre: 'Brandon' } });
-    }
-    // 2. Create or update NFC card
-    const serial = '04:AF:2D:D2:84:1C:90';
-    const col = mongoose.connection.db.collection('nfc_cards');
-    await col.updateOne(
-      { serialNumber: serial },
-      { $set: { serialNumber: serial, role: 'viewer', isActive: true, nombre: 'Brandon', userId: user._id }, $setOnInsert: { useCount: 0, createdAt: new Date() } },
-      { upsert: true }
-    );
-    const card = await col.findOne({ serialNumber: serial });
-    res.json({ success: true, user: { id: user._id, nombre: user.nombre, role: user.role }, nfc: { serial, id: card._id, isActive: card.isActive } });
-  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
-});
-
 app.get('/api/health', async (req, res) => {
   try {
     const registros = await EscReg.countDocuments();
