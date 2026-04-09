@@ -2200,23 +2200,38 @@ async function loadResumen() {
         const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
         const datalabelWhite = { display: true, color: '#fff', font: { weight: 'bold', size: 11 }, formatter: (v) => v > 0 ? v : '' };
 
+        // Sort destinos: TRG first, then Almacen, then rest
+        const sortedDest = [...data.porDestino].sort((a,b) => {
+            if (a.destino === 'TRG') return -1; if (b.destino === 'TRG') return 1;
+            if (a.destino === 'Almacen') return -1; if (b.destino === 'Almacen') return 1;
+            return 0;
+        });
+        const destLabels = sortedDest.map(d => d.destino);
+        const destColors = destLabels.map(d => d === 'TRG' ? '#22c55e' : d === 'Almacen' ? '#4f7cff' : '#f59e0b');
+        const dlOpts = { display:true, color:'#fff', font:{weight:'bold',size:14}, textStrokeColor:'rgba(0,0,0,0.18)', textStrokeWidth:2, backgroundColor:'rgba(0,0,0,0.10)', borderRadius:6, padding:{top:3,bottom:3,left:6,right:6}, borderColor:'rgba(255,255,255,0.06)', borderWidth:1, textAlign:'center' };
+
         // ── PIE: Total Real de Pallets (by destino) ──
         if (chartTotalPallets) chartTotalPallets.destroy();
         const tpEl = document.getElementById('total-pallets-center');
         if (tpEl) tpEl.innerHTML = `<span style="font-size:2rem;font-weight:700;color:var(--text-main);">${data.totalRegistros.toLocaleString()}</span><br><span style="font-size:0.75rem;color:var(--text-muted);">pallets totales</span>`;
-        if (data.porDestino.length > 0) {
+        if (sortedDest.length > 0) {
             chartTotalPallets = new Chart(document.getElementById('chart-total-pallets').getContext('2d'), {
                 type: 'doughnut',
                 data: {
-                    labels: data.porDestino.map(d => d.destino),
-                    datasets: [{ data: data.porDestino.map(d => d.registros), backgroundColor: ['#4f7cff','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899'], borderWidth: 2, borderColor: '#0f172a', hoverOffset: 8 }]
+                    labels: destLabels,
+                    datasets: [{ data: sortedDest.map(d => d.registros), backgroundColor: destColors, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 8 }]
                 },
                 options: chartOpts({
                     cutout: '55%',
                     plugins: {
                         legend: { position:'bottom', labels:{color:'#7b8ba5',padding:8,font:{size:13},usePointStyle:true,pointStyle:'circle'} },
                         tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${c.label}: ${c.parsed} pallets` } },
-                        datalabels: { display:true, color:'#fff', font:{weight:'bold',size:14}, textStrokeColor:'rgba(0,0,0,0.18)', textStrokeWidth:2, backgroundColor:'rgba(0,0,0,0.10)', borderRadius:6, padding:{top:3,bottom:3,left:6,right:6}, borderColor:'rgba(255,255,255,0.06)', borderWidth:1, formatter:(v,c)=>{ const t=c.dataset.data.reduce((a,b)=>a+b,0); const p=t>0?Math.round(v/t*100):0; return p>=8?`${v} (${p}%)`:(v>0?v:''); }, textAlign:'center' }
+                        datalabels: { ...dlOpts, formatter:(v,c)=>{ const t=c.dataset.data.reduce((a,b)=>a+b,0); const p=t>0?Math.round(v/t*100):0; return p>=8?`${v} (${p}%)`:(v>0?v:''); } }
+                    },
+                    onClick: (evt, el) => {
+                        if (!el.length || !lastTableData) return;
+                        const dest = destLabels[el[0].index];
+                        openDrillDown(`${dest} — Pallets`, lastTableData.filter(r => r.destino === dest), destColors[el[0].index]);
                     }
                 })
             });
@@ -2226,19 +2241,24 @@ async function loadResumen() {
         if (chartTotalPiezas) chartTotalPiezas.destroy();
         const tzEl = document.getElementById('total-piezas-center');
         if (tzEl) tzEl.innerHTML = `<span style="font-size:2rem;font-weight:700;color:var(--text-main);">${data.totalUnidades.toLocaleString()}</span><br><span style="font-size:0.75rem;color:var(--text-muted);">piezas totales</span>`;
-        if (data.porDestino.length > 0) {
+        if (sortedDest.length > 0) {
             chartTotalPiezas = new Chart(document.getElementById('chart-total-piezas').getContext('2d'), {
                 type: 'doughnut',
                 data: {
-                    labels: data.porDestino.map(d => d.destino),
-                    datasets: [{ data: data.porDestino.map(d => d.unidades), backgroundColor: ['#4f7cff','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899'], borderWidth: 2, borderColor: '#0f172a', hoverOffset: 8 }]
+                    labels: destLabels,
+                    datasets: [{ data: sortedDest.map(d => d.unidades), backgroundColor: destColors, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 8 }]
                 },
                 options: chartOpts({
                     cutout: '55%',
                     plugins: {
                         legend: { position:'bottom', labels:{color:'#7b8ba5',padding:8,font:{size:13},usePointStyle:true,pointStyle:'circle'} },
                         tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${c.label}: ${c.parsed.toLocaleString()} piezas` } },
-                        datalabels: { display:true, color:'#fff', font:{weight:'bold',size:14}, textStrokeColor:'rgba(0,0,0,0.18)', textStrokeWidth:2, backgroundColor:'rgba(0,0,0,0.10)', borderRadius:6, padding:{top:3,bottom:3,left:6,right:6}, borderColor:'rgba(255,255,255,0.06)', borderWidth:1, formatter:(v,c)=>{ const t=c.dataset.data.reduce((a,b)=>a+b,0); const p=t>0?Math.round(v/t*100):0; return p>=8?`${v.toLocaleString()} (${p}%)`:(v>0?v.toLocaleString():''); }, textAlign:'center' }
+                        datalabels: { ...dlOpts, formatter:(v,c)=>{ const t=c.dataset.data.reduce((a,b)=>a+b,0); const p=t>0?Math.round(v/t*100):0; return p>=8?`${v.toLocaleString()} (${p}%)`:(v>0?v.toLocaleString():''); } }
+                    },
+                    onClick: (evt, el) => {
+                        if (!el.length || !lastTableData) return;
+                        const dest = destLabels[el[0].index];
+                        openDrillDown(`${dest} — Piezas`, lastTableData.filter(r => r.destino === dest), destColors[el[0].index]);
                     }
                 })
             });
@@ -2249,17 +2269,23 @@ async function loadResumen() {
         if (data.porEscaneadora.length > 0) {
             const pzLabels = data.porEscaneadora.map(e => e.nombre);
             const pzData = data.porEscaneadora.map(e => e.unidades);
+            const pzColors = COLORS.slice(0, pzLabels.length);
             const ctxPZ = document.getElementById('chart-piezas-pie').getContext('2d');
             chartPiezasPie = new Chart(ctxPZ, {
                 type: 'pie',
-                data: { labels: pzLabels, datasets: [{ data: pzData, backgroundColor: COLORS, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 10 }] },
+                data: { labels: pzLabels, datasets: [{ data: pzData, backgroundColor: pzColors, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 10 }] },
                 options: {
                     responsive: true,
                     animation: false,
                     plugins: {
                         legend: { position:'bottom', labels: { color:'#7b8ba5', padding:10, font:{size:11}, usePointStyle:true, pointStyle:'circle' } },
                         tooltip: { ...tooltipStyle, callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed.toLocaleString()} piezas` } },
-                        datalabels: { display: true, color: '#fff', font: { weight:'bold', size:14 }, textStrokeColor:'rgba(0,0,0,0.18)', textStrokeWidth:2, backgroundColor:'rgba(0,0,0,0.10)', borderRadius:6, padding:{top:3,bottom:3,left:6,right:6}, borderColor:'rgba(255,255,255,0.06)', borderWidth:1, formatter: (v, ctx) => { const total = ctx.dataset.data.reduce((a,b)=>a+b,0); const pct = total > 0 ? Math.round(v/total*100) : 0; return pct >= 5 ? `${v.toLocaleString()}\n(${pct}%)` : ''; }, textAlign:'center' }
+                        datalabels: { ...dlOpts, formatter: (v, ctx) => { const total = ctx.dataset.data.reduce((a,b)=>a+b,0); const pct = total > 0 ? Math.round(v/total*100) : 0; return pct >= 5 ? `${v.toLocaleString()}\n(${pct}%)` : ''; } }
+                    },
+                    onClick: (evt, el) => {
+                        if (!el.length || !lastTableData) return;
+                        const esc = pzLabels[el[0].index];
+                        openDrillDown(`${esc} — Produccion`, lastTableData.filter(r => r.escaneadora === esc), pzColors[el[0].index]);
                     }
                 }
             });
