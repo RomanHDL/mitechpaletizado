@@ -1027,18 +1027,22 @@
                 </div>
             </div>
             <!-- Pedidos Detail Modal -->
-            <div id="pedidos-detail-modal" style="display:none;position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);">
-                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:16px;width:90%;max-width:700px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+            <!-- Drill-down detail modal (reused for all chart clicks) -->
+            <div id="drilldown-modal" style="display:none;position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);">
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:16px;width:92%;max-width:850px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.85rem 1.25rem;border-bottom:1px solid var(--border);">
                         <div style="display:flex;align-items:center;gap:0.6rem;">
-                            <span id="pedidos-detail-dot" style="width:12px;height:12px;border-radius:50%;"></span>
-                            <span id="pedidos-detail-title" style="font-size:1.05rem;font-weight:600;"></span>
+                            <span id="dd-dot" style="width:12px;height:12px;border-radius:50%;"></span>
+                            <span id="dd-title" style="font-size:1rem;font-weight:700;"></span>
+                            <span id="dd-count" style="font-size:0.75rem;color:var(--text-muted);background:rgba(255,255,255,0.05);padding:2px 8px;border-radius:10px;"></span>
                         </div>
-                        <button onclick="closePedidosDetail()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.35rem 0.7rem;color:var(--text-muted);cursor:pointer;font-size:0.85rem;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">
-                            <i class="fa-solid fa-xmark"></i> Cerrar
-                        </button>
+                        <div style="display:flex;gap:0.4rem;align-items:center;">
+                            <input type="text" id="dd-search" placeholder="Buscar pallet..." oninput="filterDrillDown()" style="padding:0.3rem 0.6rem;font-size:0.78rem;width:130px;background:var(--bg-sidebar);border:1px solid var(--border);border-radius:6px;color:var(--text-main);">
+                            <button id="dd-excel-btn" onclick="exportDrillDownExcel()" style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:0.3rem 0.6rem;color:#22c55e;cursor:pointer;font-size:0.75rem;display:none;"><i class="fa-solid fa-file-excel"></i> Excel</button>
+                            <button onclick="closeDrillDown()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;color:var(--text-muted);cursor:pointer;font-size:0.85rem;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
                     </div>
-                    <div id="pedidos-detail-body" style="flex:1;overflow-y:auto;padding:1rem 1.25rem;"></div>
+                    <div id="dd-body" style="flex:1;overflow-y:auto;padding:0.75rem 1rem;overscroll-behavior:contain;"></div>
                 </div>
             </div>
 
@@ -2440,6 +2444,7 @@ function drawPpdWindow() {
     const labels = windowDates.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
     const values = windowDates.map(d => ppdByDate[d] || 0);
 
+    const _ppdWinDates = windowDates.slice(); // capture for click handler
     chartPorHora = new Chart(ctx.getContext('2d'), {
         type: 'bar',
         data: { labels, datasets: [{ label:'Pallets', data:values, backgroundColor:'#4f7cffcc', hoverBackgroundColor:'#4f7cff', borderRadius:4, barPercentage:0.75, categoryPercentage:0.8 }] },
@@ -2447,7 +2452,15 @@ function drawPpdWindow() {
             responsive: true, animation: false,
             layout: { padding: { top: 16, left: 4, right: 4 } },
             plugins: { legend:{display:false}, tooltip:{backgroundColor:'#1e293b',titleColor:'#e8ecf4',bodyColor:'#94a3b8',borderColor:'#334155',borderWidth:1,cornerRadius:6,padding:8}, datalabels:{display:(c)=>c.dataset.data[c.dataIndex]>0,anchor:'end',align:'end',color:'#e8ecf4',font:{weight:'bold',size:14},formatter:(v)=>v>0?v:''} },
-            scales: { x:{ticks:{color:'#7b8ba5',font:{size:11}},grid:{display:false}}, y:{beginAtZero:true,grace:'15%',ticks:{color:'#7b8ba5',font:{size:10}},grid:{color:'rgba(30,42,66,0.4)'}} }
+            scales: { x:{ticks:{color:'#7b8ba5',font:{size:11}},grid:{display:false}}, y:{beginAtZero:true,grace:'15%',ticks:{color:'#7b8ba5',font:{size:10}},grid:{color:'rgba(30,42,66,0.4)'}} },
+            onClick: (evt, elements) => {
+                if (!elements.length) return;
+                const idx = elements[0].index;
+                const fecha = _ppdWinDates[idx];
+                if (!fecha || !lastTableData) return;
+                const recs = lastTableData.filter(r => r.fecha === fecha);
+                openDrillDown(`Pallets — ${fecha}`, recs, '#4f7cff');
+            }
         }
     });
     // Nav controls
@@ -2507,6 +2520,18 @@ function renderDiaNoche() {
             scales: {
                 x: { beginAtZero:true, ticks:{color:'#7b8ba5'}, grid:{color:'rgba(30,42,66,0.4)'} },
                 y: { ticks:{color:'#7b8ba5',font:{size:11}}, grid:{display:false} }
+            },
+            onClick: (evt, elements) => {
+                if (!elements.length || !lastTableData) return;
+                const idx = elements[0].index;
+                const turnoLabel = labels[idx];
+                const isDia = turnoLabel.toLowerCase().includes('día') || turnoLabel.toLowerCase().includes('dia') || turnoLabel.toLowerCase().includes('day');
+                const color = isDia ? '#f59e0b' : '#4f7cff';
+                const recs = lastTableData.filter(r => {
+                    const t = (r.turno||'').toLowerCase();
+                    return isDia ? (t.includes('day') || t.includes('dia') || t.includes('día')) : (t.includes('night') || t.includes('noche'));
+                });
+                openDrillDown(`Turno ${turnoLabel} — ${recs.length} pallets`, recs, color);
             }
         }
     });
@@ -2589,6 +2614,7 @@ function drawBulkyWindow() {
     const labels = windowDates.map(d => { const p = d.split('/'); return p[1]+'/'+p[0]; });
     const values = windowDates.map(d => bulkyByDate[d] || 0);
 
+    const _bulkyWinDates = windowDates.slice();
     chartBulkyDia = new Chart(ctx.getContext('2d'), {
         type: 'bar',
         data: { labels, datasets: [{ label:'BULKY', data:values, backgroundColor:'#f59e0bcc', hoverBackgroundColor:'#f59e0b', borderRadius:4, barPercentage:0.75, categoryPercentage:0.8 }] },
@@ -2596,7 +2622,25 @@ function drawBulkyWindow() {
             responsive: true, animation: false,
             layout: { padding: { top: 16, left: 4, right: 4 } },
             plugins: { legend:{display:false}, tooltip:{backgroundColor:'#1e293b',titleColor:'#e8ecf4',bodyColor:'#94a3b8',borderColor:'#334155',borderWidth:1,cornerRadius:6,padding:8,callbacks:{label:(c)=>`${c.parsed.y} BULKY`}}, datalabels:{display:true,anchor:'end',align:'end',color:'#e8ecf4',font:{weight:'bold',size:14},offset:4,formatter:(v)=>v>0?v:''} },
-            scales: { x:{ticks:{color:'#7b8ba5',font:{size:11}},grid:{display:false}}, y:{beginAtZero:true,grace:'15%',ticks:{color:'#7b8ba5',font:{size:10}},grid:{color:'rgba(30,42,66,0.4)'}} }
+            scales: { x:{ticks:{color:'#7b8ba5',font:{size:11}},grid:{display:false}}, y:{beginAtZero:true,grace:'15%',ticks:{color:'#7b8ba5',font:{size:10}},grid:{color:'rgba(30,42,66,0.4)'}} },
+            onClick: (evt, elements) => {
+                if (!elements.length || !lastTableData) return;
+                const fecha = _bulkyWinDates[elements[0].index];
+                if (!fecha) return;
+                const VALID_TIPOS = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
+                function normT(v) { return (v === 'LPN' || v === '9X7251Z') ? 'BULKY' : v; }
+                const recs = lastTableData.filter(r => {
+                    if (!(r.pedido && r.pedido.trim())) return false;
+                    const f = r.fechaSalida || r.fecha;
+                    if (f !== fecha) return false;
+                    const obs = (r.observaciones||'').trim();
+                    if (obs) { const t = obs.split('|')[0].trim().toUpperCase(); if (VALID_TIPOS.includes(t) && normT(t)==='BULKY') return true; }
+                    const ped = (r.pedido||'').trim().toUpperCase();
+                    if (VALID_TIPOS.includes(ped) && normT(ped)==='BULKY') return true;
+                    return (r.destino||'').toUpperCase() === 'BULKY';
+                });
+                openDrillDown(`BULKY — ${fecha}`, recs, '#f59e0b');
+            }
         }
     });
     if (navEl) {
@@ -3453,48 +3497,7 @@ function renderPedidosChart() {
 }
 
 function showPedidosDetail(tipo, recs, color) {
-    if (!recs.length) return;
-
-    const modal = document.getElementById('pedidos-detail-modal');
-    const body = document.getElementById('pedidos-detail-body');
-    document.getElementById('pedidos-detail-dot').style.background = color;
-    document.getElementById('pedidos-detail-title').textContent = tipo + ' — ' + recs.length + ' pallet' + (recs.length>1?'s':'');
-    document.getElementById('pedidos-detail-title').style.color = color;
-
-    // Group by fecha
-    const byDate = {};
-    recs.forEach(r => {
-        const f = r.fecha || 'Sin fecha';
-        if (!byDate[f]) byDate[f] = [];
-        byDate[f].push(r);
-    });
-    const dates = Object.keys(byDate).sort((a,b) => {
-        const pa = a.split('/'), pb = b.split('/');
-        if (pa.length!==3||pb.length!==3) return 0;
-        return new Date(pb[2],pb[0]-1,pb[1]) - new Date(pa[2],pa[0]-1,pa[1]);
-    });
-
-    if (dates.length === 1) {
-        // Single date — show table directly
-        body.innerHTML = buildPedidoTable(dates[0], byDate[dates[0]], color);
-    } else {
-        // Multiple dates — collapsible list
-        let h = `<div style="margin-bottom:0.75rem;font-size:0.82rem;color:var(--text-muted);">${recs.length} registros en ${dates.length} fechas</div>`;
-        h += dates.map(fecha => {
-            const dr = byDate[fecha];
-            return `<div style="margin-bottom:0.5rem;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
-                <div onclick="togglePedidoDate(this)" style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.9rem;background:var(--bg-sidebar);cursor:pointer;user-select:none;" onmouseover="this.style.background='rgba(79,124,255,0.06)'" onmouseout="this.style.background='var(--bg-sidebar)'">
-                    <span style="font-weight:600;color:var(--text-main);font-size:0.85rem;"><i class="fa-solid fa-calendar-day" style="color:${color};margin-right:5px;font-size:0.8rem;"></i>${fecha} <span style="color:var(--text-muted);font-weight:400;">(${dr.length})</span></span>
-                    <i class="fa-solid fa-chevron-down" style="color:var(--text-muted);font-size:0.65rem;transition:transform 0.2s;"></i>
-                </div>
-                <div style="display:none;">${buildPedidoTable(fecha, dr, color)}</div>
-            </div>`;
-        }).join('');
-        body.innerHTML = h;
-    }
-
-    modal.style.display = 'block';
-    document.body.style.overflow = 'hidden';
+    openDrillDown(tipo, recs, color);
 }
 
 function formatFechaHora(r) {
@@ -3543,9 +3546,73 @@ function togglePedidoDate(header) {
     }
 }
 
-function closePedidosDetail() {
-    document.getElementById('pedidos-detail-modal').style.display = 'none';
+function closePedidosDetail() { closeDrillDown(); }
+
+// ══════════════════════════════════════════════
+// GENERIC DRILL-DOWN (used by all chart clicks)
+// ══════════════════════════════════════════════
+let ddRecords = []; // current drill-down dataset
+function openDrillDown(title, recs, color) {
+    if (!recs || !recs.length) return;
+    ddRecords = recs;
+    const modal = document.getElementById('drilldown-modal');
+    document.getElementById('dd-dot').style.background = color || 'var(--accent)';
+    document.getElementById('dd-title').textContent = title;
+    document.getElementById('dd-title').style.color = color || 'var(--text-main)';
+    document.getElementById('dd-count').textContent = recs.length + ' pallet' + (recs.length>1?'s':'');
+    document.getElementById('dd-search').value = '';
+    if (currentUser && currentUser.role === 'admin') document.getElementById('dd-excel-btn').style.display = '';
+    else document.getElementById('dd-excel-btn').style.display = 'none';
+    renderDrillDownTable(recs, color);
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+}
+function closeDrillDown() {
+    document.getElementById('drilldown-modal').style.display = 'none';
     document.body.style.overflow = '';
+}
+function filterDrillDown() {
+    const q = document.getElementById('dd-search').value.trim().toUpperCase();
+    const filtered = q ? ddRecords.filter(r => (r.palletId||'').toUpperCase().includes(q) || (r.pedido||'').toUpperCase().includes(q) || (r.escaneadora||'').toUpperCase().includes(q)) : ddRecords;
+    document.getElementById('dd-count').textContent = filtered.length + ' pallet' + (filtered.length>1?'s':'');
+    renderDrillDownTable(filtered);
+}
+function renderDrillDownTable(recs, color) {
+    const body = document.getElementById('dd-body');
+    if (!recs.length) { body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);">Sin registros</div>'; return; }
+    const td = 'padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.78rem;white-space:nowrap;';
+    const th = 'padding:0.4rem 0.5rem;text-align:left;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;background:var(--bg-card);z-index:1;';
+    let h = `<table style="width:100%;border-collapse:collapse;"><thead><tr>`;
+    ['Hora','Pallet ID','Cant','Condicion','Destino','Turno','Escaneadora','Pedido','F.Salida'].forEach(c => { h += `<th style="${th}">${c}</th>`; });
+    h += `</tr></thead><tbody>`;
+    recs.forEach((r,i) => {
+        const bg = i%2===0 ? 'background:rgba(255,255,255,0.015);' : '';
+        const hora = r.createdAt ? (() => { const d=new Date(r.createdAt); const p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}`; })() : '-';
+        h += `<tr style="${bg}">`;
+        h += `<td style="${td}">${hora}</td>`;
+        h += `<td style="${td}font-weight:700;font-family:monospace;">${r.palletId}</td>`;
+        h += `<td style="${td}text-align:center;">${r.cantidad}</td>`;
+        h += `<td style="${td}">${r.condicion ? `<span class="badge badge-blue" style="font-size:0.68rem;">${r.condicion}</span>` : '-'}</td>`;
+        h += `<td style="${td}">${r.destino}</td>`;
+        h += `<td style="${td}">${turnoBadge(r.turno)}</td>`;
+        h += `<td style="${td}">${r.escaneadora}</td>`;
+        h += `<td style="${td}">${r.pedido||'-'}</td>`;
+        h += `<td style="${td}color:var(--text-muted);">${r.fechaSalida||'-'}</td>`;
+        h += `</tr>`;
+    });
+    h += `</tbody></table>`;
+    body.innerHTML = h;
+}
+function exportDrillDownExcel() {
+    if (!ddRecords.length) return;
+    const title = document.getElementById('dd-title').textContent;
+    const wb = XLSX.utils.book_new();
+    const cols = ['Fecha','Pallet ID','Cantidad','Condicion','Destino','Turno','Escaneadora','Pedido','Fecha Salida'];
+    const rows = ddRecords.map(r => [r.fecha, r.palletId, r.cantidad, r.condicion||'', r.destino, r.turno, r.escaneadora, r.pedido||'', r.fechaSalida||'']);
+    const ws = XLSX.utils.aoa_to_sheet([cols, ...rows]);
+    ws['!cols'] = cols.map(() => ({ wch: 16 }));
+    XLSX.utils.book_append_sheet(wb, ws, 'Detalle');
+    XLSX.writeFile(wb, `Detalle_${title.replace(/[^a-zA-Z0-9]/g,'_')}.xlsx`);
 }
 
 function renderPedidosHistorial(body, fechaQuery, textoQuery, sourceData) {
