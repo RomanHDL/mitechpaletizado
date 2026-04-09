@@ -3551,19 +3551,20 @@ function closePedidosDetail() { closeDrillDown(); }
 // ══════════════════════════════════════════════
 // GENERIC DRILL-DOWN (used by all chart clicks)
 // ══════════════════════════════════════════════
-let ddRecords = []; // current drill-down dataset
+let ddRecords = [];
+let ddFilters = { esc: '', dest: '', ped: '' }; // active chip filters
 function openDrillDown(title, recs, color) {
     if (!recs || !recs.length) return;
     ddRecords = recs;
+    ddFilters = { esc: '', dest: '', ped: '' };
     const modal = document.getElementById('drilldown-modal');
     document.getElementById('dd-dot').style.background = color || 'var(--accent)';
     document.getElementById('dd-title').textContent = title;
     document.getElementById('dd-title').style.color = color || 'var(--text-main)';
-    document.getElementById('dd-count').textContent = recs.length + ' pallet' + (recs.length>1?'s':'');
     document.getElementById('dd-search').value = '';
     if (currentUser && currentUser.role === 'admin') document.getElementById('dd-excel-btn').style.display = '';
     else document.getElementById('dd-excel-btn').style.display = 'none';
-    renderDrillDownTable(recs, color);
+    renderDrillDown();
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
 }
@@ -3571,21 +3572,78 @@ function closeDrillDown() {
     document.getElementById('drilldown-modal').style.display = 'none';
     document.body.style.overflow = '';
 }
-function filterDrillDown() {
-    const q = document.getElementById('dd-search').value.trim().toUpperCase();
-    const filtered = q ? ddRecords.filter(r => (r.palletId||'').toUpperCase().includes(q) || (r.pedido||'').toUpperCase().includes(q) || (r.escaneadora||'').toUpperCase().includes(q)) : ddRecords;
-    document.getElementById('dd-count').textContent = filtered.length + ' pallet' + (filtered.length>1?'s':'');
-    renderDrillDownTable(filtered);
+function ddSetFilter(type, val) {
+    ddFilters[type] = ddFilters[type] === val ? '' : val; // toggle
+    renderDrillDown();
 }
-function renderDrillDownTable(recs, color) {
+function filterDrillDown() { renderDrillDown(); }
+function ddGetFiltered() {
+    const q = (document.getElementById('dd-search')?.value || '').trim().toUpperCase();
+    let recs = ddRecords;
+    if (ddFilters.esc) recs = recs.filter(r => r.escaneadora === ddFilters.esc);
+    if (ddFilters.dest) recs = recs.filter(r => r.destino === ddFilters.dest);
+    if (ddFilters.ped) recs = recs.filter(r => (r.pedido||'-') === ddFilters.ped);
+    if (q) recs = recs.filter(r => (r.palletId||'').toUpperCase().includes(q) || (r.pedido||'').toUpperCase().includes(q) || (r.escaneadora||'').toUpperCase().includes(q));
+    return recs;
+}
+function renderDrillDown() {
     const body = document.getElementById('dd-body');
-    if (!recs.length) { body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);">Sin registros</div>'; return; }
+    const countEl = document.getElementById('dd-count');
+    // Build segmentation from ALL records (before filter)
+    const byEsc = {}, byDest = {}, byPed = {};
+    ddRecords.forEach(r => {
+        byEsc[r.escaneadora] = (byEsc[r.escaneadora]||0) + 1;
+        byDest[r.destino] = (byDest[r.destino]||0) + 1;
+        const p = r.pedido || '-';
+        byPed[p] = (byPed[p]||0) + 1;
+    });
+    const filtered = ddGetFiltered();
+    countEl.textContent = filtered.length + ' pallet' + (filtered.length>1?'s':'');
+
+    // Chip builder
+    const chipS = 'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:0.72rem;cursor:pointer;transition:all 0.15s;border:1px solid;margin:2px;';
+    function chip(type, val, count, color) {
+        const active = ddFilters[type] === val;
+        const bg = active ? `${color}33` : 'rgba(255,255,255,0.03)';
+        const bc = active ? color : 'rgba(255,255,255,0.08)';
+        const fc = active ? color : 'var(--text-muted)';
+        return `<span onclick="ddSetFilter('${type}','${val.replace(/'/g,"\\'")}')" style="${chipS}background:${bg};border-color:${bc};color:${fc};"><strong style="color:${active?'#fff':fc};">${count}</strong> ${val}</span>`;
+    }
+
+    // Summary section
+    let h = `<div style="display:flex;flex-wrap:wrap;gap:0.6rem;margin-bottom:0.6rem;padding-bottom:0.6rem;border-bottom:1px solid var(--border);">`;
+    // Escaneadoras
+    h += `<div style="flex:1;min-width:180px;"><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600;margin-bottom:0.25rem;"><i class="fa-solid fa-user" style="margin-right:3px;"></i>Escaneadora</div><div style="display:flex;flex-wrap:wrap;">`;
+    Object.entries(byEsc).sort((a,b)=>b[1]-a[1]).forEach(([name,cnt]) => { h += chip('esc', name, cnt, '#4f7cff'); });
+    h += `</div></div>`;
+    // Destinos
+    h += `<div style="min-width:120px;"><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600;margin-bottom:0.25rem;"><i class="fa-solid fa-location-dot" style="margin-right:3px;"></i>Destino</div><div style="display:flex;flex-wrap:wrap;">`;
+    Object.entries(byDest).sort((a,b)=>b[1]-a[1]).forEach(([name,cnt]) => { h += chip('dest', name, cnt, '#22c55e'); });
+    h += `</div></div>`;
+    // Pedidos
+    const pedEntries = Object.entries(byPed).filter(([k])=>k!=='-').sort((a,b)=>b[1]-a[1]);
+    if (pedEntries.length > 0) {
+        h += `<div style="min-width:120px;"><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600;margin-bottom:0.25rem;"><i class="fa-solid fa-boxes-stacked" style="margin-right:3px;"></i>Pedido</div><div style="display:flex;flex-wrap:wrap;">`;
+        pedEntries.forEach(([name,cnt]) => { h += chip('ped', name, cnt, '#f59e0b'); });
+        if (byPed['-']) h += chip('ped', '-', byPed['-'], '#6b7280');
+        h += `</div></div>`;
+    }
+    h += `</div>`;
+
+    // Active filters indicator
+    const activeFilters = [ddFilters.esc, ddFilters.dest, ddFilters.ped].filter(Boolean);
+    if (activeFilters.length) {
+        h += `<div style="margin-bottom:0.5rem;font-size:0.72rem;color:var(--text-muted);display:flex;align-items:center;gap:0.4rem;">Filtrado: <strong style="color:var(--text-main);">${filtered.length}</strong> de ${ddRecords.length} <span onclick="ddFilters={esc:'',dest:'',ped:''};renderDrillDown();" style="cursor:pointer;color:var(--accent);margin-left:0.3rem;text-decoration:underline;">Limpiar filtros</span></div>`;
+    }
+
+    // Table
+    if (!filtered.length) { h += '<div style="text-align:center;padding:1.5rem;color:var(--text-muted);">Sin registros</div>'; body.innerHTML = h; return; }
     const td = 'padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.78rem;white-space:nowrap;';
-    const th = 'padding:0.4rem 0.5rem;text-align:left;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;background:var(--bg-card);z-index:1;';
-    let h = `<table style="width:100%;border-collapse:collapse;"><thead><tr>`;
+    const th = 'padding:0.4rem 0.5rem;text-align:left;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid var(--border);white-space:nowrap;';
+    h += `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>`;
     ['Hora','Pallet ID','Cant','Condicion','Destino','Turno','Escaneadora','Pedido','F.Salida'].forEach(c => { h += `<th style="${th}">${c}</th>`; });
     h += `</tr></thead><tbody>`;
-    recs.forEach((r,i) => {
+    filtered.forEach((r,i) => {
         const bg = i%2===0 ? 'background:rgba(255,255,255,0.015);' : '';
         const hora = r.createdAt ? (() => { const d=new Date(r.createdAt); const p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}`; })() : '-';
         h += `<tr style="${bg}">`;
@@ -3600,15 +3658,16 @@ function renderDrillDownTable(recs, color) {
         h += `<td style="${td}color:var(--text-muted);">${r.fechaSalida||'-'}</td>`;
         h += `</tr>`;
     });
-    h += `</tbody></table>`;
+    h += `</tbody></table></div>`;
     body.innerHTML = h;
 }
 function exportDrillDownExcel() {
-    if (!ddRecords.length) return;
+    const recs = ddGetFiltered();
+    if (!recs.length) return;
     const title = document.getElementById('dd-title').textContent;
     const wb = XLSX.utils.book_new();
     const cols = ['Fecha','Pallet ID','Cantidad','Condicion','Destino','Turno','Escaneadora','Pedido','Fecha Salida'];
-    const rows = ddRecords.map(r => [r.fecha, r.palletId, r.cantidad, r.condicion||'', r.destino, r.turno, r.escaneadora, r.pedido||'', r.fechaSalida||'']);
+    const rows = recs.map(r => [r.fecha, r.palletId, r.cantidad, r.condicion||'', r.destino, r.turno, r.escaneadora, r.pedido||'', r.fechaSalida||'']);
     const ws = XLSX.utils.aoa_to_sheet([cols, ...rows]);
     ws['!cols'] = cols.map(() => ({ wch: 16 }));
     XLSX.utils.book_append_sheet(wb, ws, 'Detalle');
