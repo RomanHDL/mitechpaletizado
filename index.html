@@ -978,9 +978,9 @@
                     <div class="card-title" style="font-size:0.85rem;"><i class="fa-solid fa-clock" style="color:#8b5cf6;"></i> Produccion por Hora</div>
                     <canvas id="chart-por-hora-new" height="140"></canvas>
                 </div>
-                <div class="card">
+                <div class="card" style="display:flex;flex-direction:column;">
                     <div class="card-title" style="font-size:0.85rem;"><i class="fa-solid fa-sun" style="color:#4f7cff;"></i> Dia vs Noche</div>
-                    <div style="position:relative;height:140px;">
+                    <div style="position:relative;flex:1;min-height:160px;">
                         <canvas id="chart-dia-noche" style="max-height:none !important;"></canvas>
                     </div>
                 </div>
@@ -2590,8 +2590,8 @@ function renderDiaNoche() {
         data: {
             labels,
             datasets: [
-                { label: 'Pallets', data: pallets, backgroundColor: bgColors.map(c=>c+'cc'), borderRadius: 4, barPercentage: 0.9, categoryPercentage: 0.8 },
-                { label: 'Piezas', data: piezas, backgroundColor: bgColors.map(c=>c+'66'), borderRadius: 4, barPercentage: 0.9, categoryPercentage: 0.8 }
+                { label: 'Pallets', data: pallets, backgroundColor: bgColors.map(c=>c+'cc'), borderRadius: 5, barPercentage: 0.95, categoryPercentage: 0.7 },
+                { label: 'Piezas', data: piezas, backgroundColor: bgColors.map(c=>c+'55'), borderRadius: 5, barPercentage: 0.95, categoryPercentage: 0.7 }
             ]
         },
         options: {
@@ -2599,15 +2599,15 @@ function renderDiaNoche() {
             maintainAspectRatio: false,
             indexAxis: 'y',
             animation: false,
-            layout: { padding: { right: 40 } },
+            layout: { padding: { right: 50, top: 5, bottom: 5 } },
             plugins: {
-                legend: { display:true, position:'top', align:'end', labels:{color:'#7b8ba5',padding:8,font:{size:9},usePointStyle:true,pointStyle:'rectRounded'} },
+                legend: { display:true, position:'top', align:'end', labels:{color:'#7b8ba5',padding:10,font:{size:11},usePointStyle:true,pointStyle:'rectRounded'} },
                 tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:6, padding:8 },
-                datalabels: { display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:14}, offset:4, formatter:(v)=>v>0?v.toLocaleString():'' }
+                datalabels: { display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:16}, offset:6, formatter:(v)=>v>0?v.toLocaleString():'' }
             },
             scales: {
-                x: { beginAtZero:true, ticks:{color:'#7b8ba5'}, grid:{color:'rgba(30,42,66,0.4)'} },
-                y: { ticks:{color:'#7b8ba5',font:{size:11}}, grid:{display:false} }
+                x: { beginAtZero:true, ticks:{color:'#7b8ba5',font:{size:11}}, grid:{color:'rgba(30,42,66,0.4)'} },
+                y: { ticks:{color:'#e8ecf4',font:{size:13,weight:'bold'}}, grid:{display:false} }
             },
             onClick: (evt, elements) => {
                 if (!elements.length || !lastTableData) return;
