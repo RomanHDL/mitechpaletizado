@@ -1917,6 +1917,7 @@ let fpInstance = null;
 let dashPollTimer = null;
 let currentRecordView = 'grouped';
 let lastTableData = [];
+let lastSalidaData = []; // records shipped today but produced on other days
 let lastResumen = null;
 let searchTimer = null;
 
@@ -2594,7 +2595,8 @@ function renderBulkyPorDia() {
     function fmtShort(d) { return `${d.getDate()}/${d.getMonth()+1}`; }
 
     bulkyByDate = {};
-    lastTableData.forEach(r => { if (!isBulky(r)) return; const f = r.fechaSalida || r.fecha || 'Sin fecha'; bulkyByDate[f] = (bulkyByDate[f]||0)+1; });
+    const bulkyAll = [...(lastTableData||[]), ...(lastSalidaData||[])];
+    bulkyAll.forEach(r => { if (!isBulky(r)) return; const f = r.fechaSalida || r.fecha || 'Sin fecha'; bulkyByDate[f] = (bulkyByDate[f]||0)+1; });
     const allDatesRaw = Object.keys(bulkyByDate).sort((a,b) => { const da=parseDate(a),db=parseDate(b); return da&&db?da-db:0; });
     const globalTotal = allDatesRaw.reduce((s,d) => s+bulkyByDate[d], 0);
     const globalAvg = allDatesRaw.length > 0 ? (globalTotal / allDatesRaw.length).toFixed(1) : 0;
@@ -2976,6 +2978,8 @@ async function loadTableData() {
         const data = await apiFetch(`${API}/api/dashboard/registros?${params}${extra}&limit=2000`);
         if (!data.success) return;
         lastTableData = data.data;
+        // salidaData = records shipped today but produced on other days (for pedido/BULKY only)
+        lastSalidaData = data.salidaData || [];
         // Batch all secondary renders in one requestAnimationFrame
         requestAnimationFrame(() => {
             if (lastResumen) renderCondicionByDate(lastResumen);
@@ -3371,19 +3375,18 @@ function renderPedidosChart() {
     // Clear previous state completely
     if (legendEl) legendEl.innerHTML = '';
 
-    if (!lastTableData || lastTableData.length === 0) {
+    // Combine production + salida records for pedido view
+    const allData = [...(lastTableData||[]), ...(lastSalidaData||[])];
+    if (!allData.length) {
         if (infoEl) infoEl.textContent = 'Sin datos en el rango seleccionado';
         return;
     }
 
-    // Get selected date from pedidos picker (empty = use dashboard filters)
     const fechaSel = (document.getElementById('pedidos-fecha') || {}).value || '';
-
-    // Filter to selected date if any — use fechaSalida for pedido records
-    let source = lastTableData;
+    let source = allData;
     let label = 'Filtro actual';
     if (fechaSel) {
-        source = lastTableData.filter(r => (r.fechaSalida || r.fecha) === fechaSel);
+        source = allData.filter(r => (r.fechaSalida || r.fecha) === fechaSel);
         label = fechaSel;
     }
     const records = source.filter(r => r.pedido && r.pedido.trim());

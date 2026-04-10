@@ -347,11 +347,17 @@ app.get('/api/dashboard/resumen', auth, roleGuard('admin', 'viewer'), async (req
   try {
     const { fecha, fecha_inicio, fecha_fin, escaneadora, turno } = req.query;
     const filter = {};
-    if (fecha) filter.$or = [{ fecha }, { fechaSalida: fecha }];
+    if (fecha) filter.fecha = fecha;
     if (escaneadora) filter.escaneadora = { $regex: escaneadora, $options: 'i' };
     if (turno) filter.turno = { $regex: turno, $options: 'i' };
 
     let registros = await EscReg.find(filter).sort({ createdAt: -1 });
+
+    // Also fetch records that SHIPPED today (fechaSalida match) for pedido charts
+    let salidaRecords = [];
+    if (fecha) {
+      salidaRecords = await EscReg.find({ fechaSalida: fecha, fecha: { $ne: fecha } }).sort({ createdAt: -1 });
+    }
 
     if (!fecha && fecha_inicio && fecha_fin) {
       const start = new Date(fecha_inicio), end = new Date(fecha_fin);
@@ -393,6 +399,7 @@ app.get('/api/dashboard/resumen', auth, roleGuard('admin', 'viewer'), async (req
       registrosHoy: registrosHoyCount,
       totalUnidades,
       fechaHoy: hoyStr,
+      salidaCount: salidaRecords.length,
       porEscaneadora: Object.entries(porEscaneadora).map(([nombre, d]) => ({ nombre, ...d })),
       porTurno: Object.entries(porTurno).map(([turno, d]) => ({ turno, ...d })),
       porDestino: Object.entries(porDestino).map(([destino, d]) => ({ destino, ...d })),
@@ -407,27 +414,17 @@ app.get('/api/dashboard/registros', auth, roleGuard('admin', 'viewer'), async (r
   try {
     const { fecha, fecha_inicio, fecha_fin, escaneadora, turno, busqueda, limit, skip } = req.query;
     const filter = {};
-    // Include records where fecha OR fechaSalida matches (so pedidos shipped today show up)
-    if (fecha) filter.$or = [{ fecha }, { fechaSalida: fecha }];
+    if (fecha) filter.fecha = fecha;
     if (escaneadora) filter.escaneadora = { $regex: escaneadora, $options: 'i' };
     if (turno) filter.turno = { $regex: turno, $options: 'i' };
     if (busqueda) {
-      // When both fecha and busqueda have $or, combine them
-      const searchOr = [
+      filter.$or = [
         { palletId: { $regex: busqueda, $options: 'i' } },
         { escaneadora: { $regex: busqueda, $options: 'i' } },
         { destino: { $regex: busqueda, $options: 'i' } },
         { pedido: { $regex: busqueda, $options: 'i' } },
         { observaciones: { $regex: busqueda, $options: 'i' } },
       ];
-      if (filter.$or) {
-        // fecha $or already set — combine with $and
-        const fechaOr = filter.$or;
-        delete filter.$or;
-        filter.$and = [{ $or: fechaOr }, { $or: searchOr }];
-      } else {
-        filter.$or = searchOr;
-      }
     }
     let query = EscReg.find(filter).sort({ createdAt: -1 });
     if (skip) query = query.skip(parseInt(skip));
@@ -445,8 +442,14 @@ app.get('/api/dashboard/registros', auth, roleGuard('admin', 'viewer'), async (r
       });
     }
 
-    const total = await EscReg.countDocuments(filter);
-    res.json({ success: true, data: registros, total, filteredCount: registros.length });
+    // Also fetch records shipped on this date (for pedido/BULKY charts)
+    let salidaRecords = [];
+    if (fecha) {
+      salidaRecords = await EscReg.find({ fechaSalida: fecha, fecha: { $ne: fecha } }).sort({ createdAt: -1 }).populate('capturadoPor', 'nombre');
+    }
+
+    const total = registros.length;
+    res.json({ success: true, data: registros, salidaData: salidaRecords, total, filteredCount: registros.length });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
