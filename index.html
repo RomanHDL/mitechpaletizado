@@ -972,6 +972,12 @@
                     <div id="bulky-nav" style="display:none;margin-top:0.4rem;"></div>
                 </div>
             </div>
+            <!-- Row: Produccion por Hora (full width) -->
+            <div class="card" style="margin-bottom:1.5rem;">
+                <div class="card-title"><i class="fa-solid fa-clock" style="color:#8b5cf6;"></i> Produccion por Hora</div>
+                <canvas id="chart-por-hora-new" height="160"></canvas>
+            </div>
+
             <!-- Row: Dia vs Noche (full width) -->
             <div class="card" style="margin-bottom:1.5rem;">
                 <div class="card-title"><i class="fa-solid fa-sun" style="color:#4f7cff;"></i> Dia vs Noche</div>
@@ -1906,7 +1912,7 @@ async function handleEscSubmit(e) {
 
 let chartEsc = null, chartDest = null, chartTrend = null, chartTurno = null, chartCond = null;
 let chartPalletsPie = null, chartPiezasPie = null, chartPedidos = null;
-let chartPorHora = null, chartDiaNoche = null, chartBulkyDia = null;
+let chartPorHora = null, chartPorHoraNew = null, chartDiaNoche = null, chartBulkyDia = null;
 let chartTotalPallets = null, chartTotalPiezas = null;
 
 // Register datalabels plugin globally
@@ -2505,6 +2511,63 @@ function drawPpdWindow() {
     }
 }
 
+// ── Produccion por Hora (vertical bar from createdAt) ──
+function renderProduccionPorHora() {
+    if (chartPorHoraNew) { chartPorHoraNew.destroy(); chartPorHoraNew = null; }
+    const ctx = document.getElementById('chart-por-hora-new');
+    if (!ctx || !lastTableData || lastTableData.length === 0) return;
+
+    const hourCounts = new Array(24).fill(0);
+    lastTableData.forEach(r => {
+        if (r.createdAt) { const h = new Date(r.createdAt).getHours(); hourCounts[h]++; }
+    });
+
+    const labels = [], values = [], colors = [];
+    for (let i = 0; i < 24; i++) {
+        if (hourCounts[i] > 0 || (i >= 6 && i <= 22)) {
+            labels.push(i === 0 ? '12am' : i < 12 ? i + 'am' : i === 12 ? '12pm' : (i-12) + 'pm');
+            values.push(hourCounts[i]);
+            colors.push((i >= 7 && i <= 17) ? '#f59e0bcc' : '#8b5cf6cc');
+        }
+    }
+    // Store for drill-down
+    const hourMap = {};
+    lastTableData.forEach(r => {
+        if (!r.createdAt) return;
+        const h = new Date(r.createdAt).getHours();
+        if (!hourMap[h]) hourMap[h] = [];
+        hourMap[h].push(r);
+    });
+    const _visibleHours = [];
+    for (let i = 0; i < 24; i++) { if (hourCounts[i] > 0 || (i >= 6 && i <= 22)) _visibleHours.push(i); }
+
+    chartPorHoraNew = new Chart(ctx.getContext('2d'), {
+        type: 'bar',
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 4, maxBarThickness: 28 }] },
+        options: {
+            responsive: true, animation: false,
+            layout: { padding: { top: 20 } },
+            plugins: {
+                legend: { display: false },
+                tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:6, padding:8 },
+                datalabels: { display:(c)=>c.dataset.data[c.dataIndex]>0, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:13}, formatter:(v)=>v>0?v:'' }
+            },
+            scales: {
+                x: { ticks:{color:'#7b8ba5',font:{size:11}}, grid:{display:false} },
+                y: { beginAtZero:true, grace:'20%', ticks:{color:'#7b8ba5',font:{size:10}}, grid:{color:'rgba(30,42,66,0.4)'} }
+            },
+            onClick: (evt, el) => {
+                if (!el.length) return;
+                const hour = _visibleHours[el[0].index];
+                const recs = hourMap[hour] || [];
+                const ampm = hour === 0 ? '12am' : hour < 12 ? hour+'am' : hour === 12 ? '12pm' : (hour-12)+'pm';
+                const color = (hour >= 7 && hour <= 17) ? '#f59e0b' : '#8b5cf6';
+                openDrillDown(`${ampm} — ${recs.length} pallets`, recs, color);
+            }
+        }
+    });
+}
+
 // ── Dia vs Noche (horizontal grouped bar: pallets + piezas) ──
 function renderDiaNoche() {
     if (chartDiaNoche) { chartDiaNoche.destroy(); chartDiaNoche = null; }
@@ -2984,6 +3047,7 @@ async function loadTableData() {
             renderPedidosChart();
             renderEscaneadoraDetail();
             renderPalletsPorDia();
+            renderProduccionPorHora();
             renderDiaNoche();
             renderBulkyPorDia();
         });
