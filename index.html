@@ -2016,11 +2016,9 @@ async function initRealtime() {
             });
             realtimeReady = true;
             console.log('[RT] Pusher conectado — tiempo real activo');
-            return;
         }
     } catch(e) { console.warn('[RT] Pusher no disponible:', e.message); }
-    // Fallback: polling si Pusher no está configurado
-    console.log('[RT] Usando polling como fallback');
+    // Always run polling to catch Atlas direct edits/deletes
     startPollingFallback();
 }
 

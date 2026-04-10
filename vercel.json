@@ -10,6 +10,7 @@
     { "source": "/api/(.*)", "destination": "/api/index.js" }
   ],
   "headers": [
+    { "source": "/api/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }, { "key": "Pragma", "value": "no-cache" }] },
     { "source": "/sw.js", "headers": [{ "key": "Service-Worker-Allowed", "value": "/" }] },
     { "source": "/manifest.json", "headers": [{ "key": "Content-Type", "value": "application/manifest+json" }] }
   ]
