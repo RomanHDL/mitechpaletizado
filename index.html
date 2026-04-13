@@ -2844,71 +2844,121 @@ function drawBulkyWindow() {
 
 // ── Piezas Paletizadas por Dia (bar chart) ──
 const META_PIEZAS_DIA = 1000;
+
+// Color spectrum: red → orange → yellow → green based on % of meta
+function pzColorForValue(v) {
+    var ratio = Math.min(v / META_PIEZAS_DIA, 1.4);
+    var r, g, b;
+    if (ratio <= 0.5) {
+        // 0-50%: red → orange
+        var t = ratio / 0.5;
+        r = 239; g = Math.round(68 + t * 90); b = 68;
+    } else if (ratio <= 1.0) {
+        // 50-100%: orange → yellow-green
+        var t = (ratio - 0.5) / 0.5;
+        r = Math.round(239 - t * 100); g = Math.round(158 + t * 40); b = Math.round(68 - t * 28);
+    } else {
+        // >=100%: green
+        r = 34; g = 197; b = 94;
+    }
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+
+function pzDatalabelColor(v) {
+    if (v >= META_PIEZAS_DIA) return '#22c55e';
+    if (v >= META_PIEZAS_DIA * 0.7) return '#eab308';
+    return '#ef4444';
+}
+
+// Track previous state to avoid unnecessary redraws
+var _pzLastKey = '';
+
 function renderPiezasPorDia() {
-    const ctx = document.getElementById("chart-piezas-dia");
+    var ctx = document.getElementById("chart-piezas-dia");
     if (!ctx || !lastTableData || lastTableData.length === 0) {
-        const kpi = document.getElementById("pzd-kpi");
-        if (kpi) kpi.innerHTML = "";
+        var kpiEl = document.getElementById("pzd-kpi");
+        if (kpiEl) kpiEl.innerHTML = "";
+        if (chartPiezasDia) { chartPiezasDia.destroy(); chartPiezasDia = null; }
+        _pzLastKey = '';
         return;
     }
-    if (chartPiezasDia) { chartPiezasDia.destroy(); chartPiezasDia = null; }
 
-    const pzByDate = {};
-    lastTableData.forEach(r => {
-        const f = r.fecha || "Sin fecha";
+    var pzByDate = {};
+    lastTableData.forEach(function(r) {
+        var f = r.fecha || "Sin fecha";
         pzByDate[f] = (pzByDate[f] || 0) + (parseInt(r.cantidad) || 0);
     });
 
-    const entries = Object.entries(pzByDate).map(([f, total]) => {
-        const p = f.split("/");
-        const dt = p.length === 3 ? new Date(parseInt(p[2]), parseInt(p[0]) - 1, parseInt(p[1])) : null;
-        return { fecha: f, total, dt };
-    }).filter(e => e.dt).sort((a, b) => a.dt - b.dt);
+    var entries = Object.entries(pzByDate).map(function(pair) {
+        var f = pair[0], total = pair[1];
+        var p = f.split("/");
+        var dt = p.length === 3 ? new Date(parseInt(p[2]), parseInt(p[0]) - 1, parseInt(p[1])) : null;
+        return { fecha: f, total: total, dt: dt };
+    }).filter(function(e) { return e.dt; }).sort(function(a, b) { return a.dt - b.dt; });
 
     if (entries.length === 0) return;
 
-    const sel = document.getElementById("pzd-week-select");
-    const weeks = {};
-    entries.forEach(e => {
-        const d = e.dt;
-        const dow = d.getDay();
-        const mon = new Date(d);
+    var sel = document.getElementById("pzd-week-select");
+    var weeks = {};
+    entries.forEach(function(e) {
+        var d = e.dt;
+        var dow = d.getDay();
+        var mon = new Date(d);
         mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
-        const key = mon.toISOString().slice(0, 10);
+        var key = mon.toISOString().slice(0, 10);
         if (!weeks[key]) weeks[key] = [];
         weeks[key].push(e);
     });
-    const weekKeys = Object.keys(weeks).sort();
-    const curVal = sel.value;
+    var weekKeys = Object.keys(weeks).sort();
+    var curVal = sel.value;
     sel.innerHTML = '<option value="all">Todas</option>';
-    weekKeys.forEach(wk => {
-        const d = new Date(wk + "T00:00:00");
-        const lbl = d.getDate() + "/" + (d.getMonth() + 1) + "/" + d.getFullYear();
+    weekKeys.forEach(function(wk) {
+        var d = new Date(wk + "T00:00:00");
+        var lbl = d.getDate() + "/" + (d.getMonth() + 1) + "/" + d.getFullYear();
         sel.innerHTML += '<option value="' + wk + '">Sem ' + lbl + '</option>';
     });
-    if (curVal && [...sel.options].some(o => o.value === curVal)) sel.value = curVal;
+    if (curVal && Array.from(sel.options).some(function(o) { return o.value === curVal; })) sel.value = curVal;
 
-    let filtered = entries;
+    var filtered = entries;
     if (sel.value !== "all") {
         filtered = weeks[sel.value] || entries;
     }
 
-    const dayNames = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"];
-    const labels = filtered.map(e => dayNames[e.dt.getDay()] + " " + e.dt.getDate() + "/" + (e.dt.getMonth() + 1));
-    const values = filtered.map(e => e.total);
-    const total = values.reduce((a, b) => a + b, 0);
-    const avg = filtered.length > 0 ? Math.round(total / filtered.length) : 0;
-    const diasMeta = values.filter(v => v >= META_PIEZAS_DIA).length;
+    var dayNames = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"];
+    var labels = filtered.map(function(e) { return dayNames[e.dt.getDay()] + " " + e.dt.getDate() + "/" + (e.dt.getMonth() + 1); });
+    var values = filtered.map(function(e) { return e.total; });
+    var total = values.reduce(function(a, b) { return a + b; }, 0);
+    var avg = filtered.length > 0 ? Math.round(total / filtered.length) : 0;
+    var diasMeta = values.filter(function(v) { return v >= META_PIEZAS_DIA; }).length;
 
-    const kpi = document.getElementById("pzd-kpi");
+    var kpi = document.getElementById("pzd-kpi");
     if (kpi) {
         kpi.innerHTML = '<span style="background:#14b8a620;color:#14b8a6;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Total: ' + total.toLocaleString() + ' pz</span>' +
             '<span style="background:#4f7cff20;color:#4f7cff;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Prom: ' + avg.toLocaleString() + ' pz/dia</span>' +
             '<span style="background:#22c55e20;color:#22c55e;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Meta: ' + diasMeta + '/' + filtered.length + ' dias</span>';
     }
 
-    const tooltipStyle = { backgroundColor: "#1e293b", titleColor: "#e8ecf4", bodyColor: "#94a3b8", borderColor: "#334155", borderWidth: 1, cornerRadius: 8, padding: 10 };
-    const barColors = values.map(v => v >= META_PIEZAS_DIA ? "#22c55e" : "#ef4444");
+    var barColors = values.map(function(v) { return pzColorForValue(v); });
+
+    // Build a key to detect if data actually changed
+    var dataKey = labels.join('|') + ':' + values.join('|');
+
+    // If chart exists and data hasn't changed, skip redraw entirely
+    if (chartPiezasDia && _pzLastKey === dataKey) return;
+
+    // If chart exists but data changed, update in-place (no destroy = no flicker)
+    if (chartPiezasDia && _pzLastKey !== dataKey) {
+        chartPiezasDia.data.labels = labels;
+        chartPiezasDia.data.datasets[0].data = values;
+        chartPiezasDia.data.datasets[0].backgroundColor = barColors;
+        chartPiezasDia.update('none'); // 'none' = no animation on update
+        _pzLastKey = dataKey;
+        return;
+    }
+
+    // First render — create chart
+    _pzLastKey = dataKey;
+    var tooltipStyle = { backgroundColor: "#1e293b", titleColor: "#e8ecf4", bodyColor: "#94a3b8", borderColor: "#334155", borderWidth: 1, cornerRadius: 8, padding: 10 };
 
     chartPiezasDia = new Chart(ctx.getContext("2d"), {
         type: "bar",
@@ -2925,42 +2975,42 @@ function renderPiezasPorDia() {
         },
         plugins: [{
             id: "metaLine",
-            afterDraw(chart) {
-                const yScale = chart.scales.y;
-                const xScale = chart.scales.x;
+            afterDraw: function(chart) {
+                var yScale = chart.scales.y;
+                var xScale = chart.scales.x;
                 if (!yScale || !xScale) return;
-                const yPixel = yScale.getPixelForValue(META_PIEZAS_DIA);
+                var yPixel = yScale.getPixelForValue(META_PIEZAS_DIA);
                 if (yPixel < yScale.top || yPixel > yScale.bottom) return;
-                const ctx2 = chart.ctx;
-                ctx2.save();
-                ctx2.beginPath();
-                ctx2.setLineDash([6, 4]);
-                ctx2.strokeStyle = "#22c55e";
-                ctx2.lineWidth = 2;
-                ctx2.moveTo(xScale.left, yPixel);
-                ctx2.lineTo(xScale.right, yPixel);
-                ctx2.stroke();
-                ctx2.fillStyle = "#22c55e";
-                ctx2.font = "bold 10px sans-serif";
-                ctx2.textAlign = "right";
-                ctx2.fillText("Meta " + META_PIEZAS_DIA.toLocaleString(), xScale.right - 4, yPixel - 6);
-                ctx2.restore();
+                var c = chart.ctx;
+                c.save();
+                c.beginPath();
+                c.setLineDash([6, 4]);
+                c.strokeStyle = "#22c55e";
+                c.lineWidth = 2;
+                c.moveTo(xScale.left, yPixel);
+                c.lineTo(xScale.right, yPixel);
+                c.stroke();
+                c.fillStyle = "#22c55e";
+                c.font = "bold 10px sans-serif";
+                c.textAlign = "right";
+                c.fillText("Meta " + META_PIEZAS_DIA.toLocaleString(), xScale.right - 4, yPixel - 6);
+                c.restore();
             }
         }],
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: { duration: 700, easing: "easeOutQuart" },
+            animation: { duration: 600, easing: "easeOutQuart" },
             layout: { padding: { top: 24 } },
             plugins: {
                 legend: { display: false },
                 tooltip: {
                     ...tooltipStyle,
                     callbacks: {
-                        label: (c) => {
-                            const v = c.parsed.y;
-                            const diff = v - META_PIEZAS_DIA;
-                            const sign = diff >= 0 ? "+" : "";
+                        label: function(c) {
+                            var v = c.parsed.y;
+                            var diff = v - META_PIEZAS_DIA;
+                            var sign = diff >= 0 ? "+" : "";
                             return v.toLocaleString() + " piezas (" + sign + diff.toLocaleString() + " vs meta)";
                         }
                     }
@@ -2970,9 +3020,9 @@ function renderPiezasPorDia() {
                     anchor: "end",
                     align: "top",
                     offset: 4,
-                    color: (ctx2) => ctx2.dataset.data[ctx2.dataIndex] >= META_PIEZAS_DIA ? "#22c55e" : "#ef4444",
+                    color: function(ctx2) { return pzDatalabelColor(ctx2.dataset.data[ctx2.dataIndex]); },
                     font: { weight: "700", size: 11 },
-                    formatter: (v) => v > 0 ? v.toLocaleString() : ""
+                    formatter: function(v) { return v > 0 ? v.toLocaleString() : ""; }
                 }
             },
             scales: {
