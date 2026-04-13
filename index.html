@@ -2845,29 +2845,8 @@ function drawBulkyWindow() {
 // ── Piezas Paletizadas por Dia (bar chart) ──
 const META_PIEZAS_DIA = 1000;
 
-// Color spectrum: red → orange → yellow → green based on % of meta
 function pzColorForValue(v) {
-    var ratio = Math.min(v / META_PIEZAS_DIA, 1.4);
-    var r, g, b;
-    if (ratio <= 0.5) {
-        // 0-50%: red → orange
-        var t = ratio / 0.5;
-        r = 239; g = Math.round(68 + t * 90); b = 68;
-    } else if (ratio <= 1.0) {
-        // 50-100%: orange → yellow-green
-        var t = (ratio - 0.5) / 0.5;
-        r = Math.round(239 - t * 100); g = Math.round(158 + t * 40); b = Math.round(68 - t * 28);
-    } else {
-        // >=100%: green
-        r = 34; g = 197; b = 94;
-    }
-    return 'rgb(' + r + ',' + g + ',' + b + ')';
-}
-
-function pzDatalabelColor(v) {
-    if (v >= META_PIEZAS_DIA) return '#22c55e';
-    if (v >= META_PIEZAS_DIA * 0.7) return '#eab308';
-    return '#ef4444';
+    return v >= META_PIEZAS_DIA ? '#22c55e' : '#ef4444';
 }
 
 // Track previous state to avoid unnecessary redraws
@@ -3020,7 +2999,7 @@ function renderPiezasPorDia() {
                     anchor: "end",
                     align: "top",
                     offset: 4,
-                    color: function(ctx2) { return pzDatalabelColor(ctx2.dataset.data[ctx2.dataIndex]); },
+                    color: function(ctx2) { return pzColorForValue(ctx2.dataset.data[ctx2.dataIndex]); },
                     font: { weight: "700", size: 11 },
                     formatter: function(v) { return v > 0 ? v.toLocaleString() : ""; }
                 }
