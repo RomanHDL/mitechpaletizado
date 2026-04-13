@@ -2227,8 +2227,7 @@ async function loadResumen() {
 
         const chartOpts = (extra = {}) => ({
             responsive: true,
-            animation: { duration: 800, easing: 'easeOutQuart' },
-            transitions: { active: { animation: { duration: 200 } } },
+            animation: false,
             ...extra
         });
         const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
@@ -2979,7 +2978,7 @@ function renderPiezasPorDia() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: { duration: 600, easing: "easeOutQuart" },
+            animation: false,
             layout: { padding: { top: 24 } },
             plugins: {
                 legend: { display: false },
@@ -3136,7 +3135,7 @@ function renderCondicionByDate(data) {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: { duration: 700, easing: 'easeOutQuart' },
+                animation: false,
                 interaction: { mode: 'index', intersect: false },
                 layout: { padding: { top: 28, right: 16, left: 8 } },
                 plugins: {
@@ -3262,7 +3261,7 @@ function renderTrendWidget(dateMap) {
             maintainAspectRatio: false,
             indexAxis: 'y',
             layout: { padding: { right: 30 } },
-            animation: { duration: 400 },
+            animation: false,
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: {
@@ -3850,7 +3849,7 @@ function renderPedidosChart() {
             responsive: true,
             maintainAspectRatio: false,
             cutout: '55%',
-            animation: { duration: 300, easing: 'linear' },
+            animation: false,
             layout: { padding: 8 },
             onClick: (evt, elements) => {
                 if (!elements.length) return;
