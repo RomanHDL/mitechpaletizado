@@ -996,11 +996,16 @@
             <!-- Row 5: Condicion + Piezas por Dia -->
             <div class="charts-grid">
             <div class="card" id="row-condicion" style="padding:1rem 1.25rem;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-                    <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-tags"></i> Registros por Condicion</div>
-                    <button class="btn btn-secondary btn-sm" onclick="openHistorial('condicion')" title="Ver historial completo">
-                        <i class="fa-solid fa-clock-rotate-left"></i> Historial
-                    </button>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;flex-wrap:wrap;gap:0.3rem;">
+                    <div class="card-title" style="margin-bottom:0;font-size:0.85rem;"><i class="fa-solid fa-tags"></i> Registros por Condicion</div>
+                    <div style="display:flex;align-items:center;gap:0.4rem;">
+                        <button class="btn btn-secondary btn-sm" onclick="openHistorial('condicion')" title="Ver historial completo" style="padding:0.2rem 0.5rem;font-size:0.72rem;">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </button>
+                        <button class="chart-slider-btn" id="cond-prev" onclick="condWeekNav(-1)" title="Semana anterior"><i class="fa-solid fa-chevron-left"></i></button>
+                        <span id="cond-week-label" style="font-size:0.72rem;color:var(--text-muted);min-width:90px;text-align:center;"></span>
+                        <button class="chart-slider-btn" id="cond-next" onclick="condWeekNav(1)" title="Semana siguiente"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
                 </div>
                 <div id="condicion-by-date-container">
                     <canvas id="chart-condicion" height="200"></canvas>
@@ -2774,6 +2779,7 @@ function drawBulkyWindow() {
 
 
 // ── Piezas Paletizadas por Dia (bar chart) ──
+const META_PIEZAS_DIA = 1000;
 function renderPiezasPorDia() {
     const ctx = document.getElementById("chart-piezas-dia");
     if (!ctx || !lastTableData || lastTableData.length === 0) {
@@ -2783,14 +2789,12 @@ function renderPiezasPorDia() {
     }
     if (chartPiezasDia) { chartPiezasDia.destroy(); chartPiezasDia = null; }
 
-    // Aggregate cantidad by fecha
     const pzByDate = {};
     lastTableData.forEach(r => {
         const f = r.fecha || "Sin fecha";
         pzByDate[f] = (pzByDate[f] || 0) + (parseInt(r.cantidad) || 0);
     });
 
-    // Parse and sort dates
     const entries = Object.entries(pzByDate).map(([f, total]) => {
         const p = f.split("/");
         const dt = p.length === 3 ? new Date(parseInt(p[2]), parseInt(p[0]) - 1, parseInt(p[1])) : null;
@@ -2799,7 +2803,6 @@ function renderPiezasPorDia() {
 
     if (entries.length === 0) return;
 
-    // Build week selector
     const sel = document.getElementById("pzd-week-select");
     const weeks = {};
     entries.forEach(e => {
@@ -2821,7 +2824,6 @@ function renderPiezasPorDia() {
     });
     if (curVal && [...sel.options].some(o => o.value === curVal)) sel.value = curVal;
 
-    // Filter by selected week
     let filtered = entries;
     if (sel.value !== "all") {
         filtered = weeks[sel.value] || entries;
@@ -2832,18 +2834,17 @@ function renderPiezasPorDia() {
     const values = filtered.map(e => e.total);
     const total = values.reduce((a, b) => a + b, 0);
     const avg = filtered.length > 0 ? Math.round(total / filtered.length) : 0;
-    const max = Math.max(...values);
-    const maxDay = filtered[values.indexOf(max)];
+    const diasMeta = values.filter(v => v >= META_PIEZAS_DIA).length;
 
-    // KPI badges
     const kpi = document.getElementById("pzd-kpi");
     if (kpi) {
         kpi.innerHTML = '<span style="background:#14b8a620;color:#14b8a6;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Total: ' + total.toLocaleString() + ' pz</span>' +
             '<span style="background:#4f7cff20;color:#4f7cff;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Prom: ' + avg.toLocaleString() + ' pz/dia</span>' +
-            (maxDay ? '<span style="background:#f59e0b20;color:#f59e0b;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Max: ' + max.toLocaleString() + ' pz (' + dayNames[maxDay.dt.getDay()] + ')</span>' : "");
+            '<span style="background:#22c55e20;color:#22c55e;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Meta: ' + diasMeta + '/' + filtered.length + ' dias</span>';
     }
 
     const tooltipStyle = { backgroundColor: "#1e293b", titleColor: "#e8ecf4", bodyColor: "#94a3b8", borderColor: "#334155", borderWidth: 1, cornerRadius: 8, padding: 10 };
+    const barColors = values.map(v => v >= META_PIEZAS_DIA ? "#22c55e" : "#ef4444");
 
     chartPiezasDia = new Chart(ctx.getContext("2d"), {
         type: "bar",
@@ -2852,12 +2853,36 @@ function renderPiezasPorDia() {
             datasets: [{
                 label: "Piezas",
                 data: values,
-                backgroundColor: values.map(v => v === max ? "#14b8a6" : "#14b8a680"),
+                backgroundColor: barColors,
                 borderRadius: 6,
                 borderSkipped: false,
                 maxBarThickness: 36
             }]
         },
+        plugins: [{
+            id: "metaLine",
+            afterDraw(chart) {
+                const yScale = chart.scales.y;
+                const xScale = chart.scales.x;
+                if (!yScale || !xScale) return;
+                const yPixel = yScale.getPixelForValue(META_PIEZAS_DIA);
+                if (yPixel < yScale.top || yPixel > yScale.bottom) return;
+                const ctx2 = chart.ctx;
+                ctx2.save();
+                ctx2.beginPath();
+                ctx2.setLineDash([6, 4]);
+                ctx2.strokeStyle = "#22c55e";
+                ctx2.lineWidth = 2;
+                ctx2.moveTo(xScale.left, yPixel);
+                ctx2.lineTo(xScale.right, yPixel);
+                ctx2.stroke();
+                ctx2.fillStyle = "#22c55e";
+                ctx2.font = "bold 10px sans-serif";
+                ctx2.textAlign = "right";
+                ctx2.fillText("Meta " + META_PIEZAS_DIA.toLocaleString(), xScale.right - 4, yPixel - 6);
+                ctx2.restore();
+            }
+        }],
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -2865,14 +2890,24 @@ function renderPiezasPorDia() {
             layout: { padding: { top: 24 } },
             plugins: {
                 legend: { display: false },
-                tooltip: { ...tooltipStyle, callbacks: { label: (c) => c.parsed.y.toLocaleString() + " piezas" } },
+                tooltip: {
+                    ...tooltipStyle,
+                    callbacks: {
+                        label: (c) => {
+                            const v = c.parsed.y;
+                            const diff = v - META_PIEZAS_DIA;
+                            const sign = diff >= 0 ? "+" : "";
+                            return v.toLocaleString() + " piezas (" + sign + diff.toLocaleString() + " vs meta)";
+                        }
+                    }
+                },
                 datalabels: {
                     display: true,
                     anchor: "end",
                     align: "top",
                     offset: 4,
-                    color: "#e8ecf4",
-                    font: { weight: "600", size: 10 },
+                    color: (ctx2) => ctx2.dataset.data[ctx2.dataIndex] >= META_PIEZAS_DIA ? "#22c55e" : "#ef4444",
+                    font: { weight: "700", size: 11 },
                     formatter: (v) => v > 0 ? v.toLocaleString() : ""
                 }
             },
@@ -2892,6 +2927,14 @@ function splitCondFamilies(condStr) {
     }).filter(Boolean);
 }
 
+let condWeekOffset = 0;
+let condWeekKeys = [];
+
+function condWeekNav(dir) {
+    condWeekOffset += dir;
+    if (lastResumen) renderCondicionByDate(lastResumen);
+}
+
 function renderCondicionByDate(data) {
     const container = document.getElementById('condicion-by-date-container');
     if (chartCond) { chartCond.destroy(); chartCond = null; }
@@ -2902,10 +2945,8 @@ function renderCondicionByDate(data) {
     }
 
     if (lastTableData && lastTableData.length > 0) {
-        // ── Count by INDIVIDUAL family per date ──
-        // "GRA, GRB, GRC" → +1 GRA, +1 GRB, +1 GRC
-        const dateFamilyMap = {};  // { "3/20/2026": { GRA:3, GRB:5, ... } }
-        const familyTotals = {};   // { GRA: 10, GRB: 15, ... }
+        const dateFamilyMap = {};
+        const familyTotals = {};
 
         lastTableData.forEach(r => {
             const fecha = r.fecha || 'Sin fecha';
@@ -2919,10 +2960,8 @@ function renderCondicionByDate(data) {
             });
         });
 
-        // Sorted family names (most frequent first)
         const allFamilies = Object.keys(familyTotals).sort((a,b) => familyTotals[b] - familyTotals[a]);
 
-        // Fixed color per family
         const familyColorMap = {
             'GRA': '#f59e0b', 'GRB': '#4f7cff', 'GRC': '#22c55e',
             'BOX': '#ef4444', 'ICB': '#8b5cf6', 'ICC': '#ec4899',
@@ -2930,40 +2969,61 @@ function renderCondicionByDate(data) {
         };
         const getFamilyColor = (fam) => familyColorMap[fam] || COLORS[allFamilies.indexOf(fam) % COLORS.length];
 
-        // ── Build Mon-Sun week axis ──
         const allDates = Object.keys(dateFamilyMap).map(f => {
             const p = f.split('/');
             return p.length === 3 ? new Date(parseInt(p[2]), parseInt(p[0])-1, parseInt(p[1])) : null;
         }).filter(Boolean).sort((a,b) => a-b);
 
-        const dayNames = ['Lun','Mar','Mie','Jue','Vie','Sab','Dom'];
-        const lastDate = allDates[allDates.length - 1] || new Date();
-        const dow = lastDate.getDay();
-        const monday = new Date(lastDate);
-        monday.setDate(lastDate.getDate() + (dow === 0 ? -6 : 1 - dow));
-        monday.setHours(0,0,0,0);
+        if (allDates.length === 0) return;
 
+        const weekMap = {};
+        allDates.forEach(d => {
+            const dow = d.getDay();
+            const mon = new Date(d);
+            mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+            mon.setHours(0,0,0,0);
+            const key = mon.toISOString().slice(0, 10);
+            if (!weekMap[key]) weekMap[key] = mon;
+        });
+        condWeekKeys = Object.keys(weekMap).sort();
+
+        const maxIdx = condWeekKeys.length - 1;
+        if (condWeekOffset > 0) condWeekOffset = 0;
+        if (condWeekOffset < -maxIdx) condWeekOffset = -maxIdx;
+
+        const currentWeekIdx = maxIdx + condWeekOffset;
+        const mondayKey = condWeekKeys[currentWeekIdx];
+        const monday = new Date(mondayKey + 'T00:00:00');
+
+        const prevBtn = document.getElementById('cond-prev');
+        const nextBtn = document.getElementById('cond-next');
+        const label = document.getElementById('cond-week-label');
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        if (label) label.textContent = monday.getDate() + '/' + (monday.getMonth()+1) + ' - ' + sunday.getDate() + '/' + (sunday.getMonth()+1);
+        if (prevBtn) prevBtn.disabled = (currentWeekIdx <= 0);
+        if (nextBtn) nextBtn.disabled = (condWeekOffset >= 0);
+
+        const dayNames = ['Lun','Mar','Mie','Jue','Vie','Sab','Dom'];
         const weekDates = [], weekLabels = [];
         for (let i = 0; i < 7; i++) {
             const d = new Date(monday);
             d.setDate(monday.getDate() + i);
-            weekDates.push(`${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`);
-            weekLabels.push(`${dayNames[i]} ${d.getDate()}/${d.getMonth()+1}`);
+            weekDates.push(String(d.getMonth()+1) + '/' + String(d.getDate()) + '/' + String(d.getFullYear()));
+            weekLabels.push(dayNames[i] + ' ' + d.getDate() + '/' + (d.getMonth()+1));
         }
 
         const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
 
-        // ── HTML: chart only (badges live in Historial modal) ──
         let html = '<div style="position:relative;height:280px;"><canvas id="chart-cond-week"></canvas></div>';
         container.innerHTML = html;
 
-        // ── Render area chart with individual families ──
         const ctx = document.getElementById('chart-cond-week').getContext('2d');
         const datasets = allFamilies.map(fam => {
             const color = getFamilyColor(fam);
             return {
                 label: fam,
-                data: weekDates.map(f => dateFamilyMap[f]?.[fam] || 0),
+                data: weekDates.map(f => dateFamilyMap[f] && dateFamilyMap[f][fam] ? dateFamilyMap[f][fam] : 0),
                 borderColor: color,
                 backgroundColor: color + '20',
                 fill: true,
@@ -2979,7 +3039,7 @@ function renderCondicionByDate(data) {
 
         chartCond = new Chart(ctx, {
             type: 'line',
-            data: { labels: weekLabels, datasets },
+            data: { labels: weekLabels, datasets: datasets },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -2988,24 +3048,21 @@ function renderCondicionByDate(data) {
                 layout: { padding: { top: 28, right: 16, left: 8 } },
                 plugins: {
                     legend: { position:'bottom', labels:{ color:'#7b8ba5', padding:12, font:{size:11}, usePointStyle:true, pointStyle:'circle' } },
-                    tooltip: { ...tooltipStyle, mode:'index', intersect:false, enabled:true },
+                    tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10, mode:'index', intersect:false, enabled:true },
                     datalabels: {
-                        display: (ctx) => {
-                            // Hide label if value is 0 or if too many overlapping points
-                            const v = ctx.dataset.data[ctx.dataIndex];
+                        display: function(ctx) {
+                            var v = ctx.dataset.data[ctx.dataIndex];
                             if (v <= 0) return false;
-                            // Check if another dataset has a value within 2 units at same index
-                            const allVals = ctx.chart.data.datasets.map(ds => ds.data[ctx.dataIndex]).filter(x => x > 0).sort((a,b) => a-b);
-                            const idx = allVals.indexOf(v);
+                            var allVals = ctx.chart.data.datasets.map(function(ds) { return ds.data[ctx.dataIndex]; }).filter(function(x) { return x > 0; }).sort(function(a,b) { return a-b; });
+                            var idx = allVals.indexOf(v);
                             if (idx > 0 && Math.abs(allVals[idx] - allVals[idx-1]) <= 1) {
-                                // Only show for the highest value to avoid overlap
                                 return v >= allVals[allVals.length - 1];
                             }
                             return true;
                         },
                         anchor:'end', align:'top', offset:8,
                         color:'#e8ecf4', font:{weight:'600',size:10},
-                        formatter:(v)=>v>0?v:'',
+                        formatter: function(v) { return v > 0 ? v : ''; },
                         clamp: true, clip: false
                     }
                 },
@@ -3017,28 +3074,28 @@ function renderCondicionByDate(data) {
         });
 
     } else {
-        // Fallback when no table data yet
         container.innerHTML = '<canvas id="chart-condicion" height="200"></canvas>';
-        const newCtx = document.getElementById('chart-condicion').getContext('2d');
+        var newCtx = document.getElementById('chart-condicion').getContext('2d');
         chartCond = new Chart(newCtx, {
             type: 'bar',
             data: {
-                labels: data.porCondicion.map(c => c.condicion),
+                labels: data.porCondicion.map(function(c) { return c.condicion; }),
                 datasets: [{
                     label: 'Registros',
-                    data: data.porCondicion.map(c => c.total),
-                    backgroundColor: data.porCondicion.map((_, i) => COLORS[i % COLORS.length] + 'cc'),
+                    data: data.porCondicion.map(function(c) { return c.total; }),
+                    backgroundColor: data.porCondicion.map(function(_, i) { return COLORS[i % COLORS.length] + 'cc'; }),
                     borderRadius: 4, borderSkipped: false, maxBarThickness: 28,
                 }]
             },
             options: {
                 responsive: true, indexAxis:'y',
-                plugins: { legend:{display:false}, tooltip:{ backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 }, datalabels:{ display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:15}, formatter:(v)=>v>0?v:'' } },
+                plugins: { legend:{display:false}, tooltip:{ backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 }, datalabels:{ display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:15}, formatter: function(v) { return v > 0 ? v : ''; } } },
                 scales: { x:{beginAtZero:true,ticks:{color:'#7b8ba5'},grid:{color:'rgba(30,42,66,0.5)'}}, y:{ticks:{color:'#7b8ba5'},grid:{display:false}} }
             }
         });
     }
 }
+
 
 let trendCache = null;
 
