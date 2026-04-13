@@ -2547,16 +2547,22 @@ function renderProduccionPorHora() {
     if (!ctx || !lastTableData || lastTableData.length === 0) return;
 
     const hourCounts = new Array(24).fill(0);
+    const hourPiezas = new Array(24).fill(0);
     lastTableData.forEach(r => {
-        if (r.createdAt) { const h = new Date(r.createdAt).getHours(); hourCounts[h]++; }
+        if (r.createdAt) {
+            const h = new Date(r.createdAt).getHours();
+            hourCounts[h]++;
+            hourPiezas[h] += (parseInt(r.cantidad) || 0);
+        }
     });
 
-    const labels = [], values = [], colors = [];
+    const labels = [], palletVals = [], piezaVals = [], barColors = [];
     for (let i = 0; i < 24; i++) {
         if (hourCounts[i] > 0 || (i >= 6 && i <= 22)) {
             labels.push(i === 0 ? '12am' : i < 12 ? i + 'am' : i === 12 ? '12pm' : (i-12) + 'pm');
-            values.push(hourCounts[i]);
-            colors.push((i >= 7 && i <= 17) ? '#f59e0bcc' : '#8b5cf6cc');
+            palletVals.push(hourCounts[i]);
+            piezaVals.push(hourPiezas[i]);
+            barColors.push((i >= 7 && i <= 17) ? '#f59e0bcc' : '#8b5cf6cc');
         }
     }
     // Store for drill-down
@@ -2572,18 +2578,79 @@ function renderProduccionPorHora() {
 
     chartPorHoraNew = new Chart(ctx.getContext('2d'), {
         type: 'bar',
-        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 4, maxBarThickness: 28 }] },
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Pallets',
+                    data: palletVals,
+                    backgroundColor: barColors,
+                    borderRadius: 4,
+                    maxBarThickness: 28,
+                    yAxisID: 'y',
+                    order: 2
+                },
+                {
+                    label: 'Piezas',
+                    data: piezaVals,
+                    type: 'line',
+                    borderColor: '#14b8a6',
+                    backgroundColor: '#14b8a620',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#14b8a6',
+                    pointBorderColor: '#0f172a',
+                    pointBorderWidth: 1,
+                    pointHoverRadius: 5,
+                    tension: 0.3,
+                    fill: true,
+                    yAxisID: 'y1',
+                    order: 1
+                }
+            ]
+        },
         options: {
             responsive: true, animation: false,
             layout: { padding: { top: 20 } },
+            interaction: { mode: "index", intersect: false },
             plugins: {
-                legend: { display: false },
-                tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:6, padding:8 },
-                datalabels: { display:(c)=>c.dataset.data[c.dataIndex]>0, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:13}, formatter:(v)=>v>0?v:'' }
+                legend: { position:'bottom', labels:{ color:'#7b8ba5', padding:8, font:{size:10}, usePointStyle:true, pointStyle:'circle' } },
+                tooltip: {
+                    backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:6, padding:8,
+                    mode:'index', intersect:false,
+                    callbacks: {
+                        label: function(c) {
+                            if (c.dataset.label === 'Piezas') return c.dataset.label + ': ' + c.parsed.y.toLocaleString() + ' pz';
+                            return c.dataset.label + ': ' + c.parsed.y;
+                        }
+                    }
+                },
+                datalabels: {
+                    display: function(c) {
+                        if (c.dataset.label === 'Piezas') return false;
+                        return c.dataset.data[c.dataIndex] > 0;
+                    },
+                    anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:11}, formatter: function(v) { return v > 0 ? v : ''; }
+                }
             },
             scales: {
-                x: { ticks:{color:'#7b8ba5',font:{size:11}}, grid:{display:false} },
-                y: { beginAtZero:true, grace:'20%', ticks:{color:'#7b8ba5',font:{size:10}}, grid:{color:'rgba(30,42,66,0.4)'} }
+                x: { ticks:{color:'#7b8ba5',font:{size:10}}, grid:{display:false} },
+                y: {
+                    position: 'left',
+                    beginAtZero: true,
+                    grace: '20%',
+                    title: { display: true, text: 'Pallets', color: '#f59e0b', font: { size: 10 } },
+                    ticks: { color:'#f59e0b', font:{size:9} },
+                    grid: { color:'rgba(30,42,66,0.4)' }
+                },
+                y1: {
+                    position: 'right',
+                    beginAtZero: true,
+                    grace: '20%',
+                    title: { display: true, text: 'Piezas', color: '#14b8a6', font: { size: 10 } },
+                    ticks: { color:'#14b8a6', font:{size:9} },
+                    grid: { drawOnChartArea: false }
+                }
             },
             onClick: (evt, el) => {
                 if (!el.length) return;
@@ -2591,7 +2658,8 @@ function renderProduccionPorHora() {
                 const recs = hourMap[hour] || [];
                 const ampm = hour === 0 ? '12am' : hour < 12 ? hour+'am' : hour === 12 ? '12pm' : (hour-12)+'pm';
                 const color = (hour >= 7 && hour <= 17) ? '#f59e0b' : '#8b5cf6';
-                openDrillDown(`${ampm} — ${recs.length} pallets`, recs, color);
+                const totalPz = recs.reduce(function(sum, r) { return sum + (parseInt(r.cantidad) || 0); }, 0);
+                openDrillDown(ampm + ' — ' + recs.length + ' pallets, ' + totalPz.toLocaleString() + ' pz', recs, color);
             }
         }
     });
