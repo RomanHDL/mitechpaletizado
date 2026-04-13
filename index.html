@@ -993,8 +993,9 @@
                 <div id="trend-chart-wrap"><canvas id="chart-tendencia"></canvas></div>
             </div>
 
-            <!-- Row 5: Condicion -->
-            <div class="card" id="row-condicion" style="margin-bottom:1.5rem;padding:1rem 1.25rem;">
+            <!-- Row 5: Condicion + Piezas por Dia -->
+            <div class="charts-grid">
+            <div class="card" id="row-condicion" style="padding:1rem 1.25rem;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                     <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-tags"></i> Registros por Condicion</div>
                     <button class="btn btn-secondary btn-sm" onclick="openHistorial('condicion')" title="Ver historial completo">
@@ -1005,6 +1006,29 @@
                     <canvas id="chart-condicion" height="200"></canvas>
                 </div>
             </div>
+            <div class="card" style="padding:1rem 1.25rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;flex-wrap:wrap;gap:0.3rem;">
+                    <div class="card-title" style="margin-bottom:0;font-size:0.85rem;"><i class="fa-solid fa-cubes" style="color:#14b8a6;"></i> Piezas Paletizadas por Dia</div>
+                    <select class="form-input" id="pzd-week-select" onchange="renderPiezasPorDia()" style="padding:0.2rem 0.4rem;font-size:0.72rem;width:auto;min-width:120px;">
+                        <option value="all">Todas</option>
+                    </select>
+                </div>
+                <div id="pzd-kpi" style="display:flex;gap:0.4rem;margin-bottom:0.4rem;flex-wrap:wrap;"></div>
+                <canvas id="chart-piezas-dia" height="200"></canvas>
+            </div>
+            </div>
+
+
+
+
+
+
+
+
+
+
+
+
 
             <!-- Records: hidden containers for data (used by historial modal) -->
             <div style="display:none;">
@@ -1912,7 +1936,7 @@ async function handleEscSubmit(e) {
 
 let chartEsc = null, chartDest = null, chartTrend = null, chartTurno = null, chartCond = null;
 let chartPalletsPie = null, chartPiezasPie = null, chartPedidos = null;
-let chartPorHora = null, chartPorHoraNew = null, chartDiaNoche = null, chartBulkyDia = null;
+let chartPorHora = null, chartPorHoraNew = null, chartDiaNoche = null, chartBulkyDia = null, chartPiezasDia = null;
 let chartTotalPallets = null, chartTotalPiezas = null;
 
 // Register datalabels plugin globally
@@ -2748,6 +2772,118 @@ function drawBulkyWindow() {
     }
 }
 
+
+// ── Piezas Paletizadas por Dia (bar chart) ──
+function renderPiezasPorDia() {
+    const ctx = document.getElementById("chart-piezas-dia");
+    if (!ctx || !lastTableData || lastTableData.length === 0) {
+        const kpi = document.getElementById("pzd-kpi");
+        if (kpi) kpi.innerHTML = "";
+        return;
+    }
+    if (chartPiezasDia) { chartPiezasDia.destroy(); chartPiezasDia = null; }
+
+    // Aggregate cantidad by fecha
+    const pzByDate = {};
+    lastTableData.forEach(r => {
+        const f = r.fecha || "Sin fecha";
+        pzByDate[f] = (pzByDate[f] || 0) + (parseInt(r.cantidad) || 0);
+    });
+
+    // Parse and sort dates
+    const entries = Object.entries(pzByDate).map(([f, total]) => {
+        const p = f.split("/");
+        const dt = p.length === 3 ? new Date(parseInt(p[2]), parseInt(p[0]) - 1, parseInt(p[1])) : null;
+        return { fecha: f, total, dt };
+    }).filter(e => e.dt).sort((a, b) => a.dt - b.dt);
+
+    if (entries.length === 0) return;
+
+    // Build week selector
+    const sel = document.getElementById("pzd-week-select");
+    const weeks = {};
+    entries.forEach(e => {
+        const d = e.dt;
+        const dow = d.getDay();
+        const mon = new Date(d);
+        mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+        const key = mon.toISOString().slice(0, 10);
+        if (!weeks[key]) weeks[key] = [];
+        weeks[key].push(e);
+    });
+    const weekKeys = Object.keys(weeks).sort();
+    const curVal = sel.value;
+    sel.innerHTML = '<option value="all">Todas</option>';
+    weekKeys.forEach(wk => {
+        const d = new Date(wk + "T00:00:00");
+        const lbl = d.getDate() + "/" + (d.getMonth() + 1) + "/" + d.getFullYear();
+        sel.innerHTML += '<option value="' + wk + '">Sem ' + lbl + '</option>';
+    });
+    if (curVal && [...sel.options].some(o => o.value === curVal)) sel.value = curVal;
+
+    // Filter by selected week
+    let filtered = entries;
+    if (sel.value !== "all") {
+        filtered = weeks[sel.value] || entries;
+    }
+
+    const dayNames = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"];
+    const labels = filtered.map(e => dayNames[e.dt.getDay()] + " " + e.dt.getDate() + "/" + (e.dt.getMonth() + 1));
+    const values = filtered.map(e => e.total);
+    const total = values.reduce((a, b) => a + b, 0);
+    const avg = filtered.length > 0 ? Math.round(total / filtered.length) : 0;
+    const max = Math.max(...values);
+    const maxDay = filtered[values.indexOf(max)];
+
+    // KPI badges
+    const kpi = document.getElementById("pzd-kpi");
+    if (kpi) {
+        kpi.innerHTML = '<span style="background:#14b8a620;color:#14b8a6;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Total: ' + total.toLocaleString() + ' pz</span>' +
+            '<span style="background:#4f7cff20;color:#4f7cff;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Prom: ' + avg.toLocaleString() + ' pz/dia</span>' +
+            (maxDay ? '<span style="background:#f59e0b20;color:#f59e0b;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Max: ' + max.toLocaleString() + ' pz (' + dayNames[maxDay.dt.getDay()] + ')</span>' : "");
+    }
+
+    const tooltipStyle = { backgroundColor: "#1e293b", titleColor: "#e8ecf4", bodyColor: "#94a3b8", borderColor: "#334155", borderWidth: 1, cornerRadius: 8, padding: 10 };
+
+    chartPiezasDia = new Chart(ctx.getContext("2d"), {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Piezas",
+                data: values,
+                backgroundColor: values.map(v => v === max ? "#14b8a6" : "#14b8a680"),
+                borderRadius: 6,
+                borderSkipped: false,
+                maxBarThickness: 36
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 700, easing: "easeOutQuart" },
+            layout: { padding: { top: 24 } },
+            plugins: {
+                legend: { display: false },
+                tooltip: { ...tooltipStyle, callbacks: { label: (c) => c.parsed.y.toLocaleString() + " piezas" } },
+                datalabels: {
+                    display: true,
+                    anchor: "end",
+                    align: "top",
+                    offset: 4,
+                    color: "#e8ecf4",
+                    font: { weight: "600", size: 10 },
+                    formatter: (v) => v > 0 ? v.toLocaleString() : ""
+                }
+            },
+            scales: {
+                x: { ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { display: false } },
+                y: { beginAtZero: true, grace: "15%", ticks: { color: "#7b8ba5", font: { size: 10 } }, grid: { color: "rgba(30,42,66,0.4)" } }
+            }
+        }
+    });
+}
+
 function splitCondFamilies(condStr) {
     if (!condStr || condStr === 'Sin condicion') return ['SIN CONDICION'];
     return condStr.split(/[,;\/]+/).map(s => {
@@ -3050,6 +3186,7 @@ async function loadTableData() {
             renderProduccionPorHora();
             renderDiaNoche();
             renderBulkyPorDia();
+            renderPiezasPorDia();
         });
     } catch (err) {
         console.error('[TABLE]', err);
