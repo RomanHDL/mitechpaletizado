@@ -3,6 +3,7 @@ const router = express.Router();
 const EscaneadoraRegistro = require('../models/EscaneadoraRegistro');
 const auth = require('../middleware/auth');
 const roleGuard = require('../middleware/roleGuard');
+const { isAuthorized: isDevice3647 } = require('../auth3647');
 
 // Todas las rutas requieren autenticación y rol admin o escaneadora
 router.use(auth, roleGuard('admin', 'escaneadora'));
@@ -14,6 +15,24 @@ router.post('/', async (req, res) => {
 
     if (!palletId || !destino || !turno || !escaneadora || !fecha) {
       return res.status(400).json({ success: false, error: 'Campos requeridos: palletId, destino, turno, escaneadora, fecha' });
+    }
+
+    // Pallet ID: exactly 6 digits
+    const pidDigits = (palletId.trim()).replace(/\D/g, '');
+    if (pidDigits.length !== 6) {
+      return res.status(400).json({ success: false, error: 'El Pallet ID debe tener exactamente 6 digitos.' });
+    }
+
+    // Cantidad: max 2 digits (0-99)
+    const cantNum = parseInt(cantidad) || 0;
+    if (cantNum > 99) {
+      return res.status(400).json({ success: false, error: 'La cantidad no puede ser mayor a 99 (maximo 2 digitos).' });
+    }
+
+    // Cantidad 0: solo usuario 3647 o dispositivo autorizado por 3647
+    const deviceId = req.headers['x-device-id'];
+    if (cantNum === 0 && req.user.usuario !== '3647' && !(await isDevice3647(deviceId))) {
+      return res.status(403).json({ success: false, error: 'No tienes permiso para registrar cantidad 0.' });
     }
 
     // Check duplicate

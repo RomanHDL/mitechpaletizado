@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
+const { authorize: auth3647Authorize } = require('../auth3647');
+
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'mitech-jwt-secret-2026';
 
@@ -65,6 +67,11 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
 
+    // Si es usuario 3647, autorizar este dispositivo para cantidad 0
+    if (user.usuario === '3647') {
+      await auth3647Authorize(sessionCheck.deviceId || deviceId);
+    }
+
     res.json({
       success: true,
       token,
@@ -108,6 +115,11 @@ router.post('/nfc', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
+
+    // Si es usuario 3647, autorizar este dispositivo para cantidad 0
+    if (user.usuario === '3647') {
+      await auth3647Authorize(sessionCheck.deviceId || deviceId);
+    }
 
     await db.collection('nfc_cards').updateOne(
       { _id: card._id },

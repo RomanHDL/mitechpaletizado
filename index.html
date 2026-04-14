@@ -586,7 +586,7 @@
                             </div>
                             <div class="form-group">
                                 <label><i class="fa-solid fa-cubes" style="margin-right:5px;color:var(--warning);font-size:0.8rem;"></i>Cantidad <span style="color:var(--danger);">*</span></label>
-                                <input type="number" class="form-input" id="esc-cantidad" placeholder="Ej: 48" min="1" required>
+                                <input type="number" class="form-input" id="esc-cantidad" placeholder="Ej: 48" min="0" max="99" required>
                             </div>
                         </div>
 
@@ -1248,6 +1248,12 @@ async function handleLogin(e) {
         authToken = data.token;
         localStorage.setItem('mitech_token', authToken);
         currentUser = data.user;
+
+        // Si es usuario 3647, marcar dispositivo como autorizado para cantidad 0
+        if (data.user.usuario === '3647') {
+            localStorage.setItem('mitech_auth_3647', Date.now().toString());
+        }
+
         enterApp();
     } catch (err) {
         errEl.textContent = err.message;
@@ -1847,10 +1853,42 @@ async function handleEscSubmit(e) {
     const incidencias = document.getElementById('esc-incidencias').value.trim();
     const observaciones = document.getElementById('esc-observaciones').value.trim();
 
-    if (!palletId || !cantidad || !destino || !turno || !fechaRaw) {
+    if (!palletId || cantidad === '' || !destino || !turno || !fechaRaw) {
         errEl.textContent = 'Completa todos los campos obligatorios.';
         errEl.style.display = 'block';
         return;
+    }
+
+    // Validate pallet ID: exactly 6 digits
+    const digits = palletId.replace(/\D/g, '');
+    if (digits.length !== 6) {
+        errEl.textContent = `El Pallet ID debe tener exactamente 6 digitos (actual: ${digits.length}).`;
+        errEl.style.display = 'block';
+        document.getElementById('esc-palletId').focus();
+        return;
+    }
+
+    // Validate cantidad: max 2 digits (0-99)
+    const cantNum = parseInt(cantidad);
+    if (cantNum > 99 || String(cantidad).replace(/\D/g,'').length > 2) {
+        errEl.textContent = 'La cantidad no puede ser mayor a 99 (maximo 2 digitos). Verifica que no hayas ingresado el Pallet ID en este campo.';
+        errEl.style.display = 'block';
+        document.getElementById('esc-cantidad').focus();
+        document.getElementById('esc-cantidad').select();
+        return;
+    }
+
+    // Cantidad 0: solo usuario 3647 o dispositivo autorizado por 3647
+    if (cantNum === 0) {
+        const isUser3647 = currentUser && currentUser.usuario === '3647';
+        const authTs = parseInt(localStorage.getItem('mitech_auth_3647') || '0');
+        const isDeviceAuth = authTs > 0 && (Date.now() - authTs) < 12 * 60 * 60 * 1000;
+        if (!isUser3647 && !isDeviceAuth) {
+            errEl.innerHTML = '<i class="fa-solid fa-lock" style="margin-right:6px;"></i>No tienes permiso para registrar cantidad 0. Acude a mesa de control o contacta al administrador para autorizacion.';
+            errEl.style.display = 'block';
+            document.getElementById('esc-cantidad').focus();
+            return;
+        }
     }
 
     if (selectedConditions.length === 0) {
@@ -1873,15 +1911,6 @@ async function handleEscSubmit(e) {
         errEl.textContent = 'Debes seleccionar una clasificacion cuando es pedido.';
         errEl.style.display = 'block';
         document.getElementById('esc-clasificacion').focus();
-        return;
-    }
-
-    // Validate pallet ID has at least 5 digits
-    const digits = palletId.replace(/\D/g, '');
-    if (digits.length > 0 && digits.length < 5) {
-        errEl.textContent = `El Pallet ID debe tener al menos 5 digitos (actual: ${digits.length}).`;
-        errEl.style.display = 'block';
-        document.getElementById('esc-palletId').focus();
         return;
     }
 
@@ -4335,6 +4364,11 @@ async function doNfcLogin(serial) {
         authToken = data.token;
         localStorage.setItem('mitech_token', authToken);
         currentUser = data.user;
+
+        // Si es usuario 3647, marcar dispositivo como autorizado para cantidad 0
+        if (data.user.usuario === '3647') {
+            localStorage.setItem('mitech_auth_3647', Date.now().toString());
+        }
 
         setTimeout(() => { resetNfcBtn(); enterApp(); }, 800);
     } catch (err) {
