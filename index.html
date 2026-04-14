@@ -172,16 +172,20 @@
         .kpi-value { font-size:2.2rem; font-weight:700; line-height:1.2; }
         .kpi-label { font-size:0.88rem; color:var(--text-muted); margin-top:5px; text-transform:uppercase; letter-spacing:0.5px; }
         /* KPI Detail Modal */
-        .kpi-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:2000; justify-content:center; align-items:flex-start; padding:2rem 1rem; overflow-y:auto; }
+        .kpi-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:2000; justify-content:center; align-items:center; padding:1rem; }
         .kpi-modal-overlay.open { display:flex; }
-        .kpi-modal { background:var(--bg-card); border:1px solid var(--border); border-radius:16px; width:100%; max-width:95vw; box-shadow:0 20px 60px rgba(0,0,0,0.5); margin:auto; }
-        .kpi-modal-head { display:flex; justify-content:space-between; align-items:center; padding:1.25rem 1.5rem; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg-card); border-radius:16px 16px 0 0; z-index:1; }
+        .kpi-modal { background:var(--bg-card); border:1px solid var(--border); border-radius:16px; width:100%; max-width:650px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+        .kpi-modal-head { display:flex; justify-content:space-between; align-items:center; padding:1.25rem 1.5rem; border-bottom:1px solid var(--border); flex-shrink:0; }
         .kpi-modal-head h3 { margin:0; font-size:1.15rem; }
         .kpi-modal-close { background:none; border:none; color:var(--text-muted); font-size:1.4rem; cursor:pointer; padding:0.3rem 0.5rem; border-radius:8px; }
         .kpi-modal-close:hover { color:var(--text-main); background:rgba(255,255,255,0.08); }
-        .kpi-modal-body { padding:1rem 1.5rem 1.5rem; }
+        .kpi-modal-body { padding:1rem 1.5rem 1.5rem; overflow-y:auto; overscroll-behavior:contain; }
+        /* Modal 2-column layout */
+        .kpi-modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 1.5rem; }
+        .kpi-modal-grid .kpi-modal-col { min-width:0; }
+        @media(max-width:600px){ .kpi-modal-grid { grid-template-columns:1fr; } }
         /* Modal KPI summary cards */
-        .kpi-modal-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:0.75rem; margin-bottom:1.25rem; }
+        .kpi-modal-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:0.6rem; margin-bottom:1.25rem; }
         .kpi-mini { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:10px; padding:0.8rem 1rem; text-align:center; }
         .kpi-mini-value { font-size:1.5rem; font-weight:700; line-height:1.2; }
         .kpi-mini-label { font-size:0.72rem; color:var(--text-muted); margin-top:3px; text-transform:uppercase; letter-spacing:0.3px; }
@@ -946,11 +950,11 @@
             </div>
 
             <!-- KPI Detail Modal -->
-            <div class="kpi-modal-overlay" id="kpi-modal" onclick="if(event.target===this)this.classList.remove('open')">
+            <div class="kpi-modal-overlay" id="kpi-modal" onclick="if(event.target===this){this.classList.remove('open');document.body.style.overflow='';}">
                 <div class="kpi-modal">
                     <div class="kpi-modal-head">
                         <h3 id="kpi-modal-title">Detalle</h3>
-                        <button class="kpi-modal-close" onclick="document.getElementById('kpi-modal').classList.remove('open')">&times;</button>
+                        <button class="kpi-modal-close" onclick="document.getElementById('kpi-modal').classList.remove('open');document.body.style.overflow='';">&times;</button>
                     </div>
                     <div class="kpi-modal-body" id="kpi-modal-body"></div>
                 </div>
@@ -2312,22 +2316,24 @@ function showKpiDetail(type) {
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--success);">${totalDias}</div><div class="kpi-mini-label">Dias activos</div></div>
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:#ec4899;">${promDia}</div><div class="kpi-mini-label">Prom. pallets/dia</div></div>
         </div>`;
-        html += `<div class="kpi-detail-section"><i class="fa-solid fa-clock"></i> Distribucion por Turno</div>`;
+        html += `<div class="kpi-modal-grid"><div class="kpi-modal-col">`;
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-clock"></i> Por Turno</div>`;
         (res.porTurno||[]).forEach(t => {
             const pct = res.totalRegistros > 0 ? ((t.registros/res.totalRegistros)*100).toFixed(1) : 0;
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t.turno}</span><span class="kpi-detail-value">${t.registros.toLocaleString()} pallets &middot; ${t.unidades.toLocaleString()} pzs <span style="color:var(--accent);font-size:0.8rem;">(${pct}%)</span></span></div>`;
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t.turno}</span><span class="kpi-detail-value">${t.registros.toLocaleString()} &middot; ${t.unidades.toLocaleString()} pzs <span style="color:var(--accent);font-size:0.8rem;">(${pct}%)</span></span></div>`;
         });
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-location-dot"></i> Por Destino</div>`;
         (res.porDestino||[]).sort((a,b)=>b.registros-a.registros).forEach((d,i) => {
             const pct = res.totalRegistros > 0 ? ((d.registros/res.totalRegistros)*100).toFixed(1) : 0;
-            const w = res.totalRegistros > 0 ? ((d.registros/res.totalRegistros)*100) : 0;
             html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${d.destino}</span><span class="kpi-detail-value">${d.registros.toLocaleString()} &middot; ${d.unidades.toLocaleString()} pzs <span style="color:var(--text-muted);font-weight:400;">(${pct}%)</span></span></div>`;
         });
+        html += `</div><div class="kpi-modal-col">`;
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-tags"></i> Por Condicion</div>`;
         (res.porCondicion||[]).sort((a,b)=>b.total-a.total).forEach((c,i) => {
             const pct = res.totalRegistros > 0 ? ((c.total/res.totalRegistros)*100).toFixed(1) : 0;
             html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${c.condicion}</span><span class="kpi-detail-value">${c.total.toLocaleString()} <span style="color:var(--text-muted);font-weight:400;">(${pct}%)</span></span></div>`;
         });
+        html += `</div></div>`;
 
     } else if (type === 'hoy') {
         title.innerHTML = '<i class="fa-solid fa-calendar-day" style="color:var(--success);margin-right:8px;"></i>Registros Hoy';
@@ -2349,18 +2355,10 @@ function showKpiDetail(type) {
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:#8b5cf6;">${hoyEsc}</div><div class="kpi-mini-label">Escaneadoras</div></div>
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:#14b8a6;">${res.fechaHoy||'--'}</div><div class="kpi-mini-label">Fecha</div></div>
         </div>`;
+        html += `<div class="kpi-modal-grid"><div class="kpi-modal-col">`;
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-clock"></i> Por Turno</div>`;
         Object.entries(hoyTurno).sort((a,b)=>b[1].reg-a[1].reg).forEach(([t,d]) => {
             html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t}</span><span class="kpi-detail-value">${d.reg} pallets &middot; ${d.uds.toLocaleString()} pzs</span></div>`;
-        });
-        html += `<div class="kpi-detail-section"><i class="fa-solid fa-barcode"></i> Por Escaneadora</div>`;
-        Object.entries(hoyEscData).sort((a,b)=>b[1].reg-a[1].reg).forEach(([name,d],i) => {
-            const pct = hoyRecs.length > 0 ? ((d.reg/hoyRecs.length)*100).toFixed(1) : 0;
-            html += `<div class="esc-card">
-                <div class="esc-card-head"><span class="esc-card-name">${name}</span><span class="esc-card-pct">${pct}%</span></div>
-                <div class="esc-card-bar"><div class="esc-card-fill" style="width:${pct}%;background:${COLORS_HEX[i%10]};"></div></div>
-                <div class="esc-card-stats"><span><i class="fa-solid fa-boxes-stacked"></i> ${d.reg} pallets</span><span><i class="fa-solid fa-cubes"></i> ${d.uds.toLocaleString()} pzs</span></div>
-            </div>`;
         });
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-location-dot"></i> Por Destino</div>`;
         Object.entries(hoyDest).sort((a,b)=>b[1]-a[1]).forEach(([dest,n],i) => {
@@ -2372,6 +2370,17 @@ function showKpiDetail(type) {
                 html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${c}</span><span class="kpi-detail-value">${n}</span></div>`;
             });
         }
+        html += `</div><div class="kpi-modal-col">`;
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-barcode"></i> Por Escaneadora</div>`;
+        Object.entries(hoyEscData).sort((a,b)=>b[1].reg-a[1].reg).forEach(([name,d],i) => {
+            const pct = hoyRecs.length > 0 ? ((d.reg/hoyRecs.length)*100).toFixed(1) : 0;
+            html += `<div class="esc-card">
+                <div class="esc-card-head"><span class="esc-card-name">${name}</span><span class="esc-card-pct">${pct}%</span></div>
+                <div class="esc-card-bar"><div class="esc-card-fill" style="width:${pct}%;background:${COLORS_HEX[i%10]};"></div></div>
+                <div class="esc-card-stats"><span><i class="fa-solid fa-boxes-stacked"></i> ${d.reg} pallets</span><span><i class="fa-solid fa-cubes"></i> ${d.uds.toLocaleString()} pzs</span></div>
+            </div>`;
+        });
+        html += `</div></div>`;
         // Lista completa de pallets de hoy (mas reciente primero)
         const hoyOrdered = [...hoyRecs].sort((a,b) => {
             if (a.createdAt && b.createdAt) return new Date(b.createdAt) - new Date(a.createdAt);
@@ -2416,15 +2425,7 @@ function showKpiDetail(type) {
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--accent);">${promPzPallet}</div><div class="kpi-mini-label">Prom. pzs/pallet</div></div>
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:#ec4899;font-size:1rem;">${maxEsc.nombre}</div><div class="kpi-mini-label">Top escaneadora</div></div>
         </div>`;
-        html += `<div class="kpi-detail-section"><i class="fa-solid fa-barcode"></i> Piezas por Escaneadora</div>`;
-        (res.porEscaneadora||[]).sort((a,b)=>b.unidades-a.unidades).forEach((e,i) => {
-            const pct = res.totalUnidades > 0 ? ((e.unidades/res.totalUnidades)*100).toFixed(1) : 0;
-            html += `<div class="esc-card">
-                <div class="esc-card-head"><span class="esc-card-name">${e.nombre}</span><span class="esc-card-pct">${pct}%</span></div>
-                <div class="esc-card-bar"><div class="esc-card-fill" style="width:${pct}%;background:${COLORS_HEX[i%10]};"></div></div>
-                <div class="esc-card-stats"><span><i class="fa-solid fa-cubes"></i> ${e.unidades.toLocaleString()} piezas</span><span><i class="fa-solid fa-boxes-stacked"></i> ${e.registros.toLocaleString()} pallets</span></div>
-            </div>`;
-        });
+        html += `<div class="kpi-modal-grid"><div class="kpi-modal-col">`;
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-clock"></i> Piezas por Turno</div>`;
         (res.porTurno||[]).forEach(t => {
             const pct = res.totalUnidades > 0 ? ((t.unidades/res.totalUnidades)*100).toFixed(1) : 0;
@@ -2435,6 +2436,17 @@ function showKpiDetail(type) {
             const pct = res.totalUnidades > 0 ? ((d.unidades/res.totalUnidades)*100).toFixed(1) : 0;
             html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${d.destino}</span><span class="kpi-detail-value">${d.unidades.toLocaleString()} <span style="color:var(--text-muted);font-weight:400;">(${pct}%)</span></span></div>`;
         });
+        html += `</div><div class="kpi-modal-col">`;
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-barcode"></i> Piezas por Escaneadora</div>`;
+        (res.porEscaneadora||[]).sort((a,b)=>b.unidades-a.unidades).forEach((e,i) => {
+            const pct = res.totalUnidades > 0 ? ((e.unidades/res.totalUnidades)*100).toFixed(1) : 0;
+            html += `<div class="esc-card">
+                <div class="esc-card-head"><span class="esc-card-name">${e.nombre}</span><span class="esc-card-pct">${pct}%</span></div>
+                <div class="esc-card-bar"><div class="esc-card-fill" style="width:${pct}%;background:${COLORS_HEX[i%10]};"></div></div>
+                <div class="esc-card-stats"><span><i class="fa-solid fa-cubes"></i> ${e.unidades.toLocaleString()} piezas</span><span><i class="fa-solid fa-boxes-stacked"></i> ${e.registros.toLocaleString()} pallets</span></div>
+            </div>`;
+        });
+        html += `</div></div>`;
 
     } else if (type === 'escaneadoras') {
         title.innerHTML = '<i class="fa-solid fa-barcode" style="color:#8b5cf6;margin-right:8px;"></i>Escaneadoras Activas';
@@ -2448,6 +2460,7 @@ function showKpiDetail(type) {
             <div class="kpi-mini" style="grid-column:span 2;"><div class="kpi-mini-value" style="color:var(--success);font-size:1.1rem;">${topEsc.nombre}</div><div class="kpi-mini-label">Mayor produccion (${topEsc.registros} pallets)</div></div>
         </div>`;
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-ranking-star"></i> Todas las Escaneadoras</div>`;
+        html += `<div class="kpi-modal-grid">`;
         escList.forEach((e,i) => {
             const pctReg = res.totalRegistros > 0 ? ((e.registros/res.totalRegistros)*100).toFixed(1) : 0;
             const pctUds = res.totalUnidades > 0 ? ((e.unidades/res.totalUnidades)*100).toFixed(1) : 0;
@@ -2462,10 +2475,12 @@ function showKpiDetail(type) {
                 </div>
             </div>`;
         });
+        html += `</div>`;
     }
 
     body.innerHTML = html;
     modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
 }
 
 async function loadResumen() {
