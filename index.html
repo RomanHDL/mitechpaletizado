@@ -2301,53 +2301,48 @@ function showKpiDetail(type) {
     const modal = document.getElementById('kpi-modal');
     const title = document.getElementById('kpi-modal-title');
     const body = document.getElementById('kpi-modal-body');
-    const COLORS_HEX = ['#4f7cff','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#06b6d4'];
+    const CH = ['#4f7cff','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#06b6d4'];
     const totalDias = (res.fechas||[]).length;
     const td = lastTableData||[];
+    const dot = (i) => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${CH[i%10]};margin-right:6px;"></span>`;
     let html = '';
 
     if (type === 'total') {
         title.innerHTML = '<i class="fa-solid fa-boxes-stacked" style="color:var(--accent);margin-right:8px;"></i>Total Registros';
         const promDia = totalDias > 0 ? (res.totalRegistros / totalDias).toFixed(1) : 0;
-        const promUdsDia = totalDias > 0 ? (res.totalUnidades / totalDias).toFixed(0) : 0;
         html += `<div class="kpi-modal-summary">
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--accent);">${res.totalRegistros.toLocaleString()}</div><div class="kpi-mini-label">Pallets</div></div>
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--warning);">${res.totalUnidades.toLocaleString()}</div><div class="kpi-mini-label">Piezas</div></div>
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--success);">${totalDias}</div><div class="kpi-mini-label">Dias activos</div></div>
-            <div class="kpi-mini"><div class="kpi-mini-value" style="color:#ec4899;">${promDia}</div><div class="kpi-mini-label">Prom. pallets/dia</div></div>
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:#ec4899;">${promDia}</div><div class="kpi-mini-label">Prom/dia</div></div>
         </div>`;
-        html += `<div class="kpi-modal-grid"><div class="kpi-modal-col">`;
+
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-clock"></i> Por Turno</div>`;
         (res.porTurno||[]).forEach(t => {
             const pct = res.totalRegistros > 0 ? ((t.registros/res.totalRegistros)*100).toFixed(1) : 0;
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t.turno}</span><span class="kpi-detail-value">${t.registros.toLocaleString()} &middot; ${t.unidades.toLocaleString()} pzs <span style="color:var(--accent);font-size:0.8rem;">(${pct}%)</span></span></div>`;
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t.turno}</span><span class="kpi-detail-value">${t.registros.toLocaleString()} pallets &middot; ${t.unidades.toLocaleString()} pzs <span style="color:var(--accent)">(${pct}%)</span></span></div>`;
         });
+
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-location-dot"></i> Por Destino</div>`;
         (res.porDestino||[]).sort((a,b)=>b.registros-a.registros).forEach((d,i) => {
             const pct = res.totalRegistros > 0 ? ((d.registros/res.totalRegistros)*100).toFixed(1) : 0;
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${d.destino}</span><span class="kpi-detail-value">${d.registros.toLocaleString()} &middot; ${d.unidades.toLocaleString()} pzs <span style="color:var(--text-muted);font-weight:400;">(${pct}%)</span></span></div>`;
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${dot(i)}${d.destino}</span><span class="kpi-detail-value">${d.registros.toLocaleString()} &middot; ${d.unidades.toLocaleString()} pzs <span style="color:var(--text-muted)">(${pct}%)</span></span></div>`;
         });
-        html += `</div><div class="kpi-modal-col">`;
+
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-tags"></i> Por Condicion</div>`;
         (res.porCondicion||[]).sort((a,b)=>b.total-a.total).forEach((c,i) => {
             const pct = res.totalRegistros > 0 ? ((c.total/res.totalRegistros)*100).toFixed(1) : 0;
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${c.condicion}</span><span class="kpi-detail-value">${c.total.toLocaleString()} <span style="color:var(--text-muted);font-weight:400;">(${pct}%)</span></span></div>`;
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${dot(i)}${c.condicion}</span><span class="kpi-detail-value">${c.total.toLocaleString()} <span style="color:var(--text-muted)">(${pct}%)</span></span></div>`;
         });
-        html += `</div></div>`;
 
     } else if (type === 'hoy') {
         title.innerHTML = '<i class="fa-solid fa-calendar-day" style="color:var(--success);margin-right:8px;"></i>Registros Hoy';
         const hoyRecs = td.filter(r => r.fecha === res.fechaHoy);
         const hoyUds = hoyRecs.reduce((s,r) => s + (r.cantidad||0), 0);
         const hoyEsc = new Set(hoyRecs.map(r=>r.escaneadora)).size;
-        const hoyDest = {};
-        hoyRecs.forEach(r => { hoyDest[r.destino] = (hoyDest[r.destino]||0) + 1; });
-        const hoyTurno = {};
-        hoyRecs.forEach(r => { const t=r.turno||'Otro'; if(!hoyTurno[t])hoyTurno[t]={reg:0,uds:0}; hoyTurno[t].reg++; hoyTurno[t].uds+=(r.cantidad||0); });
-        const hoyEscData = {};
-        hoyRecs.forEach(r => { if(!hoyEscData[r.escaneadora])hoyEscData[r.escaneadora]={reg:0,uds:0}; hoyEscData[r.escaneadora].reg++; hoyEscData[r.escaneadora].uds+=(r.cantidad||0); });
-        const hoyCond = {};
-        hoyRecs.forEach(r => { const c=r.condicion||'Sin'; hoyCond[c]=(hoyCond[c]||0)+1; });
+        const hoyDest = {}; hoyRecs.forEach(r => { hoyDest[r.destino] = (hoyDest[r.destino]||0) + 1; });
+        const hoyTurno = {}; hoyRecs.forEach(r => { const t=r.turno||'Otro'; if(!hoyTurno[t])hoyTurno[t]={reg:0,uds:0}; hoyTurno[t].reg++; hoyTurno[t].uds+=(r.cantidad||0); });
+        const hoyEscData = {}; hoyRecs.forEach(r => { if(!hoyEscData[r.escaneadora])hoyEscData[r.escaneadora]={reg:0,uds:0}; hoyEscData[r.escaneadora].reg++; hoyEscData[r.escaneadora].uds+=(r.cantidad||0); });
 
         html += `<div class="kpi-modal-summary">
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--success);">${res.registrosHoy.toLocaleString()}</div><div class="kpi-mini-label">Pallets hoy</div></div>
@@ -2355,57 +2350,54 @@ function showKpiDetail(type) {
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:#8b5cf6;">${hoyEsc}</div><div class="kpi-mini-label">Escaneadoras</div></div>
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:#14b8a6;">${res.fechaHoy||'--'}</div><div class="kpi-mini-label">Fecha</div></div>
         </div>`;
-        html += `<div class="kpi-modal-grid"><div class="kpi-modal-col">`;
+
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-clock"></i> Por Turno</div>`;
         Object.entries(hoyTurno).sort((a,b)=>b[1].reg-a[1].reg).forEach(([t,d]) => {
             html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t}</span><span class="kpi-detail-value">${d.reg} pallets &middot; ${d.uds.toLocaleString()} pzs</span></div>`;
         });
-        html += `<div class="kpi-detail-section"><i class="fa-solid fa-location-dot"></i> Por Destino</div>`;
-        Object.entries(hoyDest).sort((a,b)=>b[1]-a[1]).forEach(([dest,n],i) => {
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${dest}</span><span class="kpi-detail-value">${n}</span></div>`;
-        });
-        if (Object.keys(hoyCond).length > 0) {
-            html += `<div class="kpi-detail-section"><i class="fa-solid fa-tags"></i> Por Condicion</div>`;
-            Object.entries(hoyCond).sort((a,b)=>b[1]-a[1]).forEach(([c,n],i) => {
-                html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${c}</span><span class="kpi-detail-value">${n}</span></div>`;
-            });
-        }
+
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-barcode"></i> Por Escaneadora</div>`;
+        html += `<div class="kpi-modal-grid">`;
         Object.entries(hoyEscData).sort((a,b)=>b[1].reg-a[1].reg).forEach(([name,d],i) => {
             const pct = hoyRecs.length > 0 ? ((d.reg/hoyRecs.length)*100).toFixed(1) : 0;
             html += `<div class="esc-card">
                 <div class="esc-card-head"><span class="esc-card-name">${name}</span><span class="esc-card-pct">${pct}%</span></div>
-                <div class="esc-card-bar"><div class="esc-card-fill" style="width:${pct}%;background:${COLORS_HEX[i%10]};"></div></div>
+                <div class="esc-card-bar"><div class="esc-card-fill" style="width:${pct}%;background:${CH[i%10]};"></div></div>
                 <div class="esc-card-stats"><span><i class="fa-solid fa-boxes-stacked"></i> ${d.reg} pallets</span><span><i class="fa-solid fa-cubes"></i> ${d.uds.toLocaleString()} pzs</span></div>
             </div>`;
         });
+        html += `</div>`;
+
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-location-dot"></i> Destino &amp; Condicion</div>`;
+        html += `<div class="kpi-modal-grid"><div class="kpi-modal-col">`;
+        Object.entries(hoyDest).sort((a,b)=>b[1]-a[1]).forEach(([dest,n],i) => {
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${dot(i)}${dest}</span><span class="kpi-detail-value">${n}</span></div>`;
+        });
         html += `</div><div class="kpi-modal-col">`;
-        // Lista completa de pallets de hoy (mas reciente primero)
+        const hoyCond = {}; hoyRecs.forEach(r => { const c=r.condicion||'Sin'; hoyCond[c]=(hoyCond[c]||0)+1; });
+        Object.entries(hoyCond).sort((a,b)=>b[1]-a[1]).forEach(([c,n],i) => {
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${dot(i)}${c}</span><span class="kpi-detail-value">${n}</span></div>`;
+        });
+        html += `</div></div>`;
+
+        // Lista de pallets
         const hoyOrdered = [...hoyRecs].sort((a,b) => {
             if (a.createdAt && b.createdAt) return new Date(b.createdAt) - new Date(a.createdAt);
             return 0;
         });
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-list-ol"></i> Pallets de Hoy (${hoyOrdered.length})</div>`;
-        html += `<div style="max-height:250px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;overscroll-behavior:contain;">`;
-        const thSt = 'padding:0.3rem 0.4rem;text-align:left;color:var(--text-muted);font-size:0.65rem;text-transform:uppercase;border-bottom:2px solid var(--border);';
-        html += `<table style="width:100%;border-collapse:collapse;font-size:0.75rem;">
+        html += `<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;overscroll-behavior:contain;">`;
+        const th = 'padding:0.4rem 0.5rem;text-align:left;color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;border-bottom:2px solid var(--border);';
+        html += `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
             <thead><tr style="position:sticky;top:0;background:var(--bg-card);z-index:1;">
-                <th style="${thSt}">#</th><th style="${thSt}">Pallet ID</th><th style="${thSt}text-align:center;">Pzs</th><th style="${thSt}">Dest</th><th style="${thSt}">Esc</th><th style="${thSt}text-align:right;">Hora</th>
+                <th style="${th}">#</th><th style="${th}">Pallet ID</th><th style="${th}text-align:center;">Pzs</th><th style="${th}">Destino</th><th style="${th}">Escaneadora</th><th style="${th}text-align:right;">Hora</th>
             </tr></thead><tbody>`;
         hoyOrdered.forEach((r, i) => {
             const hora = r.createdAt ? new Date(r.createdAt).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '--';
             const bg = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.025)';
-            html += `<tr style="background:${bg};">
-                <td style="padding:0.25rem 0.4rem;color:var(--text-muted);font-size:0.68rem;">${i+1}</td>
-                <td style="padding:0.25rem 0.4rem;font-weight:600;">${r.palletId||''}</td>
-                <td style="padding:0.25rem 0.4rem;text-align:center;">${r.cantidad||0}</td>
-                <td style="padding:0.25rem 0.4rem;">${r.destino||'-'}</td>
-                <td style="padding:0.25rem 0.4rem;color:var(--text-muted);">${r.escaneadora||'-'}</td>
-                <td style="padding:0.25rem 0.4rem;text-align:right;color:var(--text-muted);">${hora}</td>
-            </tr>`;
+            html += `<tr style="background:${bg};"><td style="padding:0.3rem 0.5rem;color:var(--text-muted)">${i+1}</td><td style="padding:0.3rem 0.5rem;font-weight:600">${r.palletId||''}</td><td style="padding:0.3rem 0.5rem;text-align:center">${r.cantidad||0}</td><td style="padding:0.3rem 0.5rem">${r.destino||'-'}</td><td style="padding:0.3rem 0.5rem;color:var(--text-muted)">${r.escaneadora||'-'}</td><td style="padding:0.3rem 0.5rem;text-align:right;color:var(--text-muted)">${hora}</td></tr>`;
         });
         html += `</tbody></table></div>`;
-        html += `</div></div>`;
 
     } else if (type === 'unidades') {
         title.innerHTML = '<i class="fa-solid fa-cubes" style="color:var(--warning);margin-right:8px;"></i>Unidades Totales';
@@ -2415,32 +2407,34 @@ function showKpiDetail(type) {
 
         html += `<div class="kpi-modal-summary">
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--warning);">${res.totalUnidades.toLocaleString()}</div><div class="kpi-mini-label">Total piezas</div></div>
-            <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--success);">${promPzDia}</div><div class="kpi-mini-label">Prom. pzs/dia</div></div>
-            <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--accent);">${promPzPallet}</div><div class="kpi-mini-label">Prom. pzs/pallet</div></div>
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--success);">${promPzDia}</div><div class="kpi-mini-label">Prom/dia</div></div>
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--accent);">${promPzPallet}</div><div class="kpi-mini-label">Prom/pallet</div></div>
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:#ec4899;font-size:1rem;">${maxEsc.nombre}</div><div class="kpi-mini-label">Top escaneadora</div></div>
         </div>`;
-        html += `<div class="kpi-modal-grid"><div class="kpi-modal-col">`;
-        html += `<div class="kpi-detail-section"><i class="fa-solid fa-clock"></i> Piezas por Turno</div>`;
+
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-clock"></i> Por Turno</div>`;
         (res.porTurno||[]).forEach(t => {
             const pct = res.totalUnidades > 0 ? ((t.unidades/res.totalUnidades)*100).toFixed(1) : 0;
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t.turno}</span><span class="kpi-detail-value">${t.unidades.toLocaleString()} pzs <span style="color:var(--accent);font-size:0.8rem;">(${pct}%)</span></span></div>`;
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t.turno}</span><span class="kpi-detail-value">${t.unidades.toLocaleString()} pzs <span style="color:var(--accent)">(${pct}%)</span></span></div>`;
         });
-        html += `<div class="kpi-detail-section"><i class="fa-solid fa-location-dot"></i> Piezas por Destino</div>`;
+
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-location-dot"></i> Por Destino</div>`;
         (res.porDestino||[]).sort((a,b)=>b.unidades-a.unidades).forEach((d,i) => {
             const pct = res.totalUnidades > 0 ? ((d.unidades/res.totalUnidades)*100).toFixed(1) : 0;
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${d.destino}</span><span class="kpi-detail-value">${d.unidades.toLocaleString()} <span style="color:var(--text-muted);font-weight:400;">(${pct}%)</span></span></div>`;
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${dot(i)}${d.destino}</span><span class="kpi-detail-value">${d.unidades.toLocaleString()} pzs <span style="color:var(--text-muted)">(${pct}%)</span></span></div>`;
         });
-        html += `</div><div class="kpi-modal-col">`;
-        html += `<div class="kpi-detail-section"><i class="fa-solid fa-barcode"></i> Piezas por Escaneadora</div>`;
+
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-barcode"></i> Por Escaneadora</div>`;
+        html += `<div class="kpi-modal-grid">`;
         (res.porEscaneadora||[]).sort((a,b)=>b.unidades-a.unidades).forEach((e,i) => {
             const pct = res.totalUnidades > 0 ? ((e.unidades/res.totalUnidades)*100).toFixed(1) : 0;
             html += `<div class="esc-card">
                 <div class="esc-card-head"><span class="esc-card-name">${e.nombre}</span><span class="esc-card-pct">${pct}%</span></div>
-                <div class="esc-card-bar"><div class="esc-card-fill" style="width:${pct}%;background:${COLORS_HEX[i%10]};"></div></div>
-                <div class="esc-card-stats"><span><i class="fa-solid fa-cubes"></i> ${e.unidades.toLocaleString()} piezas</span><span><i class="fa-solid fa-boxes-stacked"></i> ${e.registros.toLocaleString()} pallets</span></div>
+                <div class="esc-card-bar"><div class="esc-card-fill" style="width:${pct}%;background:${CH[i%10]};"></div></div>
+                <div class="esc-card-stats"><span><i class="fa-solid fa-cubes"></i> ${e.unidades.toLocaleString()} pzs</span><span><i class="fa-solid fa-boxes-stacked"></i> ${e.registros.toLocaleString()} pallets</span></div>
             </div>`;
         });
-        html += `</div></div>`;
+        html += `</div>`;
 
     } else if (type === 'escaneadoras') {
         title.innerHTML = '<i class="fa-solid fa-barcode" style="color:#8b5cf6;margin-right:8px;"></i>Escaneadoras Activas';
@@ -2453,6 +2447,7 @@ function showKpiDetail(type) {
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--accent);">${promRegEsc}</div><div class="kpi-mini-label">Prom. pallets c/u</div></div>
             <div class="kpi-mini" style="grid-column:span 2;"><div class="kpi-mini-value" style="color:var(--success);font-size:1.1rem;">${topEsc.nombre}</div><div class="kpi-mini-label">Mayor produccion (${topEsc.registros} pallets)</div></div>
         </div>`;
+
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-ranking-star"></i> Todas las Escaneadoras</div>`;
         html += `<div class="kpi-modal-grid">`;
         escList.forEach((e,i) => {
@@ -2460,8 +2455,8 @@ function showKpiDetail(type) {
             const pctUds = res.totalUnidades > 0 ? ((e.unidades/res.totalUnidades)*100).toFixed(1) : 0;
             const promPz = e.registros > 0 ? (e.unidades/e.registros).toFixed(1) : 0;
             html += `<div class="esc-card">
-                <div class="esc-card-head"><span class="esc-card-name"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${COLORS_HEX[i%10]}22;color:${COLORS_HEX[i%10]};font-size:0.7rem;font-weight:700;margin-right:8px;">${i+1}</span>${e.nombre}</span><span class="esc-card-pct">${pctReg}%</span></div>
-                <div class="esc-card-bar"><div class="esc-card-fill" style="width:${pctReg}%;background:${COLORS_HEX[i%10]};"></div></div>
+                <div class="esc-card-head"><span class="esc-card-name"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${CH[i%10]}22;color:${CH[i%10]};font-size:0.7rem;font-weight:700;margin-right:8px;">${i+1}</span>${e.nombre}</span><span class="esc-card-pct">${pctReg}%</span></div>
+                <div class="esc-card-bar"><div class="esc-card-fill" style="width:${pctReg}%;background:${CH[i%10]};"></div></div>
                 <div class="esc-card-stats">
                     <span><i class="fa-solid fa-boxes-stacked"></i> ${e.registros.toLocaleString()} pallets</span>
                     <span><i class="fa-solid fa-cubes"></i> ${e.unidades.toLocaleString()} pzs (${pctUds}%)</span>
