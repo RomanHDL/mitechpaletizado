@@ -172,37 +172,37 @@
         .kpi-value { font-size:2.2rem; font-weight:700; line-height:1.2; }
         .kpi-label { font-size:0.88rem; color:var(--text-muted); margin-top:5px; text-transform:uppercase; letter-spacing:0.5px; }
         /* KPI Detail Modal */
-        .kpi-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:2000; justify-content:center; align-items:center; padding:1rem; }
+        .kpi-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:2000; justify-content:center; align-items:center; }
         .kpi-modal-overlay.open { display:flex; }
-        .kpi-modal { background:var(--bg-card); border:1px solid var(--border); border-radius:16px; width:100%; max-width:650px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
-        .kpi-modal-head { display:flex; justify-content:space-between; align-items:center; padding:1.25rem 1.5rem; border-bottom:1px solid var(--border); flex-shrink:0; }
-        .kpi-modal-head h3 { margin:0; font-size:1.15rem; }
+        .kpi-modal { background:var(--bg-card); border:1px solid var(--border); border-radius:14px; width:92%; max-width:480px; max-height:55vh; display:flex; flex-direction:column; box-shadow:0 16px 48px rgba(0,0,0,0.5); }
+        .kpi-modal-head { display:flex; justify-content:space-between; align-items:center; padding:0.9rem 1.2rem; border-bottom:1px solid var(--border); flex-shrink:0; }
+        .kpi-modal-head h3 { margin:0; font-size:1rem; }
         .kpi-modal-close { background:none; border:none; color:var(--text-muted); font-size:1.4rem; cursor:pointer; padding:0.3rem 0.5rem; border-radius:8px; }
         .kpi-modal-close:hover { color:var(--text-main); background:rgba(255,255,255,0.08); }
-        .kpi-modal-body { padding:1rem 1.5rem 1.5rem; overflow-y:auto; overscroll-behavior:contain; }
+        .kpi-modal-body { padding:0.8rem 1.2rem 1.2rem; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
         /* Modal 2-column layout */
         .kpi-modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 1.5rem; }
         .kpi-modal-grid .kpi-modal-col { min-width:0; }
         @media(max-width:600px){ .kpi-modal-grid { grid-template-columns:1fr; } }
         /* Modal KPI summary cards */
-        .kpi-modal-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:0.6rem; margin-bottom:1.25rem; }
-        .kpi-mini { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:10px; padding:0.8rem 1rem; text-align:center; }
-        .kpi-mini-value { font-size:1.5rem; font-weight:700; line-height:1.2; }
-        .kpi-mini-label { font-size:0.72rem; color:var(--text-muted); margin-top:3px; text-transform:uppercase; letter-spacing:0.3px; }
+        .kpi-modal-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(95px,1fr)); gap:0.5rem; margin-bottom:0.9rem; }
+        .kpi-mini { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:8px; padding:0.5rem 0.6rem; text-align:center; }
+        .kpi-mini-value { font-size:1.15rem; font-weight:700; line-height:1.2; }
+        .kpi-mini-label { font-size:0.65rem; color:var(--text-muted); margin-top:2px; text-transform:uppercase; letter-spacing:0.3px; }
         /* Modal sections and rows */
-        .kpi-detail-section { font-weight:600; color:var(--accent); font-size:0.82rem; text-transform:uppercase; letter-spacing:0.5px; margin:1.25rem 0 0.6rem; padding-bottom:0.35rem; border-bottom:2px solid var(--accent); display:flex; align-items:center; gap:0.5rem; }
-        .kpi-detail-row { display:flex; justify-content:space-between; align-items:center; padding:0.55rem 0.75rem; border-radius:6px; margin-bottom:2px; }
+        .kpi-detail-section { font-weight:600; color:var(--accent); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; margin:0.8rem 0 0.35rem; padding-bottom:0.25rem; border-bottom:2px solid var(--accent); display:flex; align-items:center; gap:0.4rem; }
+        .kpi-detail-row { display:flex; justify-content:space-between; align-items:center; padding:0.35rem 0.5rem; border-radius:5px; margin-bottom:1px; font-size:0.82rem; }
         .kpi-detail-row:nth-child(even) { background:rgba(255,255,255,0.025); }
         .kpi-detail-label { color:var(--text-muted); font-size:0.88rem; }
         .kpi-detail-value { font-weight:600; font-size:0.92rem; text-align:right; }
         /* Progress bar for escaneadora cards */
-        .esc-card { background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; padding:0.9rem 1rem; margin-bottom:0.5rem; }
-        .esc-card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem; }
-        .esc-card-name { font-weight:600; font-size:0.95rem; }
-        .esc-card-pct { font-size:0.85rem; font-weight:700; color:var(--accent); }
-        .esc-card-bar { height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden; margin-bottom:0.5rem; }
-        .esc-card-fill { height:100%; border-radius:3px; transition:width 0.4s ease; }
-        .esc-card-stats { display:flex; gap:1rem; font-size:0.78rem; color:var(--text-muted); }
+        .esc-card { background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:8px; padding:0.55rem 0.7rem; margin-bottom:0.35rem; }
+        .esc-card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem; }
+        .esc-card-name { font-weight:600; font-size:0.82rem; }
+        .esc-card-pct { font-size:0.78rem; font-weight:700; color:var(--accent); }
+        .esc-card-bar { height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; margin-bottom:0.3rem; }
+        .esc-card-fill { height:100%; border-radius:2px; transition:width 0.4s ease; }
+        .esc-card-stats { display:flex; gap:0.7rem; font-size:0.7rem; color:var(--text-muted); }
         .esc-card-stats span { display:flex; align-items:center; gap:0.3rem; }
         .kpi:nth-child(2) { border-left-color:var(--success); }
         .kpi:nth-child(3) { border-left-color:var(--warning); }
@@ -950,7 +950,7 @@
             </div>
 
             <!-- KPI Detail Modal -->
-            <div class="kpi-modal-overlay" id="kpi-modal" onclick="if(event.target===this){this.classList.remove('open');document.body.style.overflow='';}">
+            <div class="kpi-modal-overlay" id="kpi-modal" onclick="if(event.target===this){this.classList.remove('open');document.body.style.overflow='';}" ontouchmove="if(event.target===this)event.preventDefault()">
                 <div class="kpi-modal">
                     <div class="kpi-modal-head">
                         <h3 id="kpi-modal-title">Detalle</h3>
