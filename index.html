@@ -2372,6 +2372,37 @@ function showKpiDetail(type) {
                 html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${c}</span><span class="kpi-detail-value">${n}</span></div>`;
             });
         }
+        // Lista completa de pallets de hoy (mas reciente primero)
+        const hoyOrdered = [...hoyRecs].sort((a,b) => {
+            if (a.createdAt && b.createdAt) return new Date(b.createdAt) - new Date(a.createdAt);
+            return 0;
+        });
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-list-ol"></i> Pallets de Hoy (${hoyOrdered.length})</div>`;
+        html += `<div style="max-height:350px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;">`;
+        html += `<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+            <thead><tr style="position:sticky;top:0;background:var(--bg-card);z-index:1;">
+                <th style="padding:0.5rem 0.6rem;text-align:left;color:var(--text-muted);font-size:0.72rem;text-transform:uppercase;border-bottom:2px solid var(--border);">#</th>
+                <th style="padding:0.5rem 0.6rem;text-align:left;color:var(--text-muted);font-size:0.72rem;text-transform:uppercase;border-bottom:2px solid var(--border);">Pallet ID</th>
+                <th style="padding:0.5rem 0.6rem;text-align:center;color:var(--text-muted);font-size:0.72rem;text-transform:uppercase;border-bottom:2px solid var(--border);">Pzs</th>
+                <th style="padding:0.5rem 0.6rem;text-align:left;color:var(--text-muted);font-size:0.72rem;text-transform:uppercase;border-bottom:2px solid var(--border);">Cond</th>
+                <th style="padding:0.5rem 0.6rem;text-align:left;color:var(--text-muted);font-size:0.72rem;text-transform:uppercase;border-bottom:2px solid var(--border);">Destino</th>
+                <th style="padding:0.5rem 0.6rem;text-align:left;color:var(--text-muted);font-size:0.72rem;text-transform:uppercase;border-bottom:2px solid var(--border);">Escaneadora</th>
+                <th style="padding:0.5rem 0.6rem;text-align:right;color:var(--text-muted);font-size:0.72rem;text-transform:uppercase;border-bottom:2px solid var(--border);">Hora</th>
+            </tr></thead><tbody>`;
+        hoyOrdered.forEach((r, i) => {
+            const hora = r.createdAt ? new Date(r.createdAt).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '--';
+            const bg = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.025)';
+            html += `<tr style="background:${bg};">
+                <td style="padding:0.45rem 0.6rem;color:var(--text-muted);font-size:0.75rem;">${i+1}</td>
+                <td style="padding:0.45rem 0.6rem;font-weight:600;">${r.palletId||''}</td>
+                <td style="padding:0.45rem 0.6rem;text-align:center;">${r.cantidad||0}</td>
+                <td style="padding:0.45rem 0.6rem;">${r.condicion||'-'}</td>
+                <td style="padding:0.45rem 0.6rem;">${r.destino||'-'}</td>
+                <td style="padding:0.45rem 0.6rem;font-size:0.78rem;color:var(--text-muted);">${r.escaneadora||'-'}</td>
+                <td style="padding:0.45rem 0.6rem;text-align:right;font-size:0.78rem;color:var(--text-muted);">${hora}</td>
+            </tr>`;
+        });
+        html += `</tbody></table></div>`;
 
     } else if (type === 'unidades') {
         title.innerHTML = '<i class="fa-solid fa-cubes" style="color:var(--warning);margin-right:8px;"></i>Unidades Totales';
