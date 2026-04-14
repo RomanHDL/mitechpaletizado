@@ -162,27 +162,43 @@
             padding:1.35rem 1.5rem; border-left:4px solid var(--accent); cursor:pointer;
             transition:transform 0.15s,box-shadow 0.15s;
         }
-        .kpi:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.3); }
+        .kpi:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,0.35); }
         .kpi:active { transform:translateY(0); }
-        .kpi-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem; }
-        .kpi-icon { font-size:1.4rem; opacity:0.6; }
+        .kpi-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; }
+        .kpi-icon { font-size:1.6rem; }
+        .kpi-arrow { font-size:0.65rem; color:var(--text-muted); opacity:0.5; }
+        .kpi:hover .kpi-arrow { opacity:1; color:var(--accent); }
         .kpi-value { font-size:2.2rem; font-weight:700; line-height:1.2; }
         .kpi-label { font-size:0.88rem; color:var(--text-muted); margin-top:5px; text-transform:uppercase; letter-spacing:0.5px; }
-        .kpi-hint { font-size:0.7rem; color:var(--accent); margin-top:6px; opacity:0.7; }
         /* KPI Detail Modal */
-        .kpi-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:2000; justify-content:center; align-items:center; padding:1rem; }
+        .kpi-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:2000; justify-content:center; align-items:flex-start; padding:2rem 1rem; overflow-y:auto; }
         .kpi-modal-overlay.open { display:flex; }
-        .kpi-modal { background:var(--bg-card); border:1px solid var(--border); border-radius:16px; width:100%; max-width:600px; max-height:80vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
-        .kpi-modal-head { display:flex; justify-content:space-between; align-items:center; padding:1.25rem 1.5rem; border-bottom:1px solid var(--border); }
-        .kpi-modal-head h3 { margin:0; font-size:1.1rem; }
-        .kpi-modal-close { background:none; border:none; color:var(--text-muted); font-size:1.3rem; cursor:pointer; padding:0.3rem; }
-        .kpi-modal-close:hover { color:var(--text-main); }
-        .kpi-modal-body { padding:1.25rem 1.5rem; }
-        .kpi-detail-row { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0; border-bottom:1px solid rgba(255,255,255,0.05); }
-        .kpi-detail-row:last-child { border-bottom:none; }
+        .kpi-modal { background:var(--bg-card); border:1px solid var(--border); border-radius:16px; width:100%; max-width:650px; box-shadow:0 20px 60px rgba(0,0,0,0.5); margin:auto; }
+        .kpi-modal-head { display:flex; justify-content:space-between; align-items:center; padding:1.25rem 1.5rem; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg-card); border-radius:16px 16px 0 0; z-index:1; }
+        .kpi-modal-head h3 { margin:0; font-size:1.15rem; }
+        .kpi-modal-close { background:none; border:none; color:var(--text-muted); font-size:1.4rem; cursor:pointer; padding:0.3rem 0.5rem; border-radius:8px; }
+        .kpi-modal-close:hover { color:var(--text-main); background:rgba(255,255,255,0.08); }
+        .kpi-modal-body { padding:1rem 1.5rem 1.5rem; }
+        /* Modal KPI summary cards */
+        .kpi-modal-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:0.75rem; margin-bottom:1.25rem; }
+        .kpi-mini { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:10px; padding:0.8rem 1rem; text-align:center; }
+        .kpi-mini-value { font-size:1.5rem; font-weight:700; line-height:1.2; }
+        .kpi-mini-label { font-size:0.72rem; color:var(--text-muted); margin-top:3px; text-transform:uppercase; letter-spacing:0.3px; }
+        /* Modal sections and rows */
+        .kpi-detail-section { font-weight:600; color:var(--accent); font-size:0.82rem; text-transform:uppercase; letter-spacing:0.5px; margin:1.25rem 0 0.6rem; padding-bottom:0.35rem; border-bottom:2px solid var(--accent); display:flex; align-items:center; gap:0.5rem; }
+        .kpi-detail-row { display:flex; justify-content:space-between; align-items:center; padding:0.55rem 0.75rem; border-radius:6px; margin-bottom:2px; }
+        .kpi-detail-row:nth-child(even) { background:rgba(255,255,255,0.025); }
         .kpi-detail-label { color:var(--text-muted); font-size:0.88rem; }
-        .kpi-detail-value { font-weight:600; font-size:0.95rem; }
-        .kpi-detail-section { font-weight:600; color:var(--accent); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.5px; margin:1rem 0 0.5rem; padding-bottom:0.3rem; border-bottom:1px solid var(--accent); }
+        .kpi-detail-value { font-weight:600; font-size:0.92rem; text-align:right; }
+        /* Progress bar for escaneadora cards */
+        .esc-card { background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; padding:0.9rem 1rem; margin-bottom:0.5rem; }
+        .esc-card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem; }
+        .esc-card-name { font-weight:600; font-size:0.95rem; }
+        .esc-card-pct { font-size:0.85rem; font-weight:700; color:var(--accent); }
+        .esc-card-bar { height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden; margin-bottom:0.5rem; }
+        .esc-card-fill { height:100%; border-radius:3px; transition:width 0.4s ease; }
+        .esc-card-stats { display:flex; gap:1rem; font-size:0.78rem; color:var(--text-muted); }
+        .esc-card-stats span { display:flex; align-items:center; gap:0.3rem; }
         .kpi:nth-child(2) { border-left-color:var(--success); }
         .kpi:nth-child(3) { border-left-color:var(--warning); }
         .kpi:nth-child(4) { border-left-color:#8b5cf6; }
@@ -915,28 +931,24 @@
             <!-- KPIs -->
             <div class="kpi-grid" id="dash-kpis">
                 <div class="kpi" onclick="showKpiDetail('total')">
-                    <div class="kpi-header"><div class="kpi-icon" style="color:var(--accent);"><i class="fa-solid fa-boxes-stacked"></i></div><i class="fa-solid fa-chevron-right" style="font-size:0.7rem;color:var(--text-muted);"></i></div>
+                    <div class="kpi-top"><i class="fa-solid fa-boxes-stacked kpi-icon" style="color:var(--accent);"></i><i class="fa-solid fa-arrow-up-right-from-square kpi-arrow"></i></div>
                     <div class="kpi-value" id="kpi-total">-</div>
                     <div class="kpi-label">Total Registros</div>
-                    <div class="kpi-hint">Toca para ver detalle</div>
                 </div>
                 <div class="kpi" onclick="showKpiDetail('hoy')">
-                    <div class="kpi-header"><div class="kpi-icon" style="color:var(--success);"><i class="fa-solid fa-calendar-day"></i></div><i class="fa-solid fa-chevron-right" style="font-size:0.7rem;color:var(--text-muted);"></i></div>
+                    <div class="kpi-top"><i class="fa-solid fa-calendar-day kpi-icon" style="color:var(--success);"></i><i class="fa-solid fa-arrow-up-right-from-square kpi-arrow"></i></div>
                     <div class="kpi-value" id="kpi-hoy">-</div>
                     <div class="kpi-label">Registros Hoy</div>
-                    <div class="kpi-hint">Toca para ver detalle</div>
                 </div>
                 <div class="kpi" onclick="showKpiDetail('unidades')">
-                    <div class="kpi-header"><div class="kpi-icon" style="color:var(--warning);"><i class="fa-solid fa-cubes"></i></div><i class="fa-solid fa-chevron-right" style="font-size:0.7rem;color:var(--text-muted);"></i></div>
+                    <div class="kpi-top"><i class="fa-solid fa-cubes kpi-icon" style="color:var(--warning);"></i><i class="fa-solid fa-arrow-up-right-from-square kpi-arrow"></i></div>
                     <div class="kpi-value" id="kpi-unidades">-</div>
                     <div class="kpi-label">Unidades Totales</div>
-                    <div class="kpi-hint">Toca para ver detalle</div>
                 </div>
                 <div class="kpi" onclick="showKpiDetail('escaneadoras')">
-                    <div class="kpi-header"><div class="kpi-icon" style="color:#8b5cf6;"><i class="fa-solid fa-barcode"></i></div><i class="fa-solid fa-chevron-right" style="font-size:0.7rem;color:var(--text-muted);"></i></div>
+                    <div class="kpi-top"><i class="fa-solid fa-barcode kpi-icon" style="color:#8b5cf6;"></i><i class="fa-solid fa-arrow-up-right-from-square kpi-arrow"></i></div>
                     <div class="kpi-value" id="kpi-operadoras">-</div>
                     <div class="kpi-label">Escaneadoras Activas</div>
-                    <div class="kpi-hint">Toca para ver detalle</div>
                 </div>
             </div>
 
@@ -2292,87 +2304,138 @@ function showKpiDetail(type) {
     const modal = document.getElementById('kpi-modal');
     const title = document.getElementById('kpi-modal-title');
     const body = document.getElementById('kpi-modal-body');
+    const COLORS_HEX = ['#4f7cff','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#06b6d4'];
+    const totalDias = (res.fechas||[]).length;
+    const td = lastTableData||[];
     let html = '';
 
     if (type === 'total') {
         title.innerHTML = '<i class="fa-solid fa-boxes-stacked" style="color:var(--accent);margin-right:8px;"></i>Total Registros';
-        const totalDias = (res.fechas||[]).length;
-        const promedio = totalDias > 0 ? (res.totalRegistros / totalDias).toFixed(1) : 0;
-        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Total registros</span><span class="kpi-detail-value">${res.totalRegistros.toLocaleString()}</span></div>`;
-        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Dias con actividad</span><span class="kpi-detail-value">${totalDias}</span></div>`;
-        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Promedio por dia</span><span class="kpi-detail-value">${promedio}</span></div>`;
-        html += `<div class="kpi-detail-section">Por Turno</div>`;
+        const promDia = totalDias > 0 ? (res.totalRegistros / totalDias).toFixed(1) : 0;
+        const promUdsDia = totalDias > 0 ? (res.totalUnidades / totalDias).toFixed(0) : 0;
+        html += `<div class="kpi-modal-summary">
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--accent);">${res.totalRegistros.toLocaleString()}</div><div class="kpi-mini-label">Pallets</div></div>
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--warning);">${res.totalUnidades.toLocaleString()}</div><div class="kpi-mini-label">Piezas</div></div>
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--success);">${totalDias}</div><div class="kpi-mini-label">Dias activos</div></div>
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:#ec4899;">${promDia}</div><div class="kpi-mini-label">Prom. pallets/dia</div></div>
+        </div>`;
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-clock"></i> Distribucion por Turno</div>`;
         (res.porTurno||[]).forEach(t => {
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t.turno}</span><span class="kpi-detail-value">${t.registros.toLocaleString()} reg &nbsp;/&nbsp; ${t.unidades.toLocaleString()} uds</span></div>`;
+            const pct = res.totalRegistros > 0 ? ((t.registros/res.totalRegistros)*100).toFixed(1) : 0;
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t.turno}</span><span class="kpi-detail-value">${t.registros.toLocaleString()} pallets &middot; ${t.unidades.toLocaleString()} pzs <span style="color:var(--accent);font-size:0.8rem;">(${pct}%)</span></span></div>`;
         });
-        html += `<div class="kpi-detail-section">Por Destino</div>`;
-        (res.porDestino||[]).sort((a,b)=>b.registros-a.registros).forEach(d => {
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-location-dot"></i> Por Destino</div>`;
+        (res.porDestino||[]).sort((a,b)=>b.registros-a.registros).forEach((d,i) => {
             const pct = res.totalRegistros > 0 ? ((d.registros/res.totalRegistros)*100).toFixed(1) : 0;
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${d.destino}</span><span class="kpi-detail-value">${d.registros.toLocaleString()} <span style="color:var(--text-muted);font-weight:400;">(${pct}%)</span></span></div>`;
+            const w = res.totalRegistros > 0 ? ((d.registros/res.totalRegistros)*100) : 0;
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${d.destino}</span><span class="kpi-detail-value">${d.registros.toLocaleString()} &middot; ${d.unidades.toLocaleString()} pzs <span style="color:var(--text-muted);font-weight:400;">(${pct}%)</span></span></div>`;
         });
-        html += `<div class="kpi-detail-section">Por Condicion</div>`;
-        (res.porCondicion||[]).sort((a,b)=>b.total-a.total).forEach(c => {
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${c.condicion}</span><span class="kpi-detail-value">${c.total.toLocaleString()}</span></div>`;
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-tags"></i> Por Condicion</div>`;
+        (res.porCondicion||[]).sort((a,b)=>b.total-a.total).forEach((c,i) => {
+            const pct = res.totalRegistros > 0 ? ((c.total/res.totalRegistros)*100).toFixed(1) : 0;
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${c.condicion}</span><span class="kpi-detail-value">${c.total.toLocaleString()} <span style="color:var(--text-muted);font-weight:400;">(${pct}%)</span></span></div>`;
         });
+
     } else if (type === 'hoy') {
         title.innerHTML = '<i class="fa-solid fa-calendar-day" style="color:var(--success);margin-right:8px;"></i>Registros Hoy';
-        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Fecha</span><span class="kpi-detail-value">${res.fechaHoy || 'Hoy'}</span></div>`;
-        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Registros hoy</span><span class="kpi-detail-value">${res.registrosHoy.toLocaleString()}</span></div>`;
-        // Breakdown today by escaneadora from lastTableData
-        const hoyData = {};
-        (lastTableData||[]).filter(r => r.fecha === res.fechaHoy).forEach(r => {
-            if (!hoyData[r.escaneadora]) hoyData[r.escaneadora] = {reg:0, uds:0};
-            hoyData[r.escaneadora].reg++;
-            hoyData[r.escaneadora].uds += (r.cantidad||0);
-        });
-        const hoyEntries = Object.entries(hoyData).sort((a,b) => b[1].reg - a[1].reg);
-        if (hoyEntries.length > 0) {
-            html += `<div class="kpi-detail-section">Hoy por Escaneadora</div>`;
-            hoyEntries.forEach(([name, d]) => {
-                html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${name}</span><span class="kpi-detail-value">${d.reg} reg &nbsp;/&nbsp; ${d.uds.toLocaleString()} uds</span></div>`;
-            });
-        }
-        // Breakdown today by turno
+        const hoyRecs = td.filter(r => r.fecha === res.fechaHoy);
+        const hoyUds = hoyRecs.reduce((s,r) => s + (r.cantidad||0), 0);
+        const hoyEsc = new Set(hoyRecs.map(r=>r.escaneadora)).size;
+        const hoyDest = {};
+        hoyRecs.forEach(r => { hoyDest[r.destino] = (hoyDest[r.destino]||0) + 1; });
         const hoyTurno = {};
-        (lastTableData||[]).filter(r => r.fecha === res.fechaHoy).forEach(r => {
-            const t = r.turno || 'Otro';
-            if (!hoyTurno[t]) hoyTurno[t] = 0;
-            hoyTurno[t]++;
+        hoyRecs.forEach(r => { const t=r.turno||'Otro'; if(!hoyTurno[t])hoyTurno[t]={reg:0,uds:0}; hoyTurno[t].reg++; hoyTurno[t].uds+=(r.cantidad||0); });
+        const hoyEscData = {};
+        hoyRecs.forEach(r => { if(!hoyEscData[r.escaneadora])hoyEscData[r.escaneadora]={reg:0,uds:0}; hoyEscData[r.escaneadora].reg++; hoyEscData[r.escaneadora].uds+=(r.cantidad||0); });
+        const hoyCond = {};
+        hoyRecs.forEach(r => { const c=r.condicion||'Sin'; hoyCond[c]=(hoyCond[c]||0)+1; });
+
+        html += `<div class="kpi-modal-summary">
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--success);">${res.registrosHoy.toLocaleString()}</div><div class="kpi-mini-label">Pallets hoy</div></div>
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--warning);">${hoyUds.toLocaleString()}</div><div class="kpi-mini-label">Piezas hoy</div></div>
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:#8b5cf6;">${hoyEsc}</div><div class="kpi-mini-label">Escaneadoras</div></div>
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:#14b8a6;">${res.fechaHoy||'--'}</div><div class="kpi-mini-label">Fecha</div></div>
+        </div>`;
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-clock"></i> Por Turno</div>`;
+        Object.entries(hoyTurno).sort((a,b)=>b[1].reg-a[1].reg).forEach(([t,d]) => {
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t}</span><span class="kpi-detail-value">${d.reg} pallets &middot; ${d.uds.toLocaleString()} pzs</span></div>`;
         });
-        if (Object.keys(hoyTurno).length > 0) {
-            html += `<div class="kpi-detail-section">Hoy por Turno</div>`;
-            Object.entries(hoyTurno).sort((a,b)=>b[1]-a[1]).forEach(([t, n]) => {
-                html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t}</span><span class="kpi-detail-value">${n}</span></div>`;
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-barcode"></i> Por Escaneadora</div>`;
+        Object.entries(hoyEscData).sort((a,b)=>b[1].reg-a[1].reg).forEach(([name,d],i) => {
+            const pct = hoyRecs.length > 0 ? ((d.reg/hoyRecs.length)*100).toFixed(1) : 0;
+            html += `<div class="esc-card">
+                <div class="esc-card-head"><span class="esc-card-name">${name}</span><span class="esc-card-pct">${pct}%</span></div>
+                <div class="esc-card-bar"><div class="esc-card-fill" style="width:${pct}%;background:${COLORS_HEX[i%10]};"></div></div>
+                <div class="esc-card-stats"><span><i class="fa-solid fa-boxes-stacked"></i> ${d.reg} pallets</span><span><i class="fa-solid fa-cubes"></i> ${d.uds.toLocaleString()} pzs</span></div>
+            </div>`;
+        });
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-location-dot"></i> Por Destino</div>`;
+        Object.entries(hoyDest).sort((a,b)=>b[1]-a[1]).forEach(([dest,n],i) => {
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${dest}</span><span class="kpi-detail-value">${n}</span></div>`;
+        });
+        if (Object.keys(hoyCond).length > 0) {
+            html += `<div class="kpi-detail-section"><i class="fa-solid fa-tags"></i> Por Condicion</div>`;
+            Object.entries(hoyCond).sort((a,b)=>b[1]-a[1]).forEach(([c,n],i) => {
+                html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${c}</span><span class="kpi-detail-value">${n}</span></div>`;
             });
         }
+
     } else if (type === 'unidades') {
         title.innerHTML = '<i class="fa-solid fa-cubes" style="color:var(--warning);margin-right:8px;"></i>Unidades Totales';
-        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Total piezas</span><span class="kpi-detail-value">${res.totalUnidades.toLocaleString()}</span></div>`;
-        const totalDias = (res.fechas||[]).length;
-        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Promedio piezas/dia</span><span class="kpi-detail-value">${totalDias > 0 ? (res.totalUnidades/totalDias).toFixed(0) : 0}</span></div>`;
-        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Promedio piezas/pallet</span><span class="kpi-detail-value">${res.totalRegistros > 0 ? (res.totalUnidades/res.totalRegistros).toFixed(1) : 0}</span></div>`;
-        html += `<div class="kpi-detail-section">Piezas por Escaneadora</div>`;
-        (res.porEscaneadora||[]).sort((a,b)=>b.unidades-a.unidades).forEach(e => {
+        const promPzDia = totalDias > 0 ? (res.totalUnidades/totalDias).toFixed(0) : 0;
+        const promPzPallet = res.totalRegistros > 0 ? (res.totalUnidades/res.totalRegistros).toFixed(1) : 0;
+        const maxEsc = (res.porEscaneadora||[]).reduce((m,e) => e.unidades > m.unidades ? e : m, {unidades:0,nombre:'-'});
+
+        html += `<div class="kpi-modal-summary">
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--warning);">${res.totalUnidades.toLocaleString()}</div><div class="kpi-mini-label">Total piezas</div></div>
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--success);">${promPzDia}</div><div class="kpi-mini-label">Prom. pzs/dia</div></div>
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--accent);">${promPzPallet}</div><div class="kpi-mini-label">Prom. pzs/pallet</div></div>
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:#ec4899;font-size:1rem;">${maxEsc.nombre}</div><div class="kpi-mini-label">Top escaneadora</div></div>
+        </div>`;
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-barcode"></i> Piezas por Escaneadora</div>`;
+        (res.porEscaneadora||[]).sort((a,b)=>b.unidades-a.unidades).forEach((e,i) => {
             const pct = res.totalUnidades > 0 ? ((e.unidades/res.totalUnidades)*100).toFixed(1) : 0;
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${e.nombre}</span><span class="kpi-detail-value">${e.unidades.toLocaleString()} <span style="color:var(--text-muted);font-weight:400;">(${pct}%)</span></span></div>`;
+            html += `<div class="esc-card">
+                <div class="esc-card-head"><span class="esc-card-name">${e.nombre}</span><span class="esc-card-pct">${pct}%</span></div>
+                <div class="esc-card-bar"><div class="esc-card-fill" style="width:${pct}%;background:${COLORS_HEX[i%10]};"></div></div>
+                <div class="esc-card-stats"><span><i class="fa-solid fa-cubes"></i> ${e.unidades.toLocaleString()} piezas</span><span><i class="fa-solid fa-boxes-stacked"></i> ${e.registros.toLocaleString()} pallets</span></div>
+            </div>`;
         });
-        html += `<div class="kpi-detail-section">Piezas por Turno</div>`;
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-clock"></i> Piezas por Turno</div>`;
         (res.porTurno||[]).forEach(t => {
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t.turno}</span><span class="kpi-detail-value">${t.unidades.toLocaleString()}</span></div>`;
+            const pct = res.totalUnidades > 0 ? ((t.unidades/res.totalUnidades)*100).toFixed(1) : 0;
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t.turno}</span><span class="kpi-detail-value">${t.unidades.toLocaleString()} pzs <span style="color:var(--accent);font-size:0.8rem;">(${pct}%)</span></span></div>`;
         });
-        html += `<div class="kpi-detail-section">Piezas por Destino</div>`;
-        (res.porDestino||[]).sort((a,b)=>b.unidades-a.unidades).forEach(d => {
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${d.destino}</span><span class="kpi-detail-value">${d.unidades.toLocaleString()}</span></div>`;
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-location-dot"></i> Piezas por Destino</div>`;
+        (res.porDestino||[]).sort((a,b)=>b.unidades-a.unidades).forEach((d,i) => {
+            const pct = res.totalUnidades > 0 ? ((d.unidades/res.totalUnidades)*100).toFixed(1) : 0;
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS_HEX[i%10]};margin-right:6px;"></span>${d.destino}</span><span class="kpi-detail-value">${d.unidades.toLocaleString()} <span style="color:var(--text-muted);font-weight:400;">(${pct}%)</span></span></div>`;
         });
+
     } else if (type === 'escaneadoras') {
         title.innerHTML = '<i class="fa-solid fa-barcode" style="color:#8b5cf6;margin-right:8px;"></i>Escaneadoras Activas';
-        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Total activas</span><span class="kpi-detail-value">${(res.escaneadoras||[]).length}</span></div>`;
-        html += `<div class="kpi-detail-section">Detalle por Escaneadora</div>`;
-        (res.porEscaneadora||[]).sort((a,b)=>b.registros-a.registros).forEach(e => {
+        const escList = (res.porEscaneadora||[]).sort((a,b)=>b.registros-a.registros);
+        const topEsc = escList[0] || {nombre:'-',registros:0,unidades:0};
+        const promRegEsc = escList.length > 0 ? (res.totalRegistros/escList.length).toFixed(0) : 0;
+
+        html += `<div class="kpi-modal-summary">
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:#8b5cf6;">${escList.length}</div><div class="kpi-mini-label">Escaneadoras</div></div>
+            <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--accent);">${promRegEsc}</div><div class="kpi-mini-label">Prom. pallets c/u</div></div>
+            <div class="kpi-mini" style="grid-column:span 2;"><div class="kpi-mini-value" style="color:var(--success);font-size:1.1rem;">${topEsc.nombre}</div><div class="kpi-mini-label">Mayor produccion (${topEsc.registros} pallets)</div></div>
+        </div>`;
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-ranking-star"></i> Todas las Escaneadoras</div>`;
+        escList.forEach((e,i) => {
             const pctReg = res.totalRegistros > 0 ? ((e.registros/res.totalRegistros)*100).toFixed(1) : 0;
-            html += `<div class="kpi-detail-row" style="flex-wrap:wrap;gap:0.3rem;">
-                <span class="kpi-detail-label" style="font-weight:600;color:var(--text-main);">${e.nombre}</span>
-                <span class="kpi-detail-value">${e.registros.toLocaleString()} reg &nbsp;/&nbsp; ${e.unidades.toLocaleString()} uds &nbsp;<span style="color:var(--text-muted);font-weight:400;">(${pctReg}%)</span></span>
+            const pctUds = res.totalUnidades > 0 ? ((e.unidades/res.totalUnidades)*100).toFixed(1) : 0;
+            const promPz = e.registros > 0 ? (e.unidades/e.registros).toFixed(1) : 0;
+            html += `<div class="esc-card">
+                <div class="esc-card-head"><span class="esc-card-name"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${COLORS_HEX[i%10]}22;color:${COLORS_HEX[i%10]};font-size:0.7rem;font-weight:700;margin-right:8px;">${i+1}</span>${e.nombre}</span><span class="esc-card-pct">${pctReg}%</span></div>
+                <div class="esc-card-bar"><div class="esc-card-fill" style="width:${pctReg}%;background:${COLORS_HEX[i%10]};"></div></div>
+                <div class="esc-card-stats">
+                    <span><i class="fa-solid fa-boxes-stacked"></i> ${e.registros.toLocaleString()} pallets</span>
+                    <span><i class="fa-solid fa-cubes"></i> ${e.unidades.toLocaleString()} pzs (${pctUds}%)</span>
+                    <span><i class="fa-solid fa-calculator"></i> ${promPz} pzs/pallet</span>
+                </div>
             </div>`;
         });
     }
