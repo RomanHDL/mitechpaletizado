@@ -159,10 +159,30 @@
         .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1rem; margin-bottom:1.5rem; }
         .kpi {
             background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
-            padding:1.35rem 1.5rem; border-left:4px solid var(--accent);
+            padding:1.35rem 1.5rem; border-left:4px solid var(--accent); cursor:pointer;
+            transition:transform 0.15s,box-shadow 0.15s;
         }
+        .kpi:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.3); }
+        .kpi:active { transform:translateY(0); }
+        .kpi-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem; }
+        .kpi-icon { font-size:1.4rem; opacity:0.6; }
         .kpi-value { font-size:2.2rem; font-weight:700; line-height:1.2; }
         .kpi-label { font-size:0.88rem; color:var(--text-muted); margin-top:5px; text-transform:uppercase; letter-spacing:0.5px; }
+        .kpi-hint { font-size:0.7rem; color:var(--accent); margin-top:6px; opacity:0.7; }
+        /* KPI Detail Modal */
+        .kpi-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:2000; justify-content:center; align-items:center; padding:1rem; }
+        .kpi-modal-overlay.open { display:flex; }
+        .kpi-modal { background:var(--bg-card); border:1px solid var(--border); border-radius:16px; width:100%; max-width:600px; max-height:80vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+        .kpi-modal-head { display:flex; justify-content:space-between; align-items:center; padding:1.25rem 1.5rem; border-bottom:1px solid var(--border); }
+        .kpi-modal-head h3 { margin:0; font-size:1.1rem; }
+        .kpi-modal-close { background:none; border:none; color:var(--text-muted); font-size:1.3rem; cursor:pointer; padding:0.3rem; }
+        .kpi-modal-close:hover { color:var(--text-main); }
+        .kpi-modal-body { padding:1.25rem 1.5rem; }
+        .kpi-detail-row { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+        .kpi-detail-row:last-child { border-bottom:none; }
+        .kpi-detail-label { color:var(--text-muted); font-size:0.88rem; }
+        .kpi-detail-value { font-weight:600; font-size:0.95rem; }
+        .kpi-detail-section { font-weight:600; color:var(--accent); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.5px; margin:1rem 0 0.5rem; padding-bottom:0.3rem; border-bottom:1px solid var(--accent); }
         .kpi:nth-child(2) { border-left-color:var(--success); }
         .kpi:nth-child(3) { border-left-color:var(--warning); }
         .kpi:nth-child(4) { border-left-color:#8b5cf6; }
@@ -578,7 +598,7 @@
                     <div class="alert alert-error" id="esc-error"></div>
                     <div class="alert alert-success" id="esc-success"></div>
 
-                    <form id="esc-form" onsubmit="handleEscSubmit(event)">
+                    <form id="esc-form" onsubmit="handleEscSubmit(event)" novalidate>
                         <div class="form-row">
                             <div class="form-group">
                                 <label><i class="fa-solid fa-hashtag" style="margin-right:5px;color:var(--accent);font-size:0.8rem;"></i>Pallet ID <span style="color:var(--danger);">*</span></label>
@@ -894,10 +914,41 @@
 
             <!-- KPIs -->
             <div class="kpi-grid" id="dash-kpis">
-                <div class="kpi"><div class="kpi-value" id="kpi-total">-</div><div class="kpi-label">Total Registros</div></div>
-                <div class="kpi"><div class="kpi-value" id="kpi-hoy">-</div><div class="kpi-label">Registros Hoy</div></div>
-                <div class="kpi"><div class="kpi-value" id="kpi-unidades">-</div><div class="kpi-label">Unidades Totales</div></div>
-                <div class="kpi"><div class="kpi-value" id="kpi-operadoras">-</div><div class="kpi-label">Escaneadoras Activas</div></div>
+                <div class="kpi" onclick="showKpiDetail('total')">
+                    <div class="kpi-header"><div class="kpi-icon" style="color:var(--accent);"><i class="fa-solid fa-boxes-stacked"></i></div><i class="fa-solid fa-chevron-right" style="font-size:0.7rem;color:var(--text-muted);"></i></div>
+                    <div class="kpi-value" id="kpi-total">-</div>
+                    <div class="kpi-label">Total Registros</div>
+                    <div class="kpi-hint">Toca para ver detalle</div>
+                </div>
+                <div class="kpi" onclick="showKpiDetail('hoy')">
+                    <div class="kpi-header"><div class="kpi-icon" style="color:var(--success);"><i class="fa-solid fa-calendar-day"></i></div><i class="fa-solid fa-chevron-right" style="font-size:0.7rem;color:var(--text-muted);"></i></div>
+                    <div class="kpi-value" id="kpi-hoy">-</div>
+                    <div class="kpi-label">Registros Hoy</div>
+                    <div class="kpi-hint">Toca para ver detalle</div>
+                </div>
+                <div class="kpi" onclick="showKpiDetail('unidades')">
+                    <div class="kpi-header"><div class="kpi-icon" style="color:var(--warning);"><i class="fa-solid fa-cubes"></i></div><i class="fa-solid fa-chevron-right" style="font-size:0.7rem;color:var(--text-muted);"></i></div>
+                    <div class="kpi-value" id="kpi-unidades">-</div>
+                    <div class="kpi-label">Unidades Totales</div>
+                    <div class="kpi-hint">Toca para ver detalle</div>
+                </div>
+                <div class="kpi" onclick="showKpiDetail('escaneadoras')">
+                    <div class="kpi-header"><div class="kpi-icon" style="color:#8b5cf6;"><i class="fa-solid fa-barcode"></i></div><i class="fa-solid fa-chevron-right" style="font-size:0.7rem;color:var(--text-muted);"></i></div>
+                    <div class="kpi-value" id="kpi-operadoras">-</div>
+                    <div class="kpi-label">Escaneadoras Activas</div>
+                    <div class="kpi-hint">Toca para ver detalle</div>
+                </div>
+            </div>
+
+            <!-- KPI Detail Modal -->
+            <div class="kpi-modal-overlay" id="kpi-modal" onclick="if(event.target===this)this.classList.remove('open')">
+                <div class="kpi-modal">
+                    <div class="kpi-modal-head">
+                        <h3 id="kpi-modal-title">Detalle</h3>
+                        <button class="kpi-modal-close" onclick="document.getElementById('kpi-modal').classList.remove('open')">&times;</button>
+                    </div>
+                    <div class="kpi-modal-body" id="kpi-modal-body"></div>
+                </div>
             </div>
 
             <!-- Row 1: 3 graficas de pastel -->
@@ -2233,6 +2284,101 @@ function toggleDateGroup(fecha) {
         header.classList.remove('collapsed');
         body.classList.remove('hidden');
     }
+}
+
+function showKpiDetail(type) {
+    const res = lastResumen;
+    if (!res) return;
+    const modal = document.getElementById('kpi-modal');
+    const title = document.getElementById('kpi-modal-title');
+    const body = document.getElementById('kpi-modal-body');
+    let html = '';
+
+    if (type === 'total') {
+        title.innerHTML = '<i class="fa-solid fa-boxes-stacked" style="color:var(--accent);margin-right:8px;"></i>Total Registros';
+        const totalDias = (res.fechas||[]).length;
+        const promedio = totalDias > 0 ? (res.totalRegistros / totalDias).toFixed(1) : 0;
+        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Total registros</span><span class="kpi-detail-value">${res.totalRegistros.toLocaleString()}</span></div>`;
+        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Dias con actividad</span><span class="kpi-detail-value">${totalDias}</span></div>`;
+        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Promedio por dia</span><span class="kpi-detail-value">${promedio}</span></div>`;
+        html += `<div class="kpi-detail-section">Por Turno</div>`;
+        (res.porTurno||[]).forEach(t => {
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t.turno}</span><span class="kpi-detail-value">${t.registros.toLocaleString()} reg &nbsp;/&nbsp; ${t.unidades.toLocaleString()} uds</span></div>`;
+        });
+        html += `<div class="kpi-detail-section">Por Destino</div>`;
+        (res.porDestino||[]).sort((a,b)=>b.registros-a.registros).forEach(d => {
+            const pct = res.totalRegistros > 0 ? ((d.registros/res.totalRegistros)*100).toFixed(1) : 0;
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${d.destino}</span><span class="kpi-detail-value">${d.registros.toLocaleString()} <span style="color:var(--text-muted);font-weight:400;">(${pct}%)</span></span></div>`;
+        });
+        html += `<div class="kpi-detail-section">Por Condicion</div>`;
+        (res.porCondicion||[]).sort((a,b)=>b.total-a.total).forEach(c => {
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${c.condicion}</span><span class="kpi-detail-value">${c.total.toLocaleString()}</span></div>`;
+        });
+    } else if (type === 'hoy') {
+        title.innerHTML = '<i class="fa-solid fa-calendar-day" style="color:var(--success);margin-right:8px;"></i>Registros Hoy';
+        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Fecha</span><span class="kpi-detail-value">${res.fechaHoy || 'Hoy'}</span></div>`;
+        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Registros hoy</span><span class="kpi-detail-value">${res.registrosHoy.toLocaleString()}</span></div>`;
+        // Breakdown today by escaneadora from lastTableData
+        const hoyData = {};
+        (lastTableData||[]).filter(r => r.fecha === res.fechaHoy).forEach(r => {
+            if (!hoyData[r.escaneadora]) hoyData[r.escaneadora] = {reg:0, uds:0};
+            hoyData[r.escaneadora].reg++;
+            hoyData[r.escaneadora].uds += (r.cantidad||0);
+        });
+        const hoyEntries = Object.entries(hoyData).sort((a,b) => b[1].reg - a[1].reg);
+        if (hoyEntries.length > 0) {
+            html += `<div class="kpi-detail-section">Hoy por Escaneadora</div>`;
+            hoyEntries.forEach(([name, d]) => {
+                html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${name}</span><span class="kpi-detail-value">${d.reg} reg &nbsp;/&nbsp; ${d.uds.toLocaleString()} uds</span></div>`;
+            });
+        }
+        // Breakdown today by turno
+        const hoyTurno = {};
+        (lastTableData||[]).filter(r => r.fecha === res.fechaHoy).forEach(r => {
+            const t = r.turno || 'Otro';
+            if (!hoyTurno[t]) hoyTurno[t] = 0;
+            hoyTurno[t]++;
+        });
+        if (Object.keys(hoyTurno).length > 0) {
+            html += `<div class="kpi-detail-section">Hoy por Turno</div>`;
+            Object.entries(hoyTurno).sort((a,b)=>b[1]-a[1]).forEach(([t, n]) => {
+                html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t}</span><span class="kpi-detail-value">${n}</span></div>`;
+            });
+        }
+    } else if (type === 'unidades') {
+        title.innerHTML = '<i class="fa-solid fa-cubes" style="color:var(--warning);margin-right:8px;"></i>Unidades Totales';
+        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Total piezas</span><span class="kpi-detail-value">${res.totalUnidades.toLocaleString()}</span></div>`;
+        const totalDias = (res.fechas||[]).length;
+        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Promedio piezas/dia</span><span class="kpi-detail-value">${totalDias > 0 ? (res.totalUnidades/totalDias).toFixed(0) : 0}</span></div>`;
+        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Promedio piezas/pallet</span><span class="kpi-detail-value">${res.totalRegistros > 0 ? (res.totalUnidades/res.totalRegistros).toFixed(1) : 0}</span></div>`;
+        html += `<div class="kpi-detail-section">Piezas por Escaneadora</div>`;
+        (res.porEscaneadora||[]).sort((a,b)=>b.unidades-a.unidades).forEach(e => {
+            const pct = res.totalUnidades > 0 ? ((e.unidades/res.totalUnidades)*100).toFixed(1) : 0;
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${e.nombre}</span><span class="kpi-detail-value">${e.unidades.toLocaleString()} <span style="color:var(--text-muted);font-weight:400;">(${pct}%)</span></span></div>`;
+        });
+        html += `<div class="kpi-detail-section">Piezas por Turno</div>`;
+        (res.porTurno||[]).forEach(t => {
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t.turno}</span><span class="kpi-detail-value">${t.unidades.toLocaleString()}</span></div>`;
+        });
+        html += `<div class="kpi-detail-section">Piezas por Destino</div>`;
+        (res.porDestino||[]).sort((a,b)=>b.unidades-a.unidades).forEach(d => {
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${d.destino}</span><span class="kpi-detail-value">${d.unidades.toLocaleString()}</span></div>`;
+        });
+    } else if (type === 'escaneadoras') {
+        title.innerHTML = '<i class="fa-solid fa-barcode" style="color:#8b5cf6;margin-right:8px;"></i>Escaneadoras Activas';
+        html += `<div class="kpi-detail-row"><span class="kpi-detail-label">Total activas</span><span class="kpi-detail-value">${(res.escaneadoras||[]).length}</span></div>`;
+        html += `<div class="kpi-detail-section">Detalle por Escaneadora</div>`;
+        (res.porEscaneadora||[]).sort((a,b)=>b.registros-a.registros).forEach(e => {
+            const pctReg = res.totalRegistros > 0 ? ((e.registros/res.totalRegistros)*100).toFixed(1) : 0;
+            html += `<div class="kpi-detail-row" style="flex-wrap:wrap;gap:0.3rem;">
+                <span class="kpi-detail-label" style="font-weight:600;color:var(--text-main);">${e.nombre}</span>
+                <span class="kpi-detail-value">${e.registros.toLocaleString()} reg &nbsp;/&nbsp; ${e.unidades.toLocaleString()} uds &nbsp;<span style="color:var(--text-muted);font-weight:400;">(${pctReg}%)</span></span>
+            </div>`;
+        });
+    }
+
+    body.innerHTML = html;
+    modal.classList.add('open');
 }
 
 async function loadResumen() {
