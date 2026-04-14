@@ -164,9 +164,10 @@
         }
         .kpi:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,0.35); }
         .kpi:active { transform:translateY(0); }
-        .kpi-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; }
-        .kpi-icon { font-size:1.6rem; }
-        .kpi-arrow { font-size:0.65rem; color:var(--text-muted); opacity:0.5; }
+        .kpi-row { display:flex; align-items:center; gap:1rem; }
+        .kpi-icon { font-size:1.8rem; flex-shrink:0; }
+        .kpi-data { flex:1; min-width:0; }
+        .kpi-arrow { font-size:0.6rem; color:var(--text-muted); opacity:0.4; flex-shrink:0; align-self:flex-start; margin-top:4px; }
         .kpi:hover .kpi-arrow { opacity:1; color:var(--accent); }
         .kpi-value { font-size:2.2rem; font-weight:700; line-height:1.2; }
         .kpi-label { font-size:0.88rem; color:var(--text-muted); margin-top:5px; text-transform:uppercase; letter-spacing:0.5px; }
@@ -931,24 +932,16 @@
             <!-- KPIs -->
             <div class="kpi-grid" id="dash-kpis">
                 <div class="kpi" onclick="showKpiDetail('total')">
-                    <div class="kpi-top"><i class="fa-solid fa-boxes-stacked kpi-icon" style="color:var(--accent);"></i><i class="fa-solid fa-arrow-up-right-from-square kpi-arrow"></i></div>
-                    <div class="kpi-value" id="kpi-total">-</div>
-                    <div class="kpi-label">Total Registros</div>
+                    <div class="kpi-row"><i class="fa-solid fa-boxes-stacked kpi-icon" style="color:var(--accent);"></i><div class="kpi-data"><div class="kpi-value" id="kpi-total">-</div><div class="kpi-label">Total Registros</div></div><i class="fa-solid fa-arrow-up-right-from-square kpi-arrow"></i></div>
                 </div>
                 <div class="kpi" onclick="showKpiDetail('hoy')">
-                    <div class="kpi-top"><i class="fa-solid fa-calendar-day kpi-icon" style="color:var(--success);"></i><i class="fa-solid fa-arrow-up-right-from-square kpi-arrow"></i></div>
-                    <div class="kpi-value" id="kpi-hoy">-</div>
-                    <div class="kpi-label">Registros Hoy</div>
+                    <div class="kpi-row"><i class="fa-solid fa-calendar-day kpi-icon" style="color:var(--success);"></i><div class="kpi-data"><div class="kpi-value" id="kpi-hoy">-</div><div class="kpi-label">Registros Hoy</div></div><i class="fa-solid fa-arrow-up-right-from-square kpi-arrow"></i></div>
                 </div>
                 <div class="kpi" onclick="showKpiDetail('unidades')">
-                    <div class="kpi-top"><i class="fa-solid fa-cubes kpi-icon" style="color:var(--warning);"></i><i class="fa-solid fa-arrow-up-right-from-square kpi-arrow"></i></div>
-                    <div class="kpi-value" id="kpi-unidades">-</div>
-                    <div class="kpi-label">Unidades Totales</div>
+                    <div class="kpi-row"><i class="fa-solid fa-cubes kpi-icon" style="color:var(--warning);"></i><div class="kpi-data"><div class="kpi-value" id="kpi-unidades">-</div><div class="kpi-label">Unidades Totales</div></div><i class="fa-solid fa-arrow-up-right-from-square kpi-arrow"></i></div>
                 </div>
                 <div class="kpi" onclick="showKpiDetail('escaneadoras')">
-                    <div class="kpi-top"><i class="fa-solid fa-barcode kpi-icon" style="color:#8b5cf6;"></i><i class="fa-solid fa-arrow-up-right-from-square kpi-arrow"></i></div>
-                    <div class="kpi-value" id="kpi-operadoras">-</div>
-                    <div class="kpi-label">Escaneadoras Activas</div>
+                    <div class="kpi-row"><i class="fa-solid fa-barcode kpi-icon" style="color:#8b5cf6;"></i><div class="kpi-data"><div class="kpi-value" id="kpi-operadoras">-</div><div class="kpi-label">Escaneadoras Activas</div></div><i class="fa-solid fa-arrow-up-right-from-square kpi-arrow"></i></div>
                 </div>
             </div>
 
