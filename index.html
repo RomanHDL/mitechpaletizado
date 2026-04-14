@@ -175,6 +175,7 @@
         .kpi-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:2000; justify-content:center; align-items:center; padding:1rem; }
         .kpi-modal-overlay.open { display:flex; }
         .kpi-modal { background:var(--bg-card); border:1px solid var(--border); border-radius:16px; width:100%; max-width:650px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+        .kpi-modal.wide { max-width:950px; }
         .kpi-modal-head { display:flex; justify-content:space-between; align-items:center; padding:1.25rem 1.5rem; border-bottom:1px solid var(--border); flex-shrink:0; }
         .kpi-modal-head h3 { margin:0; font-size:1.15rem; }
         .kpi-modal-close { background:none; border:none; color:var(--text-muted); font-size:1.4rem; cursor:pointer; padding:0.3rem 0.5rem; border-radius:8px; }
@@ -2343,8 +2344,19 @@ function showKpiDetail(type) {
         const hoyDest = {}; hoyRecs.forEach(r => { hoyDest[r.destino] = (hoyDest[r.destino]||0) + 1; });
         const hoyTurno = {}; hoyRecs.forEach(r => { const t=r.turno||'Otro'; if(!hoyTurno[t])hoyTurno[t]={reg:0,uds:0}; hoyTurno[t].reg++; hoyTurno[t].uds+=(r.cantidad||0); });
         const hoyEscData = {}; hoyRecs.forEach(r => { if(!hoyEscData[r.escaneadora])hoyEscData[r.escaneadora]={reg:0,uds:0}; hoyEscData[r.escaneadora].reg++; hoyEscData[r.escaneadora].uds+=(r.cantidad||0); });
+        const hoyCond = {}; hoyRecs.forEach(r => { const c=r.condicion||'Sin'; hoyCond[c]=(hoyCond[c]||0)+1; });
+        const hoyOrdered = [...hoyRecs].sort((a,b) => {
+            if (a.createdAt && b.createdAt) return new Date(b.createdAt) - new Date(a.createdAt);
+            return 0;
+        });
 
-        html += `<div class="kpi-modal-summary">
+        // Layout horizontal: stats izquierda, tabla pallets derecha
+        html += `<div style="display:flex;gap:1.25rem;min-height:0;">`;
+
+        // === COLUMNA IZQUIERDA: Stats ===
+        html += `<div style="flex:0 0 340px;overflow-y:auto;overscroll-behavior:contain;">`;
+
+        html += `<div class="kpi-modal-summary" style="grid-template-columns:1fr 1fr;">
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--success);">${res.registrosHoy.toLocaleString()}</div><div class="kpi-mini-label">Pallets hoy</div></div>
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--warning);">${hoyUds.toLocaleString()}</div><div class="kpi-mini-label">Piezas hoy</div></div>
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:#8b5cf6;">${hoyEsc}</div><div class="kpi-mini-label">Escaneadoras</div></div>
@@ -2353,51 +2365,48 @@ function showKpiDetail(type) {
 
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-clock"></i> Por Turno</div>`;
         Object.entries(hoyTurno).sort((a,b)=>b[1].reg-a[1].reg).forEach(([t,d]) => {
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t}</span><span class="kpi-detail-value">${d.reg} pallets &middot; ${d.uds.toLocaleString()} pzs</span></div>`;
+            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${t}</span><span class="kpi-detail-value">${d.reg} pal &middot; ${d.uds.toLocaleString()} pzs</span></div>`;
         });
 
         html += `<div class="kpi-detail-section"><i class="fa-solid fa-barcode"></i> Por Escaneadora</div>`;
-        html += `<div class="kpi-modal-grid">`;
         Object.entries(hoyEscData).sort((a,b)=>b[1].reg-a[1].reg).forEach(([name,d],i) => {
             const pct = hoyRecs.length > 0 ? ((d.reg/hoyRecs.length)*100).toFixed(1) : 0;
             html += `<div class="esc-card">
                 <div class="esc-card-head"><span class="esc-card-name">${name}</span><span class="esc-card-pct">${pct}%</span></div>
                 <div class="esc-card-bar"><div class="esc-card-fill" style="width:${pct}%;background:${CH[i%10]};"></div></div>
-                <div class="esc-card-stats"><span><i class="fa-solid fa-boxes-stacked"></i> ${d.reg} pallets</span><span><i class="fa-solid fa-cubes"></i> ${d.uds.toLocaleString()} pzs</span></div>
+                <div class="esc-card-stats"><span><i class="fa-solid fa-boxes-stacked"></i> ${d.reg}</span><span><i class="fa-solid fa-cubes"></i> ${d.uds.toLocaleString()}</span></div>
             </div>`;
         });
-        html += `</div>`;
 
-        html += `<div class="kpi-detail-section"><i class="fa-solid fa-location-dot"></i> Destino &amp; Condicion</div>`;
-        html += `<div class="kpi-modal-grid"><div class="kpi-modal-col">`;
+        html += `<div class="kpi-detail-section"><i class="fa-solid fa-location-dot"></i> Destino</div>`;
         Object.entries(hoyDest).sort((a,b)=>b[1]-a[1]).forEach(([dest,n],i) => {
             html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${dot(i)}${dest}</span><span class="kpi-detail-value">${n}</span></div>`;
         });
-        html += `</div><div class="kpi-modal-col">`;
-        const hoyCond = {}; hoyRecs.forEach(r => { const c=r.condicion||'Sin'; hoyCond[c]=(hoyCond[c]||0)+1; });
-        Object.entries(hoyCond).sort((a,b)=>b[1]-a[1]).forEach(([c,n],i) => {
-            html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${dot(i)}${c}</span><span class="kpi-detail-value">${n}</span></div>`;
-        });
-        html += `</div></div>`;
+        if (Object.keys(hoyCond).length > 0) {
+            html += `<div class="kpi-detail-section"><i class="fa-solid fa-tags"></i> Condicion</div>`;
+            Object.entries(hoyCond).sort((a,b)=>b[1]-a[1]).forEach(([c,n],i) => {
+                html += `<div class="kpi-detail-row"><span class="kpi-detail-label">${dot(i)}${c}</span><span class="kpi-detail-value">${n}</span></div>`;
+            });
+        }
+        html += `</div>`;
 
-        // Lista de pallets
-        const hoyOrdered = [...hoyRecs].sort((a,b) => {
-            if (a.createdAt && b.createdAt) return new Date(b.createdAt) - new Date(a.createdAt);
-            return 0;
-        });
-        html += `<div class="kpi-detail-section"><i class="fa-solid fa-list-ol"></i> Pallets de Hoy (${hoyOrdered.length})</div>`;
-        html += `<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;overscroll-behavior:contain;">`;
-        const th = 'padding:0.4rem 0.5rem;text-align:left;color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;border-bottom:2px solid var(--border);';
-        html += `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+        // === COLUMNA DERECHA: Tabla de pallets ===
+        html += `<div style="flex:1;min-width:0;display:flex;flex-direction:column;">`;
+        html += `<div class="kpi-detail-section" style="margin-top:0;"><i class="fa-solid fa-list-ol"></i> Pallets de Hoy (${hoyOrdered.length})</div>`;
+        html += `<div style="flex:1;overflow-y:auto;border:1px solid var(--border);border-radius:8px;overscroll-behavior:contain;">`;
+        const th = 'padding:0.45rem 0.6rem;text-align:left;color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;border-bottom:2px solid var(--border);';
+        html += `<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
             <thead><tr style="position:sticky;top:0;background:var(--bg-card);z-index:1;">
-                <th style="${th}">#</th><th style="${th}">Pallet ID</th><th style="${th}text-align:center;">Pzs</th><th style="${th}">Destino</th><th style="${th}">Escaneadora</th><th style="${th}text-align:right;">Hora</th>
+                <th style="${th}">#</th><th style="${th}">Pallet ID</th><th style="${th}text-align:center;">Pzs</th><th style="${th}">Cond</th><th style="${th}">Destino</th><th style="${th}">Escaneadora</th><th style="${th}text-align:right;">Hora</th>
             </tr></thead><tbody>`;
         hoyOrdered.forEach((r, i) => {
             const hora = r.createdAt ? new Date(r.createdAt).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '--';
             const bg = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.025)';
-            html += `<tr style="background:${bg};"><td style="padding:0.3rem 0.5rem;color:var(--text-muted)">${i+1}</td><td style="padding:0.3rem 0.5rem;font-weight:600">${r.palletId||''}</td><td style="padding:0.3rem 0.5rem;text-align:center">${r.cantidad||0}</td><td style="padding:0.3rem 0.5rem">${r.destino||'-'}</td><td style="padding:0.3rem 0.5rem;color:var(--text-muted)">${r.escaneadora||'-'}</td><td style="padding:0.3rem 0.5rem;text-align:right;color:var(--text-muted)">${hora}</td></tr>`;
+            html += `<tr style="background:${bg};"><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${i+1}</td><td style="padding:0.35rem 0.6rem;font-weight:600">${r.palletId||''}</td><td style="padding:0.35rem 0.6rem;text-align:center">${r.cantidad||0}</td><td style="padding:0.35rem 0.6rem">${r.condicion||'-'}</td><td style="padding:0.35rem 0.6rem">${r.destino||'-'}</td><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${r.escaneadora||'-'}</td><td style="padding:0.35rem 0.6rem;text-align:right;color:var(--text-muted)">${hora}</td></tr>`;
         });
-        html += `</tbody></table></div>`;
+        html += `</tbody></table></div></div>`;
+
+        html += `</div>`;
 
     } else if (type === 'unidades') {
         title.innerHTML = '<i class="fa-solid fa-cubes" style="color:var(--warning);margin-right:8px;"></i>Unidades Totales';
@@ -2468,6 +2477,8 @@ function showKpiDetail(type) {
     }
 
     body.innerHTML = html;
+    // Solo "hoy" usa modal ancho
+    document.querySelector('.kpi-modal').classList.toggle('wide', type === 'hoy');
     modal.classList.add('open');
     document.body.style.overflow = 'hidden';
 
