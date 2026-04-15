@@ -228,31 +228,67 @@ app.post('/api/auth/impersonate', auth, roleGuard('admin'), async (req, res) => 
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// ═══════════ USER MANAGEMENT (admin 3647 only) ═══════════
+app.get('/api/users', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Sin permiso' });
+    const users = await User.find({}).select('-passwordHash').sort({ role: 1, nombre: 1 });
+    res.json({ success: true, data: users });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.post('/api/users', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Sin permiso' });
+    const { nombre, usuario, password } = req.body;
+    if (!nombre || !usuario || !password) return res.status(400).json({ success: false, error: 'nombre, usuario y password son requeridos' });
+    if (password.length !== 6 || !/^\d{6}$/.test(password)) return res.status(400).json({ success: false, error: 'Password debe ser exactamente 6 digitos' });
+    const exists = await User.findOne({ usuario: usuario.toLowerCase().trim() });
+    if (exists) return res.status(409).json({ success: false, error: 'Ese usuario ya existe' });
+    const passwordHash = await User.hashPassword(password);
+    const user = await User.create({ nombre, usuario: usuario.toLowerCase().trim(), passwordHash, role: 'escaneadora' });
+    res.json({ success: true, data: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role } });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.delete('/api/users/:id', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Sin permiso' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    if (user.role === 'admin') return res.status(403).json({ success: false, error: 'No se puede eliminar un administrador' });
+    // Solo desactivar, no borrar — los registros del usuario se mantienen
+    await User.findByIdAndUpdate(req.params.id, { isActive: false });
+    // Limpiar sesiones activas
+    await mongoose.connection.db.collection('active_sessions').deleteMany({ userId: req.params.id.toString() });
+    res.json({ success: true, message: `Usuario ${user.nombre} desactivado. Sus registros se mantienen.` });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // ═══════════ ESCANEADORAS ═══════════
 app.post('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (req, res) => {
   try {
     const { palletId, cantidad, condicion, destino, turno, escaneadora, fecha, pedido, incidencias, observaciones } = req.body;
     if (!palletId || !destino || !turno || !escaneadora || !fecha) return res.status(400).json({ success: false, error: 'Campos requeridos: palletId, destino, turno, escaneadora, fecha' });
-    if (!condicion || !condicion.trim()) return res.status(400).json({ success: false, error: 'El campo condicion es obligatorio' });
+    const hasPedido = pedido && pedido.trim();
+    // Condicion obligatoria solo cuando NO es pedido
+    if (!hasPedido && (!condicion || !condicion.trim())) return res.status(400).json({ success: false, error: 'El campo condicion es obligatorio' });
     const pid = normalizePalletId(palletId);
     const dest = normalizeDestino(destino);
     const qty = parseInt(cantidad) || 0;
-    if (qty <= 0) return res.status(400).json({ success: false, error: 'Cantidad debe ser mayor a 0' });
-    // If pedido is present, clasificacion is required (stored in observaciones as first tag)
-    if (pedido && pedido.trim()) {
-      const obs = (observaciones || '').trim().toUpperCase();
-      const firstTag = obs.split('|')[0].trim();
-      if (!firstTag || !['BULKY', 'BOX', 'HV', 'HV TELEVISIONES', 'LPN', 'JESSY', '9X7251Z'].includes(firstTag)) {
-        return res.status(400).json({ success: false, error: 'Clasificacion es obligatoria cuando hay pedido' });
-      }
+    // Cantidad 0 solo para admin 3647 o dispositivo autorizado
+    if (qty < 0) return res.status(400).json({ success: false, error: 'Cantidad no puede ser negativa' });
+    if (qty === 0 && req.user.usuario !== '3647') {
+      const deviceId = req.headers['x-device-id'];
+      const auth3647Doc = await mongoose.connection.db.collection('auth3647_devices').findOne({ deviceId, expiresAt: { $gt: new Date() } });
+      if (!auth3647Doc) return res.status(403).json({ success: false, error: 'No tienes permiso para registrar cantidad 0.' });
     }
     const exists = await EscReg.findOne({ palletId: pid });
     if (exists) {
       emitEvent('paletizado', 'registro:duplicado', { palletId: pid, escaneadora, fecha });
       return res.status(409).json({ success: false, error: `Pallet ID duplicado. El pallet ${pid} ya fue registrado.`, duplicate: true });
     }
-    const hasPedido = pedido && pedido.trim();
-    const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: condicion.trim(), destino: dest, turno, escaneadora, fecha, pedido: pedido || '', fechaSalida: hasPedido ? fecha : '', incidencias: incidencias || '', observaciones: observaciones || '', capturadoPor: req.user._id });
+    const doc = await EscReg.create({ palletId: pid, cantidad: qty, condicion: (condicion||'').trim(), destino: dest, turno, escaneadora, fecha, pedido: pedido || '', fechaSalida: hasPedido ? fecha : '', incidencias: incidencias || '', observaciones: observaciones || '', capturadoPor: req.user._id });
     emitEvent('paletizado', 'registro:nuevo', { id: doc._id, palletId: pid, cantidad: qty, destino: dest, turno, escaneadora, fecha, condicion: condicion.trim(), source: 'web' });
     res.json({ success: true, id: doc._id, message: 'Registro guardado' });
   } catch (error) {

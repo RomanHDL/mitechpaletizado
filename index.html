@@ -570,6 +570,24 @@
                     </div>
                 </div>
 
+                <!-- User Management (admin 3647 only) -->
+                <div class="admin-only" id="user-mgmt-panel" style="margin:0 auto 1.25rem auto;width:100%;max-width:600px;box-sizing:border-box;">
+                    <div class="card" style="padding:1rem 1.25rem;">
+                        <div class="card-title"><i class="fa-solid fa-users-gear"></i> Gestionar Escaneadoras</div>
+                        <div id="user-mgmt-list" style="margin-bottom:0.75rem;"></div>
+                        <div style="border-top:1px solid var(--border);padding-top:0.75rem;">
+                            <div style="font-size:0.82rem;font-weight:600;color:var(--text-main);margin-bottom:0.5rem;"><i class="fa-solid fa-user-plus" style="color:var(--success);margin-right:5px;"></i>Agregar nueva escaneadora</div>
+                            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                                <input type="text" class="form-input" id="new-user-nombre" placeholder="Nombre completo" style="flex:1;min-width:140px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+                                <input type="text" class="form-input" id="new-user-usuario" placeholder="Usuario (ej: maria)" style="flex:0.7;min-width:100px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+                                <input type="text" class="form-input" id="new-user-pass" placeholder="6 digitos" maxlength="6" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/\D/g,'')" style="width:80px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+                                <button class="btn btn-primary btn-sm" onclick="createUser()" style="padding:0.4rem 0.8rem;white-space:nowrap;"><i class="fa-solid fa-plus"></i> Crear</button>
+                            </div>
+                            <p id="user-mgmt-msg" style="font-size:0.78rem;margin-top:0.4rem;min-height:1em;"></p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="home-grid">
                     <div class="module-card mod-esc" onclick="switchView('escaneadoras')">
                         <div class="module-icon"><i class="fa-solid fa-barcode"></i></div>
@@ -1421,6 +1439,7 @@ function enterApp() {
     setDefaultDate();
     startOpsUpdates();
     loadImpersonatePanel();
+    loadUserMgmt();
     // Restore last view on refresh, default to home
     const savedView = sessionStorage.getItem('mitech_view') || 'home';
     switchView(savedView);
@@ -1794,6 +1813,62 @@ function loadImpersonatePanel() {
             </button>
         `;
     }
+}
+
+async function loadUserMgmt() {
+    const list = document.getElementById('user-mgmt-list');
+    if (!list || !currentUser || currentUser.usuario !== '3647') return;
+    try {
+        const data = await apiFetch(`${API}/api/users`);
+        if (!data.success) return;
+        const users = data.data.filter(u => u.role === 'escaneadora' && u.isActive !== false);
+        list.innerHTML = users.map(u => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.45rem 0.6rem;border-radius:6px;margin-bottom:3px;background:rgba(255,255,255,0.025);">
+                <div><i class="fa-solid fa-user" style="color:var(--accent);margin-right:6px;font-size:0.75rem;"></i><span style="font-weight:600;font-size:0.88rem;">${u.nombre}</span> <span style="color:var(--text-muted);font-size:0.75rem;">(${u.usuario})</span></div>
+                <button onclick="deleteUser('${u._id}','${u.nombre.replace(/'/g,"\\'")}')" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;padding:2px 8px;color:var(--danger);cursor:pointer;font-size:0.72rem;" title="Desactivar"><i class="fa-solid fa-user-xmark"></i></button>
+            </div>
+        `).join('');
+        // Also update impersonate buttons dynamically
+        const impContainer = document.getElementById('impersonate-buttons');
+        if (impContainer && !originalAdmin) {
+            impContainer.innerHTML = users.map(e => `
+                <button class="btn btn-secondary btn-sm" onclick="impersonateUser('${e.usuario}')" style="padding:0.4rem 0.8rem;">
+                    <i class="fa-solid fa-user" style="margin-right:4px;"></i> ${e.nombre}
+                </button>
+            `).join('');
+        }
+    } catch(e) { list.innerHTML = '<span style="color:var(--danger);font-size:0.8rem;">Error cargando usuarios</span>'; }
+}
+
+async function createUser() {
+    const msg = document.getElementById('user-mgmt-msg');
+    const nombre = document.getElementById('new-user-nombre').value.trim();
+    const usuario = document.getElementById('new-user-usuario').value.trim();
+    const password = document.getElementById('new-user-pass').value.trim();
+    if (!nombre || !usuario || !password) { msg.textContent = 'Llena todos los campos'; msg.style.color = 'var(--danger)'; return; }
+    if (!/^\d{6}$/.test(password)) { msg.textContent = 'Password debe ser 6 digitos'; msg.style.color = 'var(--danger)'; return; }
+    try {
+        const data = await apiFetch(`${API}/api/users`, { method: 'POST', body: JSON.stringify({ nombre, usuario, password }) });
+        if (!data.success) { msg.textContent = data.error; msg.style.color = 'var(--danger)'; return; }
+        msg.textContent = `${nombre} creado correctamente`; msg.style.color = 'var(--success)';
+        document.getElementById('new-user-nombre').value = '';
+        document.getElementById('new-user-usuario').value = '';
+        document.getElementById('new-user-pass').value = '';
+        loadUserMgmt();
+        setTimeout(() => { msg.textContent = ''; }, 4000);
+    } catch(e) { msg.textContent = e.message; msg.style.color = 'var(--danger)'; }
+}
+
+async function deleteUser(id, nombre) {
+    if (!confirm(`Desactivar a ${nombre}?\n\nSus registros se mantienen, solo se desactiva la cuenta.`)) return;
+    const msg = document.getElementById('user-mgmt-msg');
+    try {
+        const data = await apiFetch(`${API}/api/users/${id}`, { method: 'DELETE' });
+        if (!data.success) { msg.textContent = data.error; msg.style.color = 'var(--danger)'; return; }
+        msg.textContent = data.message; msg.style.color = 'var(--success)';
+        loadUserMgmt();
+        setTimeout(() => { msg.textContent = ''; }, 4000);
+    } catch(e) { msg.textContent = e.message; msg.style.color = 'var(--danger)'; }
 }
 
 async function impersonateUser(targetUsuario) {
