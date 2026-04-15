@@ -211,6 +211,7 @@
 
         /* Charts grid */
         .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; margin-bottom:1.5rem; }
+        .charts-grid.grid-3 { grid-template-columns:repeat(3,1fr); gap:0.75rem; }
         .charts-grid.grid-4 { grid-template-columns:repeat(4,1fr); }
         @media (max-width:1100px) { .charts-grid.grid-4 { grid-template-columns:repeat(2,1fr); } }
 
@@ -297,8 +298,9 @@
             .topbar { padding:0.6rem 1rem; }
             .topbar-user { font-size:0.8rem; }
             .form-row { grid-template-columns:1fr; }
-            .charts-grid { grid-template-columns:1fr; }
+            .charts-grid { grid-template-columns:1fr !important; }
             .charts-grid .card canvas { max-height:220px; }
+            .charts-grid .card[style*="height:420"] { height:auto !important; min-height:280px; }
             .kpi-grid { grid-template-columns:repeat(2,1fr); gap:0.75rem; }
             .kpi-value { font-size:1.6rem; }
             .kpi-icon { font-size:1.3rem; }
@@ -357,6 +359,20 @@
             .esc-card-stats { font-size:0.68rem; gap:0.5rem; }
             .page-header h1 { font-size:1rem; }
             .page-header p { font-size:0.78rem; }
+            /* Graficas en movil */
+            .charts-grid .card { padding:0.75rem 0.85rem !important; }
+            .charts-grid .card canvas { max-height:200px; }
+            .charts-grid .card[style*="height:420"] { height:auto !important; min-height:250px; }
+            .card-title { font-size:0.78rem !important; }
+            /* Pedidos: leyenda arriba horizontal, dona abajo */
+            .pedidos-layout { flex-direction:column !important; }
+            #pedidos-legend { min-width:0 !important; max-width:none !important; max-height:none !important; flex-direction:row !important; flex-wrap:wrap !important; gap:0.25rem !important; justify-content:center !important; }
+            #pedidos-legend > div { padding:0.2rem 0.4rem !important; flex:0 0 auto; border-left-width:2px !important; }
+            #pedidos-legend > div > div > div:first-child { font-size:0.7rem !important; }
+            #pedidos-legend > div > div > div:last-child { font-size:0.7rem !important; }
+            #pedidos-legend > div > div > div:last-child span { font-size:0.6rem !important; }
+            .pedidos-layout > div:last-child { max-height:200px; }
+            .pedidos-layout > div:last-child canvas { max-height:200px !important; }
         }
 
         /* Capture mode: compact everything to fit in one screen */
@@ -1073,7 +1089,7 @@
             </div>
 
             <!-- Row 1: 3 graficas de pastel -->
-            <div class="charts-grid" style="grid-template-columns:repeat(3,1fr);gap:0.75rem;">
+            <div class="charts-grid grid-3">
                 <div class="card" style="padding:0.6rem 0.8rem;">
                     <div class="card-title"><i class="fa-solid fa-boxes-stacked"></i> Total Real de Pallets Procesados</div>
                     <div id="total-pallets-center" style="text-align:center;margin-bottom:0.25rem;"></div>
@@ -1110,7 +1126,7 @@
                         </div>
                     </div>
                     <div id="pedidos-info" style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.2rem;"></div>
-                    <div style="flex:1;display:flex;align-items:center;gap:0.5rem;min-height:0;">
+                    <div class="pedidos-layout" style="flex:1;display:flex;align-items:center;gap:0.5rem;min-height:0;">
                         <div id="pedidos-legend" style="flex-shrink:0;min-width:140px;max-width:180px;max-height:350px;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;justify-content:flex-start;gap:0.3rem;"></div>
                         <div style="flex:1;position:relative;min-height:0;">
                             <canvas id="chart-pedidos" style="max-height:none !important;"></canvas>
