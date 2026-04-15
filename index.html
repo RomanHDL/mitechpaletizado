@@ -172,7 +172,7 @@
         .kpi-value { font-size:2.2rem; font-weight:700; line-height:1.2; }
         .kpi-label { font-size:0.88rem; color:var(--text-muted); margin-top:5px; text-transform:uppercase; letter-spacing:0.5px; }
         /* KPI Detail Modal */
-        .kpi-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:2000; justify-content:center; align-items:center; padding:1rem; }
+        .kpi-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:2000; justify-content:center; align-items:center; padding:1rem; touch-action:none; }
         .kpi-modal-overlay.open { display:flex; }
         .kpi-modal { background:var(--bg-card); border:1px solid var(--border); border-radius:16px; width:100%; max-width:650px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
         .kpi-modal.wide { max-width:950px; }
@@ -180,7 +180,7 @@
         .kpi-modal-head h3 { margin:0; font-size:1.15rem; }
         .kpi-modal-close { background:none; border:none; color:var(--text-muted); font-size:1.4rem; cursor:pointer; padding:0.3rem 0.5rem; border-radius:8px; }
         .kpi-modal-close:hover { color:var(--text-main); background:rgba(255,255,255,0.08); }
-        .kpi-modal-body { padding:1rem 1.5rem 1.5rem; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+        .kpi-modal-body { padding:1rem 1.5rem 1.5rem; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; }
         /* Modal 2-column layout */
         .kpi-modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 1.5rem; }
         .kpi-modal-grid .kpi-modal-col { min-width:0; }
@@ -684,7 +684,7 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label><i class="fa-solid fa-hashtag" style="margin-right:5px;color:#f97316;font-size:0.8rem;"></i>Numero de pedido <span style="color:var(--danger);">*</span></label>
-                                    <input type="text" class="form-input" id="esc-pedido" placeholder="Ej: 18962220">
+                                    <input type="text" class="form-input" id="esc-pedido" placeholder="Ej: 18962220" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/\D/g,'')">
                                 </div>
                                 <div class="form-group">
                                     <label><i class="fa-solid fa-boxes-stacked" style="margin-right:5px;color:#8b5cf6;font-size:0.8rem;"></i>Clasificacion <span style="color:var(--danger);">*</span></label>
@@ -1004,7 +1004,7 @@
                     </div>
                     <div id="pedidos-info" style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.2rem;"></div>
                     <div style="flex:1;display:flex;align-items:center;gap:0.5rem;min-height:0;">
-                        <div id="pedidos-legend" style="flex-shrink:0;min-width:160px;display:flex;flex-direction:column;justify-content:center;gap:0.4rem;"></div>
+                        <div id="pedidos-legend" style="flex-shrink:0;min-width:140px;max-width:180px;max-height:350px;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;justify-content:flex-start;gap:0.3rem;"></div>
                         <div style="flex:1;position:relative;min-height:0;">
                             <canvas id="chart-pedidos" style="max-height:none !important;"></canvas>
                         </div>
@@ -1964,9 +1964,15 @@ async function handleEscSubmit(e) {
         return;
     }
 
-    // Validate pedido is filled when "Es pedido = Si"
+    // Validate pedido is filled when "Es pedido = Si" and only numbers
     if (esPedido === 'si' && !pedido) {
         errEl.textContent = 'El campo Pedido es obligatorio cuando seleccionas "Si".';
+        errEl.style.display = 'block';
+        document.getElementById('esc-pedido').focus();
+        return;
+    }
+    if (pedido && /\D/.test(pedido)) {
+        errEl.textContent = 'El numero de pedido solo puede contener numeros, sin letras.';
         errEl.style.display = 'block';
         document.getElementById('esc-pedido').focus();
         return;
@@ -2078,6 +2084,7 @@ function initFlatpickr() {
     }
 }
 
+let _dashLoadId = 0; // Para evitar race conditions al cambiar filtros
 async function loadDashboard() {
     // Validate date range
     const fi = document.getElementById('dash-fecha-inicio').value;
@@ -2088,6 +2095,10 @@ async function loadDashboard() {
     }
 
     initFlatpickr();
+
+    // Detener polling antes de cargar para evitar race condition
+    stopPolling();
+    const myLoadId = ++_dashLoadId;
 
     // Show loading state
     const filterBtn = document.querySelector('.filter-bar .btn-primary');
@@ -2114,7 +2125,8 @@ async function loadDashboard() {
             filterBtn.disabled = false;
         }
     }
-    startPolling();
+    // Solo iniciar polling si esta carga sigue siendo la mas reciente
+    if (myLoadId === _dashLoadId) startPolling();
 }
 
 // ── Real-time: Pusher (primary) + polling fallback ──
@@ -3712,7 +3724,7 @@ function renderGroupedView(records) {
                             <div class="rc-field"><span class="rc-label">Turno</span><span class="rc-value">${turnoBadge(r.turno)}</span></div>
                             <div class="rc-field"><span class="rc-label">Escaneadora</span><span class="rc-value">${r.escaneadora}</span></div>
                             <div class="rc-field"><span class="rc-label">Condicion</span><span class="rc-value">${r.condicion ? `<span class="badge badge-blue">${r.condicion}</span>` : '-'}</span></div>
-                            <div class="rc-field"><span class="rc-label">Pedido</span><span class="rc-value">${r.pedido || '-'}</span></div>
+                            <div class="rc-field"><span class="rc-label">Pedido</span><span class="rc-value">${r.pedido ? (() => { const ob=(r.observaciones||'').split('|')[0].trim(); const cl=Object.keys(clasifColors).find(k=>ob.toLowerCase()===k.toLowerCase()); return cl ? '<span style="color:'+clasifColors[cl]+';font-weight:600;">'+cl+'</span> <span style="color:var(--text-muted);font-size:0.75rem;">(#'+r.pedido+')</span>' : r.pedido; })() : '-'}</span></div>
                             <div class="rc-field"><span class="rc-label">Incidencias</span><span class="rc-value" style="color:${r.incidencias ? 'var(--danger)' : 'var(--text-muted)'};">${r.incidencias || '-'}</span></div>
                             ${r.observaciones ? `<div class="rc-row"><div class="rc-field"><span class="rc-label">Observaciones</span><span class="rc-value" style="color:var(--text-muted);">${r.observaciones}</span></div></div>` : ''}
                             ${currentUser && currentUser.role==='admin' ? `<div style="position:absolute;top:0.4rem;right:0.4rem;display:flex;gap:0.3rem;">
@@ -4116,10 +4128,10 @@ function renderPedidosChart() {
         legendEl.innerHTML = entries.map(([tipo, count]) => {
             const pct = totalAll > 0 ? Math.round(count/totalAll*100) : 0;
             const col = tipoColors[tipo] || '#6b7280';
-            return `<div onclick="showPedidosDetail('${tipo}',tipoRecords['${tipo}']||[],'${col}')" style="cursor:pointer;display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.7rem;border-radius:8px;border-left:3px solid ${col};background:rgba(15,23,42,0.4);transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(15,23,42,0.4)'">
-                <div style="flex:1;">
-                    <div style="font-size:1.05rem;font-weight:700;color:${col};line-height:1.2;">${tipo}</div>
-                    <div style="margin-top:0.15rem;"><span style="font-size:1.15rem;font-weight:700;color:var(--text-main);">${count}</span> <span style="font-size:0.85rem;color:var(--text-muted);">pallets (${pct}%)</span></div>
+            return `<div onclick="showPedidosDetail('${tipo}',tipoRecords['${tipo}']||[],'${col}')" style="cursor:pointer;display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.5rem;border-radius:6px;border-left:3px solid ${col};background:rgba(15,23,42,0.4);transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(15,23,42,0.4)'">
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:0.82rem;font-weight:700;color:${col};line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${tipo}</div>
+                    <div style="margin-top:0.1rem;"><span style="font-size:0.9rem;font-weight:700;color:var(--text-main);">${count}</span> <span style="font-size:0.7rem;color:var(--text-muted);">(${pct}%)</span></div>
                 </div>
             </div>`;
         }).join('');
