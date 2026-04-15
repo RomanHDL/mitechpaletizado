@@ -2654,12 +2654,16 @@ function showKpiDetail(type) {
         const th = 'padding:0.45rem 0.6rem;text-align:left;color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;border-bottom:2px solid var(--border);';
         html += `<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
             <thead><tr style="position:sticky;top:0;background:var(--bg-card);z-index:1;">
-                <th style="${th}">#</th><th style="${th}">Pallet ID</th><th style="${th}text-align:center;">Pzs</th><th style="${th}">Cond</th><th style="${th}">Destino</th><th style="${th}">Escaneadora</th><th style="${th}text-align:right;">Hora</th>
+                <th style="${th}">#</th><th style="${th}">Pallet ID</th><th style="${th}text-align:center;">Pzs</th><th style="${th}">Cond</th><th style="${th}">Destino</th><th style="${th}">Pedido</th><th style="${th}">Escaneadora</th><th style="${th}text-align:right;">Hora</th>
             </tr></thead><tbody id="hoy-table-body">`;
         hoyOrdered.forEach((r, i) => {
             const hora = r.createdAt ? new Date(r.createdAt).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '--';
             const bg = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.025)';
-            html += `<tr data-pallet="${(r.palletId||'').toLowerCase()}" data-dest="${(r.destino||'').toLowerCase()}" data-esc="${(r.escaneadora||'').toLowerCase()}" data-cond="${(r.condicion||'').toLowerCase()}" data-pedido="${(r.pedido||'').toLowerCase()}" style="background:${bg};"><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${i+1}</td><td style="padding:0.35rem 0.6rem;font-weight:600">${r.palletId||''}</td><td style="padding:0.35rem 0.6rem;text-align:center">${r.cantidad||0}</td><td style="padding:0.35rem 0.6rem">${r.condicion||'-'}</td><td style="padding:0.35rem 0.6rem">${r.destino||'-'}</td><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${r.escaneadora||'-'}</td><td style="padding:0.35rem 0.6rem;text-align:right;color:var(--text-muted)">${hora}</td></tr>`;
+            const esPedido = r.pedido && r.pedido.trim();
+            const clasif = esPedido ? getClasificacion(r) : '';
+            const pedidoCol = clasifColors[clasif] || '';
+            const pedidoHtml = esPedido ? `<span style="color:${pedidoCol||'var(--text-main)'};font-weight:600;font-size:0.75rem;">${clasif||'Pedido'}</span>` : '<span style="color:var(--text-muted);">-</span>';
+            html += `<tr data-pallet="${(r.palletId||'').toLowerCase()}" data-dest="${(r.destino||'').toLowerCase()}" data-esc="${(r.escaneadora||'').toLowerCase()}" data-cond="${(r.condicion||'').toLowerCase()}" data-pedido="${(r.pedido||'').toLowerCase()}" style="background:${bg};"><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${i+1}</td><td style="padding:0.35rem 0.6rem;font-weight:600">${r.palletId||''}</td><td style="padding:0.35rem 0.6rem;text-align:center">${r.cantidad||0}</td><td style="padding:0.35rem 0.6rem">${r.condicion||'-'}</td><td style="padding:0.35rem 0.6rem">${r.destino||'-'}</td><td style="padding:0.35rem 0.6rem">${pedidoHtml}</td><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${r.escaneadora||'-'}</td><td style="padding:0.35rem 0.6rem;text-align:right;color:var(--text-muted)">${hora}</td></tr>`;
         });
         html += `</tbody></table></div></div>`;
 
@@ -2748,10 +2752,22 @@ function showKpiDetail(type) {
             window._kpiModalInterval = null;
             return;
         }
+        // Guardar filtros del buscador de hoy antes de re-renderizar
+        const _s = document.getElementById('hoy-search')?.value || '';
+        const _e = document.getElementById('hoy-filter-esc')?.value || '';
+        const _d = document.getElementById('hoy-filter-dest')?.value || '';
         try {
             await loadResumen();
             await loadTableData();
             showKpiDetail(window._kpiModalType);
+            // Restaurar filtros
+            const sEl = document.getElementById('hoy-search');
+            const eEl = document.getElementById('hoy-filter-esc');
+            const dEl = document.getElementById('hoy-filter-dest');
+            if (sEl && _s) { sEl.value = _s; }
+            if (eEl && _e) { eEl.value = _e; }
+            if (dEl && _d) { dEl.value = _d; }
+            if (_s || _e || _d) filterHoyTable();
         } catch(e) {}
     }, 8000);
 }
