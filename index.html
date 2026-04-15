@@ -560,34 +560,8 @@
             <!-- Operational Context -->
             <div class="ops-context" id="ops-context"></div>
             <div class="home-screen">
-                <!-- Admin: Acceder como escaneadora (arriba de modulos, solo admin) -->
-                <div class="admin-only" id="impersonate-panel" style="margin:0 auto 1.25rem auto;width:100%;max-width:600px;box-sizing:border-box;">
-                    <div class="card" style="padding:1rem 1.25rem;">
-                        <div class="card-title"><i class="fa-solid fa-user-secret"></i> Acceder como Escaneadora</div>
-                        <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;">Acceso administrativo paralelo. No cierra la sesion activa de la escaneadora.</p>
-                        <div id="impersonate-buttons" style="display:flex;flex-wrap:wrap;gap:0.5rem;"></div>
-                        <p id="impersonate-status" style="font-size:0.8rem;margin-top:0.5rem;min-height:1.2em;"></p>
-                    </div>
-                </div>
 
-                <!-- User Management (admin 3647 only) -->
-                <div class="admin-only" id="user-mgmt-panel" style="margin:0 auto 1.25rem auto;width:100%;max-width:600px;box-sizing:border-box;">
-                    <div class="card" style="padding:1rem 1.25rem;">
-                        <div class="card-title"><i class="fa-solid fa-users-gear"></i> Gestionar Escaneadoras</div>
-                        <div id="user-mgmt-list" style="margin-bottom:0.75rem;"></div>
-                        <div style="border-top:1px solid var(--border);padding-top:0.75rem;">
-                            <div style="font-size:0.82rem;font-weight:600;color:var(--text-main);margin-bottom:0.5rem;"><i class="fa-solid fa-user-plus" style="color:var(--success);margin-right:5px;"></i>Agregar nueva escaneadora</div>
-                            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-                                <input type="text" class="form-input" id="new-user-nombre" placeholder="Nombre completo" style="flex:1;min-width:140px;padding:0.4rem 0.6rem;font-size:0.85rem;">
-                                <input type="text" class="form-input" id="new-user-usuario" placeholder="Usuario (ej: maria)" style="flex:0.7;min-width:100px;padding:0.4rem 0.6rem;font-size:0.85rem;">
-                                <input type="text" class="form-input" id="new-user-pass" placeholder="6 digitos" maxlength="6" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/\D/g,'')" style="width:80px;padding:0.4rem 0.6rem;font-size:0.85rem;">
-                                <button class="btn btn-primary btn-sm" onclick="createUser()" style="padding:0.4rem 0.8rem;white-space:nowrap;"><i class="fa-solid fa-plus"></i> Crear</button>
-                            </div>
-                            <p id="user-mgmt-msg" style="font-size:0.78rem;margin-top:0.4rem;min-height:1em;"></p>
-                        </div>
-                    </div>
-                </div>
-
+                <!-- ═══ MODULOS PRINCIPALES ═══ -->
                 <div class="home-grid">
                     <div class="module-card mod-esc" onclick="switchView('escaneadoras')">
                         <div class="module-icon"><i class="fa-solid fa-barcode"></i></div>
@@ -608,6 +582,43 @@
                         <div class="module-arrow"><i class="fa-solid fa-arrow-right"></i></div>
                     </div>
                 </div>
+
+                <!-- ═══ PANEL ADMIN (solo admin 3647) ═══ -->
+                <div class="admin-only" style="margin-top:1.5rem;">
+                    <div style="max-width:700px;margin:0 auto;">
+                        <div style="font-size:0.82rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.5rem;">
+                            <i class="fa-solid fa-shield-halved"></i> Panel de Administrador
+                        </div>
+
+                        <!-- Row: Acceder como + Gestionar -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+                            <!-- Acceder como Escaneadora -->
+                            <div class="card" id="impersonate-panel" style="padding:1rem 1.15rem;">
+                                <div class="card-title" style="font-size:0.88rem;margin-bottom:0.6rem;"><i class="fa-solid fa-user-secret"></i> Acceder como Escaneadora</div>
+                                <p style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.6rem;">Acceso paralelo sin cerrar su sesion.</p>
+                                <div id="impersonate-buttons" style="display:flex;flex-wrap:wrap;gap:0.4rem;"></div>
+                                <p id="impersonate-status" style="font-size:0.75rem;margin-top:0.4rem;min-height:1em;"></p>
+                            </div>
+
+                            <!-- Gestionar Escaneadoras -->
+                            <div class="card" id="user-mgmt-panel" style="padding:1rem 1.15rem;">
+                                <div class="card-title" style="font-size:0.88rem;margin-bottom:0.6rem;"><i class="fa-solid fa-users-gear"></i> Escaneadoras NFC</div>
+                                <div id="user-mgmt-list" style="margin-bottom:0.6rem;"></div>
+                                <div style="border-top:1px solid var(--border);padding-top:0.6rem;">
+                                    <div style="font-size:0.75rem;font-weight:600;color:var(--success);margin-bottom:0.4rem;"><i class="fa-solid fa-user-plus" style="margin-right:4px;"></i>Nueva escaneadora</div>
+                                    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+                                        <input type="text" class="form-input" id="new-user-nombre" placeholder="Nombre" style="flex:1;min-width:100px;padding:0.35rem 0.5rem;font-size:0.82rem;">
+                                        <input type="text" class="form-input" id="new-user-usuario" placeholder="Usuario" style="width:80px;padding:0.35rem 0.5rem;font-size:0.82rem;">
+                                        <input type="text" class="form-input" id="new-user-pass" placeholder="6 dig" maxlength="6" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/\D/g,'')" style="width:55px;padding:0.35rem 0.5rem;font-size:0.82rem;">
+                                        <button class="btn btn-primary btn-sm" onclick="createUser()" style="padding:0.35rem 0.6rem;font-size:0.78rem;"><i class="fa-solid fa-plus"></i></button>
+                                    </div>
+                                    <p id="user-mgmt-msg" style="font-size:0.72rem;margin-top:0.3rem;min-height:1em;"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -1809,24 +1820,32 @@ async function loadUserMgmt() {
     try {
         const data = await apiFetch(`${API}/api/users`);
         if (!data.success) return;
-        // Solo mostrar escaneadoras que tienen NFC
+        // Escaneadoras NFC para el panel de gestion
         const nfcUsers = data.data.filter(u => u.role === 'escaneadora' && u.isActive !== false && u.hasNfc);
-        list.innerHTML = nfcUsers.length === 0 ? '<span style="color:var(--text-muted);font-size:0.82rem;">No hay escaneadoras con NFC</span>' : nfcUsers.map(u => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.45rem 0.6rem;border-radius:6px;margin-bottom:3px;background:rgba(255,255,255,0.025);">
-                <div><i class="fa-solid fa-id-card" style="color:var(--accent);margin-right:6px;font-size:0.75rem;"></i><span style="font-weight:600;font-size:0.88rem;">${u.nombre}</span> <span style="color:var(--text-muted);font-size:0.75rem;">(${u.usuario})</span></div>
-                <button onclick="deleteUser('${u._id}','${u.nombre.replace(/'/g,"\\'")}')" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;padding:2px 8px;color:var(--danger);cursor:pointer;font-size:0.72rem;" title="Desactivar"><i class="fa-solid fa-user-xmark"></i></button>
+        // TODAS las escaneadoras activas para impersonar (incluye Cecilia sin NFC)
+        const allEsc = data.data.filter(u => u.role === 'escaneadora' && u.isActive !== false);
+        // Deduplicar por nombre (evitar duplicados como cecilia y 1003)
+        const seen = new Set();
+        const uniqueEsc = allEsc.filter(u => { if (seen.has(u.nombre)) return false; seen.add(u.nombre); return true; });
+
+        list.innerHTML = nfcUsers.length === 0 ? '<span style="color:var(--text-muted);font-size:0.8rem;">Sin escaneadoras NFC</span>' : nfcUsers.map(u => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0.5rem;border-radius:6px;margin-bottom:3px;background:rgba(255,255,255,0.025);">
+                <div><i class="fa-solid fa-id-card" style="color:var(--accent);margin-right:5px;font-size:0.7rem;"></i><span style="font-weight:600;font-size:0.82rem;">${u.nombre}</span></div>
+                <button onclick="deleteUser('${u._id}','${u.nombre.replace(/'/g,"\\'")}')" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:4px;padding:2px 6px;color:var(--danger);cursor:pointer;font-size:0.68rem;" title="Desactivar"><i class="fa-solid fa-user-xmark"></i></button>
             </div>
         `).join('');
-        // Impersonate: also only NFC escaneadoras
+        // Impersonate: todas las escaneadoras activas (NFC + sin NFC)
         const impContainer = document.getElementById('impersonate-buttons');
         if (impContainer && !originalAdmin) {
-            impContainer.innerHTML = nfcUsers.map(e => `
-                <button class="btn btn-secondary btn-sm" onclick="impersonateUser('${e.usuario}')" style="padding:0.4rem 0.8rem;">
-                    <i class="fa-solid fa-id-card" style="margin-right:4px;"></i> ${e.nombre}
-                </button>
-            `).join('');
+            impContainer.innerHTML = uniqueEsc.map(e => {
+                const icon = e.hasNfc ? 'fa-id-card' : 'fa-user';
+                const color = e.hasNfc ? 'color:var(--accent);' : 'color:var(--text-muted);';
+                return `<button class="btn btn-secondary btn-sm" onclick="impersonateUser('${e.usuario}')" style="padding:0.35rem 0.7rem;font-size:0.8rem;">
+                    <i class="fa-solid ${icon}" style="margin-right:4px;${color}"></i> ${e.nombre}
+                </button>`;
+            }).join('');
         }
-    } catch(e) { list.innerHTML = '<span style="color:var(--danger);font-size:0.8rem;">Error cargando usuarios</span>'; }
+    } catch(e) { list.innerHTML = '<span style="color:var(--danger);font-size:0.78rem;">Error cargando</span>'; }
 }
 
 async function createUser() {
