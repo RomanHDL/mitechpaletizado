@@ -2367,45 +2367,37 @@ async function loadDashboard() {
 // ── Real-time: Pusher (primary) + polling fallback ──
 let pusherChannel = null;
 let realtimeReady = false;
+let _refreshing = false;
 
 async function initRealtime() {
-    try {
-        const cfg = await fetch(`${API}/api/realtime-config`).then(r => r.json());
-        if (cfg.enabled && typeof Pusher !== 'undefined') {
-            const p = new Pusher(cfg.key, { cluster: cfg.cluster });
-            pusherChannel = p.subscribe('paletizado');
-            pusherChannel.bind('registro:nuevo', () => {
-                console.log('[RT] registro:nuevo recibido');
-                refreshDashboard();
-            });
-            pusherChannel.bind('registro:duplicado', (data) => {
-                console.log('[RT] duplicado:', data.palletId);
-            });
-            pusherChannel.bind('registro:updated', () => {
-                console.log('[RT] registro:updated recibido');
-                refreshDashboard();
-            });
-            pusherChannel.bind('registro:deleted', () => {
-                console.log('[RT] registro:deleted recibido');
-                refreshDashboard();
-            });
-            pusherChannel.bind('audit:new', () => {
-                console.log('[RT] audit:new recibido');
-                if (document.getElementById('audit-modal').style.display !== 'none') { loadAuditData(); loadAuditStats(); }
-            });
-            realtimeReady = true;
-            console.log('[RT] Pusher conectado — tiempo real activo');
-        }
-    } catch(e) { console.warn('[RT] Pusher no disponible:', e.message); }
-    // Always run polling to catch Atlas direct edits/deletes
+    // Solo inicializar Pusher UNA vez
+    if (!realtimeReady) {
+        try {
+            const cfg = await fetch(`${API}/api/realtime-config`).then(r => r.json());
+            if (cfg.enabled && typeof Pusher !== 'undefined') {
+                const p = new Pusher(cfg.key, { cluster: cfg.cluster });
+                pusherChannel = p.subscribe('paletizado');
+                pusherChannel.bind('registro:nuevo', () => { refreshDashboard(); });
+                pusherChannel.bind('registro:duplicado', () => {});
+                pusherChannel.bind('registro:updated', () => { refreshDashboard(); });
+                pusherChannel.bind('registro:deleted', () => { refreshDashboard(); });
+                pusherChannel.bind('audit:new', () => {
+                    const am = document.getElementById('audit-modal');
+                    if (am && am.style.display !== 'none') { loadAuditData(); loadAuditStats(); }
+                });
+                realtimeReady = true;
+            }
+        } catch(e) {}
+    }
     startPollingFallback();
 }
 
 function refreshDashboard() {
+    if (_refreshing) return;
     const dashView = document.getElementById('view-dashboard');
-    if (dashView && dashView.classList.contains('active')) {
-        Promise.all([loadResumen(), loadTendencias(), loadTableData()]).catch(()=>{});
-    }
+    if (!dashView || !dashView.classList.contains('active')) return;
+    _refreshing = true;
+    Promise.all([loadResumen(), loadTendencias(), loadTableData()]).catch(()=>{}).finally(() => { _refreshing = false; });
 }
 
 function startPolling() {
@@ -2414,11 +2406,11 @@ function startPolling() {
 
 function startPollingFallback() {
     stopPolling();
-    dashPollTimer = setInterval(async () => {
+    dashPollTimer = setInterval(() => {
         const dashView = document.getElementById('view-dashboard');
         if (!dashView || !dashView.classList.contains('active')) { stopPolling(); return; }
-        await Promise.all([loadResumen(), loadTendencias(), loadTableData()]);
-    }, 5000);
+        refreshDashboard();
+    }, 8000);
 }
 
 function stopPolling() {
