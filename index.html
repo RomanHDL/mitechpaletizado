@@ -180,7 +180,8 @@
         .kpi-modal-head h3 { margin:0; font-size:1.15rem; }
         .kpi-modal-close { background:none; border:none; color:var(--text-muted); font-size:1.4rem; cursor:pointer; padding:0.3rem 0.5rem; border-radius:8px; }
         .kpi-modal-close:hover { color:var(--text-main); background:rgba(255,255,255,0.08); }
-        .kpi-modal-body { padding:1rem 1.5rem 1.5rem; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; }
+        .kpi-modal-body { padding:1rem 1.5rem 1.5rem; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; flex:1; min-height:0; }
+        .kpi-modal.wide .kpi-modal-body { overflow:hidden; display:flex; flex-direction:column; }
         /* Modal 2-column layout */
         .kpi-modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 1.5rem; }
         .kpi-modal-grid .kpi-modal-col { min-width:0; }
@@ -364,8 +365,11 @@
             .kpi-modal.wide { max-width:95vw !important; }
             .kpi-modal-body { padding:0.75rem 1rem 1rem !important; }
             /* Modal "hoy" horizontal → vertical en movil */
-            .kpi-modal-body > div[style*="display:flex"][style*="gap:1.25rem"] { flex-direction:column !important; }
-            .kpi-modal-body > div[style*="display:flex"][style*="gap:1.25rem"] > div[style*="flex:0 0 340px"] { flex:none !important; width:100% !important; }
+            .kpi-modal.wide .kpi-modal-body { overflow-y:auto !important; display:block !important; }
+            .hoy-layout { flex-direction:column !important; overflow:visible !important; }
+            .hoy-col-left { flex:none !important; width:100% !important; overflow:visible !important; }
+            .hoy-col-right { flex:none !important; width:100% !important; overflow:visible !important; }
+            .hoy-col-right > div:last-child { max-height:250px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
             /* Drilldown modal en movil */
             #drilldown-modal > div { width:96% !important; max-width:none !important; max-height:90vh !important; top:5% !important; left:2% !important; transform:none !important; }
             #drilldown-modal > div > div:first-child { padding:0.6rem 0.85rem !important; flex-wrap:wrap !important; gap:0.4rem !important; }
@@ -2599,10 +2603,10 @@ function showKpiDetail(type) {
         });
 
         // Layout horizontal: stats izquierda, tabla pallets derecha
-        html += `<div style="display:flex;gap:1.25rem;min-height:0;">`;
+        html += `<div class="hoy-layout" style="display:flex;gap:1.25rem;flex:1;min-height:0;overflow:hidden;">`;
 
         // === COLUMNA IZQUIERDA: Stats ===
-        html += `<div style="flex:0 0 340px;overflow-y:auto;overscroll-behavior:contain;">`;
+        html += `<div class="hoy-col-left" style="flex:0 0 340px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;">`;
 
         html += `<div class="kpi-modal-summary" style="grid-template-columns:1fr 1fr;">
             <div class="kpi-mini"><div class="kpi-mini-value" style="color:var(--success);">${res.registrosHoy.toLocaleString()}</div><div class="kpi-mini-label">Pallets hoy</div></div>
@@ -2639,9 +2643,9 @@ function showKpiDetail(type) {
         html += `</div>`;
 
         // === COLUMNA DERECHA: Tabla de pallets ===
-        html += `<div style="flex:1;min-width:0;display:flex;flex-direction:column;">`;
-        html += `<div class="kpi-detail-section" style="margin-top:0;"><i class="fa-solid fa-list-ol"></i> Pallets de Hoy (${hoyOrdered.length})</div>`;
-        html += `<div style="flex:1;overflow-y:auto;border:1px solid var(--border);border-radius:8px;overscroll-behavior:contain;">`;
+        html += `<div class="hoy-col-right" style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;">`;
+        html += `<div class="kpi-detail-section" style="margin-top:0;flex-shrink:0;"><i class="fa-solid fa-list-ol"></i> Pallets de Hoy (${hoyOrdered.length})</div>`;
+        html += `<div style="flex:1;overflow-y:auto;border:1px solid var(--border);border-radius:8px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;">`;
         const th = 'padding:0.45rem 0.6rem;text-align:left;color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;border-bottom:2px solid var(--border);';
         html += `<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
             <thead><tr style="position:sticky;top:0;background:var(--bg-card);z-index:1;">
