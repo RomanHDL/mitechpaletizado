@@ -1957,7 +1957,7 @@ async function handleEscSubmit(e) {
         }
     }
 
-    if (selectedConditions.length === 0) {
+    if (selectedConditions.length === 0 && esPedido !== 'si') {
         errEl.textContent = 'Debes seleccionar al menos una condicion.';
         errEl.style.display = 'block';
         document.getElementById('cond-trigger').style.borderColor = 'var(--danger)';
