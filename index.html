@@ -1978,14 +1978,8 @@ async function handleEscSubmit(e) {
         return;
     }
 
-    // Re-leer clasificacion directamente por si el binding fallo
-    const clasificacionVal = document.getElementById('esc-clasificacion').value;
-    if (esPedido === 'si' && !clasificacionVal) {
-        errEl.textContent = 'Debes seleccionar una clasificacion cuando es pedido.';
-        errEl.style.display = 'block';
-        document.getElementById('esc-clasificacion').focus();
-        return;
-    }
+    // Clasificacion: leer directo del select
+    const clasificacionVal = document.getElementById('esc-clasificacion').value || '';
 
     // Build observations with clasificacion tag
     let finalObs = observaciones;
