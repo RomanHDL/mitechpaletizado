@@ -2752,10 +2752,13 @@ function showKpiDetail(type) {
             window._kpiModalInterval = null;
             return;
         }
-        // Guardar filtros del buscador de hoy antes de re-renderizar
+        // Guardar filtros y scroll antes de re-renderizar
         const _s = document.getElementById('hoy-search')?.value || '';
         const _e = document.getElementById('hoy-filter-esc')?.value || '';
         const _d = document.getElementById('hoy-filter-dest')?.value || '';
+        const _modalScroll = document.getElementById('kpi-modal-body')?.scrollTop || 0;
+        const _leftScroll = document.querySelector('.hoy-col-left')?.scrollTop || 0;
+        const _tableScroll = document.querySelector('.hoy-col-right > div:last-child')?.scrollTop || 0;
         try {
             await loadResumen();
             await loadTableData();
@@ -2768,6 +2771,13 @@ function showKpiDetail(type) {
             if (eEl && _e) { eEl.value = _e; }
             if (dEl && _d) { dEl.value = _d; }
             if (_s || _e || _d) filterHoyTable();
+            // Restaurar scroll
+            const mbEl = document.getElementById('kpi-modal-body');
+            if (mbEl) mbEl.scrollTop = _modalScroll;
+            const lEl = document.querySelector('.hoy-col-left');
+            if (lEl) lEl.scrollTop = _leftScroll;
+            const tEl = document.querySelector('.hoy-col-right > div:last-child');
+            if (tEl) tEl.scrollTop = _tableScroll;
         } catch(e) {}
     }, 8000);
 }
