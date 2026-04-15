@@ -5541,26 +5541,9 @@ function renderCondOptions() {
 function togglePedidoField() {
     const val = document.getElementById('esc-es-pedido').value;
     const wrap = document.getElementById('pedido-fields-wrap');
-    const sel = document.getElementById('esc-clasificacion');
     wrap.style.display = val === 'si' ? '' : 'none';
-    if (val === 'si') {
-        // Replace "Sin clasificacion" with a disabled placeholder
-        const sinOpt = sel.querySelector('option[value=""]');
-        if (sinOpt) { sinOpt.textContent = 'Seleccionar...'; sinOpt.disabled = true; }
-        // If no valid selection, show red border
-        if (!sel.value) {
-            sel.value = '';
-            sel.style.borderColor = 'var(--danger)';
-        }
-        sel.addEventListener('change', function onClasChange() {
-            sel.style.borderColor = sel.value ? '' : 'var(--danger)';
-        });
-    } else {
-        const sinOpt = sel.querySelector('option[value=""]');
-        if (sinOpt) { sinOpt.textContent = 'Sin clasificacion'; sinOpt.disabled = false; }
-        sel.style.borderColor = '';
+    if (val !== 'si') {
         document.getElementById('esc-pedido').value = '';
-        sel.value = '';
     }
 }
 
