@@ -554,15 +554,19 @@
         <!-- VIEW: HOME (Module selection)          -->
         <!-- ══════════════════════════════════════ -->
         <div class="view active" id="view-home">
-            <div class="page-header" style="text-align:center;">
-                <p id="home-greeting">Selecciona un modulo para continuar</p>
-            </div>
-            <!-- Operational Context -->
-            <div class="ops-context" id="ops-context"></div>
-            <div class="home-screen">
+            <div class="home-screen" style="max-width:800px;margin:0 auto;padding-top:0.5rem;">
+
+                <!-- ═══ HEADER: Bienvenida + Estado ═══ -->
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:1.25rem;">
+                    <div>
+                        <h2 id="home-greeting" style="margin:0;font-size:1.4rem;font-weight:700;">Bienvenido</h2>
+                        <div class="ops-context" id="ops-context" style="margin:0.5rem 0 0;justify-content:flex-start;"></div>
+                    </div>
+                    <div class="admin-only" id="home-quick-stats" style="display:flex;gap:0.6rem;"></div>
+                </div>
 
                 <!-- ═══ MODULOS PRINCIPALES ═══ -->
-                <div class="home-grid">
+                <div class="home-grid" style="margin-bottom:1.5rem;">
                     <div class="module-card mod-esc" onclick="switchView('escaneadoras')">
                         <div class="module-icon"><i class="fa-solid fa-barcode"></i></div>
                         <div class="module-title">Escaneadoras</div>
@@ -584,36 +588,57 @@
                 </div>
 
                 <!-- ═══ PANEL ADMIN (solo admin 3647) ═══ -->
-                <div class="admin-only" style="margin-top:1.5rem;">
-                    <div style="max-width:700px;margin:0 auto;">
-                        <div style="font-size:0.82rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.5rem;">
-                            <i class="fa-solid fa-shield-halved"></i> Panel de Administrador
+                <div class="admin-only" id="admin-home-panel">
+                    <!-- Titulo seccion -->
+                    <div style="font-size:0.78rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.5rem;">
+                        <i class="fa-solid fa-shield-halved"></i> Panel de Administrador
+                    </div>
+
+                    <!-- Row 1: Resumen rapido del dia -->
+                    <div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem;">
+                        <div class="card-title" style="font-size:0.85rem;margin-bottom:0.75rem;"><i class="fa-solid fa-chart-simple"></i> Resumen del Dia</div>
+                        <div id="home-day-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem;">
+                            <div style="text-align:center;padding:0.6rem;background:rgba(79,124,255,0.08);border-radius:8px;border:1px solid rgba(79,124,255,0.15);">
+                                <div style="font-size:1.4rem;font-weight:700;color:var(--accent);" id="home-stat-hoy">-</div>
+                                <div style="font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;">Pallets Hoy</div>
+                            </div>
+                            <div style="text-align:center;padding:0.6rem;background:rgba(245,158,11,0.08);border-radius:8px;border:1px solid rgba(245,158,11,0.15);">
+                                <div style="font-size:1.4rem;font-weight:700;color:var(--warning);" id="home-stat-piezas">-</div>
+                                <div style="font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;">Piezas Hoy</div>
+                            </div>
+                            <div style="text-align:center;padding:0.6rem;background:rgba(34,197,94,0.08);border-radius:8px;border:1px solid rgba(34,197,94,0.15);">
+                                <div style="font-size:1.4rem;font-weight:700;color:var(--success);" id="home-stat-total">-</div>
+                                <div style="font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;">Total General</div>
+                            </div>
+                            <div style="text-align:center;padding:0.6rem;background:rgba(139,92,246,0.08);border-radius:8px;border:1px solid rgba(139,92,246,0.15);">
+                                <div style="font-size:1.4rem;font-weight:700;color:#8b5cf6;" id="home-stat-esc">-</div>
+                                <div style="font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;">Escaneadoras</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Acceder como + Gestionar (side by side) -->
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                        <!-- Acceder como Escaneadora -->
+                        <div class="card" id="impersonate-panel" style="padding:1rem 1.15rem;">
+                            <div class="card-title" style="font-size:0.85rem;margin-bottom:0.6rem;"><i class="fa-solid fa-user-secret"></i> Acceder como Escaneadora</div>
+                            <div id="impersonate-buttons" style="display:flex;flex-wrap:wrap;gap:0.4rem;"></div>
+                            <p id="impersonate-status" style="font-size:0.75rem;margin-top:0.4rem;min-height:1em;"></p>
                         </div>
 
-                        <!-- Row: Acceder como + Gestionar -->
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-                            <!-- Acceder como Escaneadora -->
-                            <div class="card" id="impersonate-panel" style="padding:1rem 1.15rem;">
-                                <div class="card-title" style="font-size:0.88rem;margin-bottom:0.6rem;"><i class="fa-solid fa-user-secret"></i> Acceder como Escaneadora</div>
-                                <p style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.6rem;">Acceso paralelo sin cerrar su sesion.</p>
-                                <div id="impersonate-buttons" style="display:flex;flex-wrap:wrap;gap:0.4rem;"></div>
-                                <p id="impersonate-status" style="font-size:0.75rem;margin-top:0.4rem;min-height:1em;"></p>
-                            </div>
-
-                            <!-- Gestionar Escaneadoras -->
-                            <div class="card" id="user-mgmt-panel" style="padding:1rem 1.15rem;">
-                                <div class="card-title" style="font-size:0.88rem;margin-bottom:0.6rem;"><i class="fa-solid fa-users-gear"></i> Escaneadoras NFC</div>
-                                <div id="user-mgmt-list" style="margin-bottom:0.6rem;"></div>
-                                <div style="border-top:1px solid var(--border);padding-top:0.6rem;">
-                                    <div style="font-size:0.75rem;font-weight:600;color:var(--success);margin-bottom:0.4rem;"><i class="fa-solid fa-user-plus" style="margin-right:4px;"></i>Nueva escaneadora</div>
-                                    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
-                                        <input type="text" class="form-input" id="new-user-nombre" placeholder="Nombre" style="flex:1;min-width:100px;padding:0.35rem 0.5rem;font-size:0.82rem;">
-                                        <input type="text" class="form-input" id="new-user-usuario" placeholder="Usuario" style="width:80px;padding:0.35rem 0.5rem;font-size:0.82rem;">
-                                        <input type="text" class="form-input" id="new-user-pass" placeholder="6 dig" maxlength="6" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/\D/g,'')" style="width:55px;padding:0.35rem 0.5rem;font-size:0.82rem;">
-                                        <button class="btn btn-primary btn-sm" onclick="createUser()" style="padding:0.35rem 0.6rem;font-size:0.78rem;"><i class="fa-solid fa-plus"></i></button>
-                                    </div>
-                                    <p id="user-mgmt-msg" style="font-size:0.72rem;margin-top:0.3rem;min-height:1em;"></p>
+                        <!-- Gestionar Escaneadoras -->
+                        <div class="card" id="user-mgmt-panel" style="padding:1rem 1.15rem;">
+                            <div class="card-title" style="font-size:0.85rem;margin-bottom:0.6rem;"><i class="fa-solid fa-users-gear"></i> Escaneadoras</div>
+                            <div id="user-mgmt-list" style="margin-bottom:0.6rem;"></div>
+                            <div style="border-top:1px solid var(--border);padding-top:0.6rem;">
+                                <div style="font-size:0.72rem;font-weight:600;color:var(--success);margin-bottom:0.4rem;"><i class="fa-solid fa-user-plus" style="margin-right:4px;"></i>Agregar</div>
+                                <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+                                    <input type="text" class="form-input" id="new-user-nombre" placeholder="Nombre" style="flex:1;min-width:80px;padding:0.3rem 0.5rem;font-size:0.8rem;">
+                                    <input type="text" class="form-input" id="new-user-usuario" placeholder="Usuario" style="width:70px;padding:0.3rem 0.5rem;font-size:0.8rem;">
+                                    <input type="text" class="form-input" id="new-user-pass" placeholder="6 dig" maxlength="6" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/\D/g,'')" style="width:50px;padding:0.3rem 0.5rem;font-size:0.8rem;">
+                                    <button class="btn btn-primary btn-sm" onclick="createUser()" style="padding:0.3rem 0.5rem;font-size:0.75rem;"><i class="fa-solid fa-plus"></i></button>
                                 </div>
+                                <p id="user-mgmt-msg" style="font-size:0.7rem;margin-top:0.3rem;min-height:1em;"></p>
                             </div>
                         </div>
                     </div>
@@ -1474,23 +1499,30 @@ async function loadOpsContext() {
 
     const turno = getCurrentTurno();
 
-    // Build pills
     let html = `<span class="ops-pill ${turno.css}"><i class="fa-solid ${turno.icon}"></i> ${turno.label}</span>`;
     html += `<span class="ops-pill ops-pill-active"><i class="fa-solid fa-circle" style="font-size:0.5rem;"></i> Sistema activo</span>`;
 
-    // Fetch live stats if admin
     if (currentUser && currentUser.role === 'admin') {
         try {
             const data = await apiFetch(`${API}/api/dashboard/resumen`);
             if (data.success) {
                 html += `<span class="ops-pill ops-pill-stat"><i class="fa-solid fa-box"></i> <strong>${data.registrosHoy}</strong> pallets hoy</span>`;
-                html += `<span class="ops-pill ops-pill-stat"><i class="fa-solid fa-user"></i> <strong>${data.escaneadoras.length}</strong> escaneadoras</span>`;
+                // Update home stats cards
+                const hoyEl = document.getElementById('home-stat-hoy');
+                const pzsEl = document.getElementById('home-stat-piezas');
+                const totEl = document.getElementById('home-stat-total');
+                const escEl = document.getElementById('home-stat-esc');
+                if (hoyEl) hoyEl.textContent = data.registrosHoy.toLocaleString();
+                if (totEl) totEl.textContent = data.totalRegistros.toLocaleString();
+                if (escEl) escEl.textContent = data.escaneadoras.length;
+                // Piezas hoy: sum from today's records
+                if (pzsEl) {
+                    const hoyUds = (data.porTurno||[]).reduce((s,t)=>s+t.unidades,0);
+                    pzsEl.textContent = data.totalUnidades.toLocaleString();
+                }
             }
         } catch(e) {}
-    }
 
-    // Last registro time
-    if (currentUser && currentUser.role === 'admin') {
         try {
             const data = await apiFetch(`${API}/api/escaneadoras?limit=1`);
             if (data.success && data.data.length > 0) {
