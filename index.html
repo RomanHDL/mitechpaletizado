@@ -2642,19 +2642,32 @@ function showKpiDetail(type) {
         }
         html += `</div>`;
 
-        // === COLUMNA DERECHA: Tabla de pallets ===
+        // === COLUMNA DERECHA: Tabla de pallets con buscador ===
         html += `<div class="hoy-col-right" style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;">`;
-        html += `<div class="kpi-detail-section" style="margin-top:0;flex-shrink:0;"><i class="fa-solid fa-list-ol"></i> Pallets de Hoy (${hoyOrdered.length})</div>`;
+        // Header con titulo y buscador
+        html += `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.4rem;flex-shrink:0;margin-bottom:0.4rem;">`;
+        html += `<div class="kpi-detail-section" style="margin:0;flex-shrink:0;"><i class="fa-solid fa-list-ol"></i> Pallets de Hoy (<span id="hoy-table-count">${hoyOrdered.length}</span>)</div>`;
+        html += `<div style="display:flex;gap:0.3rem;align-items:center;">`;
+        html += `<input type="text" id="hoy-search" placeholder="Buscar pallet, destino, escaneadora..." oninput="filterHoyTable()" style="padding:0.3rem 0.6rem;font-size:0.78rem;width:200px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-main);">`;
+        html += `<select id="hoy-filter-esc" onchange="filterHoyTable()" style="padding:0.3rem 0.5rem;font-size:0.75rem;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-main);"><option value="">Todas</option>`;
+        const escNames = [...new Set(hoyOrdered.map(r=>r.escaneadora))].sort();
+        escNames.forEach(n => { html += `<option value="${n}">${n}</option>`; });
+        html += `</select>`;
+        html += `<select id="hoy-filter-dest" onchange="filterHoyTable()" style="padding:0.3rem 0.5rem;font-size:0.75rem;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-main);"><option value="">Destinos</option>`;
+        const destNames = [...new Set(hoyOrdered.map(r=>r.destino))].sort();
+        destNames.forEach(n => { html += `<option value="${n}">${n}</option>`; });
+        html += `</select></div></div>`;
+        // Tabla
         html += `<div style="flex:1;overflow-y:auto;border:1px solid var(--border);border-radius:8px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;">`;
         const th = 'padding:0.45rem 0.6rem;text-align:left;color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;border-bottom:2px solid var(--border);';
         html += `<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
             <thead><tr style="position:sticky;top:0;background:var(--bg-card);z-index:1;">
                 <th style="${th}">#</th><th style="${th}">Pallet ID</th><th style="${th}text-align:center;">Pzs</th><th style="${th}">Cond</th><th style="${th}">Destino</th><th style="${th}">Escaneadora</th><th style="${th}text-align:right;">Hora</th>
-            </tr></thead><tbody>`;
+            </tr></thead><tbody id="hoy-table-body">`;
         hoyOrdered.forEach((r, i) => {
             const hora = r.createdAt ? new Date(r.createdAt).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '--';
             const bg = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.025)';
-            html += `<tr style="background:${bg};"><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${i+1}</td><td style="padding:0.35rem 0.6rem;font-weight:600">${r.palletId||''}</td><td style="padding:0.35rem 0.6rem;text-align:center">${r.cantidad||0}</td><td style="padding:0.35rem 0.6rem">${r.condicion||'-'}</td><td style="padding:0.35rem 0.6rem">${r.destino||'-'}</td><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${r.escaneadora||'-'}</td><td style="padding:0.35rem 0.6rem;text-align:right;color:var(--text-muted)">${hora}</td></tr>`;
+            html += `<tr data-pallet="${(r.palletId||'').toLowerCase()}" data-dest="${(r.destino||'').toLowerCase()}" data-esc="${(r.escaneadora||'').toLowerCase()}" data-cond="${(r.condicion||'').toLowerCase()}" data-pedido="${(r.pedido||'').toLowerCase()}" style="background:${bg};"><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${i+1}</td><td style="padding:0.35rem 0.6rem;font-weight:600">${r.palletId||''}</td><td style="padding:0.35rem 0.6rem;text-align:center">${r.cantidad||0}</td><td style="padding:0.35rem 0.6rem">${r.condicion||'-'}</td><td style="padding:0.35rem 0.6rem">${r.destino||'-'}</td><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${r.escaneadora||'-'}</td><td style="padding:0.35rem 0.6rem;text-align:right;color:var(--text-muted)">${hora}</td></tr>`;
         });
         html += `</tbody></table></div></div>`;
 
@@ -2749,6 +2762,30 @@ function showKpiDetail(type) {
             showKpiDetail(window._kpiModalType);
         } catch(e) {}
     }, 8000);
+}
+
+function filterHoyTable() {
+    const search = (document.getElementById('hoy-search')?.value || '').toLowerCase();
+    const escFilter = (document.getElementById('hoy-filter-esc')?.value || '').toLowerCase();
+    const destFilter = (document.getElementById('hoy-filter-dest')?.value || '').toLowerCase();
+    const tbody = document.getElementById('hoy-table-body');
+    if (!tbody) return;
+    let visible = 0;
+    tbody.querySelectorAll('tr').forEach(tr => {
+        const pallet = tr.dataset.pallet || '';
+        const dest = tr.dataset.dest || '';
+        const esc = tr.dataset.esc || '';
+        const cond = tr.dataset.cond || '';
+        const pedido = tr.dataset.pedido || '';
+        const matchSearch = !search || pallet.includes(search) || dest.includes(search) || esc.includes(search) || cond.includes(search) || pedido.includes(search);
+        const matchEsc = !escFilter || esc === escFilter;
+        const matchDest = !destFilter || dest === destFilter;
+        const show = matchSearch && matchEsc && matchDest;
+        tr.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    const countEl = document.getElementById('hoy-table-count');
+    if (countEl) countEl.textContent = visible;
 }
 
 function closeKpiModal() {
