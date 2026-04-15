@@ -699,6 +699,7 @@
                                         <option value="Jesus" style="color:#f97316;">&#9679; Jesus</option>
                                         <option value="Juan Manuel" style="color:#06b6d4;">&#9679; Juan Manuel</option>
                                         <option value="Lorena" style="color:#14b8a6;">&#9679; Lorena</option>
+                                        <option value="Perez Rangel" style="color:#a855f7;">&#9679; Perez Rangel</option>
                                         <option value="9X7251Z" style="color:#6366f1;">&#9679; 9X7251Z</option>
                                     </select>
                                 </div>
@@ -2036,7 +2037,22 @@ async function handleEscSubmit(e) {
 // ══════════════════════════════════════════════
 
 // Colores por clasificacion de pedido (global)
-const clasifColors = {'Alejandro':'#ef4444','BOX':'#4f7cff','BULKY':'#f59e0b','HV':'#22c55e','HV TELEVISIONES':'#8b5cf6','HV Televisiones':'#8b5cf6','JESSY':'#ec4899','Jesus':'#f97316','Juan Manuel':'#06b6d4','Lorena':'#14b8a6','9X7251Z':'#6366f1','LPN':'#f59e0b','OTRO':'#6b7280'};
+const clasifColors = {'Alejandro':'#ef4444','BOX':'#4f7cff','BULKY':'#f59e0b','HV':'#22c55e','HV TELEVISIONES':'#8b5cf6','HV Televisiones':'#8b5cf6','JESSY':'#ec4899','Jesus':'#f97316','Juan Manuel':'#06b6d4','Lorena':'#14b8a6','Perez Rangel':'#a855f7','9X7251Z':'#6366f1','LPN':'#f59e0b','OTRO':'#6b7280'};
+
+// Funcion global para extraer clasificacion de un registro
+function getClasificacion(r) {
+    const NOMBRES = ['Alejandro','Jesus','Juan Manuel','Lorena','Perez Rangel'];
+    const TIPOS = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
+    function norm(v) { return (v === 'LPN' || v === '9X7251Z') ? 'BULKY' : v; }
+    const obs = (r.observaciones||'').split('|')[0].trim();
+    if (obs) { const m = NOMBRES.find(n => obs.toLowerCase() === n.toLowerCase()); if (m) return m; if (TIPOS.includes(obs.toUpperCase())) return norm(obs.toUpperCase()); }
+    const ped = (r.pedido||'').trim();
+    if (ped) { const m = NOMBRES.find(n => ped.toLowerCase() === n.toLowerCase()); if (m) return m; if (TIPOS.includes(ped.toUpperCase())) return norm(ped.toUpperCase()); }
+    const d = (r.destino||'').toUpperCase();
+    if (['BULKY','BOX'].includes(d)) return d;
+    if (d.startsWith('HV')) return d;
+    return 'OTRO';
+}
 
 let chartEsc = null, chartDest = null, chartTrend = null, chartTurno = null, chartCond = null;
 let chartPalletsPie = null, chartPiezasPie = null, chartPedidos = null;
@@ -2227,13 +2243,7 @@ function onGlobalSearch() {
             }
             const searchVal = document.getElementById('global-search').value.trim().toUpperCase();
             resultsEl.innerHTML = data.data.map(r => {
-                const obs = (r.observaciones||'').split('|')[0].trim();
-                const _nombres = ['Alejandro','Jesus','Juan Manuel','Lorena'];
-                const _vt = ['BULKY','BOX','HV','JESSY','LPN','9X7251Z'];
-                let tipo = '';
-                if (obs) { const nm = _nombres.find(n=>obs.toLowerCase()===n.toLowerCase()); if(nm) tipo=nm; else if(_vt.includes(obs.toUpperCase())) tipo=obs.toUpperCase(); }
-                if (!tipo && r.pedido) { const p=r.pedido.trim(); const pm=_nombres.find(n=>p.toLowerCase()===n.toLowerCase()); if(pm) tipo=pm; else if(_vt.includes(p.toUpperCase())) tipo=p.toUpperCase(); }
-                if (tipo === 'LPN' || tipo === '9X7251Z') tipo = 'BULKY';
+                const tipo = (r.pedido && r.pedido.trim()) ? getClasificacion(r) : '';
                 const tipoCol = clasifColors[tipo] || '';
                 const isExact = r.palletId && r.palletId.toUpperCase() === searchVal;
                 const exactBadge = isExact ? '<span style="font-size:0.6rem;padding:1px 5px;border-radius:3px;background:var(--success);color:#fff;margin-left:4px;">EXACTO</span>' : '';
@@ -2699,17 +2709,7 @@ function renderEscaneadoraDetail() {
     const el = document.getElementById('escaneadora-detail');
     if (!el || !lastTableData || lastTableData.length === 0) { if(el) el.innerHTML=''; return; }
 
-    // Extract clasificacion (same logic as chart)
-    function getClas(r) {
-        const NOMBRES = ['Alejandro','Jesus','Juan Manuel','Lorena'];
-        const VT = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
-        function norm(v) { return (v === 'LPN' || v === '9X7251Z') ? 'BULKY' : v; }
-        const obs = (r.observaciones||'').trim();
-        if (obs) { const f = obs.split('|')[0].trim(); const nm = NOMBRES.find(n=>f.toLowerCase()===n.toLowerCase()); if(nm) return nm; if (VT.includes(f.toUpperCase())) return norm(f.toUpperCase()); }
-        const ped = (r.pedido||'').trim(); const pm = NOMBRES.find(n=>ped.toLowerCase()===n.toLowerCase()); if(pm) return pm; if (VT.includes(ped.toUpperCase())) return norm(ped.toUpperCase());
-        const d = (r.destino||'').toUpperCase(); if (['BULKY','BOX'].includes(d)) return d; if (d.startsWith('HV')) return d;
-        return null;
-    }
+    function getClas(r) { const c = getClasificacion(r); return c === 'OTRO' ? null : c; }
     const clasColors = clasifColors;
 
     const byEsc = {};
@@ -3051,16 +3051,9 @@ function renderBulkyPorDia() {
         return;
     }
 
-    const VALID_TIPOS = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
-    function normTipo(v) { return (v === 'LPN' || v === '9X7251Z') ? 'BULKY' : v; }
     function isBulky(r) {
         if (!(r.pedido && r.pedido.trim())) return false;
-        const obs = (r.observaciones||'').trim();
-        if (obs) { const f = obs.split('|')[0].trim().toUpperCase(); if (VALID_TIPOS.includes(f)) return normTipo(f) === 'BULKY'; }
-        const ped = (r.pedido||'').trim().toUpperCase();
-        if (VALID_TIPOS.includes(ped)) return normTipo(ped) === 'BULKY';
-        const d = (r.destino||'').toUpperCase(); if (d === 'BULKY') return true;
-        return false;
+        return getClasificacion(r) === 'BULKY';
     }
     function parseDate(f) { const p = f.split('/'); return p.length===3 ? new Date(parseInt(p[2]),parseInt(p[0])-1,parseInt(p[1])) : null; }
     function getMonday(d) { const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); return new Date(d.getFullYear(), d.getMonth(), diff); }
@@ -3127,17 +3120,11 @@ function drawBulkyWindow() {
                 if (!elements.length || !lastTableData) return;
                 const fecha = _bulkyWinDates[elements[0].index];
                 if (!fecha) return;
-                const VALID_TIPOS = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
-                function normT(v) { return (v === 'LPN' || v === '9X7251Z') ? 'BULKY' : v; }
                 const recs = lastTableData.filter(r => {
                     if (!(r.pedido && r.pedido.trim())) return false;
                     const f = r.fechaSalida || r.fecha;
                     if (f !== fecha) return false;
-                    const obs = (r.observaciones||'').trim();
-                    if (obs) { const t = obs.split('|')[0].trim().toUpperCase(); if (VALID_TIPOS.includes(t) && normT(t)==='BULKY') return true; }
-                    const ped = (r.pedido||'').trim().toUpperCase();
-                    if (VALID_TIPOS.includes(ped) && normT(ped)==='BULKY') return true;
-                    return (r.destino||'').toUpperCase() === 'BULKY';
+                    return getClasificacion(r) === 'BULKY';
                 });
                 openDrillDown(`BULKY — ${fecha}`, recs, '#f59e0b');
             }
@@ -4064,30 +4051,7 @@ function renderPedidosChart() {
         return;
     }
 
-    // Extract tipo/clasificacion from each record
-    function extractTipo(r) {
-        const NOMBRES = ['Alejandro','Jesus','Juan Manuel','Lorena'];
-        const VALID_TIPOS = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
-        function norm(v) { return (v === 'LPN' || v === '9X7251Z') ? 'BULKY' : v; }
-        // 1. Check observaciones for nombre de persona
-        const obs = (r.observaciones || '').trim();
-        if (obs) {
-            const first = obs.split('|')[0].trim();
-            const match = NOMBRES.find(n => first.toLowerCase() === n.toLowerCase());
-            if (match) return match;
-            if (VALID_TIPOS.includes(first.toUpperCase())) return norm(first.toUpperCase());
-        }
-        // 2. Check pedido field for nombre o tipo
-        const ped = (r.pedido || '').trim();
-        const pedMatch = NOMBRES.find(n => ped.toLowerCase() === n.toLowerCase());
-        if (pedMatch) return pedMatch;
-        if (VALID_TIPOS.includes(ped.toUpperCase())) return norm(ped.toUpperCase());
-        // 3. Check destino for legacy records
-        const dest = (r.destino || '').trim().toUpperCase();
-        if (['BULKY', 'BOX'].includes(dest)) return dest;
-        if (dest.startsWith('HV')) return dest;
-        return 'OTRO';
-    }
+    function extractTipo(r) { return getClasificacion(r); }
 
     // Group by tipo
     const tipoMap = {};
@@ -4421,17 +4385,7 @@ function renderPedidosHistorial(body, fechaQuery, textoQuery, sourceData) {
         return;
     }
 
-    // Same extractTipo logic as chart
-    function getTipo(r) {
-        const NOMBRES = ['Alejandro','Jesus','Juan Manuel','Lorena'];
-        const VT = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
-        function norm(v) { return (v === 'LPN' || v === '9X7251Z') ? 'BULKY' : v; }
-        const obs = (r.observaciones || '').trim();
-        if (obs) { const f = obs.split('|')[0].trim(); const m = NOMBRES.find(n=>f.toLowerCase()===n.toLowerCase()); if(m) return m; if (VT.includes(f.toUpperCase())) return norm(f.toUpperCase()); }
-        const ped = (r.pedido||'').trim(); const pm = NOMBRES.find(n=>ped.toLowerCase()===n.toLowerCase()); if(pm) return pm; if (VT.includes(ped.toUpperCase())) return norm(ped.toUpperCase());
-        const d = (r.destino||'').trim().toUpperCase(); if (['BULKY','BOX'].includes(d)) return d; if (d.startsWith('HV')) return d;
-        return 'OTRO';
-    }
+    function getTipo(r) { return getClasificacion(r); }
 
     const tipoColors = clasifColors;
 
