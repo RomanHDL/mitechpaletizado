@@ -233,7 +233,11 @@ app.get('/api/users', auth, roleGuard('admin'), async (req, res) => {
   try {
     if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Sin permiso' });
     const users = await User.find({}).select('-passwordHash').sort({ role: 1, nombre: 1 });
-    res.json({ success: true, data: users });
+    // Include NFC card info to know which users have NFC
+    const nfcCards = await mongoose.connection.db.collection('nfc_cards').find({ isActive: true, role: 'escaneadora' }).toArray();
+    const nfcUserIds = nfcCards.map(c => c.userId ? c.userId.toString() : null).filter(Boolean);
+    const data = users.map(u => ({ ...u.toJSON(), hasNfc: nfcUserIds.includes(u._id.toString()) }));
+    res.json({ success: true, data });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 

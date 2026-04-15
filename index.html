@@ -1791,19 +1791,7 @@ let originalAdmin = null; // stores admin session when impersonating
 function loadImpersonatePanel() {
     const container = document.getElementById('impersonate-buttons');
     if (!container || !currentUser || currentUser.usuario !== '3647') return;
-
-    const escaneadoras = [
-        { usuario: 'yusley', nombre: 'Yusley Montes' },
-        { usuario: 'angelica', nombre: 'Angelica Aleman' },
-        { usuario: 'cecilia', nombre: 'Cecilia Perez' },
-        { usuario: 'nathalie', nombre: 'Nathalie Lopez' },
-    ];
-
-    container.innerHTML = escaneadoras.map(e => `
-        <button class="btn btn-secondary btn-sm" onclick="impersonateUser('${e.usuario}')" style="padding:0.4rem 0.8rem;">
-            <i class="fa-solid fa-user" style="margin-right:4px;"></i> ${e.nombre}
-        </button>
-    `).join('');
+    // Buttons are loaded dynamically by loadUserMgmt()
 
     // If currently impersonating, show return button
     if (originalAdmin) {
@@ -1821,19 +1809,20 @@ async function loadUserMgmt() {
     try {
         const data = await apiFetch(`${API}/api/users`);
         if (!data.success) return;
-        const users = data.data.filter(u => u.role === 'escaneadora' && u.isActive !== false);
-        list.innerHTML = users.map(u => `
+        // Solo mostrar escaneadoras que tienen NFC
+        const nfcUsers = data.data.filter(u => u.role === 'escaneadora' && u.isActive !== false && u.hasNfc);
+        list.innerHTML = nfcUsers.length === 0 ? '<span style="color:var(--text-muted);font-size:0.82rem;">No hay escaneadoras con NFC</span>' : nfcUsers.map(u => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:0.45rem 0.6rem;border-radius:6px;margin-bottom:3px;background:rgba(255,255,255,0.025);">
-                <div><i class="fa-solid fa-user" style="color:var(--accent);margin-right:6px;font-size:0.75rem;"></i><span style="font-weight:600;font-size:0.88rem;">${u.nombre}</span> <span style="color:var(--text-muted);font-size:0.75rem;">(${u.usuario})</span></div>
+                <div><i class="fa-solid fa-id-card" style="color:var(--accent);margin-right:6px;font-size:0.75rem;"></i><span style="font-weight:600;font-size:0.88rem;">${u.nombre}</span> <span style="color:var(--text-muted);font-size:0.75rem;">(${u.usuario})</span></div>
                 <button onclick="deleteUser('${u._id}','${u.nombre.replace(/'/g,"\\'")}')" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;padding:2px 8px;color:var(--danger);cursor:pointer;font-size:0.72rem;" title="Desactivar"><i class="fa-solid fa-user-xmark"></i></button>
             </div>
         `).join('');
-        // Also update impersonate buttons dynamically
+        // Impersonate: also only NFC escaneadoras
         const impContainer = document.getElementById('impersonate-buttons');
         if (impContainer && !originalAdmin) {
-            impContainer.innerHTML = users.map(e => `
+            impContainer.innerHTML = nfcUsers.map(e => `
                 <button class="btn btn-secondary btn-sm" onclick="impersonateUser('${e.usuario}')" style="padding:0.4rem 0.8rem;">
-                    <i class="fa-solid fa-user" style="margin-right:4px;"></i> ${e.nombre}
+                    <i class="fa-solid fa-id-card" style="margin-right:4px;"></i> ${e.nombre}
                 </button>
             `).join('');
         }
