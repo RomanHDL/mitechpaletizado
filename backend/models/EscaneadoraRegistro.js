@@ -12,6 +12,8 @@ const escaneadoraRegistroSchema = new mongoose.Schema({
   incidencias: { type: String, default: '' },
   observaciones: { type: String, default: '' },
   capturadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  retrabajo: { type: Boolean, default: false },
+  originalId: { type: mongoose.Schema.Types.ObjectId, ref: 'EscaneadoraRegistro' },
 }, { timestamps: true });
 
 escaneadoraRegistroSchema.index({ fecha: 1, turno: 1 });

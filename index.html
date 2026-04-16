@@ -1827,6 +1827,16 @@ async function loadAuditData() {
 // ══════════════════════════════════════════════
 // EDIT / DELETE PALLETS (admin only, with audit)
 // ══════════════════════════════════════════════
+async function crearRetrabajo(id, palletId) {
+    if (!confirm(`Crear retrabajo de pallet ${palletId} para hoy?\n\nSe crea una copia en la fecha de hoy. El registro original no se modifica.`)) return;
+    try {
+        const data = await apiFetch(`${API}/api/escaneadoras/retrabajo`, { method: 'POST', body: JSON.stringify({ originalId: id }) });
+        if (!data.success) { alert(data.error); return; }
+        alert(`Retrabajo creado: ${palletId} → ${data.fecha}`);
+        refreshDashboard();
+    } catch(e) { alert('Error: ' + e.message); }
+}
+
 async function openEditPallet(id) {
     if (!currentUser || currentUser.role !== 'admin') return;
     try {
@@ -2658,12 +2668,14 @@ function showKpiDetail(type) {
             </tr></thead><tbody id="hoy-table-body">`;
         hoyOrdered.forEach((r, i) => {
             const hora = r.createdAt ? new Date(r.createdAt).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '--';
-            const bg = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.025)';
+            const isRet = r.retrabajo || (r.incidencias||'').includes('RETRABAJO') || (r.observaciones||'').includes('RETRABAJO');
+            const bg = isRet ? 'rgba(34,197,94,0.1)' : (i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.025)');
             const esPedido = r.pedido && r.pedido.trim();
             const clasif = esPedido ? getClasificacion(r) : '';
             const pedidoCol = clasifColors[clasif] || '';
             const pedidoHtml = esPedido ? `<span style="color:${pedidoCol||'var(--text-main)'};font-weight:600;font-size:0.75rem;">${clasif||'Pedido'}</span>` : '<span style="color:var(--text-muted);">-</span>';
-            html += `<tr data-pallet="${(r.palletId||'').toLowerCase()}" data-dest="${(r.destino||'').toLowerCase()}" data-esc="${(r.escaneadora||'').toLowerCase()}" data-cond="${(r.condicion||'').toLowerCase()}" data-pedido="${(r.pedido||'').toLowerCase()}" style="background:${bg};"><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${i+1}</td><td style="padding:0.35rem 0.6rem;font-weight:600">${r.palletId||''}</td><td style="padding:0.35rem 0.6rem;text-align:center">${r.cantidad||0}</td><td style="padding:0.35rem 0.6rem">${r.condicion||'-'}</td><td style="padding:0.35rem 0.6rem">${r.destino||'-'}</td><td style="padding:0.35rem 0.6rem">${pedidoHtml}</td><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${r.escaneadora||'-'}</td><td style="padding:0.35rem 0.6rem;text-align:right;color:var(--text-muted)">${hora}</td></tr>`;
+            const retBadge = isRet ? '<span style="color:#22c55e;font-weight:700;font-size:0.65rem;margin-left:3px;">RT</span>' : '';
+            html += `<tr data-pallet="${(r.palletId||'').toLowerCase()}" data-dest="${(r.destino||'').toLowerCase()}" data-esc="${(r.escaneadora||'').toLowerCase()}" data-cond="${(r.condicion||'').toLowerCase()}" data-pedido="${(r.pedido||'').toLowerCase()}" style="background:${bg};${isRet?'border-left:3px solid #22c55e;':''}"><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${i+1}</td><td style="padding:0.35rem 0.6rem;font-weight:600">${r.palletId||''}${retBadge}</td><td style="padding:0.35rem 0.6rem;text-align:center">${r.cantidad||0}</td><td style="padding:0.35rem 0.6rem">${r.condicion||'-'}</td><td style="padding:0.35rem 0.6rem">${r.destino||'-'}</td><td style="padding:0.35rem 0.6rem">${pedidoHtml}</td><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${r.escaneadora||'-'}</td><td style="padding:0.35rem 0.6rem;text-align:right;color:var(--text-muted)">${hora}</td></tr>`;
         });
         html += `</tbody></table></div></div>`;
 
@@ -3977,8 +3989,12 @@ function renderGroupedView(records) {
                     </div>
                 </div>
                 <div class="date-group-body ${isExpanded ? '' : 'hidden'}" id="dg-body-${safeId}">
-                    ${recs.map(r => `
-                        <div class="record-card" style="position:relative;">
+                    ${recs.map(r => {
+                        const isRetrabajo = r.retrabajo || (r.incidencias||'').includes('RETRABAJO') || (r.observaciones||'').includes('RETRABAJO');
+                        const retrabajoStyle = isRetrabajo ? 'background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);' : '';
+                        return `
+                        <div class="record-card" style="position:relative;${retrabajoStyle}">
+                            ${isRetrabajo ? '<span style="position:absolute;top:0.3rem;left:0.75rem;font-size:0.6rem;font-weight:700;color:#22c55e;background:rgba(34,197,94,0.15);padding:1px 6px;border-radius:3px;">RETRABAJO</span>' : ''}
                             <div class="rc-field"><span class="rc-label">Pallet</span><span class="rc-value bold">${r.palletId}</span></div>
                             <div class="rc-field"><span class="rc-label">Cantidad</span><span class="rc-value">${r.cantidad}</span></div>
                             <div class="rc-field"><span class="rc-label">Destino</span><span class="rc-value">${r.destino}</span></div>
@@ -3989,11 +4005,12 @@ function renderGroupedView(records) {
                             <div class="rc-field"><span class="rc-label">Incidencias</span><span class="rc-value" style="color:${r.incidencias ? 'var(--danger)' : 'var(--text-muted)'};">${r.incidencias || '-'}</span></div>
                             ${r.observaciones ? `<div class="rc-row"><div class="rc-field"><span class="rc-label">Observaciones</span><span class="rc-value" style="color:var(--text-muted);">${r.observaciones}</span></div></div>` : ''}
                             ${currentUser && currentUser.role==='admin' ? `<div style="position:absolute;top:0.4rem;right:0.4rem;display:flex;gap:0.3rem;">
+                                ${currentUser.usuario==='3647' && !isRetrabajo ? `<button onclick="event.stopPropagation();crearRetrabajo('${r._id}','${(r.palletId||'').replace(/'/g,"\\'")}')" style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:5px;padding:2px 7px;color:#22c55e;cursor:pointer;font-size:0.7rem;" title="Retrabajo a hoy"><i class="fa-solid fa-copy"></i></button>` : ''}
                                 <button onclick="event.stopPropagation();openEditPallet('${r._id}')" style="background:rgba(79,124,255,0.1);border:1px solid rgba(79,124,255,0.3);border-radius:5px;padding:2px 7px;color:var(--accent);cursor:pointer;font-size:0.7rem;" title="Editar"><i class="fa-solid fa-pen"></i></button>
                                 <button onclick="event.stopPropagation();deletePallet('${r._id}','${(r.palletId||'').replace(/'/g,"\\'")}')" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:5px;padding:2px 7px;color:var(--danger);cursor:pointer;font-size:0.7rem;" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
                             </div>` : ''}
-                        </div>
-                    `).join('')}
+                        </div>`;
+                    }).join('')}
                 </div>
             </div>
         `;
@@ -4462,9 +4479,12 @@ function buildPedidoTable(fecha, recs, color) {
     });
     h += `</tr></thead><tbody>`;
     recs.forEach(r => {
-        h += `<tr>`;
+        const isRt = r.retrabajo || (r.incidencias||'').includes('RETRABAJO') || (r.observaciones||'').includes('RETRABAJO');
+        const rtStyle = isRt ? 'background:rgba(34,197,94,0.1);border-left:3px solid #22c55e;' : '';
+        const rtBadge = isRt ? '<span style="color:#22c55e;font-weight:700;font-size:0.6rem;margin-left:3px;">RT</span>' : '';
+        h += `<tr style="${rtStyle}">`;
         h += `<td style="${td}font-size:0.72rem;white-space:nowrap;">${formatFechaHora(r)}</td>`;
-        h += `<td style="${td}font-weight:600;">${r.palletId}</td>`;
+        h += `<td style="${td}font-weight:600;">${r.palletId}${rtBadge}</td>`;
         h += `<td style="${td}">${r.cantidad}</td>`;
         h += `<td style="${td}">${r.pedido||'-'}</td>`;
         h += `<td style="${td}">${r.destino}</td>`;

@@ -301,6 +301,38 @@ app.post('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (re
   }
 });
 
+// Retrabajo: copiar pallet a fecha de hoy (solo admin 3647)
+app.post('/api/escaneadoras/retrabajo', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647 puede crear retrabajos' });
+    const { originalId } = req.body;
+    if (!originalId) return res.status(400).json({ success: false, error: 'originalId requerido' });
+    const original = await EscReg.findById(originalId);
+    if (!original) return res.status(404).json({ success: false, error: 'Registro original no encontrado' });
+    const now = new Date();
+    const hoy = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
+    // Crear copia con fecha de hoy y marcado como retrabajo
+    const doc = await EscReg.create({
+      palletId: original.palletId,
+      cantidad: original.cantidad,
+      condicion: original.condicion,
+      destino: original.destino,
+      turno: original.turno,
+      escaneadora: original.escaneadora,
+      fecha: hoy,
+      pedido: original.pedido || '',
+      fechaSalida: original.fechaSalida || '',
+      incidencias: 'RETRABAJO',
+      observaciones: original.observaciones ? 'RETRABAJO | ' + original.observaciones : 'RETRABAJO',
+      capturadoPor: req.user._id,
+      retrabajo: true,
+      originalId: original._id,
+    });
+    emitEvent('paletizado', 'registro:nuevo', { id: doc._id, palletId: original.palletId, retrabajo: true });
+    res.json({ success: true, id: doc._id, fecha: hoy, message: `Retrabajo de ${original.palletId} creado para ${hoy}` });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 app.get('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (req, res) => {
   try {
     const { fecha, escaneadora, turno, limit } = req.query;
