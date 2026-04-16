@@ -1879,7 +1879,7 @@ async function buscarRetrabajo() {
             if (a.createdAt && b.createdAt) return new Date(b.createdAt) - new Date(a.createdAt);
             return 0;
         });
-        const isRet = (r) => r.retrabajo || (r.incidencias||'').includes('RETRABAJO');
+        const isRet = (r) => r.retrabajo;
         result.innerHTML = matches.map(r => {
             const ret = isRet(r);
             const bg = ret ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.03)';
@@ -2726,7 +2726,7 @@ function showKpiDetail(type) {
             </tr></thead><tbody id="hoy-table-body">`;
         hoyOrdered.forEach((r, i) => {
             const hora = r.createdAt ? new Date(r.createdAt).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '--';
-            const isRet = r.retrabajo || (r.incidencias||'').includes('RETRABAJO') || (r.observaciones||'').includes('RETRABAJO');
+            const isRet = r.retrabajo;
             const bg = isRet ? 'rgba(34,197,94,0.1)' : (i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.025)');
             const esPedido = r.pedido && r.pedido.trim();
             const clasif = esPedido ? getClasificacion(r) : '';
@@ -4048,7 +4048,7 @@ function renderGroupedView(records) {
                 </div>
                 <div class="date-group-body ${isExpanded ? '' : 'hidden'}" id="dg-body-${safeId}">
                     ${recs.map(r => {
-                        const isRetrabajo = r.retrabajo || (r.incidencias||'').includes('RETRABAJO') || (r.observaciones||'').includes('RETRABAJO');
+                        const isRetrabajo = r.retrabajo;
                         const retrabajoStyle = isRetrabajo ? 'background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);' : '';
                         return `
                         <div class="record-card" style="position:relative;${retrabajoStyle}">
@@ -4537,7 +4537,7 @@ function buildPedidoTable(fecha, recs, color) {
     });
     h += `</tr></thead><tbody>`;
     recs.forEach(r => {
-        const isRt = r.retrabajo || (r.incidencias||'').includes('RETRABAJO') || (r.observaciones||'').includes('RETRABAJO');
+        const isRt = r.retrabajo;
         const rtStyle = isRt ? 'background:rgba(34,197,94,0.1);border-left:3px solid #22c55e;' : '';
         const rtBadge = isRt ? '<span style="color:#22c55e;font-weight:700;font-size:0.6rem;margin-left:3px;">RT</span>' : '';
         const rtBtn = (!isRt && currentUser && currentUser.usuario==='3647' && r._id) ? `<button onclick="crearRetrabajo('${r._id}','${r.palletId}');closeDrillDown();" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:4px;padding:1px 6px;color:#22c55e;cursor:pointer;font-size:0.65rem;white-space:nowrap;" title="Retrabajo"><i class="fa-solid fa-copy"></i></button>` : '';

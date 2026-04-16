@@ -312,6 +312,7 @@ app.post('/api/escaneadoras/retrabajo', auth, roleGuard('admin'), async (req, re
     const now = new Date();
     const hoy = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
     // Crear copia con fecha de hoy y marcado como retrabajo
+    // Observaciones se mantienen intactas para que la clasificacion de pedidos funcione
     const doc = await EscReg.create({
       palletId: original.palletId,
       cantidad: original.cantidad,
@@ -322,8 +323,8 @@ app.post('/api/escaneadoras/retrabajo', auth, roleGuard('admin'), async (req, re
       fecha: hoy,
       pedido: original.pedido || '',
       fechaSalida: original.fechaSalida || '',
-      incidencias: 'RETRABAJO',
-      observaciones: original.observaciones ? 'RETRABAJO | ' + original.observaciones : 'RETRABAJO',
+      incidencias: original.incidencias || '',
+      observaciones: original.observaciones || '',
       capturadoPor: req.user._id,
       retrabajo: true,
       originalId: original._id,
