@@ -759,7 +759,8 @@ app.post('/api/mobile/register', async (req, res) => {
   try {
     const { pallet_id, cantidad, destino, fecha, turno, condicion, operador, pedido, clasificacion } = req.body;
     if (!pallet_id || !destino || !fecha || !turno) return res.status(400).json({ success: false, error: 'Campos requeridos: pallet_id, destino, fecha, turno' });
-    if (!condicion || !condicion.trim()) return res.status(400).json({ success: false, error: 'Condicion es obligatoria' });
+    const hasPedidoMobile = pedido && pedido.trim();
+    if (!hasPedidoMobile && (!condicion || !condicion.trim())) return res.status(400).json({ success: false, error: 'Condicion es obligatoria' });
     const pid = normalizePalletId(pallet_id);
     const dest = normalizeDestino(destino);
     const qty = parseInt(cantidad) || 0;
