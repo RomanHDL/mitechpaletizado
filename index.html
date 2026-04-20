@@ -1154,6 +1154,9 @@
                     <button id="btn-capture-mode" style="display:none;padding:0.35rem 0.7rem;font-size:0.78rem;" class="btn btn-secondary btn-sm" onclick="toggleCaptureMode()">
                         <i class="fa-solid fa-camera"></i> Captura
                     </button>
+                    <button class="theme-toggle-btn user-3647-only" id="theme-toggle-btn-dash" onclick="toggleTheme3647()" title="Cambiar tema" aria-label="Cambiar tema" style="width:30px;height:30px;font-size:0.85rem;">
+                        <i class="fa-solid fa-moon" id="theme-toggle-icon-dash"></i>
+                    </button>
                     <span style="width:1px;height:20px;background:var(--border);margin:0 0.25rem;"></span>
                     <div id="dash-user-info" style="text-align:right;margin:0 0.15rem;">
                         <div id="dash-user-name" style="font-size:0.82rem;font-weight:600;color:var(--text-main);line-height:1.2;"></div>
@@ -1651,10 +1654,12 @@ function toggleTheme3647() {
     });
 }
 function updateThemeIcon(theme) {
-    const icon = document.getElementById('theme-toggle-icon');
-    if (!icon) return;
-    // Icono sol cuando esta en oscuro (para ofrecer el claro), y luna cuando esta en claro
-    icon.className = theme === 'light' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+    // Icono sol cuando esta en oscuro (ofrece el claro), y luna cuando esta en claro
+    const cls = theme === 'light' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+    ['theme-toggle-icon', 'theme-toggle-icon-dash'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.className = cls;
+    });
 }
 
 function handleLogout() {
