@@ -42,6 +42,10 @@
             --danger: #ef4444;
             --border: #1e2a42;
             --sidebar-w: 220px;
+            /* Fondo translucido para "insets" dentro de las cards (lista de escaneadoras, legends, etc). */
+            --inset-bg: rgba(15,23,42,0.4);
+            --inset-bg-strong: rgba(15,23,42,0.5);
+            --inset-bg-hover: rgba(255,255,255,0.06);
         }
 
         /* ═══ Modo claro (solo activado para admin 3647 via data-theme="light") ═══ */
@@ -59,6 +63,9 @@
             --warning: #D97706;
             --danger: #DC2626;
             --border: #E2E8F0;
+            --inset-bg: rgba(15,23,42,0.04);
+            --inset-bg-strong: rgba(15,23,42,0.06);
+            --inset-bg-hover: rgba(30,64,175,0.08);
             color-scheme: light;
         }
 
@@ -1615,6 +1622,7 @@ function applyTheme3647() {
         document.documentElement.removeAttribute('data-theme');
     }
     updateThemeIcon(t);
+    applyChartTheme();
 }
 function toggleTheme3647() {
     if (!currentUser || String(currentUser.usuario) !== '3647') return;
@@ -1629,6 +1637,12 @@ function toggleTheme3647() {
     }
     localStorage.setItem('mitech_theme_3647', next);
     updateThemeIcon(next);
+    // Refrescar colores de Chart.js y redibujar los charts visibles
+    applyChartTheme();
+    const dashActive = document.getElementById('view-dashboard')?.classList.contains('active');
+    if (dashActive && typeof loadDashboard === 'function') {
+        loadDashboard();
+    }
     // Forzar reflow y reactivar transiciones en el siguiente frame
     // eslint-disable-next-line no-unused-expressions
     document.documentElement.offsetHeight;
@@ -1858,7 +1872,7 @@ async function loadAuditStats() {
         const actionColors = { UPDATE:'#4f7cff', DELETE:'#ef4444', ADD:'#22c55e', CORRECTION:'#f59e0b', MANUAL_EDIT:'#8b5cf6' };
         chartAudit = new Chart(ctx.getContext('2d'), {
             type: 'doughnut',
-            data: { labels, datasets: [{ data: values, backgroundColor: COLORS.slice(0, labels.length), borderWidth: 1, borderColor:'#0f172a' }] },
+            data: { labels, datasets: [{ data: values, backgroundColor: COLORS.slice(0, labels.length), borderWidth: 1, borderColor:CHART_THEME.donutBorder }] },
             options: { responsive:true, maintainAspectRatio:false, cutout:'50%', animation:false,
                 plugins: { legend:{display:false}, datalabels:{display:true,color:'#fff',font:{weight:'bold',size:13},formatter:(v)=>v>0?v:''} } }
         });
@@ -1870,7 +1884,7 @@ async function loadAuditStats() {
         });
         txt += `<div style="margin-top:0.3rem;border-top:1px solid var(--border);padding-top:0.3rem;">`;
         resp.byAction.forEach(a => {
-            const col = actionColors[a._id] || '#7b8ba5';
+            const col = actionColors[a._id] || CHART_THEME.muted;
             txt += `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:0.5rem;"><span style="padding:1px 5px;border-radius:3px;font-size:0.7rem;font-weight:600;background:${col}22;color:${col};">${a._id}: ${a.total}</span></span>`;
         });
         txt += `</div>`;
@@ -1935,7 +1949,7 @@ async function loadAuditData() {
             const pad = n => String(n).padStart(2,'0');
             const dateStr = ts ? `${pad(ts.getDate())}/${pad(ts.getMonth()+1)}/${ts.getFullYear()}` : '-';
             const timeStr = ts ? `${pad(ts.getHours())}:${pad(ts.getMinutes())}:${pad(ts.getSeconds())}` : '';
-            const ac = actionCfg[r.action] || {col:'#7b8ba5',icon:'fa-circle-info',label:r.action};
+            const ac = actionCfg[r.action] || {col:CHART_THEME.muted,icon:'fa-circle-info',label:r.action};
 
             // Build changes HTML — new format (changes array) or legacy (flat fields)
             const changes = r.changes && r.changes.length > 0 ? r.changes : (r.field ? [{ field: r.field, before: r.oldValue||'', after: r.newValue||'' }] : []);
@@ -1964,7 +1978,7 @@ async function loadAuditData() {
                 </div>`;
             }
 
-            return `<div style="padding:0.75rem 0.85rem;border-left:4px solid ${ac.col};margin-bottom:0.6rem;background:rgba(15,23,42,0.35);border-radius:0 8px 8px 0;">
+            return `<div style="padding:0.75rem 0.85rem;border-left:4px solid ${ac.col};margin-bottom:0.6rem;background:var(--inset-bg);border-radius:0 8px 8px 0;">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.35rem;">
                     <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
                         <span style="padding:3px 10px;border-radius:4px;font-size:0.7rem;font-weight:800;letter-spacing:0.5px;background:${ac.col}22;color:${ac.col};"><i class="fa-solid ${ac.icon}" style="margin-right:4px;"></i>${ac.label}</span>
@@ -2519,6 +2533,51 @@ const COLORS = ['#4f7cff','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14
 // Chart.js global animation defaults
 Chart.defaults.animation.duration = 800;
 Chart.defaults.animation.easing = 'easeOutQuart';
+
+// ═══════════════════════════════════════════════════════════════════
+// Paleta de charts sensible al tema (admin 3647 puede alternar light).
+// Los charts capturan los strings al renderizar; para actualizarlos
+// cambiamos estos valores y llamamos loadDashboard() que los redibuja.
+// ═══════════════════════════════════════════════════════════════════
+const CHART_THEME = {
+    text: '#e8ecf4',
+    muted: '#7b8ba5',
+    tooltipBg: '#1e293b',
+    tooltipBody: '#94a3b8',
+    tooltipBorder: '#334155',
+    donutBorder: '#0f172a',
+    grid: 'rgba(30,42,66,0.5)',
+    gridLight: 'rgba(30,42,66,0.4)',
+    labelPill: 'rgba(15,23,42,0.85)',
+};
+function applyChartTheme() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    Object.assign(CHART_THEME, isLight ? {
+        text: '#0F172A',
+        muted: '#475569',
+        tooltipBg: '#FFFFFF',
+        tooltipBody: '#475569',
+        tooltipBorder: '#E2E8F0',
+        donutBorder: '#FFFFFF',
+        grid: 'rgba(148,163,184,0.30)',
+        gridLight: 'rgba(148,163,184,0.20)',
+        labelPill: 'rgba(255,255,255,0.95)',
+    } : {
+        text: '#e8ecf4',
+        muted: '#7b8ba5',
+        tooltipBg: '#1e293b',
+        tooltipBody: '#94a3b8',
+        tooltipBorder: '#334155',
+        donutBorder: '#0f172a',
+        grid: 'rgba(30,42,66,0.5)',
+        gridLight: 'rgba(30,42,66,0.4)',
+        labelPill: 'rgba(15,23,42,0.85)',
+    });
+    // Defaults globales de Chart.js (heredan los charts que no sobrescriben inline)
+    Chart.defaults.color = CHART_THEME.text;
+    Chart.defaults.borderColor = CHART_THEME.grid;
+}
+applyChartTheme();
 
 let fpPedidos = null;
 function initFlatpickr() {
@@ -3091,7 +3150,7 @@ async function loadResumen() {
             animation: false,
             ...extra
         });
-        const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
+        const tooltipStyle = { backgroundColor:CHART_THEME.tooltipBg, titleColor:CHART_THEME.text, bodyColor:CHART_THEME.tooltipBody, borderColor:CHART_THEME.tooltipBorder, borderWidth:1, cornerRadius:8, padding:10 };
         const datalabelWhite = { display: true, color: '#fff', font: { weight: 'bold', size: 11 }, formatter: (v) => v > 0 ? v : '' };
 
         // Sort destinos: TRG first, then Almacen, then rest
@@ -3113,12 +3172,12 @@ async function loadResumen() {
                 type: 'doughnut',
                 data: {
                     labels: destLabels,
-                    datasets: [{ data: sortedDest.map(d => d.registros), backgroundColor: destColors, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 8 }]
+                    datasets: [{ data: sortedDest.map(d => d.registros), backgroundColor: destColors, borderWidth: 2, borderColor: CHART_THEME.donutBorder, hoverOffset: 8 }]
                 },
                 options: chartOpts({
                     cutout: '55%',
                     plugins: {
-                        legend: { position:'bottom', labels:{color:'#7b8ba5',padding:8,font:{size:13},usePointStyle:true,pointStyle:'circle'} },
+                        legend: { position:'bottom', labels:{color:CHART_THEME.muted,padding:8,font:{size:13},usePointStyle:true,pointStyle:'circle'} },
                         tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${c.label}: ${c.parsed} pallets` } },
                         datalabels: { ...dlOpts, formatter:(v,c)=>{ const t=c.dataset.data.reduce((a,b)=>a+b,0); const p=t>0?Math.round(v/t*100):0; return p>=8?`${v} (${p}%)`:(v>0?v:''); } }
                     },
@@ -3140,12 +3199,12 @@ async function loadResumen() {
                 type: 'doughnut',
                 data: {
                     labels: destLabels,
-                    datasets: [{ data: sortedDest.map(d => d.unidades), backgroundColor: destColors, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 8 }]
+                    datasets: [{ data: sortedDest.map(d => d.unidades), backgroundColor: destColors, borderWidth: 2, borderColor: CHART_THEME.donutBorder, hoverOffset: 8 }]
                 },
                 options: chartOpts({
                     cutout: '55%',
                     plugins: {
-                        legend: { position:'bottom', labels:{color:'#7b8ba5',padding:8,font:{size:13},usePointStyle:true,pointStyle:'circle'} },
+                        legend: { position:'bottom', labels:{color:CHART_THEME.muted,padding:8,font:{size:13},usePointStyle:true,pointStyle:'circle'} },
                         tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${c.label}: ${c.parsed.toLocaleString()} piezas` } },
                         datalabels: { ...dlOpts, formatter:(v,c)=>{ const t=c.dataset.data.reduce((a,b)=>a+b,0); const p=t>0?Math.round(v/t*100):0; return p>=8?`${v.toLocaleString()} (${p}%)`:(v>0?v.toLocaleString():''); } }
                     },
@@ -3167,12 +3226,12 @@ async function loadResumen() {
             const ctxPZ = document.getElementById('chart-piezas-pie').getContext('2d');
             chartPiezasPie = new Chart(ctxPZ, {
                 type: 'pie',
-                data: { labels: pzLabels, datasets: [{ data: pzData, backgroundColor: pzColors, borderWidth: 2, borderColor: '#0f172a', hoverOffset: 10 }] },
+                data: { labels: pzLabels, datasets: [{ data: pzData, backgroundColor: pzColors, borderWidth: 2, borderColor: CHART_THEME.donutBorder, hoverOffset: 10 }] },
                 options: {
                     responsive: true,
                     animation: false,
                     plugins: {
-                        legend: { position:'bottom', labels: { color:'#7b8ba5', padding:10, font:{size:11}, usePointStyle:true, pointStyle:'circle' } },
+                        legend: { position:'bottom', labels: { color:CHART_THEME.muted, padding:10, font:{size:11}, usePointStyle:true, pointStyle:'circle' } },
                         tooltip: { ...tooltipStyle, callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed.toLocaleString()} piezas` } },
                         datalabels: { ...dlOpts, formatter: (v, ctx) => { const total = ctx.dataset.data.reduce((a,b)=>a+b,0); const pct = total > 0 ? Math.round(v/total*100) : 0; return pct >= 5 ? `${v.toLocaleString()}\n(${pct}%)` : ''; } }
                     },
@@ -3213,13 +3272,13 @@ async function loadResumen() {
                 indexAxis: 'y',
                 layout: { padding: { right: 40 } },
                 plugins: {
-                    legend: { display:true, position:'top', align:'end', labels:{ color:'#7b8ba5', padding:10, font:{size:10}, usePointStyle:true, pointStyle:'rectRounded' } },
+                    legend: { display:true, position:'top', align:'end', labels:{ color:CHART_THEME.muted, padding:10, font:{size:10}, usePointStyle:true, pointStyle:'rectRounded' } },
                     tooltip: { ...tooltipStyle, mode:'index', intersect:false },
-                    datalabels: { display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:14}, offset:4, formatter:(v)=>v>0?v.toLocaleString():'' }
+                    datalabels: { display:true, anchor:'end', align:'end', color:CHART_THEME.text, font:{weight:'bold',size:14}, offset:4, formatter:(v)=>v>0?v.toLocaleString():'' }
                 },
                 scales: {
-                    x: { beginAtZero:true, ticks:{color:'#7b8ba5'}, grid:{color:'rgba(30,42,66,0.5)'} },
-                    y: { ticks:{color:'#7b8ba5',font:{size:11}}, grid:{display:false} }
+                    x: { beginAtZero:true, ticks:{color:CHART_THEME.muted}, grid:{color:CHART_THEME.grid} },
+                    y: { ticks:{color:CHART_THEME.muted,font:{size:11}}, grid:{display:false} }
                 }
             })
         });
@@ -3272,7 +3331,7 @@ function renderEscaneadoraDetail() {
     const sorted = Object.entries(byEsc).sort((a,b) => (b[1].trg+b[1].alm) - (a[1].trg+a[1].alm));
 
     el.innerHTML = sorted.map(([nombre, d]) => {
-        return `<div style="margin-bottom:0.5rem;padding:0.5rem 0.6rem;background:rgba(15,23,42,0.4);border:1px solid var(--border);border-radius:6px;">
+        return `<div style="margin-bottom:0.5rem;padding:0.5rem 0.6rem;background:var(--inset-bg);border:1px solid var(--border);border-radius:6px;">
             <div style="font-weight:600;color:var(--text-main);font-size:0.8rem;margin-bottom:0.35rem;">${nombre} <span style="font-weight:400;color:var(--text-muted);font-size:0.72rem;">(${d.totalPed} pedidos)</span></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;">
                 <div style="padding:0.3rem 0.4rem;background:rgba(34,197,94,0.06);border-radius:4px;">
@@ -3362,8 +3421,8 @@ function drawPpdWindow() {
         options: {
             responsive: true, animation: false,
             layout: { padding: { top: 16, left: 4, right: 4 } },
-            plugins: { legend:{display:false}, tooltip:{backgroundColor:'#1e293b',titleColor:'#e8ecf4',bodyColor:'#94a3b8',borderColor:'#334155',borderWidth:1,cornerRadius:6,padding:8}, datalabels:{display:(c)=>c.dataset.data[c.dataIndex]>0,anchor:'end',align:'end',color:'#e8ecf4',font:{weight:'bold',size:14},formatter:(v)=>v>0?v:''} },
-            scales: { x:{ticks:{color:'#7b8ba5',font:{size:11}},grid:{display:false}}, y:{beginAtZero:true,grace:'15%',ticks:{color:'#7b8ba5',font:{size:10}},grid:{color:'rgba(30,42,66,0.4)'}} },
+            plugins: { legend:{display:false}, tooltip:{backgroundColor:CHART_THEME.tooltipBg,titleColor:CHART_THEME.text,bodyColor:CHART_THEME.tooltipBody,borderColor:CHART_THEME.tooltipBorder,borderWidth:1,cornerRadius:6,padding:8}, datalabels:{display:(c)=>c.dataset.data[c.dataIndex]>0,anchor:'end',align:'end',color:CHART_THEME.text,font:{weight:'bold',size:14},formatter:(v)=>v>0?v:''} },
+            scales: { x:{ticks:{color:CHART_THEME.muted,font:{size:11}},grid:{display:false}}, y:{beginAtZero:true,grace:'15%',ticks:{color:CHART_THEME.muted,font:{size:10}},grid:{color:CHART_THEME.gridLight}} },
             onClick: (evt, elements) => {
                 if (!elements.length) return;
                 const idx = elements[0].index;
@@ -3451,14 +3510,14 @@ function renderProduccionPorHora() {
                     borderWidth: 2,
                     pointRadius: 3,
                     pointBackgroundColor: '#14b8a6',
-                    pointBorderColor: '#0f172a',
+                    pointBorderColor: CHART_THEME.donutBorder,
                     pointBorderWidth: 1,
                     pointHoverRadius: 5,
                     tension: 0.3,
                     fill: true,
                     yAxisID: 'y1',
                     order: 1,
-                    datalabels: { display: function(c) { return c.dataset.data[c.dataIndex] > 0; }, anchor:'end', align:'top', offset: 4, color:'#14b8a6', font:{weight:'700',size:10}, backgroundColor:'rgba(15,23,42,0.85)', borderRadius: 4, padding: {top:2,bottom:2,left:4,right:4}, formatter: function(v) { return v > 0 ? v.toLocaleString() : ''; } }
+                    datalabels: { display: function(c) { return c.dataset.data[c.dataIndex] > 0; }, anchor:'end', align:'top', offset: 4, color:'#14b8a6', font:{weight:'700',size:10}, backgroundColor:CHART_THEME.labelPill, borderRadius: 4, padding: {top:2,bottom:2,left:4,right:4}, formatter: function(v) { return v > 0 ? v.toLocaleString() : ''; } }
                 }
             ]
         },
@@ -3467,9 +3526,9 @@ function renderProduccionPorHora() {
             layout: { padding: { top: 20 } },
             interaction: { mode: "index", intersect: false },
             plugins: {
-                legend: { position:'bottom', labels:{ color:'#7b8ba5', padding:8, font:{size:10}, usePointStyle:true, pointStyle:'circle' } },
+                legend: { position:'bottom', labels:{ color:CHART_THEME.muted, padding:8, font:{size:10}, usePointStyle:true, pointStyle:'circle' } },
                 tooltip: {
-                    backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:6, padding:8,
+                    backgroundColor:CHART_THEME.tooltipBg, titleColor:CHART_THEME.text, bodyColor:CHART_THEME.tooltipBody, borderColor:CHART_THEME.tooltipBorder, borderWidth:1, cornerRadius:6, padding:8,
                     mode:'index', intersect:false,
                     callbacks: {
                         label: function(c) {
@@ -3481,14 +3540,14 @@ function renderProduccionPorHora() {
                 datalabels: { display: false }
             },
             scales: {
-                x: { ticks:{color:'#7b8ba5',font:{size:10}}, grid:{display:false} },
+                x: { ticks:{color:CHART_THEME.muted,font:{size:10}}, grid:{display:false} },
                 y: {
                     position: 'left',
                     beginAtZero: true,
                     grace: '20%',
                     title: { display: true, text: 'Pallets', color: '#8b5cf6', font: { size: 10 } },
                     ticks: { color:'#8b5cf6', font:{size:9} },
-                    grid: { color:'rgba(30,42,66,0.4)' }
+                    grid: { color:CHART_THEME.gridLight }
                 },
                 y1: {
                     position: 'right',
@@ -3545,13 +3604,13 @@ function renderDiaNoche() {
             animation: false,
             layout: { padding: { right: 50, top: 5, bottom: 5 } },
             plugins: {
-                legend: { display:true, position:'top', align:'end', labels:{color:'#7b8ba5',padding:10,font:{size:11},usePointStyle:true,pointStyle:'rectRounded'} },
-                tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:6, padding:8 },
-                datalabels: { display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:16}, offset:6, formatter:(v)=>v>0?v.toLocaleString():'' }
+                legend: { display:true, position:'top', align:'end', labels:{color:CHART_THEME.muted,padding:10,font:{size:11},usePointStyle:true,pointStyle:'rectRounded'} },
+                tooltip: { backgroundColor:CHART_THEME.tooltipBg, titleColor:CHART_THEME.text, bodyColor:CHART_THEME.tooltipBody, borderColor:CHART_THEME.tooltipBorder, borderWidth:1, cornerRadius:6, padding:8 },
+                datalabels: { display:true, anchor:'end', align:'end', color:CHART_THEME.text, font:{weight:'bold',size:16}, offset:6, formatter:(v)=>v>0?v.toLocaleString():'' }
             },
             scales: {
-                x: { beginAtZero:true, ticks:{color:'#7b8ba5',font:{size:11}}, grid:{color:'rgba(30,42,66,0.4)'} },
-                y: { ticks:{color:'#e8ecf4',font:{size:13,weight:'bold'}}, grid:{display:false} }
+                x: { beginAtZero:true, ticks:{color:CHART_THEME.muted,font:{size:11}}, grid:{color:CHART_THEME.gridLight} },
+                y: { ticks:{color:CHART_THEME.text,font:{size:13,weight:'bold'}}, grid:{display:false} }
             },
             onClick: (evt, elements) => {
                 if (!elements.length || !lastTableData) return;
@@ -3647,8 +3706,8 @@ function drawBulkyWindow() {
         options: {
             responsive: true, animation: false,
             layout: { padding: { top: 16, left: 4, right: 4 } },
-            plugins: { legend:{display:false}, tooltip:{backgroundColor:'#1e293b',titleColor:'#e8ecf4',bodyColor:'#94a3b8',borderColor:'#334155',borderWidth:1,cornerRadius:6,padding:8,callbacks:{label:(c)=>`${c.parsed.y} BULKY`}}, datalabels:{display:true,anchor:'end',align:'end',color:'#e8ecf4',font:{weight:'bold',size:14},offset:4,formatter:(v)=>v>0?v:''} },
-            scales: { x:{ticks:{color:'#7b8ba5',font:{size:11}},grid:{display:false}}, y:{beginAtZero:true,grace:'15%',ticks:{color:'#7b8ba5',font:{size:10}},grid:{color:'rgba(30,42,66,0.4)'}} },
+            plugins: { legend:{display:false}, tooltip:{backgroundColor:CHART_THEME.tooltipBg,titleColor:CHART_THEME.text,bodyColor:CHART_THEME.tooltipBody,borderColor:CHART_THEME.tooltipBorder,borderWidth:1,cornerRadius:6,padding:8,callbacks:{label:(c)=>`${c.parsed.y} BULKY`}}, datalabels:{display:true,anchor:'end',align:'end',color:CHART_THEME.text,font:{weight:'bold',size:14},offset:4,formatter:(v)=>v>0?v:''} },
+            scales: { x:{ticks:{color:CHART_THEME.muted,font:{size:11}},grid:{display:false}}, y:{beginAtZero:true,grace:'15%',ticks:{color:CHART_THEME.muted,font:{size:10}},grid:{color:CHART_THEME.gridLight}} },
             onClick: (evt, elements) => {
                 if (!elements.length || !lastTableData) return;
                 const fecha = _bulkyWinDates[elements[0].index];
@@ -3775,7 +3834,7 @@ function renderPiezasPorDia() {
 
     // First render — create chart
     _pzLastKey = dataKey;
-    var tooltipStyle = { backgroundColor: "#1e293b", titleColor: "#e8ecf4", bodyColor: "#94a3b8", borderColor: "#334155", borderWidth: 1, cornerRadius: 8, padding: 10 };
+    var tooltipStyle = { backgroundColor: CHART_THEME.tooltipBg, titleColor: CHART_THEME.text, bodyColor: CHART_THEME.tooltipBody, borderColor: CHART_THEME.tooltipBorder, borderWidth: 1, cornerRadius: 8, padding: 10 };
 
     chartPiezasDia = new Chart(ctx.getContext("2d"), {
         type: "bar",
@@ -3843,8 +3902,8 @@ function renderPiezasPorDia() {
                 }
             },
             scales: {
-                x: { ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { display: false } },
-                y: { beginAtZero: true, grace: "15%", ticks: { color: "#7b8ba5", font: { size: 10 } }, grid: { color: "rgba(30,42,66,0.4)" } }
+                x: { ticks: { color: CHART_THEME.muted, font: { size: 10 } }, grid: { display: false } },
+                y: { beginAtZero: true, grace: "15%", ticks: { color: CHART_THEME.muted, font: { size: 10 } }, grid: { color: CHART_THEME.gridLight } }
             }
         }
     });
@@ -3944,7 +4003,7 @@ function renderCondicionByDate(data) {
             weekLabels.push(dayNames[i] + ' ' + d.getDate() + '/' + (d.getMonth()+1));
         }
 
-        const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
+        const tooltipStyle = { backgroundColor:CHART_THEME.tooltipBg, titleColor:CHART_THEME.text, bodyColor:CHART_THEME.tooltipBody, borderColor:CHART_THEME.tooltipBorder, borderWidth:1, cornerRadius:8, padding:10 };
 
         let html = '<div style="position:relative;height:280px;"><canvas id="chart-cond-week"></canvas></div>';
         container.innerHTML = html;
@@ -3962,7 +4021,7 @@ function renderCondicionByDate(data) {
                 borderWidth: 2,
                 pointRadius: 4,
                 pointBackgroundColor: color,
-                pointBorderColor: '#0f172a',
+                pointBorderColor: CHART_THEME.donutBorder,
                 pointBorderWidth: 2,
                 pointHoverRadius: 6,
             };
@@ -3978,8 +4037,8 @@ function renderCondicionByDate(data) {
                 interaction: { mode: 'index', intersect: false },
                 layout: { padding: { top: 28, right: 16, left: 8 } },
                 plugins: {
-                    legend: { position:'bottom', labels:{ color:'#7b8ba5', padding:12, font:{size:11}, usePointStyle:true, pointStyle:'circle' } },
-                    tooltip: { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10, mode:'index', intersect:false, enabled:true },
+                    legend: { position:'bottom', labels:{ color:CHART_THEME.muted, padding:12, font:{size:11}, usePointStyle:true, pointStyle:'circle' } },
+                    tooltip: { backgroundColor:CHART_THEME.tooltipBg, titleColor:CHART_THEME.text, bodyColor:CHART_THEME.tooltipBody, borderColor:CHART_THEME.tooltipBorder, borderWidth:1, cornerRadius:8, padding:10, mode:'index', intersect:false, enabled:true },
                     datalabels: {
                         display: function(ctx) {
                             var v = ctx.dataset.data[ctx.dataIndex];
@@ -3992,14 +4051,14 @@ function renderCondicionByDate(data) {
                             return true;
                         },
                         anchor:'end', align:'top', offset:8,
-                        color:'#e8ecf4', font:{weight:'600',size:10},
+                        color:CHART_THEME.text, font:{weight:'600',size:10},
                         formatter: function(v) { return v > 0 ? v : ''; },
                         clamp: true, clip: false
                     }
                 },
                 scales: {
-                    x: { ticks:{color:'#94a3b8',font:{size:11,weight:'500'}}, grid:{display:false} },
-                    y: { beginAtZero:true, grace:'15%', ticks:{color:'#7b8ba5',font:{size:10},stepSize:1}, grid:{color:'rgba(30,42,66,0.4)'} }
+                    x: { ticks:{color:CHART_THEME.tooltipBody,font:{size:11,weight:'500'}}, grid:{display:false} },
+                    y: { beginAtZero:true, grace:'15%', ticks:{color:CHART_THEME.muted,font:{size:10},stepSize:1}, grid:{color:CHART_THEME.gridLight} }
                 }
             }
         });
@@ -4020,8 +4079,8 @@ function renderCondicionByDate(data) {
             },
             options: {
                 responsive: true, indexAxis:'y',
-                plugins: { legend:{display:false}, tooltip:{ backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 }, datalabels:{ display:true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:15}, formatter: function(v) { return v > 0 ? v : ''; } } },
-                scales: { x:{beginAtZero:true,ticks:{color:'#7b8ba5'},grid:{color:'rgba(30,42,66,0.5)'}}, y:{ticks:{color:'#7b8ba5'},grid:{display:false}} }
+                plugins: { legend:{display:false}, tooltip:{ backgroundColor:CHART_THEME.tooltipBg, titleColor:CHART_THEME.text, bodyColor:CHART_THEME.tooltipBody, borderColor:CHART_THEME.tooltipBorder, borderWidth:1, cornerRadius:8, padding:10 }, datalabels:{ display:true, anchor:'end', align:'end', color:CHART_THEME.text, font:{weight:'bold',size:15}, formatter: function(v) { return v > 0 ? v : ''; } } },
+                scales: { x:{beginAtZero:true,ticks:{color:CHART_THEME.muted},grid:{color:CHART_THEME.grid}}, y:{ticks:{color:CHART_THEME.muted},grid:{display:false}} }
             }
         });
     }
@@ -4057,7 +4116,7 @@ function renderTrendWidget(dateMap) {
     }
     document.getElementById('trend-chart-wrap').style.display = '';
 
-    const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#e8ecf4', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
+    const tooltipStyle = { backgroundColor:CHART_THEME.tooltipBg, titleColor:CHART_THEME.text, bodyColor:CHART_THEME.text, borderColor:CHART_THEME.tooltipBorder, borderWidth:1, cornerRadius:8, padding:10 };
 
     // Format dates for display: M/D/YYYY → "DD/MM"
     const dateLabels = dates.map(d => { const p = d.split('/'); return p[1] + '/' + p[0]; });
@@ -4106,7 +4165,7 @@ function renderTrendWidget(dateMap) {
                 legend: {
                     position: 'top',
                     align: 'end',
-                    labels: { color: '#7b8ba5', usePointStyle: true, pointStyle: 'rectRounded', padding: 16, font: { size: 12 } }
+                    labels: { color: CHART_THEME.muted, usePointStyle: true, pointStyle: 'rectRounded', padding: 16, font: { size: 12 } }
                 },
                 tooltip: {
                     ...tooltipStyle, mode: 'index', intersect: false,
@@ -4115,19 +4174,19 @@ function renderTrendWidget(dateMap) {
                         afterBody: (items) => 'Total: ' + items.reduce((s, i) => s + i.parsed.x, 0)
                     }
                 },
-                datalabels: { display: true, anchor:'end', align:'end', color:'#e8ecf4', font:{weight:'bold',size:15}, offset:6, clamp:true, clip:false, formatter:(v)=>v>0?v:'' }
+                datalabels: { display: true, anchor:'end', align:'end', color:CHART_THEME.text, font:{weight:'bold',size:15}, offset:6, clamp:true, clip:false, formatter:(v)=>v>0?v:'' }
             },
             scales: {
                 x: {
                     beginAtZero: true,
                     grace: '15%',
-                    ticks: { color: '#7b8ba5', font: { size: 11 } },
-                    grid: { color: 'rgba(30,42,66,0.4)' }
+                    ticks: { color: CHART_THEME.muted, font: { size: 11 } },
+                    grid: { color: CHART_THEME.gridLight }
                 },
                 y: {
                     type: 'category',
                     offset: true,
-                    ticks: { color: '#7b8ba5', font: { size: 12, weight: '500' } },
+                    ticks: { color: CHART_THEME.muted, font: { size: 12, weight: '500' } },
                     grid: { display: false }
                 }
             }
@@ -4423,7 +4482,7 @@ function renderCondicionHistorial(body, searchQuery, sourceData) {
     html += dates.map(fecha => {
         const fams = dateFamilyMap[fecha];
         const totalRegs = records.filter(r => r.fecha === fecha).length;
-        let h = `<div style="margin-bottom:0.75rem;padding:0.75rem 1rem;background:rgba(15,23,42,0.5);border:1px solid var(--border);border-radius:8px;">`;
+        let h = `<div style="margin-bottom:0.75rem;padding:0.75rem 1rem;background:var(--inset-bg-strong);border:1px solid var(--border);border-radius:8px;">`;
         h += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">`;
         h += `<span style="font-weight:600;color:var(--text-main);"><i class="fa-solid fa-calendar-day" style="color:var(--accent);margin-right:6px;"></i>${fecha}</span>`;
         h += `<span style="font-size:0.8rem;color:var(--text-muted);">${totalRegs} registros</span></div>`;
@@ -4609,7 +4668,7 @@ function renderPedidosChart() {
     const labels = entries.map(e => e[0]);
     const values = entries.map(e => e[1]);
     const colors = entries.map(e => tipoColors[e[0]] || COLORS[entries.indexOf(e) % COLORS.length]);
-    const tooltipStyle = { backgroundColor:'#1e293b', titleColor:'#e8ecf4', bodyColor:'#94a3b8', borderColor:'#334155', borderWidth:1, cornerRadius:8, padding:10 };
+    const tooltipStyle = { backgroundColor:CHART_THEME.tooltipBg, titleColor:CHART_THEME.text, bodyColor:CHART_THEME.tooltipBody, borderColor:CHART_THEME.tooltipBorder, borderWidth:1, cornerRadius:8, padding:10 };
 
     // Store records grouped by tipo for click detail
     const tipoRecords = {};
@@ -4626,7 +4685,7 @@ function renderPedidosChart() {
         legendEl.innerHTML = entries.map(([tipo, count]) => {
             const pct = totalAll > 0 ? Math.round(count/totalAll*100) : 0;
             const col = tipoColors[tipo] || '#6b7280';
-            return `<div onclick="showPedidosDetail('${tipo}',tipoRecords['${tipo}']||[],'${col}')" style="cursor:pointer;display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.5rem;border-radius:6px;border-left:3px solid ${col};background:rgba(15,23,42,0.4);transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(15,23,42,0.4)'">
+            return `<div onclick="showPedidosDetail('${tipo}',tipoRecords['${tipo}']||[],'${col}')" style="cursor:pointer;display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.5rem;border-radius:6px;border-left:3px solid ${col};background:var(--inset-bg);transition:background 0.15s;" onmouseover="this.style.background='var(--inset-bg-hover)'" onmouseout="this.style.background='var(--inset-bg)'">
                 <div style="flex:1;min-width:0;">
                     <div style="font-size:0.82rem;font-weight:700;color:${col};line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${tipo}</div>
                     <div style="margin-top:0.1rem;"><span style="font-size:0.9rem;font-weight:700;color:var(--text-main);">${count}</span> <span style="font-size:0.7rem;color:var(--text-muted);">(${pct}%)</span></div>
@@ -4646,12 +4705,12 @@ function renderPedidosChart() {
             const centerY = (meta.data[0].y);
             c.save();
             c.font = 'bold 2rem Inter, sans-serif';
-            c.fillStyle = '#e8ecf4';
+            c.fillStyle = CHART_THEME.text;
             c.textAlign = 'center';
             c.textBaseline = 'middle';
             c.fillText(totalAll, centerX, centerY - 8);
             c.font = '500 0.65rem Inter, sans-serif';
-            c.fillStyle = '#7b8ba5';
+            c.fillStyle = CHART_THEME.muted;
             c.fillText('pallets', centerX, centerY + 12);
             c.restore();
         }
@@ -4664,9 +4723,9 @@ function renderPedidosChart() {
             datasets: [{
                 data: values,
                 backgroundColor: colors,
-                borderWidth: 1,
-                borderColor: '#1e293b',
-                hoverOffset: 4,
+                borderWidth: 2,
+                borderColor: CHART_THEME.donutBorder,
+                hoverOffset: 8,
                 spacing: 1,
             }]
         },
@@ -4687,8 +4746,8 @@ function renderPedidosChart() {
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: '#1e293b', titleColor: '#e8ecf4', bodyColor: '#94a3b8',
-                    borderColor: '#334155', borderWidth: 1, cornerRadius: 6, padding: 8,
+                    backgroundColor: CHART_THEME.tooltipBg, titleColor: CHART_THEME.text, bodyColor: CHART_THEME.tooltipBody,
+                    borderColor: CHART_THEME.tooltipBorder, borderWidth: 1, cornerRadius: 6, padding: 8,
                     bodyFont: { size: 12 },
                     callbacks: { label: (c) => { const t = c.dataset.data.reduce((a,b)=>a+b,0); const pct = t>0?Math.round(c.parsed/t*100):0; return ` ${c.label}: ${c.parsed} (${pct}%)`; } }
                 },
