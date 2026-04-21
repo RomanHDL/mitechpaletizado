@@ -978,6 +978,7 @@
                                         <option value="Lorena" style="color:#14b8a6;">&#9679; Lorena</option>
                                         <option value="Perez Rangel" style="color:#a855f7;">&#9679; Perez Rangel</option>
                                         <option value="9X7251Z" style="color:#6366f1;">&#9679; 9X7251Z</option>
+                                        <option value="STOCK 50" style="color:#84cc16;">&#9679; STOCK 50</option>
                                     </select>
                                 </div>
                             </div>
@@ -2499,12 +2500,12 @@ async function handleEscSubmit(e) {
 // ══════════════════════════════════════════════
 
 // Colores por clasificacion de pedido (global)
-const clasifColors = {'Alejandro':'#ef4444','BOX':'#4f7cff','BULKY':'#f59e0b','HV':'#22c55e','HV TELEVISIONES':'#8b5cf6','HV Televisiones':'#8b5cf6','JESSY':'#ec4899','Jesus':'#f97316','Juan Manuel':'#06b6d4','Lorena':'#14b8a6','Perez Rangel':'#a855f7','9X7251Z':'#6366f1','LPN':'#f59e0b','OTRO':'#6b7280'};
+const clasifColors = {'Alejandro':'#ef4444','BOX':'#4f7cff','BULKY':'#f59e0b','HV':'#22c55e','HV TELEVISIONES':'#8b5cf6','HV Televisiones':'#8b5cf6','JESSY':'#ec4899','Jesus':'#f97316','Juan Manuel':'#06b6d4','Lorena':'#14b8a6','Perez Rangel':'#a855f7','9X7251Z':'#6366f1','LPN':'#f59e0b','STOCK 50':'#84cc16','OTRO':'#6b7280'};
 
 // Funcion global para extraer clasificacion de un registro
 function getClasificacion(r) {
     const NOMBRES = ['Alejandro','Jesus','Juan Manuel','Lorena','Perez Rangel'];
-    const TIPOS = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z'];
+    const TIPOS = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z','STOCK 50'];
     function norm(v) { return (v === 'LPN' || v === '9X7251Z') ? 'BULKY' : v; }
     const obs = (r.observaciones||'').split('|')[0].trim();
     if (obs) { const m = NOMBRES.find(n => obs.toLowerCase() === n.toLowerCase()); if (m) return m; if (TIPOS.includes(obs.toUpperCase())) return norm(obs.toUpperCase()); }
