@@ -694,6 +694,7 @@ app.get('/api/seed', async (req, res) => {
       { nombre: 'Viewer Dashboard', usuario: '2678',     password: 'Sonyqled75', role: 'viewer' },
       { nombre: 'Victor',           usuario: 'victor',   password: '123456',     role: 'viewer' },
       { nombre: 'Brandon',          usuario: 'brandon',  password: 'brandon123', role: 'viewer' },
+      { nombre: 'Hector Lider',     usuario: 'hector',   password: 'Hector2026!', role: 'viewer' },
     ];
     const results = [];
     for (const u of seedUsers) {
@@ -741,9 +742,18 @@ app.get('/api/seed-nfc', async (req, res) => {
     );
     results.push({ serial: yusleySerial, nombre: 'Yusley Montes', role: 'escaneadora', linkedUserId: yusley?._id || null });
 
+    // Hector Lider NFC (viewer — solo dashboard)
+    const hector = await User.findOne({ usuario: 'hector' });
+    const hectorSerial = '12:8B:CD:42';
+    await col.updateOne(
+      { serialNumber: hectorSerial },
+      { $set: { serialNumber: hectorSerial, role: 'viewer', isActive: true, nombre: 'Hector Lider', ...(hector ? { userId: hector._id } : {}) }, $setOnInsert: { useCount: 0, createdAt: new Date() } },
+      { upsert: true }
+    );
+    results.push({ serial: hectorSerial, nombre: 'Hector Lider', role: 'viewer', linkedUserId: hector?._id || null });
+
     const allCards = await col.find({}).toArray();
     res.json({ success: true, results, totalCards: allCards.length, allCards });
-    res.json({ success: true, status: 'linked', card, linkedUser: yusley ? { id: yusley._id, nombre: yusley.nombre, usuario: yusley.usuario } : null });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
