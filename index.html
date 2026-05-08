@@ -72,6 +72,9 @@
         /* Gating de UI solo para el admin 3647 — oculto por defecto */
         .user-3647-only { display:none !important; }
         .user-3647-only.visible { display:inline-flex !important; }
+        /* Cards exclusivas del admin 3647 dentro del grid de admin */
+        .card-3647-only { display:none !important; }
+        .card-3647-only.visible { display:flex !important; flex-direction:column; }
 
         /* Boton toggle tema (topbar) */
         .theme-toggle-btn {
@@ -865,6 +868,22 @@
                         </div>
                         <div id="retrabajo-result" style="margin-top:0.75rem;"></div>
                     </div>
+
+                    <!-- Gestionar Pedidos (solo admin 3647) -->
+                    <div class="card card-3647-only" id="pedidos-mgmt-panel" style="padding:1.25rem;display:none;">
+                        <div class="card-title" style="font-size:0.9rem;margin-bottom:0.75rem;"><i class="fa-solid fa-tags" style="color:#a855f7;"></i> Gestionar Pedidos</div>
+                        <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.75rem;">Crea o renombra los pedidos que aparecen en la clasificacion del formulario. Renombrar actualiza todos los registros existentes.</p>
+                        <div id="pedidos-mgmt-list" style="margin-bottom:0.75rem;max-height:230px;overflow-y:auto;"></div>
+                        <div style="border-top:1px solid var(--border);padding-top:0.75rem;margin-top:auto;">
+                            <div style="font-size:0.78rem;font-weight:600;color:var(--success);margin-bottom:0.5rem;"><i class="fa-solid fa-plus" style="margin-right:4px;"></i>Agregar nuevo pedido</div>
+                            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+                                <input type="text" class="form-input" id="new-pedido-nombre" placeholder="Nombre del pedido" style="flex:1;min-width:140px;padding:0.4rem 0.6rem;font-size:0.85rem;" maxlength="40">
+                                <input type="color" class="form-input" id="new-pedido-color" value="#a855f7" title="Color de identificacion" style="width:48px;height:36px;padding:2px;cursor:pointer;">
+                                <button class="btn btn-primary btn-sm" onclick="createPedido()" style="padding:0.4rem 0.8rem;"><i class="fa-solid fa-plus" style="margin-right:4px;"></i>Crear</button>
+                            </div>
+                            <p id="pedidos-mgmt-msg" style="font-size:0.78rem;margin-top:0.4rem;min-height:1em;"></p>
+                        </div>
+                    </div>
                 </div>
 
             </div>
@@ -967,18 +986,6 @@
                                     <label><i class="fa-solid fa-boxes-stacked" style="margin-right:5px;color:#8b5cf6;font-size:0.8rem;"></i>Clasificacion <span style="color:var(--danger);">*</span></label>
                                     <select class="form-input" id="esc-clasificacion" onchange="this.style.borderColor=clasifColors[this.value]||''">
                                         <option value="">Sin clasificacion</option>
-                                        <option value="Alejandro" style="color:#ef4444;">&#9679; Alejandro</option>
-                                        <option value="BOX" style="color:#4f7cff;">&#9679; BOX</option>
-                                        <option value="BULKY" style="color:#f59e0b;">&#9679; BULKY</option>
-                                        <option value="HV" style="color:#22c55e;">&#9679; HV (High Value)</option>
-                                        <option value="HV Televisiones" style="color:#8b5cf6;">&#9679; HV Televisiones</option>
-                                        <option value="JESSY" style="color:#ec4899;">&#9679; JESSY</option>
-                                        <option value="Jesus" style="color:#f97316;">&#9679; Jesus</option>
-                                        <option value="Juan Manuel" style="color:#06b6d4;">&#9679; Juan Manuel</option>
-                                        <option value="Lorena" style="color:#14b8a6;">&#9679; Lorena</option>
-                                        <option value="Perez Rangel" style="color:#a855f7;">&#9679; Perez Rangel</option>
-                                        <option value="9X7251Z" style="color:#6366f1;">&#9679; 9X7251Z</option>
-                                        <option value="STOCK 50" style="color:#84cc16;">&#9679; STOCK 50</option>
                                     </select>
                                 </div>
                             </div>
@@ -1743,9 +1750,11 @@ function enterApp() {
     // Funciones exclusivas del admin 3647: toggle de tema claro/oscuro
     if (String(currentUser.usuario) === '3647') {
         document.querySelectorAll('.user-3647-only').forEach(el => el.classList.add('visible'));
+        document.querySelectorAll('.card-3647-only').forEach(el => el.classList.add('visible'));
         applyTheme3647();
     } else {
         document.querySelectorAll('.user-3647-only').forEach(el => el.classList.remove('visible'));
+        document.querySelectorAll('.card-3647-only').forEach(el => el.classList.remove('visible'));
         document.documentElement.removeAttribute('data-theme');
     }
 
@@ -1767,6 +1776,9 @@ function enterApp() {
     startOpsUpdates();
     loadImpersonatePanel();
     loadUserMgmt();
+    // Pinta el dropdown con la semilla local de inmediato y luego refresca con la API.
+    renderClasifSelect();
+    loadClasificaciones();
     // Restore last view on refresh, default to home
     const savedView = sessionStorage.getItem('mitech_view') || 'home';
     switchView(savedView);
@@ -2259,6 +2271,125 @@ async function deleteUser(id, nombre) {
     } catch(e) { msg.textContent = e.message; msg.style.color = 'var(--danger)'; }
 }
 
+// ══════════════════════════════════════════════
+// GESTIONAR PEDIDOS / CLASIFICACIONES (admin 3647 only)
+// ══════════════════════════════════════════════
+function escapeHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function renderPedidosAdminPanel() {
+    const list = document.getElementById('pedidos-mgmt-list');
+    if (!list || !currentUser || currentUser.usuario !== '3647') return;
+    if (!clasificacionesData || !clasificacionesData.length) {
+        list.innerHTML = '<p style="font-size:0.78rem;color:var(--text-muted);">Sin pedidos. Agrega uno abajo.</p>';
+        return;
+    }
+    list.innerHTML = clasificacionesData.map(c => {
+        const id = String(c._id);
+        const safeName = escapeHtml(c.nombre);
+        const lockBadge = c.isLocked
+            ? `<span title="Pedido base — solo se puede cambiar el color" style="font-size:0.62rem;background:rgba(245,158,11,0.15);color:#f59e0b;padding:1px 6px;border-radius:8px;margin-left:6px;"><i class="fa-solid fa-lock" style="margin-right:3px;"></i>base</span>`
+            : '';
+        return `
+        <div class="pedido-row" data-id="${id}" style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--border);">
+            <input type="color" value="${c.color}" data-role="color" style="width:34px;height:30px;padding:1px;cursor:pointer;flex-shrink:0;" title="Color">
+            <input type="text" class="form-input" value="${safeName}" data-role="nombre" maxlength="40" ${c.isLocked ? 'readonly' : ''} style="flex:1;padding:0.35rem 0.55rem;font-size:0.83rem;${c.isLocked ? 'opacity:0.7;' : ''}">
+            ${lockBadge}
+            <button class="btn btn-primary btn-sm" onclick="savePedido('${id}')" title="Guardar cambios" style="padding:0.3rem 0.55rem;font-size:0.72rem;"><i class="fa-solid fa-floppy-disk"></i></button>
+            ${c.isLocked ? '' : `<button class="btn btn-secondary btn-sm" onclick="deletePedido('${id}','${safeName.replace(/'/g, "\\'")}')" title="Desactivar pedido" style="padding:0.3rem 0.55rem;font-size:0.72rem;color:var(--danger);"><i class="fa-solid fa-trash"></i></button>`}
+        </div>`;
+    }).join('');
+}
+
+async function createPedido() {
+    const msg = document.getElementById('pedidos-mgmt-msg');
+    const nombreEl = document.getElementById('new-pedido-nombre');
+    const colorEl = document.getElementById('new-pedido-color');
+    const nombre = (nombreEl.value || '').trim();
+    const color = (colorEl.value || '').toLowerCase();
+    if (!nombre) { msg.textContent = 'Escribe un nombre'; msg.style.color = 'var(--danger)'; return; }
+    if (!/^#[0-9a-f]{6}$/.test(color)) { msg.textContent = 'Color invalido'; msg.style.color = 'var(--danger)'; return; }
+    // Pre-validar color repetido en cliente
+    const taken = (clasificacionesData || []).find(c => c.isActive !== false && c.color.toLowerCase() === color);
+    if (taken) { msg.textContent = `Ese color ya lo usa: ${taken.nombre}`; msg.style.color = 'var(--danger)'; return; }
+    const dup = (clasificacionesData || []).find(c => c.nombre.toLowerCase() === nombre.toLowerCase());
+    if (dup) { msg.textContent = 'Ya existe un pedido con ese nombre'; msg.style.color = 'var(--danger)'; return; }
+    try {
+        const data = await apiFetch(`${API}/api/clasificaciones`, { method: 'POST', body: JSON.stringify({ nombre, color }) });
+        if (!data.success) { msg.textContent = data.error; msg.style.color = 'var(--danger)'; return; }
+        msg.textContent = `Pedido "${nombre}" creado`; msg.style.color = 'var(--success)';
+        nombreEl.value = '';
+        // Sugerir un nuevo color aleatorio que no repita
+        colorEl.value = pickFreeColor();
+        await loadClasificaciones();
+        setTimeout(() => { msg.textContent = ''; }, 4000);
+    } catch(e) { msg.textContent = e.message; msg.style.color = 'var(--danger)'; }
+}
+
+async function savePedido(id) {
+    const msg = document.getElementById('pedidos-mgmt-msg');
+    const row = document.querySelector(`.pedido-row[data-id="${id}"]`);
+    if (!row) return;
+    const orig = (clasificacionesData || []).find(c => String(c._id) === String(id));
+    if (!orig) return;
+    const nombreInput = row.querySelector('input[data-role="nombre"]');
+    const colorInput = row.querySelector('input[data-role="color"]');
+    const nombre = (nombreInput.value || '').trim();
+    const color = (colorInput.value || '').toLowerCase();
+    if (!nombre) { msg.textContent = 'El nombre no puede estar vacio'; msg.style.color = 'var(--danger)'; return; }
+    if (!/^#[0-9a-f]{6}$/.test(color)) { msg.textContent = 'Color invalido'; msg.style.color = 'var(--danger)'; return; }
+    // Validacion local: color repetido por OTRO pedido activo
+    const colorClash = (clasificacionesData || []).find(c => c.isActive !== false && String(c._id) !== String(id) && c.color.toLowerCase() === color);
+    if (colorClash) { msg.textContent = `Ese color ya lo usa: ${colorClash.nombre}`; msg.style.color = 'var(--danger)'; return; }
+    if (nombre === orig.nombre && color === orig.color.toLowerCase()) {
+        msg.textContent = 'Sin cambios'; msg.style.color = 'var(--text-muted)';
+        setTimeout(() => { msg.textContent = ''; }, 2500);
+        return;
+    }
+    if (nombre !== orig.nombre && !confirm(`Renombrar "${orig.nombre}" a "${nombre}"?\n\nTodos los registros existentes con este pedido se actualizaran. No se elimina ningun registro.`)) return;
+    try {
+        const data = await apiFetch(`${API}/api/clasificaciones/${id}`, { method: 'PUT', body: JSON.stringify({ nombre, color }) });
+        if (!data.success) { msg.textContent = data.error; msg.style.color = 'var(--danger)'; return; }
+        let txt = `Pedido actualizado`;
+        if (typeof data.registrosActualizados === 'number' && data.registrosActualizados > 0) {
+            txt += ` — ${data.registrosActualizados} registro(s) renombrado(s)`;
+        }
+        msg.textContent = txt; msg.style.color = 'var(--success)';
+        await loadClasificaciones();
+        setTimeout(() => { msg.textContent = ''; }, 5000);
+    } catch(e) { msg.textContent = e.message; msg.style.color = 'var(--danger)'; }
+}
+
+async function deletePedido(id, nombre) {
+    if (!confirm(`Desactivar pedido "${nombre}"?\n\nDejara de aparecer en la clasificacion del formulario. Los registros existentes que lo usan NO se modifican.`)) return;
+    const msg = document.getElementById('pedidos-mgmt-msg');
+    try {
+        const data = await apiFetch(`${API}/api/clasificaciones/${id}`, { method: 'DELETE' });
+        if (!data.success) { msg.textContent = data.error; msg.style.color = 'var(--danger)'; return; }
+        msg.textContent = data.message || `Pedido "${nombre}" desactivado`;
+        msg.style.color = 'var(--success)';
+        await loadClasificaciones();
+        setTimeout(() => { msg.textContent = ''; }, 4000);
+    } catch(e) { msg.textContent = e.message; msg.style.color = 'var(--danger)'; }
+}
+
+// Sugerir un color hex que no este en uso por pedidos activos
+function pickFreeColor() {
+    const used = new Set((clasificacionesData || []).filter(c => c.isActive !== false).map(c => (c.color || '').toLowerCase()));
+    const palette = ['#a855f7','#ef4444','#22c55e','#4f7cff','#f59e0b','#ec4899','#06b6d4','#14b8a6','#6366f1','#84cc16','#f97316','#8b5cf6','#0ea5e9','#d946ef','#10b981','#facc15','#ea580c','#65a30d','#0369a1','#be185d'];
+    for (const c of palette) { if (!used.has(c.toLowerCase())) return c; }
+    // Si todos los preset estan usados, generar uno aleatorio que no choque
+    for (let i = 0; i < 50; i++) {
+        const r = Math.floor(Math.random()*256), g = Math.floor(Math.random()*256), b = Math.floor(Math.random()*256);
+        const hex = '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+        if (!used.has(hex)) return hex;
+    }
+    return '#888888';
+}
+
 async function impersonateUser(targetUsuario) {
     const status = document.getElementById('impersonate-status');
     status.textContent = 'Accediendo...';
@@ -2500,17 +2631,88 @@ async function handleEscSubmit(e) {
 // ══════════════════════════════════════════════
 
 // Colores por clasificacion de pedido (global)
-const clasifColors = {'Alejandro':'#ef4444','BOX':'#4f7cff','BULKY':'#f59e0b','HV':'#22c55e','HV TELEVISIONES':'#8b5cf6','HV Televisiones':'#8b5cf6','JESSY':'#ec4899','Jesus':'#f97316','Juan Manuel':'#06b6d4','Lorena':'#14b8a6','Perez Rangel':'#a855f7','9X7251Z':'#6366f1','LPN':'#f59e0b','STOCK 50':'#84cc16','OTRO':'#6b7280'};
+// Valores semilla — se sobrescriben con los datos de /api/clasificaciones al iniciar sesion.
+let clasifColors = {'Alejandro':'#ef4444','BOX':'#4f7cff','BULKY':'#f59e0b','HV':'#22c55e','HV TELEVISIONES':'#8b5cf6','HV Televisiones':'#8b5cf6','JESSY':'#ec4899','Jesus':'#f97316','Juan Manuel':'#06b6d4','Lorena':'#14b8a6','Perez Rangel':'#a855f7','9X7251Z':'#6366f1','LPN':'#f59e0b','STOCK 50':'#84cc16','OTRO':'#6b7280'};
+
+// Lista dinamica de pedidos (cargada desde /api/clasificaciones).
+// Cada item: { _id, nombre, color, isLocked, isActive, orden }
+// Sembrada con los pedidos historicos para que el dropdown nunca quede vacio
+// si la red falla o el endpoint aun no responde.
+let clasificacionesData = [
+    { _id: 'seed-1',  nombre: 'Alejandro',       color: '#ef4444', orden: 1,  isLocked: false, isActive: true },
+    { _id: 'seed-2',  nombre: 'BOX',             color: '#4f7cff', orden: 2,  isLocked: true,  isActive: true },
+    { _id: 'seed-3',  nombre: 'BULKY',           color: '#f59e0b', orden: 3,  isLocked: true,  isActive: true },
+    { _id: 'seed-4',  nombre: 'HV',              color: '#22c55e', orden: 4,  isLocked: true,  isActive: true },
+    { _id: 'seed-5',  nombre: 'HV Televisiones', color: '#8b5cf6', orden: 5,  isLocked: true,  isActive: true },
+    { _id: 'seed-6',  nombre: 'JESSY',           color: '#ec4899', orden: 6,  isLocked: false, isActive: true },
+    { _id: 'seed-7',  nombre: 'Jesus',           color: '#f97316', orden: 7,  isLocked: false, isActive: true },
+    { _id: 'seed-8',  nombre: 'Juan Manuel',     color: '#06b6d4', orden: 8,  isLocked: false, isActive: true },
+    { _id: 'seed-9',  nombre: 'Lorena',          color: '#14b8a6', orden: 9,  isLocked: false, isActive: true },
+    { _id: 'seed-10', nombre: 'Perez Rangel',    color: '#a855f7', orden: 10, isLocked: false, isActive: true },
+    { _id: 'seed-11', nombre: '9X7251Z',         color: '#6366f1', orden: 11, isLocked: true,  isActive: true },
+    { _id: 'seed-12', nombre: 'STOCK 50',        color: '#84cc16', orden: 12, isLocked: false, isActive: true },
+];
+
+async function loadClasificaciones() {
+    try {
+        const data = await apiFetch(`${API}/api/clasificaciones`);
+        if (!data.success) return;
+        clasificacionesData = data.data || [];
+        // Reconstruir clasifColors preservando alias de compatibilidad
+        const next = { OTRO: '#6b7280' };
+        clasificacionesData.forEach(c => { next[c.nombre] = c.color; });
+        // BULKY se guarda como 'LPN | BULKY' historicamente — alias LPN al color BULKY
+        if (next['BULKY']) next['LPN'] = next['BULKY'];
+        // Tambien soporta variante en mayusculas que aparece en datos viejos
+        if (next['HV Televisiones']) next['HV TELEVISIONES'] = next['HV Televisiones'];
+        clasifColors = next;
+        renderClasifSelect();
+        if (typeof renderPedidosAdminPanel === 'function') renderPedidosAdminPanel();
+    } catch (e) {
+        console.warn('[CLASIF] No se pudieron cargar pedidos:', e.message);
+    }
+}
+
+function renderClasifSelect() {
+    const sel = document.getElementById('esc-clasificacion');
+    if (!sel) return;
+    const current = sel.value;
+    const opts = ['<option value="">Sin clasificacion</option>'];
+    clasificacionesData.forEach(c => {
+        const safeName = String(c.nombre).replace(/"/g,'&quot;').replace(/</g,'&lt;');
+        opts.push(`<option value="${safeName}" style="color:${c.color};">&#9679; ${safeName}</option>`);
+    });
+    sel.innerHTML = opts.join('');
+    if (current && clasificacionesData.some(c => c.nombre === current)) sel.value = current;
+}
 
 // Funcion global para extraer clasificacion de un registro
 function getClasificacion(r) {
-    const NOMBRES = ['Alejandro','Jesus','Juan Manuel','Lorena','Perez Rangel'];
-    const TIPOS = ['BULKY','BOX','HV','HV TELEVISIONES','LPN','JESSY','9X7251Z','STOCK 50'];
-    function norm(v) { return (v === 'LPN' || v === '9X7251Z') ? 'BULKY' : v; }
+    // Aliases legacy: cuando se guardo BULKY el primer token era 'LPN', y 9X7251Z se mapea a BULKY.
+    const ALIAS = { 'LPN': 'BULKY', '9X7251Z': '9X7251Z' };
+    const list = (clasificacionesData && clasificacionesData.length)
+        ? clasificacionesData.map(c => c.nombre)
+        : ['Alejandro','BOX','BULKY','HV','HV Televisiones','JESSY','Jesus','Juan Manuel','Lorena','Perez Rangel','9X7251Z','STOCK 50'];
+
+    function match(token) {
+        if (!token) return null;
+        const t = token.trim();
+        if (!t) return null;
+        const exact = list.find(n => n.toLowerCase() === t.toLowerCase());
+        if (exact) return exact;
+        const upper = t.toUpperCase();
+        if (ALIAS[upper] && list.some(n => n.toUpperCase() === ALIAS[upper].toUpperCase())) {
+            return list.find(n => n.toUpperCase() === ALIAS[upper].toUpperCase());
+        }
+        return null;
+    }
+
     const obs = (r.observaciones||'').split('|')[0].trim();
-    if (obs) { const m = NOMBRES.find(n => obs.toLowerCase() === n.toLowerCase()); if (m) return m; if (TIPOS.includes(obs.toUpperCase())) return norm(obs.toUpperCase()); }
+    let f = match(obs);
+    if (f) return f;
     const ped = (r.pedido||'').trim();
-    if (ped) { const m = NOMBRES.find(n => ped.toLowerCase() === n.toLowerCase()); if (m) return m; if (TIPOS.includes(ped.toUpperCase())) return norm(ped.toUpperCase()); }
+    f = match(ped);
+    if (f) return f;
     const d = (r.destino||'').toUpperCase();
     if (['BULKY','BOX'].includes(d)) return d;
     if (d.startsWith('HV')) return d;

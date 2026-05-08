@@ -662,6 +662,144 @@ app.get('/api/resumen', auth, roleGuard('admin', 'escaneadora'), async (req, res
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// ═══════════ CLASIFICACIONES / PEDIDOS (admin 3647 manage; todos pueden leer) ═══════════
+const clasifSchema = new mongoose.Schema({
+  nombre: { type: String, required: true, trim: true },
+  color: { type: String, required: true, lowercase: true, trim: true },
+  isActive: { type: Boolean, default: true },
+  isLocked: { type: Boolean, default: false },
+  orden: { type: Number, default: 0 },
+}, { timestamps: true });
+clasifSchema.index({ nombre: 1 }, { unique: true, collation: { locale: 'es', strength: 2 } });
+const Clasif = mongoose.models.Clasificacion || mongoose.model('Clasificacion', clasifSchema);
+
+const CLASIF_DEFAULTS = [
+  { nombre: 'Alejandro',       color: '#ef4444', orden: 1 },
+  { nombre: 'BOX',             color: '#4f7cff', orden: 2,  isLocked: true },
+  { nombre: 'BULKY',           color: '#f59e0b', orden: 3,  isLocked: true },
+  { nombre: 'HV',              color: '#22c55e', orden: 4,  isLocked: true },
+  { nombre: 'HV Televisiones', color: '#8b5cf6', orden: 5,  isLocked: true },
+  { nombre: 'JESSY',           color: '#ec4899', orden: 6 },
+  { nombre: 'Jesus',           color: '#f97316', orden: 7 },
+  { nombre: 'Juan Manuel',     color: '#06b6d4', orden: 8 },
+  { nombre: 'Lorena',          color: '#14b8a6', orden: 9 },
+  { nombre: 'Perez Rangel',    color: '#a855f7', orden: 10 },
+  { nombre: '9X7251Z',         color: '#6366f1', orden: 11, isLocked: true },
+  { nombre: 'STOCK 50',        color: '#84cc16', orden: 12 },
+];
+
+async function seedClasifIfEmpty() {
+  const count = await Clasif.countDocuments();
+  if (count > 0) return;
+  try { await Clasif.insertMany(CLASIF_DEFAULTS, { ordered: false }); } catch(e) { /* ignore dup */ }
+}
+
+function escapeRegex(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function isHexColor(c) { return typeof c === 'string' && /^#[0-9A-Fa-f]{6}$/.test(c); }
+
+app.get('/api/clasificaciones', auth, async (req, res) => {
+  try {
+    await seedClasifIfEmpty();
+    const includeInactive = req.query.all === '1' && req.user.usuario === '3647';
+    const filter = includeInactive ? {} : { isActive: true };
+    const data = await Clasif.find(filter).sort({ orden: 1, nombre: 1 });
+    res.json({ success: true, data });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.post('/api/clasificaciones', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+    const nombre = (req.body.nombre || '').trim();
+    const color = (req.body.color || '').toLowerCase().trim();
+    if (!nombre) return res.status(400).json({ success: false, error: 'Nombre requerido' });
+    if (!isHexColor(color)) return res.status(400).json({ success: false, error: 'Color invalido. Usa formato #RRGGBB.' });
+    const exists = await Clasif.findOne({ nombre: { $regex: '^' + escapeRegex(nombre) + '$', $options: 'i' } });
+    if (exists) return res.status(409).json({ success: false, error: 'Ya existe un pedido con ese nombre' });
+    const colorClash = await Clasif.findOne({ color, isActive: true });
+    if (colorClash) return res.status(409).json({ success: false, error: `El color ya esta usado por: ${colorClash.nombre}` });
+    const last = await Clasif.findOne({}).sort({ orden: -1 });
+    const orden = ((last && last.orden) || 0) + 1;
+    const doc = await Clasif.create({ nombre, color, orden });
+    res.json({ success: true, data: doc });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.put('/api/clasificaciones/:id', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+    const doc = await Clasif.findById(req.params.id);
+    if (!doc) return res.status(404).json({ success: false, error: 'No encontrado' });
+    const { nombre, color, isActive } = req.body;
+    let registrosActualizados = 0;
+    let renamedFrom = null, renamedTo = null;
+
+    if (color !== undefined) {
+      const c = String(color || '').toLowerCase().trim();
+      if (!isHexColor(c)) return res.status(400).json({ success: false, error: 'Color invalido (formato #RRGGBB)' });
+      if (c !== doc.color) {
+        const colorClash = await Clasif.findOne({ _id: { $ne: doc._id }, color: c, isActive: true });
+        if (colorClash) return res.status(409).json({ success: false, error: `El color ya esta usado por: ${colorClash.nombre}` });
+        doc.color = c;
+      }
+    }
+    if (typeof isActive === 'boolean') {
+      if (doc.isLocked && !isActive) return res.status(403).json({ success: false, error: 'No se puede desactivar este pedido (bloqueado)' });
+      doc.isActive = isActive;
+    }
+    if (nombre !== undefined) {
+      const newName = String(nombre || '').trim();
+      if (!newName) return res.status(400).json({ success: false, error: 'Nombre no puede estar vacio' });
+      if (newName !== doc.nombre) {
+        if (doc.isLocked) return res.status(403).json({ success: false, error: 'No se puede renombrar este pedido (bloqueado por compatibilidad)' });
+        const dupe = await Clasif.findOne({ _id: { $ne: doc._id }, nombre: { $regex: '^' + escapeRegex(newName) + '$', $options: 'i' } });
+        if (dupe) return res.status(409).json({ success: false, error: 'Ya existe un pedido con ese nombre' });
+        const oldName = doc.nombre;
+        // Cascade: update observaciones starting with oldName followed by ' |' or end-of-string
+        const escOld = escapeRegex(oldName);
+        const startRe = new RegExp('^' + escOld + '(?=\\s*\\||\\s*$)');
+        const matches = await EscReg.find(
+          { observaciones: { $regex: '^' + escOld + '(\\s*\\||\\s*$)' } },
+          { _id: 1, observaciones: 1 }
+        );
+        for (const r of matches) {
+          const newObs = r.observaciones.replace(startRe, newName);
+          await EscReg.updateOne({ _id: r._id }, { $set: { observaciones: newObs } });
+        }
+        registrosActualizados = matches.length;
+        doc.nombre = newName;
+        renamedFrom = oldName; renamedTo = newName;
+      }
+    }
+    await doc.save();
+    if (renamedFrom) {
+      try {
+        await audit('UPDATE', {
+          palletId: '', escaneadora: '',
+          changedBy: req.user.nombre || req.user.usuario, source: 'APP',
+          reason: `Renombrar pedido "${renamedFrom}" -> "${renamedTo}" (${registrosActualizados} registros actualizados)`,
+          changes: [{ field: 'pedido', before: renamedFrom, after: renamedTo }]
+        });
+      } catch(e) { /* ignore audit error */ }
+    }
+    emitEvent('paletizado', 'clasificacion:updated', { id: doc._id, nombre: doc.nombre });
+    res.json({ success: true, data: doc, registrosActualizados });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.delete('/api/clasificaciones/:id', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+    const doc = await Clasif.findById(req.params.id);
+    if (!doc) return res.status(404).json({ success: false, error: 'No encontrado' });
+    if (doc.isLocked) return res.status(403).json({ success: false, error: 'No se puede eliminar este pedido (bloqueado por compatibilidad)' });
+    doc.isActive = false;
+    await doc.save();
+    emitEvent('paletizado', 'clasificacion:deleted', { id: doc._id, nombre: doc.nombre });
+    res.json({ success: true, message: `Pedido "${doc.nombre}" desactivado. Los registros existentes se conservan.` });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // ═══════════ DIAG NFC (temporary) ═══════════
 app.get('/api/diag-nfc', async (req, res) => {
   try {
