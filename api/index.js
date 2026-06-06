@@ -1020,8 +1020,7 @@ const AppSetting = mongoose.models.AppSetting || mongoose.model('AppSetting', se
 // Defaults para catalogos (basados en los valores hardcodeados actuales)
 const SETTING_DEFAULTS = {
   destinos: ['TRG', 'Almacen'],
-  turnos: ['Día', 'Noche'],
-  condiciones: ['GRA', 'GRB', 'GRC', 'GRD'],
+  condiciones: ['GRA', 'GRB', 'GRC', 'ICB', 'ICC', 'ICD', 'ICX', 'BOX', 'DNP', 'DMT', 'DMA'],
 };
 const SETTING_KEYS = Object.keys(SETTING_DEFAULTS);
 

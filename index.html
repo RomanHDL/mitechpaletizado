@@ -732,6 +732,33 @@
         .config-row:last-child{border-bottom:none;}
         .config-row > span:first-child{color:var(--text-muted);}
         .module-card.mod-config .module-icon{color:#8b5cf6;}
+        /* ── Centro de Control ── */
+        .ctrl-tabs{display:flex;flex-wrap:wrap;gap:0.4rem;border-bottom:1px solid var(--border);margin-bottom:1.25rem;padding-bottom:0.5rem;}
+        .ctrl-tab{background:var(--inset-bg);border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:0.45rem 0.9rem;font-size:0.82rem;cursor:pointer;display:inline-flex;align-items:center;gap:0.4rem;transition:all 0.15s;}
+        .ctrl-tab:hover{color:var(--text-main);border-color:var(--accent);}
+        .ctrl-tab.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+        .ctrl-panel{display:none;}
+        .ctrl-panel.active{display:block;animation:fadeIn 0.2s ease;}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+        .ctrl-table{width:100%;border-collapse:collapse;font-size:0.82rem;}
+        .ctrl-table th{text-align:left;color:var(--text-muted);font-weight:600;padding:0.5rem 0.6rem;border-bottom:1px solid var(--border);white-space:nowrap;}
+        .ctrl-table td{padding:0.5rem 0.6rem;border-bottom:1px solid var(--border);vertical-align:middle;}
+        .ctrl-table tr:hover td{background:var(--inset-bg-hover);}
+        .ctrl-badge{display:inline-block;padding:0.12rem 0.5rem;border-radius:999px;font-size:0.7rem;font-weight:600;}
+        .ctrl-badge.role-admin{background:rgba(79,124,255,0.15);color:var(--accent);}
+        .ctrl-badge.role-escaneadora{background:rgba(34,197,94,0.15);color:var(--success);}
+        .ctrl-badge.role-viewer{background:rgba(139,92,246,0.15);color:#8b5cf6;}
+        .ctrl-badge.on{background:rgba(34,197,94,0.15);color:var(--success);}
+        .ctrl-badge.off{background:rgba(239,68,68,0.15);color:var(--danger);}
+        .ctrl-meta-bar{height:8px;border-radius:4px;background:var(--inset-bg);overflow:hidden;margin-top:4px;}
+        .ctrl-meta-fill{height:100%;border-radius:4px;background:var(--accent);transition:width 0.4s;}
+        .ctrl-chip{display:inline-flex;align-items:center;gap:0.4rem;background:var(--inset-bg);border:1px solid var(--border);border-radius:999px;padding:0.25rem 0.7rem;font-size:0.8rem;margin:0.2rem;}
+        .ctrl-chip button{background:none;border:none;color:var(--danger);cursor:pointer;font-size:0.75rem;padding:0;line-height:1;}
+        .ctrl-iconbtn{background:var(--inset-bg);border:1px solid var(--border);border-radius:6px;padding:0.3rem 0.55rem;color:var(--text-muted);cursor:pointer;font-size:0.78rem;margin-right:0.25rem;transition:all 0.15s;}
+        .ctrl-iconbtn:hover{color:var(--text-main);border-color:var(--accent);}
+        .ctrl-iconbtn.danger:hover{color:var(--danger);border-color:var(--danger);}
+        .dash-cumplimiento{display:flex;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;}
+        .dash-cumplimiento .card{flex:1;min-width:180px;padding:0.85rem 1rem;}
     </style>
 </head>
 <body>
@@ -861,6 +888,13 @@
 
                 <!-- ═══ PANEL ADMIN — 3 tarjetas en grid consistente ═══ -->
                 <div class="admin-only home-admin-grid" id="admin-home-panel">
+                    <!-- Centro de Control (solo admin 3647) -->
+                    <div class="card card-3647-only" id="control-access-card" style="padding:1.25rem;display:none;cursor:pointer;border:1px solid var(--accent);" onclick="switchView('control')">
+                        <div class="card-title" style="font-size:0.9rem;margin-bottom:0.5rem;color:var(--accent);"><i class="fa-solid fa-sliders"></i> Centro de Control</div>
+                        <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.75rem;">Administra usuarios, sesiones, tarjetas NFC, metas de produccion, reportes y ajustes del sistema en un solo lugar.</p>
+                        <button class="btn btn-primary btn-sm" style="align-self:flex-start;"><i class="fa-solid fa-arrow-right" style="margin-right:4px;"></i>Abrir Centro de Control</button>
+                    </div>
+
                     <!-- Acceder como Escaneadora -->
                     <div class="card" id="impersonate-panel" style="padding:1.25rem;">
                         <div class="card-title" style="font-size:0.9rem;margin-bottom:0.75rem;"><i class="fa-solid fa-user-secret"></i> Acceder como Escaneadora</div>
@@ -1601,6 +1635,115 @@
             </div>
         </div><!-- /view-config -->
 
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: CENTRO DE CONTROL (solo 3647)    -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-control">
+            <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
+            <div class="page-header" style="text-align:center;">
+                <h1 style="font-size:1.3rem;margin:0;"><i class="fa-solid fa-sliders" style="color:var(--accent);margin-right:6px;"></i>Centro de Control</h1>
+                <p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--text-muted);">Administracion completa del sistema — exclusivo del administrador 3647</p>
+            </div>
+
+            <div class="ctrl-tabs" id="ctrl-tabs">
+                <button class="ctrl-tab active" data-tab="usuarios" onclick="setControlTab('usuarios')"><i class="fa-solid fa-users"></i> Usuarios</button>
+                <button class="ctrl-tab" data-tab="sesiones" onclick="setControlTab('sesiones')"><i class="fa-solid fa-desktop"></i> Sesiones</button>
+                <button class="ctrl-tab" data-tab="nfc" onclick="setControlTab('nfc')"><i class="fa-solid fa-id-card"></i> NFC</button>
+                <button class="ctrl-tab" data-tab="metas" onclick="setControlTab('metas')"><i class="fa-solid fa-bullseye"></i> Metas</button>
+                <button class="ctrl-tab" data-tab="reportes" onclick="setControlTab('reportes')"><i class="fa-solid fa-file-arrow-down"></i> Reportes</button>
+                <button class="ctrl-tab" data-tab="ajustes" onclick="setControlTab('ajustes')"><i class="fa-solid fa-gear"></i> Ajustes</button>
+            </div>
+
+            <!-- Usuarios -->
+            <div class="ctrl-panel active" id="ctrl-panel-usuarios">
+                <div class="card" style="padding:1.25rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+                        <div class="card-title" style="font-size:0.9rem;margin:0;"><i class="fa-solid fa-users"></i> Usuarios del sistema</div>
+                        <button class="btn btn-secondary btn-sm" onclick="loadControlUsuarios()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                    </div>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin-bottom:0.75rem;border-bottom:1px solid var(--border);padding-bottom:0.75rem;">
+                        <input type="text" class="form-input" id="ctrl-new-nombre" placeholder="Nombre completo" style="flex:1;min-width:130px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+                        <input type="text" class="form-input" id="ctrl-new-usuario" placeholder="Usuario" style="width:100px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+                        <input type="text" class="form-input" id="ctrl-new-pass" placeholder="6 digitos" maxlength="6" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')" style="width:85px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+                        <button class="btn btn-primary btn-sm" onclick="ctrlCreateUser()"><i class="fa-solid fa-user-plus" style="margin-right:4px;"></i>Crear</button>
+                    </div>
+                    <div style="overflow-x:auto;"><table class="ctrl-table"><thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Estado</th><th>NFC</th><th>Acciones</th></tr></thead><tbody id="ctrl-usuarios-body"></tbody></table></div>
+                </div>
+            </div>
+
+            <!-- Sesiones -->
+            <div class="ctrl-panel" id="ctrl-panel-sesiones">
+                <div class="card" style="padding:1.25rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+                        <div class="card-title" style="font-size:0.9rem;margin:0;"><i class="fa-solid fa-desktop"></i> Sesiones activas</div>
+                        <button class="btn btn-secondary btn-sm" onclick="loadControlSesiones()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                    </div>
+                    <div style="overflow-x:auto;"><table class="ctrl-table"><thead><tr><th>Usuario</th><th>Rol</th><th>Dispositivo</th><th>Inicio</th><th>Expira</th><th>Accion</th></tr></thead><tbody id="ctrl-sesiones-body"></tbody></table></div>
+                </div>
+            </div>
+
+            <!-- NFC -->
+            <div class="ctrl-panel" id="ctrl-panel-nfc">
+                <div class="card" style="padding:1.25rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+                        <div class="card-title" style="font-size:0.9rem;margin:0;"><i class="fa-solid fa-id-card"></i> Tarjetas NFC</div>
+                        <button class="btn btn-secondary btn-sm" onclick="loadControlNFC()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                    </div>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin-bottom:0.75rem;border-bottom:1px solid var(--border);padding-bottom:0.75rem;">
+                        <input type="text" class="form-input" id="ctrl-nfc-serial" placeholder="Numero de serie (ej: 42:3A:D4:42)" style="flex:1;min-width:160px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+                        <input type="text" class="form-input" id="ctrl-nfc-usuario" placeholder="Usuario a vincular (opcional)" style="width:160px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+                        <select class="form-input" id="ctrl-nfc-role" style="width:120px;padding:0.4rem 0.6rem;font-size:0.85rem;"><option value="escaneadora">escaneadora</option><option value="admin">admin</option></select>
+                        <button class="btn btn-primary btn-sm" onclick="ctrlCreateNFC()"><i class="fa-solid fa-plus" style="margin-right:4px;"></i>Alta</button>
+                    </div>
+                    <div style="overflow-x:auto;"><table class="ctrl-table"><thead><tr><th>Serial</th><th>Nombre</th><th>Rol</th><th>Vinculado</th><th>Usos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="ctrl-nfc-body"></tbody></table></div>
+                </div>
+            </div>
+
+            <!-- Metas -->
+            <div class="ctrl-panel" id="ctrl-panel-metas">
+                <div class="card" style="padding:1.25rem;">
+                    <div class="card-title" style="font-size:0.9rem;margin-bottom:0.5rem;"><i class="fa-solid fa-bullseye"></i> Metas de produccion</div>
+                    <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1rem;">Define objetivos diarios. El cumplimiento se mostrara en el Dashboard. Usa "Global" para una meta general del dia.</p>
+                    <div id="ctrl-metas-form" style="display:flex;flex-direction:column;gap:0.75rem;"></div>
+                    <button class="btn btn-primary btn-sm" onclick="saveControlMetas()" style="margin-top:1rem;"><i class="fa-solid fa-floppy-disk" style="margin-right:4px;"></i>Guardar metas</button>
+                </div>
+            </div>
+
+            <!-- Reportes -->
+            <div class="ctrl-panel" id="ctrl-panel-reportes">
+                <div class="card" style="padding:1.25rem;">
+                    <div class="card-title" style="font-size:0.9rem;margin-bottom:0.5rem;"><i class="fa-solid fa-file-arrow-down"></i> Generador de reportes</div>
+                    <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1rem;">Selecciona un rango de fechas y exporta los registros o la auditoria.</p>
+                    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem;">
+                        <div><label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:3px;">Desde</label><input type="date" class="form-input" id="ctrl-rep-inicio" style="padding:0.4rem 0.6rem;font-size:0.85rem;"></div>
+                        <div><label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:3px;">Hasta</label><input type="date" class="form-input" id="ctrl-rep-fin" style="padding:0.4rem 0.6rem;font-size:0.85rem;"></div>
+                    </div>
+                    <div style="border-top:1px solid var(--border);padding-top:0.85rem;">
+                        <div style="font-size:0.8rem;font-weight:600;margin-bottom:0.5rem;">Registros de pallets</div>
+                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+                            <button class="btn btn-secondary btn-sm" onclick="ctrlExportReporte('csv')"><i class="fa-solid fa-file-csv"></i> CSV</button>
+                            <button class="btn btn-secondary btn-sm" onclick="ctrlExportReporte('excel')"><i class="fa-solid fa-file-excel"></i> Excel</button>
+                        </div>
+                        <p style="font-size:0.72rem;color:var(--text-muted);margin:0 0 1rem;"><i class="fa-solid fa-circle-info"></i> El PDF visual del dashboard se genera con el boton "PDF" dentro del Dashboard.</p>
+                        <div style="font-size:0.8rem;font-weight:600;margin-bottom:0.5rem;">Bitacora de auditoria</div>
+                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                            <button class="btn btn-secondary btn-sm" onclick="ctrlExportAuditoria('csv')"><i class="fa-solid fa-file-csv"></i> CSV auditoria</button>
+                        </div>
+                        <p id="ctrl-rep-msg" style="font-size:0.78rem;color:var(--text-muted);margin-top:0.75rem;min-height:1em;"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ajustes -->
+            <div class="ctrl-panel" id="ctrl-panel-ajustes">
+                <div class="card" style="padding:1.25rem;">
+                    <div class="card-title" style="font-size:0.9rem;margin-bottom:0.5rem;"><i class="fa-solid fa-gear"></i> Catalogos del sistema</div>
+                    <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1rem;">Edita las opciones que aparecen en los formularios. Los registros existentes no se modifican.</p>
+                    <div id="ctrl-ajustes-cats" style="display:flex;flex-direction:column;gap:1.25rem;"></div>
+                </div>
+            </div>
+        </div><!-- /view-control -->
+
     </main>
 </div><!-- /app -->
 
@@ -1886,6 +2029,8 @@ function enterApp() {
     // Pinta el dropdown con la semilla local de inmediato y luego refresca con la API.
     renderClasifSelect();
     loadClasificaciones();
+    // Catalogos editables (destinos/condiciones) desde ajustes, con fallback a defaults
+    loadAppCatalogs();
     // Restore last view on refresh, default to home
     const savedView = sessionStorage.getItem('mitech_view') || 'home';
     switchView(savedView);
@@ -2614,6 +2759,8 @@ function switchView(viewName) {
     if (viewName === 'dashboard' && (!currentUser || !['admin','viewer'].includes(currentUser.role))) return;
     // Viewer can ONLY access dashboard (and the read-only Configuracion view)
     if (currentUser && currentUser.role === 'viewer' && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
+    // Centro de Control: exclusivo del administrador 3647
+    if (viewName === 'control' && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
     // Save current view for restore on refresh
     sessionStorage.setItem('mitech_view', viewName);
 
@@ -2646,6 +2793,7 @@ function switchView(viewName) {
     if (viewName === 'resumen') { setResumenDate(); }
     if (viewName === 'home') loadOpsContext();
     if (viewName === 'config') loadConfig();
+    if (viewName === 'control') loadControl();
 }
 
 // ══════════════════════════════════════════════
@@ -2680,6 +2828,327 @@ function loadConfig() {
 function setDefaultDate() {
     const el = document.getElementById('esc-fecha');
     if (el && !el.value) el.value = new Date().toISOString().split('T')[0];
+}
+
+// ══════════════════════════════════════════════
+// CENTRO DE CONTROL (solo 3647)
+// ══════════════════════════════════════════════
+function ctrlEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+let ctrlMetasData = [];
+
+function loadControl() {
+    if (!currentUser || String(currentUser.usuario) !== '3647') { switchView('home'); return; }
+    setControlTab('usuarios');
+}
+
+function setControlTab(tab) {
+    document.querySelectorAll('#ctrl-tabs .ctrl-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.ctrl-panel').forEach(p => p.classList.remove('active'));
+    const panel = document.getElementById('ctrl-panel-' + tab);
+    if (panel) panel.classList.add('active');
+    if (tab === 'usuarios') loadControlUsuarios();
+    else if (tab === 'sesiones') loadControlSesiones();
+    else if (tab === 'nfc') loadControlNFC();
+    else if (tab === 'metas') loadControlMetas();
+    else if (tab === 'reportes') loadControlReportes();
+    else if (tab === 'ajustes') loadControlAjustes();
+}
+
+// ── Usuarios ──
+async function loadControlUsuarios() {
+    const body = document.getElementById('ctrl-usuarios-body');
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Cargando...</td></tr>';
+    try {
+        const data = await apiFetch(`${API}/api/users`);
+        if (!data.success) throw new Error(data.error);
+        if (!data.data.length) { body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Sin usuarios</td></tr>'; return; }
+        body.innerHTML = data.data.map(u => {
+            const is3647 = u.usuario === '3647';
+            const roleSel = `<select class="form-input" style="padding:0.25rem 0.4rem;font-size:0.78rem;" onchange="ctrlSetRole('${u._id}', this.value)" ${is3647?'disabled':''}>`
+                + ['admin','escaneadora','viewer'].map(r => `<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('') + '</select>';
+            const estado = u.isActive ? '<span class="ctrl-badge on">Activo</span>' : '<span class="ctrl-badge off">Inactivo</span>';
+            const acciones = `<button class="ctrl-iconbtn" title="Resetear password" onclick="ctrlResetPassword('${u._id}','${ctrlEsc(u.nombre)}')"><i class="fa-solid fa-key"></i></button>`
+                + (is3647 ? '' : `<button class="ctrl-iconbtn ${u.isActive?'danger':''}" title="${u.isActive?'Desactivar':'Activar'}" onclick="ctrlToggleUserActive('${u._id}', ${u.isActive})"><i class="fa-solid fa-power-off"></i></button>`);
+            return `<tr><td>${ctrlEsc(u.nombre)}</td><td>${ctrlEsc(u.usuario)}</td><td>${roleSel}</td><td>${estado}</td><td>${u.hasNfc?'<i class="fa-solid fa-id-card" style="color:var(--success);"></i>':'—'}</td><td style="white-space:nowrap;">${acciones}</td></tr>`;
+        }).join('');
+    } catch (e) { body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger);">${ctrlEsc(e.message)}</td></tr>`; }
+}
+
+async function ctrlCreateUser() {
+    const nombre = document.getElementById('ctrl-new-nombre').value.trim();
+    const usuario = document.getElementById('ctrl-new-usuario').value.trim();
+    const password = document.getElementById('ctrl-new-pass').value.trim();
+    if (!nombre || !usuario || !/^\d{6}$/.test(password)) { showToast('Completa nombre, usuario y password de 6 digitos', 'error'); return; }
+    try {
+        const data = await apiFetch(`${API}/api/users`, { method:'POST', body: JSON.stringify({ nombre, usuario, password }) });
+        if (!data.success) throw new Error(data.error);
+        showToast('Usuario creado correctamente', 'success');
+        document.getElementById('ctrl-new-nombre').value = ''; document.getElementById('ctrl-new-usuario').value = ''; document.getElementById('ctrl-new-pass').value = '';
+        loadControlUsuarios();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function ctrlSetRole(id, role) {
+    try {
+        const data = await apiFetch(`${API}/api/users/${id}`, { method:'PUT', body: JSON.stringify({ role }) });
+        if (!data.success) throw new Error(data.error);
+        showToast('Rol actualizado', 'success');
+    } catch (e) { showToast(e.message, 'error'); loadControlUsuarios(); }
+}
+
+async function ctrlToggleUserActive(id, isActive) {
+    try {
+        const data = await apiFetch(`${API}/api/users/${id}`, { method:'PUT', body: JSON.stringify({ isActive: !isActive }) });
+        if (!data.success) throw new Error(data.error);
+        showToast(!isActive ? 'Usuario activado' : 'Usuario desactivado', 'success');
+        loadControlUsuarios();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function ctrlResetPassword(id, nombre) {
+    const pass = window.prompt(`Nuevo password de 6 digitos para ${nombre}:`);
+    if (pass === null) return;
+    if (!/^\d{6}$/.test(pass.trim())) { showToast('El password debe ser exactamente 6 digitos', 'error'); return; }
+    try {
+        const data = await apiFetch(`${API}/api/users/${id}/password`, { method:'POST', body: JSON.stringify({ password: pass.trim() }) });
+        if (!data.success) throw new Error(data.error);
+        showToast('Password actualizado', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ── Sesiones ──
+async function loadControlSesiones() {
+    const body = document.getElementById('ctrl-sesiones-body');
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Cargando...</td></tr>';
+    try {
+        const data = await apiFetch(`${API}/api/sessions`);
+        if (!data.success) throw new Error(data.error);
+        if (!data.data.length) { body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">No hay sesiones activas</td></tr>'; return; }
+        const fmt = d => d ? new Date(d).toLocaleString('es-MX') : '—';
+        body.innerHTML = data.data.map(s => `<tr><td>${ctrlEsc(s.nombre)} <span style="color:var(--text-muted);">(${ctrlEsc(s.usuario)})</span></td><td><span class="ctrl-badge role-${s.role}">${ctrlEsc(s.role)}</span></td><td style="font-size:0.72rem;word-break:break-all;">${ctrlEsc(s.deviceId)}</td><td style="font-size:0.72rem;">${fmt(s.createdAt)}</td><td style="font-size:0.72rem;">${fmt(s.expiresAt)}</td><td><button class="ctrl-iconbtn danger" onclick="ctrlCloseSession('${s.userId}')"><i class="fa-solid fa-right-from-bracket"></i> Cerrar</button></td></tr>`).join('');
+    } catch (e) { body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger);">${ctrlEsc(e.message)}</td></tr>`; }
+}
+
+async function ctrlCloseSession(userId) {
+    try {
+        const data = await apiFetch(`${API}/api/sessions/${userId}`, { method:'DELETE' });
+        if (!data.success) throw new Error(data.error);
+        showToast('Sesion cerrada', 'success');
+        loadControlSesiones();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ── NFC ──
+async function loadControlNFC() {
+    const body = document.getElementById('ctrl-nfc-body');
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Cargando...</td></tr>';
+    try {
+        const data = await apiFetch(`${API}/api/nfc`);
+        if (!data.success) throw new Error(data.error);
+        if (!data.data.length) { body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Sin tarjetas</td></tr>'; return; }
+        body.innerHTML = data.data.map(c => {
+            const estado = c.isActive ? '<span class="ctrl-badge on">Activa</span>' : '<span class="ctrl-badge off">Inactiva</span>';
+            return `<tr><td style="font-family:monospace;">${ctrlEsc(c.serialNumber)}</td><td>${ctrlEsc(c.nombre||'—')}</td><td><span class="ctrl-badge role-${c.role}">${ctrlEsc(c.role)}</span></td><td>${ctrlEsc(c.usuarioVinculado||'—')}</td><td>${c.useCount||0}</td><td>${estado}</td><td style="white-space:nowrap;"><button class="ctrl-iconbtn" title="${c.isActive?'Desactivar':'Activar'}" onclick="ctrlToggleNFC('${c._id}', ${!!c.isActive})"><i class="fa-solid fa-power-off"></i></button><button class="ctrl-iconbtn danger" title="Eliminar" onclick="ctrlDeleteNFC('${c._id}')"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+        }).join('');
+    } catch (e) { body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger);">${ctrlEsc(e.message)}</td></tr>`; }
+}
+
+async function ctrlCreateNFC() {
+    const serialNumber = document.getElementById('ctrl-nfc-serial').value.trim();
+    const usuario = document.getElementById('ctrl-nfc-usuario').value.trim();
+    const role = document.getElementById('ctrl-nfc-role').value;
+    if (!serialNumber) { showToast('Numero de serie requerido', 'error'); return; }
+    try {
+        const data = await apiFetch(`${API}/api/nfc`, { method:'POST', body: JSON.stringify({ serialNumber, usuario, role }) });
+        if (!data.success) throw new Error(data.error);
+        showToast('Tarjeta NFC dada de alta', 'success');
+        document.getElementById('ctrl-nfc-serial').value = ''; document.getElementById('ctrl-nfc-usuario').value = '';
+        loadControlNFC();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function ctrlToggleNFC(id, isActive) {
+    try {
+        const data = await apiFetch(`${API}/api/nfc/${id}`, { method:'PUT', body: JSON.stringify({ isActive: !isActive }) });
+        if (!data.success) throw new Error(data.error);
+        showToast('Tarjeta actualizada', 'success');
+        loadControlNFC();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function ctrlDeleteNFC(id) {
+    if (!window.confirm('¿Desactivar esta tarjeta NFC?')) return;
+    try {
+        const data = await apiFetch(`${API}/api/nfc/${id}`, { method:'DELETE' });
+        if (!data.success) throw new Error(data.error);
+        showToast('Tarjeta desactivada', 'success');
+        loadControlNFC();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ── Metas ──
+async function loadControlMetas() {
+    const wrap = document.getElementById('ctrl-metas-form');
+    wrap.innerHTML = '<p style="color:var(--text-muted);font-size:0.82rem;">Cargando...</p>';
+    try {
+        const data = await apiFetch(`${API}/api/targets`);
+        if (!data.success) throw new Error(data.error);
+        ctrlMetasData = data.data || [];
+        const byTurno = {}; ctrlMetasData.forEach(m => { byTurno[m.turno] = m; });
+        const rows = ['Día','Noche','Global'].map(t => {
+            const m = byTurno[t] || {};
+            return `<div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;border:1px solid var(--border);border-radius:8px;padding:0.75rem;">
+                <div style="font-weight:600;min-width:70px;">${t}</div>
+                <div><label style="font-size:0.72rem;color:var(--text-muted);display:block;">Meta pallets</label><input type="number" min="0" class="form-input" id="meta-pallets-${t}" value="${m.targetPallets||0}" style="width:110px;padding:0.4rem 0.6rem;"></div>
+                <div><label style="font-size:0.72rem;color:var(--text-muted);display:block;">Meta piezas</label><input type="number" min="0" class="form-input" id="meta-piezas-${t}" value="${m.targetPiezas||0}" style="width:110px;padding:0.4rem 0.6rem;"></div>
+                <label style="font-size:0.78rem;display:flex;align-items:center;gap:0.35rem;"><input type="checkbox" id="meta-activo-${t}" ${m.isActive===false?'':'checked'}> Activa</label>
+            </div>`;
+        }).join('');
+        wrap.innerHTML = rows;
+    } catch (e) { wrap.innerHTML = `<p style="color:var(--danger);">${ctrlEsc(e.message)}</p>`; }
+}
+
+async function saveControlMetas() {
+    const targets = ['Día','Noche','Global'].map(t => ({
+        turno: t,
+        targetPallets: parseInt(document.getElementById('meta-pallets-'+t).value, 10) || 0,
+        targetPiezas: parseInt(document.getElementById('meta-piezas-'+t).value, 10) || 0,
+        isActive: document.getElementById('meta-activo-'+t).checked,
+    }));
+    try {
+        const data = await apiFetch(`${API}/api/targets`, { method:'PUT', body: JSON.stringify({ targets }) });
+        if (!data.success) throw new Error(data.error);
+        showToast('Metas guardadas', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ── Reportes ──
+function loadControlReportes() {
+    const fin = document.getElementById('ctrl-rep-fin');
+    const ini = document.getElementById('ctrl-rep-inicio');
+    const today = new Date();
+    const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (fin && !fin.value) fin.value = iso(today);
+    if (ini && !ini.value) { const d = new Date(today); d.setDate(d.getDate()-7); ini.value = iso(d); }
+}
+
+function exportCSV(filename, headers, rows) {
+    const esc = v => { const s = String(v==null?'':v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+    const csv = [headers.map(esc).join(','), ...rows.map(r => r.map(esc).join(','))].join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+async function ctrlFetchReporteRows() {
+    const iniRaw = document.getElementById('ctrl-rep-inicio').value;
+    const finRaw = document.getElementById('ctrl-rep-fin').value;
+    if (!iniRaw || !finRaw) { showToast('Selecciona el rango de fechas', 'error'); return null; }
+    const data = await apiFetch(`${API}/api/dashboard/registros?fecha_inicio=${iniRaw}&fecha_fin=${finRaw}&limit=100000`);
+    if (!data.success) throw new Error(data.error);
+    return data.data || [];
+}
+
+async function ctrlExportReporte(format) {
+    const msg = document.getElementById('ctrl-rep-msg');
+    msg.textContent = 'Generando...';
+    try {
+        const rows = await ctrlFetchReporteRows();
+        if (rows === null) { msg.textContent = ''; return; }
+        const cols = ['Fecha','Pallet ID','Cantidad','Condicion','Destino','Turno','Escaneadora','Pedido','Clasificacion','Incidencias','Observaciones'];
+        const aoa = rows.map(r => [r.fecha, r.palletId, r.cantidad, r.condicion, r.destino, r.turno, r.escaneadora, r.pedido, getClasificacion(r), r.incidencias, r.observaciones]);
+        const stamp = `${document.getElementById('ctrl-rep-inicio').value}_a_${document.getElementById('ctrl-rep-fin').value}`;
+        if (format === 'csv') {
+            exportCSV(`Reporte_${stamp}.csv`, cols, aoa);
+        } else if (format === 'excel') {
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet([cols, ...aoa]);
+            XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
+            XLSX.writeFile(wb, `Reporte_${stamp}.xlsx`);
+        }
+        msg.textContent = `${rows.length} registros exportados.`;
+        showToast(`Reporte generado (${rows.length} registros)`, 'success');
+    } catch (e) { msg.textContent = ''; showToast(e.message, 'error'); }
+}
+
+async function ctrlExportAuditoria(format) {
+    const msg = document.getElementById('ctrl-rep-msg');
+    msg.textContent = 'Generando auditoria...';
+    try {
+        const data = await apiFetch(`${API}/api/audit?limit=100000`);
+        if (!data.success) throw new Error(data.error);
+        const rows = data.data || [];
+        const cols = ['Fecha/Hora','Accion','Pallet ID','Escaneadora','Cambiado por','Origen','Razon','Cambios'];
+        const aoa = rows.map(a => [
+            a.timestamp ? new Date(a.timestamp).toLocaleString('es-MX') : '',
+            a.action, a.palletId, a.escaneadora, a.changedBy, a.source, a.reason,
+            (a.changes||[]).map(c => `${c.field}: ${c.before} -> ${c.after}`).join(' | ')
+        ]);
+        exportCSV(`Auditoria_${new Date().toISOString().split('T')[0]}.csv`, cols, aoa);
+        msg.textContent = `${rows.length} eventos de auditoria exportados.`;
+        showToast(`Auditoria exportada (${rows.length} eventos)`, 'success');
+    } catch (e) { msg.textContent = ''; showToast(e.message, 'error'); }
+}
+
+// ── Ajustes (catalogos) ──
+let ctrlSettingsData = {};
+const CTRL_CAT_LABELS = { destinos: 'Destinos', condiciones: 'Condiciones' };
+async function loadControlAjustes() {
+    const wrap = document.getElementById('ctrl-ajustes-cats');
+    wrap.innerHTML = '<p style="color:var(--text-muted);font-size:0.82rem;">Cargando...</p>';
+    try {
+        const data = await apiFetch(`${API}/api/settings`);
+        if (!data.success) throw new Error(data.error);
+        ctrlSettingsData = data.data || {};
+        wrap.innerHTML = Object.keys(CTRL_CAT_LABELS).map(key => {
+            const vals = Array.isArray(ctrlSettingsData[key]) ? ctrlSettingsData[key] : [];
+            const chips = vals.map(v => `<span class="ctrl-chip">${ctrlEsc(v)} <button title="Quitar" onclick="ctrlRemoveCat('${key}','${ctrlEsc(v).replace(/'/g,"\\'")}')"><i class="fa-solid fa-xmark"></i></button></span>`).join('');
+            return `<div style="border:1px solid var(--border);border-radius:8px;padding:0.85rem;">
+                <div style="font-weight:600;margin-bottom:0.5rem;">${CTRL_CAT_LABELS[key]}</div>
+                <div id="cat-chips-${key}" style="margin-bottom:0.5rem;">${chips||'<span style="color:var(--text-muted);font-size:0.8rem;">Sin valores</span>'}</div>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    <input type="text" class="form-input" id="cat-input-${key}" placeholder="Agregar valor" style="flex:1;min-width:140px;padding:0.4rem 0.6rem;font-size:0.85rem;" onkeydown="if(event.key==='Enter'){event.preventDefault();ctrlAddCat('${key}');}">
+                    <button class="btn btn-secondary btn-sm" onclick="ctrlAddCat('${key}')"><i class="fa-solid fa-plus"></i></button>
+                    <button class="btn btn-primary btn-sm" onclick="ctrlSaveCat('${key}')"><i class="fa-solid fa-floppy-disk" style="margin-right:4px;"></i>Guardar</button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) { wrap.innerHTML = `<p style="color:var(--danger);">${ctrlEsc(e.message)}</p>`; }
+}
+
+function ctrlRenderCatChips(key) {
+    const cont = document.getElementById('cat-chips-'+key);
+    const vals = ctrlSettingsData[key] || [];
+    cont.innerHTML = vals.length ? vals.map(v => `<span class="ctrl-chip">${ctrlEsc(v)} <button title="Quitar" onclick="ctrlRemoveCat('${key}','${ctrlEsc(v).replace(/'/g,"\\'")}')"><i class="fa-solid fa-xmark"></i></button></span>`).join('') : '<span style="color:var(--text-muted);font-size:0.8rem;">Sin valores</span>';
+}
+
+function ctrlAddCat(key) {
+    const input = document.getElementById('cat-input-'+key);
+    const val = input.value.trim();
+    if (!val) return;
+    if (!Array.isArray(ctrlSettingsData[key])) ctrlSettingsData[key] = [];
+    if (ctrlSettingsData[key].some(v => v.toLowerCase() === val.toLowerCase())) { showToast('Ese valor ya existe', 'info'); return; }
+    ctrlSettingsData[key].push(val);
+    input.value = '';
+    ctrlRenderCatChips(key);
+}
+
+function ctrlRemoveCat(key, val) {
+    ctrlSettingsData[key] = (ctrlSettingsData[key]||[]).filter(v => v !== val);
+    ctrlRenderCatChips(key);
+}
+
+async function ctrlSaveCat(key) {
+    try {
+        const data = await apiFetch(`${API}/api/settings/${key}`, { method:'PUT', body: JSON.stringify({ value: ctrlSettingsData[key] || [] }) });
+        if (!data.success) throw new Error(data.error);
+        showToast(`${CTRL_CAT_LABELS[key]} guardados`, 'success');
+        appCatalogs = null; // invalidar cache para recargar en formularios
+        loadAppCatalogs();
+    } catch (e) { showToast(e.message, 'error'); }
 }
 
 // ══════════════════════════════════════════════
@@ -2997,6 +3466,37 @@ function initFlatpickr() {
             onClose: function() { renderPedidosChart(); }
         });
     }
+}
+
+// Overlay de cumplimiento de metas en el dashboard (usa data.metas del endpoint resumen)
+function renderCumplimiento(data) {
+    let cont = document.getElementById('dash-cumplimiento');
+    const metas = (data && Array.isArray(data.metas)) ? data.metas.filter(m => m.isActive !== false && ((m.targetPallets||0) > 0 || (m.targetPiezas||0) > 0)) : [];
+    if (!metas.length) { if (cont) cont.remove(); return; }
+    if (!cont) {
+        cont = document.createElement('div');
+        cont.id = 'dash-cumplimiento';
+        cont.className = 'dash-cumplimiento';
+        const kpis = document.getElementById('dash-kpis');
+        if (kpis && kpis.parentNode) kpis.parentNode.insertBefore(cont, kpis.nextSibling);
+        else return;
+    }
+    const turnoData = {}; (data.porTurno||[]).forEach(t => { turnoData[t.turno] = t; });
+    const actual = (turno) => {
+        if (turno === 'Global') return { pallets: data.totalRegistros||0, piezas: data.totalUnidades||0 };
+        const t = turnoData[turno] || {}; return { pallets: t.registros||0, piezas: t.unidades||0 };
+    };
+    const bar = (label, val, target) => {
+        if (!target) return '';
+        const pct = Math.min(100, Math.round((val/target)*100));
+        const color = pct >= 100 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--danger)';
+        return `<div style="margin-top:0.5rem;"><div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-muted);"><span>${label}</span><span>${val.toLocaleString()} / ${target.toLocaleString()} (${pct}%)</span></div><div class="ctrl-meta-bar"><div class="ctrl-meta-fill" style="width:${pct}%;background:${color};"></div></div></div>`;
+    };
+    cont.innerHTML = metas.map(m => {
+        const a = actual(m.turno);
+        const icon = m.turno === 'Día' ? 'fa-sun' : m.turno === 'Noche' ? 'fa-moon' : 'fa-bullseye';
+        return `<div class="card"><div style="font-size:0.8rem;font-weight:600;margin-bottom:0.25rem;"><i class="fa-solid ${icon}" style="color:var(--accent);margin-right:5px;"></i>Meta ${m.turno}</div>${bar('Pallets', a.pallets, m.targetPallets||0)}${bar('Piezas', a.piezas, m.targetPiezas||0)}</div>`;
+    }).join('');
 }
 
 let _dashLoadId = 0; // Para evitar race conditions al cambiar filtros
@@ -3545,6 +4045,7 @@ async function loadResumen() {
             : data.registrosHoy.toLocaleString();
         document.getElementById('kpi-unidades').textContent = data.totalUnidades.toLocaleString();
         document.getElementById('kpi-operadoras').textContent = data.escaneadoras.length;
+        renderCumplimiento(data);
 
         const chartOpts = (extra = {}) => ({
             responsive: true,
@@ -6405,7 +6906,7 @@ function initScanAutofill() {
     });
 }
 
-const CONDITIONS = [
+const COND_DEFAULTS = [
     { code: 'GRA', label: 'GRA', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
     { code: 'GRB', label: 'GRB', color: '#16a34a', bg: 'rgba(22,163,74,0.15)' },
     { code: 'GRC', label: 'GRC', color: '#15803d', bg: 'rgba(21,128,61,0.15)' },
@@ -6418,8 +6919,40 @@ const CONDITIONS = [
     { code: 'DMT', label: 'DMT', color: '#ec4899', bg: 'rgba(236,72,153,0.15)' },
     { code: 'DMA', label: 'DMA', color: '#f97316', bg: 'rgba(249,115,22,0.15)' },
 ];
+// CONDITIONS es mutable: arranca con los defaults y se puede reconstruir desde los ajustes (app_settings)
+let CONDITIONS = COND_DEFAULTS.slice();
+const COND_PALETTE = ['#0ea5e9','#84cc16','#a855f7','#14b8a6','#eab308','#f43f5e','#8b5cf6','#06b6d4','#10b981','#f97316'];
 
 let selectedConditions = [];
+
+// Carga catalogos editables (destinos/condiciones) desde app_settings, con fallback a los defaults
+let appCatalogs = null;
+async function loadAppCatalogs() {
+    try {
+        const data = await apiFetch(`${API}/api/settings`);
+        if (!data || !data.success) return;
+        appCatalogs = data.data || {};
+        if (Array.isArray(appCatalogs.destinos) && appCatalogs.destinos.length) {
+            const sel = document.getElementById('esc-destino');
+            if (sel) {
+                const cur = sel.value;
+                sel.innerHTML = '<option value="" disabled selected>Seleccionar...</option>' + appCatalogs.destinos.map(d => `<option value="${d}">${d}</option>`).join('');
+                if (cur && appCatalogs.destinos.includes(cur)) sel.value = cur;
+            }
+        }
+        if (Array.isArray(appCatalogs.condiciones) && appCatalogs.condiciones.length) {
+            const baseByCode = {}; COND_DEFAULTS.forEach(c => { baseByCode[c.code] = c; });
+            let pi = 0;
+            CONDITIONS = appCatalogs.condiciones.map(code => {
+                if (baseByCode[code]) return baseByCode[code];
+                const color = COND_PALETTE[pi++ % COND_PALETTE.length];
+                return { code, label: code, color, bg: color + '26' };
+            });
+            selectedConditions = selectedConditions.filter(c => CONDITIONS.some(x => x.code === c));
+            initCondDropdown(); renderCondTags(); renderCondOptions();
+        }
+    } catch (e) { /* fallback: se mantienen los catalogos por defecto */ }
+}
 
 function initCondDropdown() {
     const dropdown = document.getElementById('cond-dropdown');
