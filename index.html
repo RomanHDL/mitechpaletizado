@@ -24,6 +24,7 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
     <style>
         :root {
@@ -711,6 +712,26 @@
         .chart-slider-info{font-size:0.7rem;color:var(--text-muted);min-width:80px;text-align:center;}
         .chart-slider-track{flex:1;max-width:200px;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;position:relative;overflow:hidden;}
         .chart-slider-fill{position:absolute;top:0;height:100%;background:var(--accent);border-radius:2px;transition:left 0.2s,width 0.2s;}
+        /* ── Toast notifications ── */
+        #toast-container{position:fixed;top:1rem;right:1rem;z-index:99999;display:flex;flex-direction:column;gap:0.6rem;max-width:min(360px,calc(100vw - 2rem));pointer-events:none;}
+        .toast{display:flex;align-items:flex-start;gap:0.6rem;background:var(--bg-card);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;padding:0.7rem 0.9rem;box-shadow:0 8px 24px rgba(0,0,0,0.35);color:var(--text-main);font-size:0.85rem;line-height:1.35;pointer-events:auto;opacity:0;transform:translateX(40px);transition:opacity 0.25s ease,transform 0.25s ease;}
+        .toast.show{opacity:1;transform:translateX(0);}
+        .toast.toast-success{border-left-color:var(--success);}
+        .toast.toast-error{border-left-color:var(--danger);}
+        .toast.toast-info{border-left-color:var(--accent);}
+        .toast .toast-icon{flex:0 0 auto;font-size:1rem;margin-top:1px;}
+        .toast.toast-success .toast-icon{color:var(--success);}
+        .toast.toast-error .toast-icon{color:var(--danger);}
+        .toast.toast-info .toast-icon{color:var(--accent);}
+        .toast .toast-msg{flex:1;word-break:break-word;}
+        .toast .toast-close{flex:0 0 auto;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.85rem;padding:0;line-height:1;}
+        .toast .toast-close:hover{color:var(--text-main);}
+        @media (max-width:768px){#toast-container{top:auto;bottom:1rem;left:1rem;right:1rem;max-width:none;}.toast{transform:translateY(40px);}.toast.show{transform:translateY(0);}}
+        /* ── Configuracion rows ── */
+        .config-row{display:flex;justify-content:space-between;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:0.85rem;}
+        .config-row:last-child{border-bottom:none;}
+        .config-row > span:first-child{color:var(--text-muted);}
+        .module-card.mod-config .module-icon{color:#8b5cf6;}
     </style>
 </head>
 <body>
@@ -828,6 +849,12 @@
                         <div class="module-icon"><i class="fa-solid fa-chart-pie"></i></div>
                         <div class="module-title">Dashboard</div>
                         <div class="module-desc">Resumen completo de la operacion</div>
+                        <div class="module-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    </div>
+                    <div class="module-card mod-config" onclick="switchView('config')" id="home-config-card">
+                        <div class="module-icon"><i class="fa-solid fa-gear"></i></div>
+                        <div class="module-title">Configuracion</div>
+                        <div class="module-desc">Perfil, sesion y preferencias</div>
                         <div class="module-arrow"><i class="fa-solid fa-arrow-right"></i></div>
                     </div>
                 </div>
@@ -1155,6 +1182,9 @@
                     </button>
                     <button class="btn btn-secondary btn-sm admin-only" onclick="exportDashboardExcel()" style="padding:0.35rem 0.7rem;font-size:0.78rem;">
                         <i class="fa-solid fa-file-excel"></i> Excel
+                    </button>
+                    <button class="btn btn-secondary btn-sm admin-only" onclick="exportDashboardPDF()" style="padding:0.35rem 0.7rem;font-size:0.78rem;">
+                        <i class="fa-solid fa-file-pdf"></i> PDF
                     </button>
                     <button id="btn-audit" style="display:none;padding:0.35rem 0.7rem;font-size:0.78rem;" class="btn btn-secondary btn-sm" onclick="openAuditModal()">
                         <i class="fa-solid fa-shield-halved"></i> Auditoria
@@ -1526,8 +1556,56 @@
 
         </div><!-- /view-dashboard -->
 
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: CONFIGURACION                    -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-config">
+            <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
+            <div class="page-header" style="text-align:center;">
+                <h1 style="font-size:1.3rem;margin:0;"><i class="fa-solid fa-gear" style="color:var(--accent);margin-right:6px;"></i>Configuracion</h1>
+                <p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--text-muted);">Perfil, sesion y preferencias de la aplicacion</p>
+            </div>
+
+            <div class="home-admin-grid" style="margin-top:1.25rem;">
+                <!-- Perfil -->
+                <div class="card" style="padding:1.25rem;">
+                    <div class="card-title" style="font-size:0.9rem;margin-bottom:0.9rem;"><i class="fa-solid fa-id-badge"></i> Perfil</div>
+                    <div class="config-row"><span>Nombre</span><strong id="cfg-nombre">-</strong></div>
+                    <div class="config-row"><span>Usuario</span><strong id="cfg-usuario">-</strong></div>
+                    <div class="config-row"><span>Rol</span><strong id="cfg-rol">-</strong></div>
+                    <div class="config-row"><span>Dispositivo</span><strong id="cfg-device" style="font-size:0.72rem;word-break:break-all;">-</strong></div>
+                </div>
+
+                <!-- Preferencias -->
+                <div class="card" style="padding:1.25rem;">
+                    <div class="card-title" style="font-size:0.9rem;margin-bottom:0.9rem;"><i class="fa-solid fa-sliders"></i> Preferencias</div>
+                    <div class="config-row">
+                        <span>Tema</span>
+                        <span id="cfg-theme-wrap"></span>
+                    </div>
+                    <p id="cfg-theme-note" style="font-size:0.72rem;color:var(--text-muted);margin:0.5rem 0 0;"></p>
+                </div>
+
+                <!-- App / Acciones -->
+                <div class="card" style="padding:1.25rem;">
+                    <div class="card-title" style="font-size:0.9rem;margin-bottom:0.9rem;"><i class="fa-solid fa-circle-info"></i> Aplicacion</div>
+                    <div class="config-row"><span>Version</span><strong id="cfg-version">3.0.0</strong></div>
+                    <div class="config-row"><span>Conexion</span><strong id="cfg-online">-</strong></div>
+                    <div id="cfg-admin-actions" style="display:none;border-top:1px solid var(--border);padding-top:0.75rem;margin-top:0.75rem;">
+                        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;">Acciones rapidas</div>
+                        <button class="btn btn-secondary btn-sm" onclick="switchView('dashboard')" style="width:100%;margin-bottom:0.4rem;"><i class="fa-solid fa-chart-pie" style="margin-right:6px;"></i>Ir al Dashboard</button>
+                        <button class="btn btn-secondary btn-sm" onclick="switchView('home')" style="width:100%;"><i class="fa-solid fa-users-gear" style="margin-right:6px;"></i>Gestionar escaneadoras</button>
+                    </div>
+                    <button class="btn btn-danger btn-sm" onclick="handleLogout()" style="width:100%;margin-top:0.75rem;"><i class="fa-solid fa-right-from-bracket" style="margin-right:6px;"></i>Cerrar sesion</button>
+                </div>
+            </div>
+        </div><!-- /view-config -->
+
     </main>
 </div><!-- /app -->
+
+<!-- Toast notifications -->
+<div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
 <script>
 // ══════════════════════════════════════════════
@@ -1635,6 +1713,35 @@ function applyTheme3647() {
     updateThemeIcon(t);
     applyChartTheme();
 }
+// ══════════════════════════════════════════════
+// TOAST NOTIFICATIONS
+// ══════════════════════════════════════════════
+function showToast(message, type = 'info', duration = 4000) {
+    const container = document.getElementById('toast-container');
+    if (!container) { console.log('[TOAST]', type, message); return; }
+    const icons = { success: 'fa-circle-check', error: 'fa-circle-exclamation', info: 'fa-circle-info' };
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    t.innerHTML = `<i class="fa-solid ${icons[type] || icons.info} toast-icon"></i>`
+        + `<div class="toast-msg"></div>`
+        + `<button class="toast-close" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>`;
+    t.querySelector('.toast-msg').textContent = message; // textContent → no HTML injection
+    container.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('show'));
+    let timer;
+    const dismiss = () => {
+        if (t.dataset.closing) return;
+        t.dataset.closing = '1';
+        clearTimeout(timer);
+        t.classList.remove('show');
+        setTimeout(() => t.remove(), 300);
+    };
+    t.querySelector('.toast-close').addEventListener('click', dismiss);
+    if (duration > 0) timer = setTimeout(dismiss, type === 'error' ? Math.max(duration, 6000) : duration);
+    return t;
+}
+
 function toggleTheme3647() {
     if (!currentUser || String(currentUser.usuario) !== '3647') return;
     const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
@@ -1923,14 +2030,14 @@ async function submitAuditEntry() {
     const newValue = document.getElementById('audit-new-new').value.trim();
     const reason = document.getElementById('audit-new-reason').value.trim();
     const source = document.getElementById('audit-new-source').value;
-    if (!palletId) { alert('Pallet ID requerido'); return; }
+    if (!palletId) { showToast('Pallet ID requerido', 'error'); return; }
     try {
         const r = await apiFetch(`${API}/api/audit`, { method:'POST', body: JSON.stringify({action,palletId,escaneadora,field,oldValue,newValue,reason,source}) });
         if (r.success) {
             ['audit-new-pallet','audit-new-esc','audit-new-field','audit-new-old','audit-new-new','audit-new-reason'].forEach(id => document.getElementById(id).value = '');
             loadAuditData();
-        } else { alert(r.error); }
-    } catch(e) { alert(e.message); }
+        } else { showToast(r.error, 'error'); }
+    } catch(e) { showToast(e.message, 'error'); }
 }
 async function loadAuditData() {
     const body = document.getElementById('audit-body');
@@ -2026,13 +2133,13 @@ async function crearRetrabajo(id, palletId) {
     if (!confirm(`Crear retrabajo de pallet ${palletId} para hoy?\n\nSe crea una copia en la fecha de hoy. El registro original no se modifica.`)) return;
     try {
         const data = await apiFetch(`${API}/api/escaneadoras/retrabajo`, { method: 'POST', body: JSON.stringify({ originalId: id }) });
-        if (!data.success) { alert(data.error); return; }
-        alert(`Retrabajo creado: ${palletId} → ${data.fecha}`);
+        if (!data.success) { showToast(data.error, 'error'); return; }
+        showToast(`Retrabajo creado: ${palletId} → ${data.fecha}`, 'success');
         refreshDashboard();
         // Si estamos en home, limpiar resultado
         const rr = document.getElementById('retrabajo-result');
         if (rr) rr.innerHTML = `<div style="padding:0.5rem;color:var(--success);font-size:0.85rem;"><i class="fa-solid fa-check-circle" style="margin-right:4px;"></i>Retrabajo creado para hoy</div>`;
-    } catch(e) { alert('Error: ' + e.message); }
+    } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
 
 async function buscarRetrabajo() {
@@ -2083,7 +2190,7 @@ async function openEditPallet(id) {
     if (!currentUser || currentUser.role !== 'admin') return;
     try {
         const resp = await apiFetch(`${API}/api/escaneadoras/${id}`);
-        if (!resp.success) { alert('No se pudo cargar el pallet'); return; }
+        if (!resp.success) { showToast('No se pudo cargar el pallet', 'error'); return; }
         const r = resp.data;
         document.getElementById('edit-pallet-id').value = id;
         document.getElementById('edit-pallet-palletId').value = r.palletId || '';
@@ -2097,7 +2204,7 @@ async function openEditPallet(id) {
         document.getElementById('edit-pallet-observaciones').value = r.observaciones || '';
         document.getElementById('edit-pallet-reason').value = '';
         document.getElementById('edit-pallet-modal').style.display = 'block';
-    } catch(e) { alert('Error: ' + e.message); }
+    } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
 function closeEditPallet() {
     document.getElementById('edit-pallet-modal').style.display = 'none';
@@ -2126,8 +2233,8 @@ async function saveEditPallet() {
             // Refresh data
             await Promise.all([loadResumen(), loadTendencias(), loadTableData()]);
             renderRecords(lastTableData);
-        } else { alert(resp.error || 'Error al guardar'); }
-    } catch(e) { alert('Error: ' + e.message); }
+        } else { showToast(resp.error || 'Error al guardar', 'error'); }
+    } catch(e) { showToast('Error: ' + e.message, 'error'); }
     btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check" style="margin-right:4px;"></i>Guardar';
 }
 async function deletePallet(id, palletId) {
@@ -2139,8 +2246,8 @@ async function deletePallet(id, palletId) {
             // Refresh data
             await Promise.all([loadResumen(), loadTendencias(), loadTableData()]);
             renderRecords(lastTableData);
-        } else { alert(resp.error || 'Error al eliminar'); }
-    } catch(e) { alert('Error: ' + e.message); }
+        } else { showToast(resp.error || 'Error al eliminar', 'error'); }
+    } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
 
 // CAPTURE MODE (user 3647 only)
@@ -2177,7 +2284,7 @@ async function toggleCaptureMode() {
         link.click();
     } catch (err) {
         console.error('[CAPTURE]', err);
-        alert('Error al capturar: ' + err.message);
+        showToast('Error al capturar: ' + err.message, 'error');
     }
 
     // Restore normal mode
@@ -2185,6 +2292,61 @@ async function toggleCaptureMode() {
     if (topbar) topbar.style.display = 'none'; // stays hidden on dashboard
     document.querySelectorAll('.btn-logout-top, #dash-user-info, .back-btn').forEach(el => el.style.display = '');
     if (btn) btn.style.display = '';
+}
+
+// ══════════════════════════════════════════════
+// EXPORT DASHBOARD → PDF (reuses html2canvas + jsPDF)
+// ══════════════════════════════════════════════
+async function exportDashboardPDF() {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+    if (!jsPDFCtor || typeof html2canvas === 'undefined') { showToast('Librerias PDF no cargadas. Reintenta.', 'error'); return; }
+    const dash = document.getElementById('view-dashboard');
+    const topbar = document.querySelector('.topbar');
+    const pdfBtn = document.querySelector('[onclick="exportDashboardPDF()"]');
+    if (pdfBtn) { pdfBtn.disabled = true; pdfBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> PDF...'; }
+    showToast('Generando PDF del dashboard...', 'info', 2500);
+
+    dash.classList.add('capture-mode');
+    if (topbar) topbar.style.display = 'none';
+    document.querySelectorAll('.btn-logout-top, #dash-user-info, .back-btn, #btn-capture-mode').forEach(el => el.style.display = 'none');
+    await new Promise(r => setTimeout(r, 300));
+
+    try {
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        const canvas = await html2canvas(dash, { backgroundColor: isLight ? '#F5F7FB' : '#0a0f1e', scale: 2, useCORS: true, logging: false });
+        const pdf = new jsPDFCtor({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        const imgW = pageW;
+        const imgH = (canvas.height * imgW) / canvas.width;
+        const imgData = canvas.toDataURL('image/png');
+        // Multipage: slide the same image up by one page height each iteration
+        let heightLeft = imgH;
+        let position = 0;
+        pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
+        heightLeft -= pageH;
+        while (heightLeft > 0) {
+            position -= pageH;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
+            heightLeft -= pageH;
+        }
+        const now = new Date();
+        const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+        pdf.save(`Dashboard_FFT_${ts}.pdf`);
+        showToast('PDF generado correctamente', 'success');
+    } catch (err) {
+        console.error('[PDF]', err);
+        showToast('Error al generar PDF: ' + err.message, 'error');
+    }
+
+    dash.classList.remove('capture-mode');
+    if (topbar) topbar.style.display = 'none';
+    document.querySelectorAll('.btn-logout-top, #dash-user-info, .back-btn').forEach(el => el.style.display = '');
+    const capBtn = document.getElementById('btn-capture-mode');
+    if (capBtn && currentUser.usuario === '3647') capBtn.style.display = '';
+    if (pdfBtn) { pdfBtn.disabled = false; pdfBtn.innerHTML = '<i class="fa-solid fa-file-pdf"></i> PDF'; }
 }
 
 // IMPERSONATION (admin 3647 only)
@@ -2450,8 +2612,8 @@ function returnToAdmin() {
 function switchView(viewName) {
     // Role checks
     if (viewName === 'dashboard' && (!currentUser || !['admin','viewer'].includes(currentUser.role))) return;
-    // Viewer can ONLY access dashboard
-    if (currentUser && currentUser.role === 'viewer' && viewName !== 'dashboard') { switchView('dashboard'); return; }
+    // Viewer can ONLY access dashboard (and the read-only Configuracion view)
+    if (currentUser && currentUser.role === 'viewer' && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
     // Save current view for restore on refresh
     sessionStorage.setItem('mitech_view', viewName);
 
@@ -2483,6 +2645,36 @@ function switchView(viewName) {
     if (viewName === 'escaneadoras') setDefaultDate();
     if (viewName === 'resumen') { setResumenDate(); }
     if (viewName === 'home') loadOpsContext();
+    if (viewName === 'config') loadConfig();
+}
+
+// ══════════════════════════════════════════════
+// CONFIGURACION
+// ══════════════════════════════════════════════
+function loadConfig() {
+    if (!currentUser) return;
+    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    const roleLabels = { admin: 'Administrador', escaneadora: 'Escaneadora', viewer: 'Dashboard (solo lectura)' };
+    setTxt('cfg-nombre', currentUser.nombre || '-');
+    setTxt('cfg-usuario', currentUser.usuario || '-');
+    setTxt('cfg-rol', roleLabels[currentUser.role] || currentUser.role || '-');
+    setTxt('cfg-device', localStorage.getItem('mitech_device_id') || 'No registrado');
+    setTxt('cfg-online', navigator.onLine ? 'En linea' : 'Sin conexion');
+
+    // Theme preference: full toggle for 3647, informational note otherwise
+    const wrap = document.getElementById('cfg-theme-wrap');
+    const note = document.getElementById('cfg-theme-note');
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    if (String(currentUser.usuario) === '3647') {
+        if (wrap) wrap.innerHTML = `<button class="btn btn-secondary btn-sm" onclick="toggleTheme3647();loadConfig();"><i class="fa-solid ${isLight ? 'fa-moon' : 'fa-sun'}" style="margin-right:6px;"></i>${isLight ? 'Cambiar a oscuro' : 'Cambiar a claro'}</button>`;
+        if (note) note.textContent = 'El tema se guarda en este dispositivo.';
+    } else {
+        if (wrap) wrap.innerHTML = `<strong>${isLight ? 'Claro' : 'Oscuro'}</strong>`;
+        if (note) note.textContent = 'El cambio de tema esta disponible solo para el administrador.';
+    }
+
+    const adminActions = document.getElementById('cfg-admin-actions');
+    if (adminActions) adminActions.style.display = currentUser.role === 'admin' ? '' : 'none';
 }
 
 function setDefaultDate() {
@@ -2615,6 +2807,7 @@ async function handleEscSubmit(e) {
 
         okEl.textContent = `Registro guardado correctamente (ID: ${data.id.slice(-6)})`;
         okEl.style.display = 'block';
+        showToast(`Pallet ${palletId} registrado correctamente`, 'success');
         resetEscForm();
         setTimeout(() => { okEl.style.display = 'none'; }, 5000);
     } catch (err) {
@@ -2812,7 +3005,7 @@ async function loadDashboard() {
     const fi = document.getElementById('dash-fecha-inicio').value;
     const ff = document.getElementById('dash-fecha-fin').value;
     if (fi && ff && fi > ff) {
-        alert('La fecha de inicio no puede ser mayor que la fecha fin.');
+        showToast('La fecha de inicio no puede ser mayor que la fecha fin.', 'error');
         return;
     }
 
@@ -5542,6 +5735,7 @@ async function handleResumenSubmit(e) {
         if (!data.success) throw new Error(data.error);
         okEl.textContent = 'Resumen guardado correctamente.';
         okEl.style.display = 'block';
+        showToast('Resumen de turno guardado correctamente', 'success');
         document.getElementById('resumen-form').reset();
         setResumenDate();
         loadResumenes();
@@ -5761,7 +5955,7 @@ ${anchors}</xdr:wsDr>`;
 async function exportDashboardExcel() {
     if (!currentUser || currentUser.role !== 'admin') return;
     const EJS = window.ExcelJS;
-    if (!EJS) { alert('ExcelJS no cargado'); return; }
+    if (!EJS) { showToast('ExcelJS no cargado', 'error'); return; }
 
     const btn = document.querySelector('[onclick="exportDashboardExcel()"]');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generando...'; }
