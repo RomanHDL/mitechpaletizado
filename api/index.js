@@ -10,6 +10,16 @@ app.use(cors());
 app.use(express.json());
 
 const JWT_SECRET = process.env.JWT_SECRET || 'mitech-jwt-secret-2026';
+// Key required to call the one-time seed/diagnostic endpoints (they create users / expose data).
+// Set SEED_KEY in the environment to override the default. Call e.g. /api/seed?key=<SEED_KEY>
+const SEED_KEY = process.env.SEED_KEY || 'mitech-seed-3647';
+function seedGuard(req, res) {
+  if ((req.query.key || '') !== SEED_KEY) {
+    res.status(403).json({ success: false, error: 'No autorizado. Falta la clave de seed.' });
+    return false;
+  }
+  return true;
+}
 
 // ── Pusher (real-time events) ──
 let pusher = null;
@@ -51,6 +61,29 @@ const VALID_DESTINOS = ['TRG', 'ALMACEN'];
 const VALID_CLASIFICACIONES = ['', 'BOX', 'BULKY', 'HV', 'HV TELEVISIONES', '9X7251Z'];
 function normalizeDestino(d) { const u = (d||'').trim(); const up = u.toUpperCase(); if (up === 'ALMACEN' || up === 'ALMACÉN') return 'Almacen'; if (up === 'TRG') return 'TRG'; return u; }
 function normalizePalletId(id) { return (id||'').trim().toUpperCase(); }
+
+// ── Search / date helpers ──
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12h
+// Escape regex metacharacters so user input can't break/inject the $regex query
+function escapeRegex(str) { return String(str == null ? '' : str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+// Case-insensitive "contains" filter built from a safe (escaped) user string
+function rx(str) { return { $regex: escapeRegex(str), $options: 'i' }; }
+// Parse stored M/D/YYYY (unpadded) date string → Date at local midnight, or null if invalid.
+// NOTE: dates are stored unpadded (e.g. "6/6/2026") by both the web form and mobile; do NOT pad.
+function parseFechaMDY(f) {
+  if (!f || typeof f !== 'string') return null;
+  const p = f.split('/');
+  if (p.length !== 3) return null;
+  const mo = parseInt(p[0], 10), da = parseInt(p[1], 10), yr = parseInt(p[2], 10);
+  if (Number.isNaN(mo) || Number.isNaN(da) || Number.isNaN(yr)) return null;
+  return new Date(yr, mo - 1, da);
+}
+// Keep a record if its date is within [start, end]; unparseable dates are kept (not dropped)
+function inDateRange(fechaStr, start, end) {
+  const d = parseFechaMDY(fechaStr);
+  if (!d) return true;
+  return d >= start && d <= end;
+}
 
 // ── DB Connection (reuse across invocations) ──
 let isConnected = false;
@@ -110,7 +143,7 @@ async function auth(req, res, next) {
     if (!user || !user.isActive) return res.status(401).json({ success: false, error: 'Usuario invalido' });
     req.user = user;
     next();
-  } catch { return res.status(401).json({ success: false, error: 'Token invalido' }); }
+  } catch (err) { console.error('[AUTH]', err.message); return res.status(401).json({ success: false, error: 'Token invalido' }); }
 }
 
 function roleGuard(...roles) {
@@ -132,12 +165,12 @@ function sessionsCol() { return mongoose.connection.db.collection('active_sessio
 
 async function checkAndSetSession(user, deviceId) {
   if (user.role !== 'escaneadora') return { allowed: true };
-  const did = deviceId || ('srv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8));
+  const did = deviceId || ('srv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10));
   const col = sessionsCol();
   await col.deleteMany({ expiresAt: { $lt: new Date() } });
   const existing = await col.findOne({ userId: user._id.toString(), deviceId: { $ne: did } });
   if (existing) return { allowed: false, error: 'Este usuario ya tiene una sesion activa en otro dispositivo. Cierra sesion en el otro dispositivo o pide apoyo al administrador.', sessionConflict: true };
-  await col.updateOne({ userId: user._id.toString() }, { $set: { userId: user._id.toString(), deviceId: did, createdAt: new Date(), expiresAt: new Date(Date.now()+12*60*60*1000) } }, { upsert: true });
+  await col.updateOne({ userId: user._id.toString() }, { $set: { userId: user._id.toString(), deviceId: did, createdAt: new Date(), expiresAt: new Date(Date.now()+SESSION_TTL_MS) } }, { upsert: true });
   return { allowed: true, deviceId: did };
 }
 
@@ -279,7 +312,7 @@ app.post('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (re
     if (!hasPedido && (!condicion || !condicion.trim())) return res.status(400).json({ success: false, error: 'El campo condicion es obligatorio' });
     const pid = normalizePalletId(palletId);
     const dest = normalizeDestino(destino);
-    const qty = parseInt(cantidad) || 0;
+    const qty = parseInt(cantidad, 10) || 0;
     // Cantidad 0 solo para admin 3647 o dispositivo autorizado
     if (qty < 0) return res.status(400).json({ success: false, error: 'Cantidad no puede ser negativa' });
     if (qty === 0 && req.user.usuario !== '3647') {
@@ -339,8 +372,8 @@ app.get('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (req
     const { fecha, escaneadora, turno, limit } = req.query;
     const filter = {};
     if (fecha) filter.fecha = fecha;
-    if (escaneadora) filter.escaneadora = { $regex: escaneadora, $options: 'i' };
-    if (turno) filter.turno = { $regex: turno, $options: 'i' };
+    if (escaneadora) filter.escaneadora = rx(escaneadora);
+    if (turno) filter.turno = rx(turno);
     const registros = await EscReg.find(filter).sort({ createdAt: -1 }).limit(parseInt(limit) || 200);
     res.json({ success: true, data: registros, total: registros.length });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
@@ -365,7 +398,7 @@ app.put('/api/escaneadoras/:id', auth, roleGuard('admin'), async (req, res) => {
     allowed.forEach(f => {
       if (req.body[f] !== undefined && String(req.body[f]) !== String(oldData[f])) {
         changes.push({ field: f, oldValue: String(oldData[f]), newValue: String(req.body[f]) });
-        doc[f] = f === 'cantidad' ? parseInt(req.body[f]) || 0 : (f === 'palletId' ? normalizePalletId(req.body[f]) : (f === 'destino' ? normalizeDestino(req.body[f]) : req.body[f]));
+        doc[f] = f === 'cantidad' ? parseInt(req.body[f], 10) || 0 : (f === 'palletId' ? normalizePalletId(req.body[f]) : (f === 'destino' ? normalizeDestino(req.body[f]) : req.body[f]));
       }
     });
     // Auto-set fechaSalida when pedido is assigned for the first time
@@ -421,8 +454,8 @@ app.get('/api/dashboard/resumen', auth, roleGuard('admin', 'viewer'), async (req
     const { fecha, fecha_inicio, fecha_fin, escaneadora, turno } = req.query;
     const filter = {};
     if (fecha) filter.fecha = fecha;
-    if (escaneadora) filter.escaneadora = { $regex: escaneadora, $options: 'i' };
-    if (turno) filter.turno = { $regex: turno, $options: 'i' };
+    if (escaneadora) filter.escaneadora = rx(escaneadora);
+    if (turno) filter.turno = rx(turno);
 
     let registros = await EscReg.find(filter).sort({ createdAt: -1 });
 
@@ -436,10 +469,7 @@ app.get('/api/dashboard/resumen', auth, roleGuard('admin', 'viewer'), async (req
       const start = new Date(fecha_inicio), end = new Date(fecha_fin);
       end.setHours(23, 59, 59, 999);
       registros = registros.filter(r => {
-        const p = r.fecha.split('/');
-        if (p.length !== 3) return true;
-        const d = new Date(parseInt(p[2]), parseInt(p[0]) - 1, parseInt(p[1]));
-        return d >= start && d <= end;
+        return inDateRange(r.fecha, start, end);
       });
     }
 
@@ -488,15 +518,15 @@ app.get('/api/dashboard/registros', auth, roleGuard('admin', 'viewer'), async (r
     const { fecha, fecha_inicio, fecha_fin, escaneadora, turno, busqueda, limit, skip } = req.query;
     const filter = {};
     if (fecha) filter.fecha = fecha;
-    if (escaneadora) filter.escaneadora = { $regex: escaneadora, $options: 'i' };
-    if (turno) filter.turno = { $regex: turno, $options: 'i' };
+    if (escaneadora) filter.escaneadora = rx(escaneadora);
+    if (turno) filter.turno = rx(turno);
     if (busqueda) {
       filter.$or = [
-        { palletId: { $regex: busqueda, $options: 'i' } },
-        { escaneadora: { $regex: busqueda, $options: 'i' } },
-        { destino: { $regex: busqueda, $options: 'i' } },
-        { pedido: { $regex: busqueda, $options: 'i' } },
-        { observaciones: { $regex: busqueda, $options: 'i' } },
+        { palletId: rx(busqueda) },
+        { escaneadora: rx(busqueda) },
+        { destino: rx(busqueda) },
+        { pedido: rx(busqueda) },
+        { observaciones: rx(busqueda) },
       ];
     }
     let query = EscReg.find(filter).sort({ createdAt: -1 });
@@ -508,10 +538,7 @@ app.get('/api/dashboard/registros', auth, roleGuard('admin', 'viewer'), async (r
       const start = new Date(fecha_inicio), end = new Date(fecha_fin);
       end.setHours(23, 59, 59, 999);
       registros = registros.filter(r => {
-        const p = r.fecha.split('/');
-        if (p.length !== 3) return true;
-        const d = new Date(parseInt(p[2]), parseInt(p[0]) - 1, parseInt(p[1]));
-        return d >= start && d <= end;
+        return inDateRange(r.fecha, start, end);
       });
     }
 
@@ -546,8 +573,8 @@ app.get('/api/dashboard/tendencias', auth, roleGuard('admin', 'viewer'), async (
     // Build match filter for aggregation
     const matchFilter = {};
     if (fecha) matchFilter.fecha = fecha;
-    if (escaneadora) matchFilter.escaneadora = { $regex: escaneadora, $options: 'i' };
-    if (turno) matchFilter.turno = { $regex: turno, $options: 'i' };
+    if (escaneadora) matchFilter.escaneadora = rx(escaneadora);
+    if (turno) matchFilter.turno = rx(turno);
 
     const pipeline = [];
     if (Object.keys(matchFilter).length > 0) pipeline.push({ $match: matchFilter });
@@ -569,28 +596,22 @@ app.get('/api/dashboard/tendencias', auth, roleGuard('admin', 'viewer'), async (
       const start = new Date(fecha_inicio), end = new Date(fecha_fin);
       end.setHours(23, 59, 59, 999);
       tendencia = tendencia.filter(t => {
-        const p = t.date.split('/');
-        if (p.length !== 3) return true;
-        const d = new Date(parseInt(p[2]), parseInt(p[0]) - 1, parseInt(p[1]));
-        return d >= start && d <= end;
+        return inDateRange(t.date, start, end);
       });
     }
 
     // Promedios - use same filters
     const proFilter = {};
     if (fecha) proFilter.fecha = fecha;
-    if (escaneadora) proFilter.escaneadora = { $regex: escaneadora, $options: 'i' };
-    if (turno) proFilter.turno = { $regex: turno, $options: 'i' };
+    if (escaneadora) proFilter.escaneadora = rx(escaneadora);
+    if (turno) proFilter.turno = rx(turno);
 
     let registros = await EscReg.find(proFilter);
     if (!fecha && fecha_inicio && fecha_fin) {
       const start = new Date(fecha_inicio), end = new Date(fecha_fin);
       end.setHours(23, 59, 59, 999);
       registros = registros.filter(r => {
-        const p = r.fecha.split('/');
-        if (p.length !== 3) return true;
-        const d = new Date(parseInt(p[2]), parseInt(p[0]) - 1, parseInt(p[1]));
-        return d >= start && d <= end;
+        return inDateRange(r.fecha, start, end);
       });
     }
 
@@ -641,10 +662,15 @@ app.post('/api/resumen', auth, roleGuard('admin', 'escaneadora'), async (req, re
     if (!turno || !fecha || palletsTotales===undefined || palletsTotales==='' || palletsTRG===undefined || palletsTRG==='' || palletsAlmacen===undefined || palletsAlmacen==='' || palletsEnProceso===undefined || palletsEnProceso==='' || asistencia===undefined || asistencia==='' || absentismo===undefined || absentismo==='' || !tareasPendientes) {
       return res.status(400).json({ success: false, error: 'Todos los campos son obligatorios' });
     }
+    const nums = {
+      palletsTotales: parseInt(palletsTotales, 10), palletsTRG: parseInt(palletsTRG, 10),
+      palletsAlmacen: parseInt(palletsAlmacen, 10), palletsEnProceso: parseInt(palletsEnProceso, 10),
+      asistencia: parseInt(asistencia, 10), absentismo: parseInt(absentismo, 10),
+    };
+    const bad = Object.entries(nums).find(([, v]) => Number.isNaN(v) || v < 0);
+    if (bad) return res.status(400).json({ success: false, error: `El campo ${bad[0]} debe ser un numero valido (>= 0)` });
     const doc = await Resumen.create({
-      turno, palletsTotales: parseInt(palletsTotales), palletsTRG: parseInt(palletsTRG),
-      palletsAlmacen: parseInt(palletsAlmacen), palletsEnProceso: parseInt(palletsEnProceso),
-      asistencia: parseInt(asistencia), absentismo: parseInt(absentismo), tareasPendientes,
+      turno, ...nums, tareasPendientes,
       fecha, capturadoPor: req.user._id, nombreCaptura: req.user.nombre,
     });
     res.json({ success: true, id: doc._id, message: 'Resumen guardado' });
@@ -656,7 +682,7 @@ app.get('/api/resumen', auth, roleGuard('admin', 'escaneadora'), async (req, res
     const { fecha, turno, limit } = req.query;
     const filter = {};
     if (fecha) filter.fecha = fecha;
-    if (turno) filter.turno = { $regex: turno, $options: 'i' };
+    if (turno) filter.turno = rx(turno);
     const docs = await Resumen.find(filter).sort({ createdAt: -1 }).limit(parseInt(limit)||100);
     res.json({ success: true, data: docs, total: docs.length });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
@@ -803,6 +829,7 @@ app.delete('/api/clasificaciones/:id', auth, roleGuard('admin'), async (req, res
 // ═══════════ DIAG NFC (temporary) ═══════════
 app.get('/api/diag-nfc', async (req, res) => {
   try {
+    if (!seedGuard(req, res)) return;
     const db = mongoose.connection.db;
     const cards = await db.collection('nfc_cards').find({}).toArray();
     const users = await User.find({ role: 'escaneadora' }).select('nombre usuario role isActive _id');
@@ -813,6 +840,7 @@ app.get('/api/diag-nfc', async (req, res) => {
 // ═══════════ SEED (one-time, remove after use) ═══════════
 app.get('/api/seed', async (req, res) => {
   try {
+    if (!seedGuard(req, res)) return;
     // Drop stale indexes that may conflict (email_1 from old schema)
     try { await mongoose.connection.db.collection('users').dropIndex('email_1'); } catch(e) {}
 
@@ -856,6 +884,7 @@ app.get('/api/seed', async (req, res) => {
 // ═══════════ SEED NFC (one-time, remove after use) ═══════════
 app.get('/api/seed-nfc', async (req, res) => {
   try {
+    if (!seedGuard(req, res)) return;
     const db = mongoose.connection.db;
     const col = db.collection('nfc_cards');
     const results = [];
@@ -911,7 +940,7 @@ app.post('/api/mobile/register', async (req, res) => {
     if (!hasPedidoMobile && (!condicion || !condicion.trim())) return res.status(400).json({ success: false, error: 'Condicion es obligatoria' });
     const pid = normalizePalletId(pallet_id);
     const dest = normalizeDestino(destino);
-    const qty = parseInt(cantidad) || 0;
+    const qty = parseInt(cantidad, 10) || 0;
     if (qty <= 0) return res.status(400).json({ success: false, error: 'Cantidad debe ser mayor a 0' });
     if (pedido && pedido.trim() && !clasificacion) return res.status(400).json({ success: false, error: 'Clasificacion es obligatoria cuando hay pedido' });
 
@@ -938,7 +967,7 @@ app.get('/api/mobile/recent', async (req, res) => {
   try {
     const { operador, limit } = req.query;
     const filter = {};
-    if (operador) filter.escaneadora = { $regex: operador, $options: 'i' };
+    if (operador) filter.escaneadora = rx(operador);
     const docs = await EscReg.find(filter).sort({ createdAt: -1 }).limit(parseInt(limit) || 50);
     res.json({ success: true, data: docs, total: docs.length });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
@@ -950,9 +979,9 @@ app.get('/api/mobile/stats', async (req, res) => {
     const now = new Date();
     const todayStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
     const filter = { fecha: todayStr };
-    if (operador) filter.escaneadora = { $regex: operador, $options: 'i' };
+    if (operador) filter.escaneadora = rx(operador);
     const todayCount = await EscReg.countDocuments(filter);
-    const lastFilter = operador ? { escaneadora: { $regex: operador, $options: 'i' } } : {};
+    const lastFilter = operador ? { escaneadora: rx(operador) } : {};
     const lastDoc = await EscReg.findOne(lastFilter).sort({ createdAt: -1 });
     const byDestino = await EscReg.aggregate([{ $match: filter }, { $group: { _id: '$destino', total: { $sum: 1 } } }]);
     res.json({
@@ -977,9 +1006,9 @@ app.get('/api/audit', auth, roleGuard('admin'), async (req, res) => {
     const { action, escaneadora, palletId, fecha, field, limit } = req.query;
     const filter = { action: { $in: ['UPDATE','DELETE','CORRECTION','MANUAL_EDIT'] } };
     if (action) filter.action = action;
-    if (escaneadora) { filter.$or = [{ escaneadora: { $regex: escaneadora, $options: 'i' } }, { changedBy: { $regex: escaneadora, $options: 'i' } }]; }
-    if (palletId) filter.palletId = { $regex: palletId, $options: 'i' };
-    if (field) filter['changes.field'] = { $regex: field, $options: 'i' };
+    if (escaneadora) { filter.$or = [{ escaneadora: rx(escaneadora) }, { changedBy: rx(escaneadora) }]; }
+    if (palletId) filter.palletId = rx(palletId);
+    if (field) filter['changes.field'] = rx(field);
     if (fecha) {
       // Use timezone-aware range: the date string is LOCAL (Mexico CST = UTC-6)
       // Build range from local midnight to local midnight+24h
@@ -1082,15 +1111,15 @@ app.get('/api/search', async (req, res) => {
     // 1. Exact palletId match first
     const exact = await EscReg.find({ palletId: q }).sort({ createdAt: -1 }).limit(5);
 
-    // 2. PalletId starts with query
-    const startsWith = await EscReg.find({ palletId: { $regex: '^' + q, $options: 'i' }, palletId: { $ne: q } }).sort({ createdAt: -1 }).limit(20);
+    // 2. PalletId starts with query (but not the exact match already collected above)
+    const startsWith = await EscReg.find({ palletId: { $regex: '^' + escapeRegex(q), $options: 'i', $ne: q } }).sort({ createdAt: -1 }).limit(20);
 
     // 3. Broader match (palletId contains, or pedido match)
     const broader = await EscReg.find({
       palletId: { $ne: q },
       $or: [
-        { palletId: { $regex: q, $options: 'i' } },
-        { pedido: { $regex: q, $options: 'i' } },
+        { palletId: rx(q) },
+        { pedido: rx(q) },
       ]
     }).sort({ createdAt: -1 }).limit(30);
 
@@ -1116,11 +1145,11 @@ app.get('/api/historial', auth, roleGuard('admin', 'viewer'), async (req, res) =
     if (fecha) filter.fecha = fecha;
     if (q) {
       filter.$or = [
-        { palletId: { $regex: q, $options: 'i' } },
-        { pedido: { $regex: q, $options: 'i' } },
-        { escaneadora: { $regex: q, $options: 'i' } },
-        { condicion: { $regex: q, $options: 'i' } },
-        { observaciones: { $regex: q, $options: 'i' } },
+        { palletId: rx(q) },
+        { pedido: rx(q) },
+        { escaneadora: rx(q) },
+        { condicion: rx(q) },
+        { observaciones: rx(q) },
       ];
     }
     const data = await EscReg.find(filter).sort({ createdAt: -1 }).limit(1000);
