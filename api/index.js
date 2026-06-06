@@ -109,6 +109,7 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 userSchema.methods.comparePassword = async function(p) { return bcrypt.compare(p, this.passwordHash); };
+userSchema.statics.hashPassword = function(p) { return bcrypt.hash(p, 10); };
 userSchema.set('toJSON', { transform: (d, r) => { delete r.passwordHash; return r; } });
 
 const escRegSchema = new mongoose.Schema({
@@ -299,6 +300,145 @@ app.delete('/api/users/:id', auth, roleGuard('admin'), async (req, res) => {
     // Limpiar sesiones activas
     await mongoose.connection.db.collection('active_sessions').deleteMany({ userId: req.params.id.toString() });
     res.json({ success: true, message: `Usuario ${user.nombre} desactivado. Sus registros se mantienen.` });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Editar usuario (nombre, role, isActive) — admin 3647
+app.put('/api/users/:id', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Sin permiso' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    const isSelf3647 = user.usuario === '3647';
+    const { nombre, role, isActive } = req.body;
+    if (nombre !== undefined) {
+      const n = String(nombre).trim();
+      if (!n) return res.status(400).json({ success: false, error: 'Nombre no puede estar vacio' });
+      user.nombre = n;
+    }
+    if (role !== undefined) {
+      if (!['admin', 'escaneadora', 'viewer'].includes(role)) return res.status(400).json({ success: false, error: 'Rol invalido' });
+      if (isSelf3647 && role !== 'admin') return res.status(403).json({ success: false, error: 'No puedes cambiar el rol del administrador 3647' });
+      user.role = role;
+    }
+    if (typeof isActive === 'boolean') {
+      if (isSelf3647 && !isActive) return res.status(403).json({ success: false, error: 'No puedes desactivar al administrador 3647' });
+      user.isActive = isActive;
+      if (!isActive) await mongoose.connection.db.collection('active_sessions').deleteMany({ userId: user._id.toString() });
+    }
+    await user.save();
+    res.json({ success: true, data: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role, isActive: user.isActive } });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Resetear password (6 digitos) — admin 3647
+app.post('/api/users/:id/password', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Sin permiso' });
+    const { password } = req.body;
+    if (!password || password.length !== 6 || !/^\d{6}$/.test(password)) return res.status(400).json({ success: false, error: 'Password debe ser exactamente 6 digitos' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    user.passwordHash = await User.hashPassword(password);
+    await user.save();
+    // Forzar re-login: limpiar sesiones del usuario
+    await mongoose.connection.db.collection('active_sessions').deleteMany({ userId: user._id.toString() });
+    res.json({ success: true, message: `Password de ${user.nombre} actualizado` });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ═══════════ SESIONES ACTIVAS (admin 3647 only) ═══════════
+app.get('/api/sessions', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Sin permiso' });
+    const col = mongoose.connection.db.collection('active_sessions');
+    await col.deleteMany({ expiresAt: { $lt: new Date() } });
+    const sessions = await col.find({}).sort({ createdAt: -1 }).toArray();
+    const userIds = sessions.map(s => { try { return new mongoose.Types.ObjectId(s.userId); } catch { return null; } }).filter(Boolean);
+    const users = await User.find({ _id: { $in: userIds } }).select('nombre usuario role');
+    const byId = {}; users.forEach(u => { byId[u._id.toString()] = u; });
+    const data = sessions.map(s => {
+      const u = byId[s.userId];
+      return { userId: s.userId, deviceId: s.deviceId, createdAt: s.createdAt, expiresAt: s.expiresAt,
+        nombre: u ? u.nombre : '(desconocido)', usuario: u ? u.usuario : '', role: u ? u.role : '' };
+    });
+    res.json({ success: true, data, total: data.length });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.delete('/api/sessions/:userId', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Sin permiso' });
+    const r = await mongoose.connection.db.collection('active_sessions').deleteMany({ userId: req.params.userId });
+    res.json({ success: true, message: `Sesion cerrada (${r.deletedCount})`, deletedCount: r.deletedCount });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ═══════════ TARJETAS NFC (admin 3647 only) ═══════════
+function nfcCol() { return mongoose.connection.db.collection('nfc_cards'); }
+
+app.get('/api/nfc', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Sin permiso' });
+    const cards = await nfcCol().find({}).sort({ createdAt: -1 }).toArray();
+    const userIds = cards.map(c => c.userId).filter(Boolean);
+    const users = await User.find({ _id: { $in: userIds } }).select('nombre usuario');
+    const byId = {}; users.forEach(u => { byId[u._id.toString()] = u; });
+    const data = cards.map(c => ({ ...c, usuarioVinculado: c.userId && byId[c.userId.toString()] ? byId[c.userId.toString()].usuario : null }));
+    res.json({ success: true, data, total: data.length });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.post('/api/nfc', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Sin permiso' });
+    const serialNumber = (req.body.serialNumber || '').toUpperCase().trim();
+    const role = req.body.role === 'admin' ? 'admin' : 'escaneadora';
+    const nombre = (req.body.nombre || '').trim();
+    let userId = null;
+    if (!serialNumber) return res.status(400).json({ success: false, error: 'Numero de serie requerido' });
+    if (req.body.usuario) {
+      const u = await User.findOne({ usuario: String(req.body.usuario).toLowerCase().trim() });
+      if (!u) return res.status(404).json({ success: false, error: 'Usuario a vincular no encontrado' });
+      userId = u._id;
+    }
+    const exists = await nfcCol().findOne({ serialNumber });
+    if (exists) return res.status(409).json({ success: false, error: 'Ya existe una tarjeta con ese numero de serie' });
+    const doc = { serialNumber, role, nombre, userId, isActive: true, useCount: 0, createdAt: new Date() };
+    await nfcCol().insertOne(doc);
+    res.json({ success: true, data: doc });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.put('/api/nfc/:id', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Sin permiso' });
+    let _id; try { _id = new mongoose.Types.ObjectId(req.params.id); } catch { return res.status(400).json({ success: false, error: 'ID invalido' }); }
+    const set = {};
+    if (typeof req.body.isActive === 'boolean') set.isActive = req.body.isActive;
+    if (req.body.nombre !== undefined) set.nombre = String(req.body.nombre).trim();
+    if (req.body.role !== undefined) set.role = req.body.role === 'admin' ? 'admin' : 'escaneadora';
+    if (req.body.usuario !== undefined) {
+      if (req.body.usuario) {
+        const u = await User.findOne({ usuario: String(req.body.usuario).toLowerCase().trim() });
+        if (!u) return res.status(404).json({ success: false, error: 'Usuario a vincular no encontrado' });
+        set.userId = u._id;
+      } else { set.userId = null; }
+    }
+    if (Object.keys(set).length === 0) return res.status(400).json({ success: false, error: 'Nada que actualizar' });
+    const r = await nfcCol().findOneAndUpdate({ _id }, { $set: set }, { returnDocument: 'after' });
+    const updated = r && (r.value || r);
+    if (!updated) return res.status(404).json({ success: false, error: 'Tarjeta no encontrada' });
+    res.json({ success: true, data: updated });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.delete('/api/nfc/:id', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Sin permiso' });
+    let _id; try { _id = new mongoose.Types.ObjectId(req.params.id); } catch { return res.status(400).json({ success: false, error: 'ID invalido' }); }
+    await nfcCol().updateOne({ _id }, { $set: { isActive: false } });
+    res.json({ success: true, message: 'Tarjeta desactivada' });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -496,6 +636,9 @@ app.get('/api/dashboard/resumen', auth, roleGuard('admin', 'viewer'), async (req
       totalUnidades += (r.cantidad || 0);
     });
 
+    let metas = [];
+    try { metas = await ProductionTarget.find({ isActive: true }); } catch(e) { /* targets opcionales */ }
+
     res.json({
       success: true,
       totalRegistros: registros.length,
@@ -503,6 +646,7 @@ app.get('/api/dashboard/resumen', auth, roleGuard('admin', 'viewer'), async (req
       totalUnidades,
       fechaHoy: hoyStr,
       salidaCount: salidaRecords.length,
+      metas,
       porEscaneadora: Object.entries(porEscaneadora).map(([nombre, d]) => ({ nombre, ...d })),
       porTurno: Object.entries(porTurno).map(([turno, d]) => ({ turno, ...d })),
       porDestino: Object.entries(porDestino).map(([destino, d]) => ({ destino, ...d })),
@@ -720,7 +864,6 @@ async function seedClasifIfEmpty() {
   try { await Clasif.insertMany(CLASIF_DEFAULTS, { ordered: false }); } catch(e) { /* ignore dup */ }
 }
 
-function escapeRegex(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function isHexColor(c) { return typeof c === 'string' && /^#[0-9A-Fa-f]{6}$/.test(c); }
 
 app.get('/api/clasificaciones', auth, async (req, res) => {
@@ -823,6 +966,93 @@ app.delete('/api/clasificaciones/:id', auth, roleGuard('admin'), async (req, res
     await doc.save();
     emitEvent('paletizado', 'clasificacion:deleted', { id: doc._id, nombre: doc.nombre });
     res.json({ success: true, message: `Pedido "${doc.nombre}" desactivado. Los registros existentes se conservan.` });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ═══════════ METAS DE PRODUCCION (admin 3647 only) ═══════════
+const targetSchema = new mongoose.Schema({
+  turno: { type: String, required: true, enum: ['Día', 'Noche', 'Global'], unique: true },
+  targetPallets: { type: Number, default: 0, min: 0 },
+  targetPiezas: { type: Number, default: 0, min: 0 },
+  isActive: { type: Boolean, default: true },
+  updatedBy: { type: String, default: '' },
+}, { timestamps: true });
+const ProductionTarget = mongoose.models.ProductionTarget || mongoose.model('ProductionTarget', targetSchema);
+
+app.get('/api/targets', auth, roleGuard('admin', 'viewer'), async (req, res) => {
+  try {
+    const data = await ProductionTarget.find({});
+    res.json({ success: true, data });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.put('/api/targets', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+    const items = Array.isArray(req.body.targets) ? req.body.targets : [req.body];
+    const results = [];
+    for (const it of items) {
+      const turno = it.turno;
+      if (!['Día', 'Noche', 'Global'].includes(turno)) continue;
+      const tp = parseInt(it.targetPallets, 10), tz = parseInt(it.targetPiezas, 10);
+      const targetPallets = Number.isNaN(tp) || tp < 0 ? 0 : tp;
+      const targetPiezas = Number.isNaN(tz) || tz < 0 ? 0 : tz;
+      const isActive = typeof it.isActive === 'boolean' ? it.isActive : true;
+      const doc = await ProductionTarget.findOneAndUpdate(
+        { turno },
+        { $set: { targetPallets, targetPiezas, isActive, updatedBy: req.user.nombre || req.user.usuario } },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+      results.push(doc);
+    }
+    res.json({ success: true, data: results });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ═══════════ AJUSTES DEL SISTEMA (app_settings) ═══════════
+const settingSchema = new mongoose.Schema({
+  key: { type: String, required: true, unique: true, trim: true },
+  value: { type: mongoose.Schema.Types.Mixed },
+  updatedBy: { type: String, default: '' },
+}, { timestamps: true });
+const AppSetting = mongoose.models.AppSetting || mongoose.model('AppSetting', settingSchema);
+
+// Defaults para catalogos (basados en los valores hardcodeados actuales)
+const SETTING_DEFAULTS = {
+  destinos: ['TRG', 'Almacen'],
+  turnos: ['Día', 'Noche'],
+  condiciones: ['GRA', 'GRB', 'GRC', 'GRD'],
+};
+const SETTING_KEYS = Object.keys(SETTING_DEFAULTS);
+
+app.get('/api/settings', auth, async (req, res) => {
+  try {
+    const docs = await AppSetting.find({});
+    const map = {};
+    docs.forEach(d => { map[d.key] = d.value; });
+    // Rellenar con defaults las keys de catalogo que aun no existan
+    for (const k of SETTING_KEYS) { if (map[k] === undefined) map[k] = SETTING_DEFAULTS[k]; }
+    res.json({ success: true, data: map });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.put('/api/settings/:key', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+    const key = req.params.key;
+    let value = req.body.value;
+    // Los catalogos deben ser arrays de strings no vacios y unicos
+    if (SETTING_KEYS.includes(key)) {
+      if (!Array.isArray(value)) return res.status(400).json({ success: false, error: 'El valor debe ser una lista' });
+      value = [...new Set(value.map(v => String(v).trim()).filter(Boolean))];
+      if (value.length === 0) return res.status(400).json({ success: false, error: 'La lista no puede quedar vacia' });
+    }
+    const doc = await AppSetting.findOneAndUpdate(
+      { key },
+      { $set: { value, updatedBy: req.user.nombre || req.user.usuario } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    res.json({ success: true, data: { key: doc.key, value: doc.value } });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
