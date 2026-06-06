@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Pallet = require('../models/Pallet');
+const { rx } = require('../utils/query');
 
 // POST /api/pallets — Crear un pallet nuevo
 router.post('/', async (req, res) => {
@@ -17,7 +18,7 @@ router.post('/', async (req, res) => {
 
     const pallet = await Pallet.create({
       palletId: id,
-      cantidad: parseInt(cantidad || qty) || 0,
+      cantidad: parseInt(cantidad || qty, 10) || 0,
       condicion: condicion || '',
       destino,
       turno,
@@ -44,8 +45,8 @@ router.get('/', async (req, res) => {
     const filter = {};
 
     if (fecha) filter.fecha = fecha;
-    if (turno) filter.turno = { $regex: turno, $options: 'i' };
-    if (destino) filter.destino = { $regex: destino, $options: 'i' };
+    if (turno) filter.turno = rx(turno);
+    if (destino) filter.destino = rx(destino);
     if (fecha_inicio && fecha_fin) {
       // For date ranges, we need to compare string dates — works for M/D/YYYY
       // Better to filter in-memory after fetching, or store as Date objects too
@@ -87,7 +88,7 @@ router.get('/today', async (req, res) => {
 router.get('/by-user/:user', async (req, res) => {
   try {
     const pallets = await Pallet.find({
-      escaneadora: { $regex: req.params.user, $options: 'i' }
+      escaneadora: rx(req.params.user)
     }).sort({ createdAt: -1 }).limit(200);
 
     res.json({ success: true, data: pallets, total: pallets.length });

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Pallet = require('../models/Pallet');
+const { rx } = require('../utils/query');
 
 // GET /api/mobile/check/:palletId — Duplicate check
 router.get('/check/:palletId', async (req, res) => {
@@ -78,8 +79,8 @@ router.get('/recent', async (req, res) => {
     const filter = {};
     if (operador) {
       filter.$or = [
-        { escaneadora: { $regex: operador, $options: 'i' } },
-        { observaciones: { $regex: operador, $options: 'i' } }
+        { escaneadora: rx(operador) },
+        { observaciones: rx(operador) }
       ];
     }
 
@@ -103,15 +104,15 @@ router.get('/stats', async (req, res) => {
     const filter = { fecha: todayStr };
     if (operador) {
       filter.$or = [
-        { escaneadora: { $regex: operador, $options: 'i' } },
-        { observaciones: { $regex: operador, $options: 'i' } }
+        { escaneadora: rx(operador) },
+        { observaciones: rx(operador) }
       ];
     }
 
     const todayCount = await Pallet.countDocuments(filter);
 
     const lastFilter = operador
-      ? { $or: [{ escaneadora: { $regex: operador, $options: 'i' } }, { observaciones: { $regex: operador, $options: 'i' } }] }
+      ? { $or: [{ escaneadora: rx(operador) }, { observaciones: rx(operador) }] }
       : {};
     const lastPallet = await Pallet.findOne(lastFilter).sort({ createdAt: -1 });
 

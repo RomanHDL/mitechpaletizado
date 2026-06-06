@@ -3,6 +3,7 @@ const router = express.Router();
 const ResumenPaletizado = require('../models/ResumenPaletizado');
 const auth = require('../middleware/auth');
 const roleGuard = require('../middleware/roleGuard');
+const { rx } = require('../utils/query');
 
 router.use(auth, roleGuard('admin', 'escaneadora'));
 
@@ -15,12 +16,12 @@ router.post('/', async (req, res) => {
     }
     const doc = await ResumenPaletizado.create({
       turno,
-      palletsTotales: parseInt(palletsTotales),
-      palletsTRG: parseInt(palletsTRG),
-      palletsAlmacen: parseInt(palletsAlmacen),
-      palletsEnProceso: parseInt(palletsEnProceso),
-      asistencia: parseInt(asistencia),
-      absentismo: parseInt(absentismo),
+      palletsTotales: parseInt(palletsTotales, 10),
+      palletsTRG: parseInt(palletsTRG, 10),
+      palletsAlmacen: parseInt(palletsAlmacen, 10),
+      palletsEnProceso: parseInt(palletsEnProceso, 10),
+      asistencia: parseInt(asistencia, 10),
+      absentismo: parseInt(absentismo, 10),
       tareasPendientes,
       fecha,
       capturadoPor: req.user._id,
@@ -38,7 +39,7 @@ router.get('/', async (req, res) => {
     const { fecha, turno, limit } = req.query;
     const filter = {};
     if (fecha) filter.fecha = fecha;
-    if (turno) filter.turno = { $regex: turno, $options: 'i' };
+    if (turno) filter.turno = rx(turno);
     const docs = await ResumenPaletizado.find(filter).sort({ createdAt: -1 }).limit(parseInt(limit) || 100);
     res.json({ success: true, data: docs, total: docs.length });
   } catch (error) {

@@ -4,6 +4,7 @@ const EscaneadoraRegistro = require('../models/EscaneadoraRegistro');
 const auth = require('../middleware/auth');
 const roleGuard = require('../middleware/roleGuard');
 const { isAuthorized: isDevice3647 } = require('../auth3647');
+const { rx } = require('../utils/query');
 
 // Todas las rutas requieren autenticación y rol admin o escaneadora
 router.use(auth, roleGuard('admin', 'escaneadora'));
@@ -24,7 +25,7 @@ router.post('/', async (req, res) => {
     }
 
     // Cantidad: max 2 digits (0-99)
-    const cantNum = parseInt(cantidad) || 0;
+    const cantNum = parseInt(cantidad, 10) || 0;
     if (cantNum > 99) {
       return res.status(400).json({ success: false, error: 'La cantidad no puede ser mayor a 99 (maximo 2 digitos).' });
     }
@@ -43,7 +44,7 @@ router.post('/', async (req, res) => {
 
     const doc = await EscaneadoraRegistro.create({
       palletId: palletId.trim(),
-      cantidad: parseInt(cantidad) || 0,
+      cantidad: parseInt(cantidad, 10) || 0,
       condicion: condicion || '',
       destino,
       turno,
@@ -67,8 +68,8 @@ router.get('/', async (req, res) => {
     const { fecha, escaneadora, turno, limit } = req.query;
     const filter = {};
     if (fecha) filter.fecha = fecha;
-    if (escaneadora) filter.escaneadora = { $regex: escaneadora, $options: 'i' };
-    if (turno) filter.turno = { $regex: turno, $options: 'i' };
+    if (escaneadora) filter.escaneadora = rx(escaneadora);
+    if (turno) filter.turno = rx(turno);
 
     const registros = await EscaneadoraRegistro.find(filter)
       .sort({ createdAt: -1 })

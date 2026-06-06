@@ -3,6 +3,7 @@ const router = express.Router();
 const EscaneadoraRegistro = require('../models/EscaneadoraRegistro');
 const auth = require('../middleware/auth');
 const roleGuard = require('../middleware/roleGuard');
+const { rx, inDateRange } = require('../utils/query');
 
 // Dashboard solo para admin
 router.use(auth, roleGuard('admin'));
@@ -39,8 +40,8 @@ router.get('/resumen', async (req, res) => {
     } else if (fecha_inicio && fecha_fin) {
       // Get all records and filter in memory for string dates
     }
-    if (escaneadora) filter.escaneadora = { $regex: escaneadora, $options: 'i' };
-    if (turno) filter.turno = { $regex: turno, $options: 'i' };
+    if (escaneadora) filter.escaneadora = rx(escaneadora);
+    if (turno) filter.turno = rx(turno);
 
     let registros = await EscaneadoraRegistro.find(filter).sort({ createdAt: -1 });
 
@@ -50,10 +51,7 @@ router.get('/resumen', async (req, res) => {
       const end = new Date(fecha_fin);
       end.setHours(23, 59, 59, 999);
       registros = registros.filter(r => {
-        const parts = r.fecha.split('/');
-        if (parts.length !== 3) return true;
-        const d = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
-        return d >= start && d <= end;
+        return inDateRange(r.fecha, start, end);
       });
     }
 
@@ -129,15 +127,15 @@ router.get('/registros', async (req, res) => {
     const filter = {};
 
     if (fecha) filter.fecha = fecha;
-    if (escaneadora) filter.escaneadora = { $regex: escaneadora, $options: 'i' };
-    if (turno) filter.turno = { $regex: turno, $options: 'i' };
+    if (escaneadora) filter.escaneadora = rx(escaneadora);
+    if (turno) filter.turno = rx(turno);
     if (busqueda) {
       filter.$or = [
-        { palletId: { $regex: busqueda, $options: 'i' } },
-        { escaneadora: { $regex: busqueda, $options: 'i' } },
-        { destino: { $regex: busqueda, $options: 'i' } },
-        { pedido: { $regex: busqueda, $options: 'i' } },
-        { observaciones: { $regex: busqueda, $options: 'i' } },
+        { palletId: rx(busqueda) },
+        { escaneadora: rx(busqueda) },
+        { destino: rx(busqueda) },
+        { pedido: rx(busqueda) },
+        { observaciones: rx(busqueda) },
       ];
     }
 
@@ -153,10 +151,7 @@ router.get('/registros', async (req, res) => {
       const end = new Date(fecha_fin);
       end.setHours(23, 59, 59, 999);
       registros = registros.filter(r => {
-        const parts = r.fecha.split('/');
-        if (parts.length !== 3) return true;
-        const d = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
-        return d >= start && d <= end;
+        return inDateRange(r.fecha, start, end);
       });
     }
 
@@ -177,8 +172,8 @@ router.get('/tendencias', async (req, res) => {
     // Build match filter for aggregation
     const matchFilter = {};
     if (fecha) matchFilter.fecha = fecha;
-    if (escaneadora) matchFilter.escaneadora = { $regex: escaneadora, $options: 'i' };
-    if (turno) matchFilter.turno = { $regex: turno, $options: 'i' };
+    if (escaneadora) matchFilter.escaneadora = rx(escaneadora);
+    if (turno) matchFilter.turno = rx(turno);
 
     const pipeline = [];
     if (Object.keys(matchFilter).length > 0) pipeline.push({ $match: matchFilter });
@@ -205,28 +200,22 @@ router.get('/tendencias', async (req, res) => {
       const start = new Date(fecha_inicio), end = new Date(fecha_fin);
       end.setHours(23, 59, 59, 999);
       tendencia = tendencia.filter(t => {
-        const p = t.date.split('/');
-        if (p.length !== 3) return true;
-        const d = new Date(parseInt(p[2]), parseInt(p[0]) - 1, parseInt(p[1]));
-        return d >= start && d <= end;
+        return inDateRange(t.date, start, end);
       });
     }
 
     // Promedios - use same filters
     const proFilter = {};
     if (fecha) proFilter.fecha = fecha;
-    if (escaneadora) proFilter.escaneadora = { $regex: escaneadora, $options: 'i' };
-    if (turno) proFilter.turno = { $regex: turno, $options: 'i' };
+    if (escaneadora) proFilter.escaneadora = rx(escaneadora);
+    if (turno) proFilter.turno = rx(turno);
 
     let registros = await EscaneadoraRegistro.find(proFilter);
     if (!fecha && fecha_inicio && fecha_fin) {
       const start = new Date(fecha_inicio), end = new Date(fecha_fin);
       end.setHours(23, 59, 59, 999);
       registros = registros.filter(r => {
-        const p = r.fecha.split('/');
-        if (p.length !== 3) return true;
-        const d = new Date(parseInt(p[2]), parseInt(p[0]) - 1, parseInt(p[1]));
-        return d >= start && d <= end;
+        return inDateRange(r.fecha, start, end);
       });
     }
 
