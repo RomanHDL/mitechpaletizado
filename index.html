@@ -747,6 +747,7 @@
         .ctrl-table tr:hover td{background:var(--inset-bg-hover);}
         .ctrl-badge{display:inline-block;padding:0.12rem 0.5rem;border-radius:999px;font-size:0.7rem;font-weight:600;}
         .ctrl-badge.role-admin{background:rgba(79,124,255,0.15);color:var(--accent);}
+        .ctrl-badge.role-lider{background:rgba(245,158,11,0.15);color:#f59e0b;}
         .ctrl-badge.role-escaneadora{background:rgba(34,197,94,0.15);color:var(--success);}
         .ctrl-badge.role-viewer{background:rgba(139,92,246,0.15);color:#8b5cf6;}
         .ctrl-badge.on{background:rgba(34,197,94,0.15);color:var(--success);}
@@ -1668,7 +1669,7 @@
                         <input type="text" class="form-input" id="ctrl-new-pass" placeholder="6 digitos" maxlength="6" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')" style="width:85px;padding:0.4rem 0.6rem;font-size:0.85rem;">
                         <button class="btn btn-primary btn-sm" onclick="ctrlCreateUser()"><i class="fa-solid fa-user-plus" style="margin-right:4px;"></i>Crear</button>
                     </div>
-                    <div style="overflow-x:auto;"><table class="ctrl-table"><thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Estado</th><th>NFC</th><th>Acciones</th></tr></thead><tbody id="ctrl-usuarios-body"></tbody></table></div>
+                    <div style="overflow-x:auto;"><table class="ctrl-table"><thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Modulos</th><th>Estado</th><th>NFC</th><th>Acciones</th></tr></thead><tbody id="ctrl-usuarios-body"></tbody></table></div>
                 </div>
             </div>
 
@@ -1759,6 +1760,19 @@ const API = window.location.origin;
 let currentUser = null;
 let authToken = localStorage.getItem('mitech_token');
 let chartAudit = null;
+
+// Permisos por modulo — debe reflejar exactamente ROLE_MODULES en api/index.js
+const ROLE_MODULES = {
+    admin: ['dashboard', 'escaneadoras'],
+    lider: ['dashboard', 'escaneadoras'],
+    escaneadora: ['escaneadoras'],
+    viewer: ['dashboard'],
+};
+function hasModule(m) {
+    if (!currentUser) return false;
+    const mods = Array.isArray(currentUser.modulosCustom) ? currentUser.modulosCustom : (ROLE_MODULES[currentUser.role] || []);
+    return mods.includes(m);
+}
 
 // Persistent device ID
 function getDeviceId() {
@@ -1982,12 +1996,12 @@ function enterApp() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').classList.add('active');
     document.getElementById('user-display-name').textContent = currentUser.nombre;
-    const roleLabels = { admin:'Administrador', escaneadora:'Escaneadora', viewer:'Dashboard' };
+    const roleLabels = { admin:'Administrador', lider:'Lider', escaneadora:'Escaneadora', viewer:'Dashboard' };
     document.getElementById('user-display-role').textContent = roleLabels[currentUser.role] || currentUser.role;
 
-    // Role-based visibility
+    // Permisos por modulo
     const dashCard = document.getElementById('home-dash-card');
-    if (currentUser.role === 'admin' || currentUser.role === 'viewer') {
+    if (hasModule('dashboard')) {
         if (dashCard) dashCard.style.display = 'flex';
     } else {
         if (dashCard) dashCard.style.display = 'none';
@@ -2009,14 +2023,26 @@ function enterApp() {
         document.documentElement.removeAttribute('data-theme');
     }
 
-    // Viewer: go directly to dashboard, hide other module cards
-    if (currentUser.role === 'viewer') {
-        const escCard = document.querySelector('.mod-esc');
-        const resCard = document.querySelector('.mod-resumen');
+    // Sin acceso a escaneadoras: ocultar esos cards del home
+    const escCard = document.querySelector('.mod-esc');
+    const resCard = document.querySelector('.mod-resumen');
+    if (!hasModule('escaneadoras')) {
         if (escCard) escCard.style.display = 'none';
         if (resCard) resCard.style.display = 'none';
+    } else {
+        if (escCard) escCard.style.display = '';
+        if (resCard) resCard.style.display = '';
+    }
+
+    // Solo dashboard, sin escaneadoras (ej. viewer): ir directo al dashboard
+    if (hasModule('dashboard') && !hasModule('escaneadoras')) {
         switchView('dashboard');
         return;
+    }
+
+    // Sin ningun modulo asignado: aviso, la pagina no se rompe
+    if (!hasModule('dashboard') && !hasModule('escaneadoras')) {
+        showToast('No tienes modulos asignados. Contacta al administrador.', 'info', 6000);
     }
 
     // Greeting
@@ -2756,10 +2782,19 @@ function returnToAdmin() {
 // ══════════════════════════════════════════════
 
 function switchView(viewName) {
-    // Role checks
-    if (viewName === 'dashboard' && (!currentUser || !['admin','viewer'].includes(currentUser.role))) return;
-    // Viewer can ONLY access dashboard (and the read-only Configuracion view)
-    if (currentUser && currentUser.role === 'viewer' && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
+    // Permisos por modulo
+    if (viewName === 'dashboard' && !hasModule('dashboard')) {
+        showToast('Acceso denegado: no tienes permiso para ver este modulo.', 'error');
+        switchView('home');
+        return;
+    }
+    if ((viewName === 'escaneadoras' || viewName === 'resumen') && !hasModule('escaneadoras')) {
+        showToast('Acceso denegado: no tienes permiso para ver este modulo.', 'error');
+        switchView('home');
+        return;
+    }
+    // Usuarios con dashboard pero sin escaneadoras (ej. viewer): limitados a dashboard/config
+    if (currentUser && hasModule('dashboard') && !hasModule('escaneadoras') && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
     // Centro de Control: exclusivo del administrador 3647
     if (viewName === 'control' && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
     // Save current view for restore on refresh
@@ -2779,7 +2814,7 @@ function switchView(viewName) {
         const dn = document.getElementById('dash-user-name');
         const dr = document.getElementById('dash-user-role');
         if (dn) dn.textContent = currentUser.nombre;
-        const rl = { admin:'Administrador', escaneadora:'Escaneadora', viewer:'Dashboard' };
+        const rl = { admin:'Administrador', lider:'Lider', escaneadora:'Escaneadora', viewer:'Dashboard' };
         if (dr) dr.textContent = rl[currentUser.role] || currentUser.role;
         // Capture mode: only for user 3647
         const capBtn = document.getElementById('btn-capture-mode');
@@ -2803,7 +2838,7 @@ function switchView(viewName) {
 function loadConfig() {
     if (!currentUser) return;
     const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    const roleLabels = { admin: 'Administrador', escaneadora: 'Escaneadora', viewer: 'Dashboard (solo lectura)' };
+    const roleLabels = { admin: 'Administrador', lider: 'Lider', escaneadora: 'Escaneadora', viewer: 'Dashboard (solo lectura)' };
     setTxt('cfg-nombre', currentUser.nombre || '-');
     setTxt('cfg-usuario', currentUser.usuario || '-');
     setTxt('cfg-rol', roleLabels[currentUser.role] || currentUser.role || '-');
@@ -2858,21 +2893,50 @@ function setControlTab(tab) {
 // ── Usuarios ──
 async function loadControlUsuarios() {
     const body = document.getElementById('ctrl-usuarios-body');
-    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Cargando...</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Cargando...</td></tr>';
     try {
         const data = await apiFetch(`${API}/api/users`);
         if (!data.success) throw new Error(data.error);
-        if (!data.data.length) { body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Sin usuarios</td></tr>'; return; }
+        if (!data.data.length) { body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Sin usuarios</td></tr>'; return; }
         body.innerHTML = data.data.map(u => {
             const is3647 = u.usuario === '3647';
             const roleSel = `<select class="form-input" style="padding:0.25rem 0.4rem;font-size:0.78rem;" onchange="ctrlSetRole('${u._id}', this.value)" ${is3647?'disabled':''}>`
-                + ['admin','escaneadora','viewer'].map(r => `<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('') + '</select>';
+                + ['admin','lider','escaneadora','viewer'].map(r => `<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('') + '</select>';
+            const mods = u.effectiveModules || [];
+            const isCustom = Array.isArray(u.modulosCustom);
+            const chk = (m, label) => `<label style="font-size:0.7rem;margin-right:6px;white-space:nowrap;"><input type="checkbox" class="ctrl-mod-chk" data-mod="${m}" ${mods.includes(m)?'checked':''} onchange="ctrlSyncModules('${u._id}', this)"> ${label}</label>`;
+            const modulosCell = chk('dashboard','dashboard') + chk('escaneadoras','escaneadoras')
+                + (isCustom ? `<button class="ctrl-iconbtn" title="Restablecer al rol" onclick="ctrlResetModules('${u._id}')" style="margin-left:2px;"><i class="fa-solid fa-rotate-left"></i></button>` : '<span style="font-size:0.68rem;color:var(--text-muted);">(rol)</span>');
             const estado = u.isActive ? '<span class="ctrl-badge on">Activo</span>' : '<span class="ctrl-badge off">Inactivo</span>';
             const acciones = `<button class="ctrl-iconbtn" title="Resetear password" onclick="ctrlResetPassword('${u._id}','${ctrlEsc(u.nombre)}')"><i class="fa-solid fa-key"></i></button>`
                 + (is3647 ? '' : `<button class="ctrl-iconbtn ${u.isActive?'danger':''}" title="${u.isActive?'Desactivar':'Activar'}" onclick="ctrlToggleUserActive('${u._id}', ${u.isActive})"><i class="fa-solid fa-power-off"></i></button>`);
-            return `<tr><td>${ctrlEsc(u.nombre)}</td><td>${ctrlEsc(u.usuario)}</td><td>${roleSel}</td><td>${estado}</td><td>${u.hasNfc?'<i class="fa-solid fa-id-card" style="color:var(--success);"></i>':'—'}</td><td style="white-space:nowrap;">${acciones}</td></tr>`;
+            return `<tr><td>${ctrlEsc(u.nombre)}</td><td>${ctrlEsc(u.usuario)}</td><td>${roleSel}</td><td style="white-space:nowrap;">${modulosCell}</td><td>${estado}</td><td>${u.hasNfc?'<i class="fa-solid fa-id-card" style="color:var(--success);"></i>':'—'}</td><td style="white-space:nowrap;">${acciones}</td></tr>`;
         }).join('');
-    } catch (e) { body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger);">${ctrlEsc(e.message)}</td></tr>`; }
+    } catch (e) { body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger);">${ctrlEsc(e.message)}</td></tr>`; }
+}
+
+function ctrlSyncModules(id, checkboxEl) {
+    const row = checkboxEl.closest('tr');
+    const modules = Array.from(row.querySelectorAll('.ctrl-mod-chk:checked')).map(c => c.dataset.mod);
+    ctrlSetModules(id, modules);
+}
+
+async function ctrlSetModules(id, modules) {
+    try {
+        const data = await apiFetch(`${API}/api/users/${id}`, { method:'PUT', body: JSON.stringify({ modulosCustom: modules }) });
+        if (!data.success) throw new Error(data.error);
+        showToast('Modulos actualizados', 'success');
+        loadControlUsuarios();
+    } catch (e) { showToast(e.message, 'error'); loadControlUsuarios(); }
+}
+
+async function ctrlResetModules(id) {
+    try {
+        const data = await apiFetch(`${API}/api/users/${id}`, { method:'PUT', body: JSON.stringify({ modulosCustom: null }) });
+        if (!data.success) throw new Error(data.error);
+        showToast('Modulos restablecidos al rol', 'success');
+        loadControlUsuarios();
+    } catch (e) { showToast(e.message, 'error'); }
 }
 
 async function ctrlCreateUser() {

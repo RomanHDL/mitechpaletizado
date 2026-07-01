@@ -104,8 +104,10 @@ const userSchema = new mongoose.Schema({
   nombre: { type: String, required: true },
   usuario: { type: String, required: true, unique: true, lowercase: true, trim: true },
   passwordHash: { type: String, required: true },
-  role: { type: String, enum: ['admin', 'escaneadora', 'viewer'], required: true },
+  role: { type: String, enum: ['admin', 'lider', 'escaneadora', 'viewer'], required: true },
   isActive: { type: Boolean, default: true },
+  // undefined = usa el default de su rol (ROLE_MODULES); array (incluso []) = override explicito por usuario
+  modulosCustom: { type: [String], default: undefined },
 }, { timestamps: true });
 
 userSchema.methods.comparePassword = async function(p) { return bcrypt.compare(p, this.passwordHash); };
@@ -155,6 +157,27 @@ function roleGuard(...roles) {
   };
 }
 
+// Permisos por modulo (independiente del Centro de Control, que sigue exclusivo de usuario 3647).
+// Solo hay 2 modulos reales en esta app: dashboard y escaneadoras (incluye resumen de turno).
+const ROLE_MODULES = {
+  admin: ['dashboard', 'escaneadoras'],
+  lider: ['dashboard', 'escaneadoras'],
+  escaneadora: ['escaneadoras'],
+  viewer: ['dashboard'],
+};
+function getUserModules(user) {
+  return Array.isArray(user.modulosCustom) ? user.modulosCustom : (ROLE_MODULES[user.role] || []);
+}
+function moduleGuard(moduleName) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ success: false, error: 'No autenticado' });
+    if (!getUserModules(req.user).includes(moduleName)) {
+      return res.status(403).json({ success: false, error: 'Acceso denegado: no tienes permiso para ver este modulo.' });
+    }
+    next();
+  };
+}
+
 // Connect DB on every request
 app.use(async (req, res, next) => {
   try { await connectDB(); next(); }
@@ -186,7 +209,7 @@ app.post('/api/auth/login', async (req, res) => {
     const sc = await checkAndSetSession(user, deviceId);
     if (!sc.allowed) return res.status(403).json({ success: false, error: sc.error, sessionConflict: true });
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
-    res.json({ success: true, token, deviceId: sc.deviceId, user: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role } });
+    res.json({ success: true, token, deviceId: sc.deviceId, user: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role, modulosCustom: user.modulosCustom ?? null } });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -204,7 +227,7 @@ app.post('/api/auth/nfc', async (req, res) => {
     if (!sc.allowed) return res.status(403).json({ success: false, error: sc.error, sessionConflict: true });
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
     await db.collection('nfc_cards').updateOne({ _id: card._id }, { $set: { lastUsed: new Date() }, $inc: { useCount: 1 } });
-    res.json({ success: true, token, deviceId: sc.deviceId, user: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role }, nfc: { serial: card.serialNumber, role: card.role } });
+    res.json({ success: true, token, deviceId: sc.deviceId, user: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role, modulosCustom: user.modulosCustom ?? null }, nfc: { serial: card.serialNumber, role: card.role } });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -221,7 +244,7 @@ app.get('/api/auth/me', auth, async (req, res) => {
     const session = await sessionsCol().findOne({ userId: req.user._id.toString() });
     if (session && session.deviceId !== deviceId) return res.status(401).json({ success: false, error: 'Sesion invalida para este dispositivo' });
   }
-  res.json({ success: true, user: { id: req.user._id, nombre: req.user.nombre, usuario: req.user.usuario, role: req.user.role } });
+  res.json({ success: true, user: { id: req.user._id, nombre: req.user.nombre, usuario: req.user.usuario, role: req.user.role, modulosCustom: req.user.modulosCustom ?? null } });
 });
 
 // ═══════════ IMPERSONATION (admin only) ═══════════
@@ -255,7 +278,7 @@ app.post('/api/auth/impersonate', auth, roleGuard('admin'), async (req, res) => 
     res.json({
       success: true,
       token,
-      user: { id: target._id, nombre: target.nombre, usuario: target.usuario, role: target.role },
+      user: { id: target._id, nombre: target.nombre, usuario: target.usuario, role: target.role, modulosCustom: target.modulosCustom ?? null },
       impersonation: true,
       admin: req.user.usuario
     });
@@ -270,7 +293,7 @@ app.get('/api/users', auth, roleGuard('admin'), async (req, res) => {
     // Include NFC card info to know which users have NFC
     const nfcCards = await mongoose.connection.db.collection('nfc_cards').find({ isActive: true, role: 'escaneadora' }).toArray();
     const nfcUserIds = nfcCards.map(c => c.userId ? c.userId.toString() : null).filter(Boolean);
-    const data = users.map(u => ({ ...u.toJSON(), hasNfc: nfcUserIds.includes(u._id.toString()) }));
+    const data = users.map(u => ({ ...u.toJSON(), hasNfc: nfcUserIds.includes(u._id.toString()), effectiveModules: getUserModules(u) }));
     res.json({ success: true, data });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
@@ -310,14 +333,14 @@ app.put('/api/users/:id', auth, roleGuard('admin'), async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
     const isSelf3647 = user.usuario === '3647';
-    const { nombre, role, isActive } = req.body;
+    const { nombre, role, isActive, modulosCustom } = req.body;
     if (nombre !== undefined) {
       const n = String(nombre).trim();
       if (!n) return res.status(400).json({ success: false, error: 'Nombre no puede estar vacio' });
       user.nombre = n;
     }
     if (role !== undefined) {
-      if (!['admin', 'escaneadora', 'viewer'].includes(role)) return res.status(400).json({ success: false, error: 'Rol invalido' });
+      if (!['admin', 'lider', 'escaneadora', 'viewer'].includes(role)) return res.status(400).json({ success: false, error: 'Rol invalido' });
       if (isSelf3647 && role !== 'admin') return res.status(403).json({ success: false, error: 'No puedes cambiar el rol del administrador 3647' });
       user.role = role;
     }
@@ -326,8 +349,19 @@ app.put('/api/users/:id', auth, roleGuard('admin'), async (req, res) => {
       user.isActive = isActive;
       if (!isActive) await mongoose.connection.db.collection('active_sessions').deleteMany({ userId: user._id.toString() });
     }
+    if (modulosCustom !== undefined) {
+      if (modulosCustom === null) {
+        user.modulosCustom = undefined;
+      } else {
+        const ALL_MODULES = ['dashboard', 'escaneadoras'];
+        if (!Array.isArray(modulosCustom) || !modulosCustom.every(m => ALL_MODULES.includes(m))) {
+          return res.status(400).json({ success: false, error: 'modulosCustom invalido: debe ser null o un subconjunto de ' + ALL_MODULES.join(', ') });
+        }
+        user.modulosCustom = modulosCustom;
+      }
+    }
     await user.save();
-    res.json({ success: true, data: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role, isActive: user.isActive } });
+    res.json({ success: true, data: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role, isActive: user.isActive, modulosCustom: user.modulosCustom ?? null, effectiveModules: getUserModules(user) } });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -443,7 +477,7 @@ app.delete('/api/nfc/:id', auth, roleGuard('admin'), async (req, res) => {
 });
 
 // ═══════════ ESCANEADORAS ═══════════
-app.post('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (req, res) => {
+app.post('/api/escaneadoras', auth, moduleGuard('escaneadoras'), async (req, res) => {
   try {
     const { palletId, cantidad, condicion, destino, turno, escaneadora, fecha, pedido, incidencias, observaciones } = req.body;
     if (!palletId || !destino || !turno || !escaneadora || !fecha) return res.status(400).json({ success: false, error: 'Campos requeridos: palletId, destino, turno, escaneadora, fecha' });
@@ -507,7 +541,7 @@ app.post('/api/escaneadoras/retrabajo', auth, roleGuard('admin'), async (req, re
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-app.get('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (req, res) => {
+app.get('/api/escaneadoras', auth, moduleGuard('escaneadoras'), async (req, res) => {
   try {
     const { fecha, escaneadora, turno, limit } = req.query;
     const filter = {};
@@ -519,7 +553,7 @@ app.get('/api/escaneadoras', auth, roleGuard('admin', 'escaneadora'), async (req
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-app.get('/api/escaneadoras/:id', auth, roleGuard('admin', 'escaneadora'), async (req, res) => {
+app.get('/api/escaneadoras/:id', auth, moduleGuard('escaneadoras'), async (req, res) => {
   try {
     const doc = await EscReg.findById(req.params.id);
     if (!doc) return res.status(404).json({ success: false, error: 'No encontrado' });
@@ -589,7 +623,7 @@ function normalizeTurno(t) {
   return t;
 }
 
-app.get('/api/dashboard/resumen', auth, roleGuard('admin', 'viewer'), async (req, res) => {
+app.get('/api/dashboard/resumen', auth, moduleGuard('dashboard'), async (req, res) => {
   try {
     const { fecha, fecha_inicio, fecha_fin, escaneadora, turno } = req.query;
     const filter = {};
@@ -657,7 +691,7 @@ app.get('/api/dashboard/resumen', auth, roleGuard('admin', 'viewer'), async (req
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-app.get('/api/dashboard/registros', auth, roleGuard('admin', 'viewer'), async (req, res) => {
+app.get('/api/dashboard/registros', auth, moduleGuard('dashboard'), async (req, res) => {
   try {
     const { fecha, fecha_inicio, fecha_fin, escaneadora, turno, busqueda, limit, skip } = req.query;
     const filter = {};
@@ -709,7 +743,7 @@ function calcTurnoFromHour(date) {
   return 'Otro';
 }
 
-app.get('/api/dashboard/tendencias', auth, roleGuard('admin', 'viewer'), async (req, res) => {
+app.get('/api/dashboard/tendencias', auth, moduleGuard('dashboard'), async (req, res) => {
   try {
     const limit = parseInt(req.query.dias) || 7;
     const { fecha, fecha_inicio, fecha_fin, escaneadora, turno } = req.query;
@@ -772,7 +806,7 @@ app.get('/api/dashboard/tendencias', auth, roleGuard('admin', 'viewer'), async (
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-app.get('/api/dashboard/catalogos', auth, roleGuard('admin', 'viewer'), async (req, res) => {
+app.get('/api/dashboard/catalogos', auth, moduleGuard('dashboard'), async (req, res) => {
   try {
     const escaneadoras = await EscReg.distinct('escaneadora');
     const destinos = await EscReg.distinct('destino');
@@ -800,7 +834,7 @@ resumenSchema.index({ fecha: 1, turno: 1 });
 resumenSchema.index({ createdAt: -1 });
 const Resumen = mongoose.models.ResumenPaletizado || mongoose.model('ResumenPaletizado', resumenSchema);
 
-app.post('/api/resumen', auth, roleGuard('admin', 'escaneadora'), async (req, res) => {
+app.post('/api/resumen', auth, moduleGuard('escaneadoras'), async (req, res) => {
   try {
     const { turno, palletsTotales, palletsTRG, palletsAlmacen, palletsEnProceso, asistencia, absentismo, tareasPendientes, fecha } = req.body;
     if (!turno || !fecha || palletsTotales===undefined || palletsTotales==='' || palletsTRG===undefined || palletsTRG==='' || palletsAlmacen===undefined || palletsAlmacen==='' || palletsEnProceso===undefined || palletsEnProceso==='' || asistencia===undefined || asistencia==='' || absentismo===undefined || absentismo==='' || !tareasPendientes) {
@@ -821,7 +855,7 @@ app.post('/api/resumen', auth, roleGuard('admin', 'escaneadora'), async (req, re
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-app.get('/api/resumen', auth, roleGuard('admin', 'escaneadora'), async (req, res) => {
+app.get('/api/resumen', auth, moduleGuard('escaneadoras'), async (req, res) => {
   try {
     const { fecha, turno, limit } = req.query;
     const filter = {};
@@ -979,7 +1013,7 @@ const targetSchema = new mongoose.Schema({
 }, { timestamps: true });
 const ProductionTarget = mongoose.models.ProductionTarget || mongoose.model('ProductionTarget', targetSchema);
 
-app.get('/api/targets', auth, roleGuard('admin', 'viewer'), async (req, res) => {
+app.get('/api/targets', auth, moduleGuard('dashboard'), async (req, res) => {
   try {
     const data = await ProductionTarget.find({});
     res.json({ success: true, data });
@@ -1385,7 +1419,7 @@ app.get('/api/search', async (req, res) => {
 });
 
 // ═══════════ HISTORIAL (no date limit, full data) ═══════════
-app.get('/api/historial', auth, roleGuard('admin', 'viewer'), async (req, res) => {
+app.get('/api/historial', auth, moduleGuard('dashboard'), async (req, res) => {
   try {
     const { q, fecha } = req.query;
     const filter = {};
