@@ -1089,7 +1089,10 @@ app.get('/api/seed', async (req, res) => {
       { nombre: 'Viewer Dashboard', usuario: '2678',     password: 'Sonyqled75', role: 'viewer' },
       { nombre: 'Victor',           usuario: 'victor',   password: '123456',     role: 'viewer' },
       { nombre: 'Brandon',          usuario: 'brandon',  password: 'brandon123', role: 'viewer' },
-      { nombre: 'Hector Lider',     usuario: 'hector',   password: 'Hector2026!', role: 'viewer' },
+      // Hector Lider: paso de viewer a escaneadora (modulo de escaneo habilitado via NFC 12:8B:CD:42)
+      { nombre: 'Hector Lider',     usuario: 'hector',   password: 'Hector2026!', role: 'escaneadora' },
+      // TODO Usuario 2 (modulo escaneadoras) — falta: nombre, usuario, password.
+      // Agregar aqui siguiendo el patron de Hector arriba cuando Roman tenga los datos.
     ];
     const results = [];
     for (const u of seedUsers) {
@@ -1138,18 +1141,33 @@ app.get('/api/seed-nfc', async (req, res) => {
     );
     results.push({ serial: yusleySerial, nombre: 'Yusley Montes', role: 'escaneadora', linkedUserId: yusley?._id || null });
 
-    // Hector Lider NFC (viewer — solo dashboard)
+    // Hector Lider NFC (escaneadora — modulo de escaneo)
     const hector = await User.findOne({ usuario: 'hector' });
     const hectorSerial = '12:8B:CD:42';
     await col.updateOne(
       { serialNumber: hectorSerial },
-      { $set: { serialNumber: hectorSerial, role: 'viewer', isActive: true, nombre: 'Hector Lider', ...(hector ? { userId: hector._id } : {}) }, $setOnInsert: { useCount: 0, createdAt: new Date() } },
+      { $set: { serialNumber: hectorSerial, role: 'escaneadora', isActive: true, nombre: 'Hector Lider', ...(hector ? { userId: hector._id } : {}) }, $setOnInsert: { useCount: 0, createdAt: new Date() } },
       { upsert: true }
     );
-    results.push({ serial: hectorSerial, nombre: 'Hector Lider', role: 'viewer', linkedUserId: hector?._id || null });
+    results.push({ serial: hectorSerial, nombre: 'Hector Lider', role: 'escaneadora', linkedUserId: hector?._id || null });
+
+    // TODO Usuario 2 (modulo escaneadoras) — falta: NFC serial (PENDIENTE_DE_AGREGAR).
+    // Agregar aqui siguiendo el patron de Hector arriba cuando Roman tenga el serial real.
 
     const allCards = await col.find({}).toArray();
     res.json({ success: true, results, totalCards: allCards.length, allCards });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// One-off: sube el rol de Hector Lider de viewer a escaneadora (habilita modulo de escaneo).
+// El rol efectivo de login viene de User.role, no de nfc_cards.role, asi que este paso
+// es necesario ademas de /api/seed-nfc. Idempotente, seguro de llamar mas de una vez.
+app.get('/api/setup-hector-escaneadora', async (req, res) => {
+  try {
+    if (!seedGuard(req, res)) return;
+    await User.updateOne({ usuario: 'hector' }, { $set: { role: 'escaneadora' } });
+    const user = await User.findOne({ usuario: 'hector' });
+    res.json({ success: true, user: { usuario: user.usuario, nombre: user.nombre, role: user.role } });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
