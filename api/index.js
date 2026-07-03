@@ -85,6 +85,44 @@ function inDateRange(fechaStr, start, end) {
   return d >= start && d <= end;
 }
 
+// Aggregation stages that derive a real BSON Date (`_fechaDate`) from the stored unpadded
+// M/D/YYYY `fecha` string, without ever throwing on malformed values (yields null instead).
+// Needed because Mongo can't sort/range-filter/group-by-week correctly on a plain string like
+// "6/6/2026" vs "12/1/2026" (lexical order != chronological order).
+function fechaDateStages() {
+  return [
+    { $addFields: { _fParts: { $split: ['$fecha', '/'] } } },
+    { $addFields: {
+        _fY: { $convert: { input: { $arrayElemAt: ['$_fParts', 2] }, to: 'int', onError: null, onNull: null } },
+        _fM: { $convert: { input: { $arrayElemAt: ['$_fParts', 0] }, to: 'int', onError: null, onNull: null } },
+        _fD: { $convert: { input: { $arrayElemAt: ['$_fParts', 1] }, to: 'int', onError: null, onNull: null } },
+    } },
+    { $addFields: {
+        _fechaDate: {
+          $cond: [
+            { $and: [
+                { $eq: [{ $size: '$_fParts' }, 3] },
+                { $ne: ['$_fY', null] }, { $ne: ['$_fM', null] }, { $ne: ['$_fD', null] },
+                { $gte: ['$_fM', 1] }, { $lte: ['$_fM', 12] },
+                { $gte: ['$_fD', 1] }, { $lte: ['$_fD', 31] },
+            ] },
+            { $dateFromParts: { year: '$_fY', month: '$_fM', day: '$_fD' } },
+            null,
+          ],
+        },
+    } },
+    { $project: { _fParts: 0, _fY: 0, _fM: 0, _fD: 0 } },
+  ];
+}
+// Date-range match that keeps unparseable-fecha docs visible (mirrors inDateRange's "keep if unknown" rule)
+function fechaDateRangeMatch(fechaInicio, fechaFin) {
+  const range = {};
+  if (fechaInicio) range.$gte = new Date(fechaInicio + 'T00:00:00');
+  if (fechaFin) { const end = new Date(fechaFin + 'T00:00:00'); end.setHours(23, 59, 59, 999); range.$lte = end; }
+  return { $or: [{ _fechaDate: null }, { _fechaDate: range }] };
+}
+const MESES_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
 // ── DB Connection (reuse across invocations) ──
 let isConnected = false;
 async function connectDB() {
@@ -709,7 +747,9 @@ app.get('/api/dashboard/registros', auth, moduleGuard('dashboard'), async (req, 
     }
     let query = EscReg.find(filter).sort({ createdAt: -1 });
     if (skip) query = query.skip(parseInt(skip));
-    query = query.limit(parseInt(limit) || 2000);
+    // Safety ceiling only (not a "results per page" default) — comfortably above real data volume
+    // so dashboard metrics/charts never silently drop older records like the old 2000 default did.
+    query = query.limit(Math.min(20000, parseInt(limit) || 20000));
     let registros = await query.populate('capturadoPor', 'nombre');
 
     if (!fecha && fecha_inicio && fecha_fin) {
@@ -803,6 +843,67 @@ app.get('/api/dashboard/tendencias', auth, moduleGuard('dashboard'), async (req,
     });
     const promedios = Object.entries(turnoStats).map(([turno, total]) => ({ turno, totalRegistros: total, totalDias: turnoDates[turno].size, promedio: turnoDates[turno].size > 0 ? (total / turnoDates[turno].size).toFixed(1) : 0 }));
     res.json({ success: true, tendencia, promedios });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ═══════════ PIEZAS PALETIZADAS POR SEMANA (agregacion real en Mongo, sin cargar registros al frontend) ═══════════
+app.get('/api/dashboard/piezas-semana', auth, moduleGuard('dashboard'), async (req, res) => {
+  try {
+    const { fecha_inicio, fecha_fin, escaneadora, turno } = req.query;
+    const matchFilter = {};
+    if (escaneadora) matchFilter.escaneadora = rx(escaneadora);
+    if (turno) matchFilter.turno = rx(turno);
+
+    const pipeline = [];
+    if (Object.keys(matchFilter).length) pipeline.push({ $match: matchFilter });
+    pipeline.push(...fechaDateStages());
+
+    if (fecha_inicio || fecha_fin) {
+      pipeline.push({ $match: fechaDateRangeMatch(fecha_inicio, fecha_fin) });
+    }
+    // Un registro sin fecha valida no puede ubicarse en ninguna semana — se excluye solo de este agrupado
+    pipeline.push({ $match: { _fechaDate: { $ne: null } } });
+
+    pipeline.push(
+      { $addFields: { _weekStart: { $dateTrunc: { date: '$_fechaDate', unit: 'week', startOfWeek: 'monday' } } } },
+      { $group: {
+          _id: '$_weekStart',
+          totalPiezas: { $sum: { $ifNull: ['$cantidad', 0] } },
+          totalPallets: { $sum: 1 },
+          dias: { $addToSet: '$fecha' },
+        } },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, weekStart: '$_id', totalPiezas: 1, totalPallets: 1, diasConDatos: { $size: '$dias' } } },
+    );
+
+    const rows = await EscReg.aggregate(pipeline);
+
+    let metaGlobalDiaria = 0;
+    try {
+      const metaGlobal = await ProductionTarget.findOne({ turno: 'Global', isActive: true });
+      metaGlobalDiaria = metaGlobal?.targetPiezas || 0;
+    } catch (e) { /* metas opcionales */ }
+    const metaSemanal = metaGlobalDiaria > 0 ? metaGlobalDiaria * 7 : 0;
+
+    const serie = rows.map(r => {
+      const start = new Date(r.weekStart);
+      const end = new Date(start); end.setDate(end.getDate() + 6);
+      const label = `${start.getDate()} ${MESES_ES[start.getMonth()]} - ${end.getDate()} ${MESES_ES[end.getMonth()]}`;
+      const promedioDiario = r.diasConDatos > 0 ? +(r.totalPiezas / r.diasConDatos).toFixed(1) : 0;
+      return {
+        weekStart: start.toISOString().slice(0, 10),
+        weekEnd: end.toISOString().slice(0, 10),
+        label,
+        totalPiezas: r.totalPiezas,
+        totalPallets: r.totalPallets,
+        diasConDatos: r.diasConDatos,
+        promedioDiario,
+        metaSemanal,
+        cumpleMeta: metaSemanal > 0 ? r.totalPiezas >= metaSemanal : null,
+      };
+    });
+
+    res.json({ success: true, serie, metaSemanal, metaGlobalDiaria });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -1418,12 +1519,26 @@ app.get('/api/search', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// ═══════════ HISTORIAL (no date limit, full data) ═══════════
+// ═══════════ HISTORIAL (paginacion real desde backend — sin limite oculto) ═══════════
+// mode=registros -> pagina real (page/pageSize) + meta completa (totalRecords/totalDates reales)
+// mode=condicion|pedidos -> vistas ya agrupadas por fecha en el frontend; se devuelven completas
+//   (limite de seguridad muy por encima del volumen real, en vez del limite fijo de 1000 anterior)
 app.get('/api/historial', auth, moduleGuard('dashboard'), async (req, res) => {
   try {
-    const { q, fecha } = req.query;
+    const {
+      mode = 'registros',
+      page, pageSize,
+      q, fecha, fechaInicio, fechaFin,
+      escaneadora, condicion, pedido, turno,
+      orden,
+    } = req.query;
+
     const filter = {};
-    if (fecha) filter.fecha = fecha;
+    if (fecha) filter.fecha = fecha; // exact match (compat con el buscador de fecha existente)
+    if (escaneadora) filter.escaneadora = rx(escaneadora);
+    if (condicion) filter.condicion = rx(condicion);
+    if (pedido) filter.pedido = rx(pedido);
+    if (turno) filter.turno = rx(turno);
     if (q) {
       filter.$or = [
         { palletId: rx(q) },
@@ -1433,7 +1548,55 @@ app.get('/api/historial', auth, moduleGuard('dashboard'), async (req, res) => {
         { observaciones: rx(q) },
       ];
     }
-    const data = await EscReg.find(filter).sort({ createdAt: -1 }).limit(1000);
+
+    const pipeline = [{ $match: filter }, ...fechaDateStages()];
+    if (!fecha && (fechaInicio || fechaFin)) {
+      pipeline.push({ $match: fechaDateRangeMatch(fechaInicio, fechaFin) });
+    }
+
+    let sortStage = { _fechaDate: -1, createdAt: -1 }; // default: fecha descendente (mas nuevo primero)
+    if (orden === 'fecha_asc') sortStage = { _fechaDate: 1, createdAt: 1 };
+    else if (orden === 'cantidad_desc') sortStage = { cantidad: -1, _fechaDate: -1 };
+    else if (orden === 'cantidad_asc') sortStage = { cantidad: 1, _fechaDate: -1 };
+
+    if (mode === 'registros') {
+      const pageNum = Math.max(1, parseInt(page) || 1);
+      const size = Math.min(1000, Math.max(1, parseInt(pageSize) || 100));
+
+      pipeline.push({
+        $facet: {
+          data: [{ $sort: sortStage }, { $skip: (pageNum - 1) * size }, { $limit: size }, { $project: { _fechaDate: 0 } }],
+          totalCount: [{ $count: 'count' }],
+          totalDatesArr: [{ $group: { _id: '$fecha' } }, { $count: 'count' }],
+        },
+      });
+
+      const [result] = await EscReg.aggregate(pipeline);
+      const totalRecords = result.totalCount[0]?.count || 0;
+      const totalDates = result.totalDatesArr[0]?.count || 0;
+      const totalPages = Math.max(1, Math.ceil(totalRecords / size));
+      const data = await EscReg.populate(result.data, { path: 'capturadoPor', select: 'nombre' });
+
+      return res.json({
+        success: true,
+        data,
+        total: totalRecords, // compat con el frontend anterior (resp.total)
+        meta: {
+          totalRecords,
+          currentPage: pageNum,
+          pageSize: size,
+          totalPages,
+          totalDates,
+          hasNextPage: pageNum < totalPages,
+          hasPrevPage: pageNum > 1,
+        },
+      });
+    }
+
+    // condicion / pedidos: sin paginar (el frontend las agrupa por fecha), pero ya no truncadas a 1000
+    pipeline.push({ $sort: sortStage }, { $limit: 20000 }, { $project: { _fechaDate: 0 } });
+    const rawData = await EscReg.aggregate(pipeline);
+    const data = await EscReg.populate(rawData, { path: 'capturadoPor', select: 'nombre' });
     const total = await EscReg.countDocuments(filter);
     res.json({ success: true, data, total });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }

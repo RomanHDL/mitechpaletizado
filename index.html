@@ -1433,8 +1433,11 @@
             </div>
             <div class="card" style="padding:1rem 1.25rem;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;flex-wrap:wrap;gap:0.3rem;">
-                    <div class="card-title" style="margin-bottom:0;font-size:0.85rem;"><i class="fa-solid fa-cubes" style="color:#14b8a6;"></i> Piezas Paletizadas por Dia</div>
-                    <select class="form-input" id="pzd-week-select" onchange="renderPiezasPorDia()" style="padding:0.2rem 0.4rem;font-size:0.72rem;width:auto;min-width:120px;">
+                    <div class="card-title" style="margin-bottom:0;font-size:0.85rem;"><i class="fa-solid fa-cubes" style="color:#14b8a6;"></i> Piezas Paletizadas por Semana</div>
+                    <select class="form-input" id="pzd-week-select" onchange="renderPiezasPorSemana()" style="padding:0.2rem 0.4rem;font-size:0.72rem;width:auto;min-width:120px;">
+                        <option value="8">Ultimas 8 sem</option>
+                        <option value="12" selected>Ultimas 12 sem</option>
+                        <option value="26">Ultimas 26 sem</option>
                         <option value="all">Todas</option>
                     </select>
                 </div>
@@ -1471,14 +1474,32 @@
                             <span id="historial-title" style="font-size:1.1rem;font-weight:600;">Historial</span>
                         </div>
                         <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-                            <input type="text" class="form-input" id="historial-search-fecha" placeholder="Buscar fecha..." style="width:170px;padding:0.5rem 0.8rem;font-size:0.85rem;" oninput="filterHistorial()">
-                            <input type="text" class="form-input" id="historial-search-texto" placeholder="Pallet ID o Pedido..." style="width:180px;padding:0.5rem 0.8rem;font-size:0.85rem;display:none;" oninput="filterHistorial()">
+                            <input type="date" class="form-input" id="historial-fecha-inicio" style="width:145px;padding:0.5rem 0.6rem;font-size:0.85rem;display:none;" onchange="filterHistorial(true)" title="Fecha inicial">
+                            <input type="date" class="form-input" id="historial-fecha-fin" style="width:145px;padding:0.5rem 0.6rem;font-size:0.85rem;display:none;" onchange="filterHistorial(true)" title="Fecha final">
+                            <input type="text" class="form-input" id="historial-search-fecha" placeholder="Buscar fecha exacta (M/D/AAAA)..." style="width:190px;padding:0.5rem 0.8rem;font-size:0.85rem;" oninput="filterHistorial(true)">
+                            <input type="text" class="form-input" id="historial-search-texto" placeholder="Pallet ID o Pedido..." style="width:180px;padding:0.5rem 0.8rem;font-size:0.85rem;display:none;" oninput="filterHistorial(true)">
+                            <select class="form-input" id="historial-pagesize" style="width:110px;padding:0.5rem 0.6rem;font-size:0.85rem;display:none;" onchange="changeHistorialPageSize()" title="Registros por pagina">
+                                <option value="50">50 / pag</option>
+                                <option value="100" selected>100 / pag</option>
+                                <option value="250">250 / pag</option>
+                                <option value="500">500 / pag</option>
+                            </select>
                             <button onclick="closeHistorial()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.75rem;color:var(--text-muted);cursor:pointer;font-size:0.9rem;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">
                                 <i class="fa-solid fa-xmark"></i> Cerrar
                             </button>
                         </div>
                     </div>
                     <div id="historial-body" style="flex:1;overflow-y:auto;padding:1.25rem 1.5rem;"></div>
+                    <div id="historial-pagination" style="display:none;justify-content:space-between;align-items:center;gap:0.75rem;padding:0.75rem 1.5rem;border-top:1px solid var(--border);flex-wrap:wrap;">
+                        <span id="historial-pagination-info" style="font-size:0.8rem;color:var(--text-muted);"></span>
+                        <div style="display:flex;align-items:center;gap:0.35rem;">
+                            <button class="chart-slider-btn" onclick="goToHistorialPage(1)" id="historial-btn-first" title="Primera pagina"><i class="fa-solid fa-angles-left"></i></button>
+                            <button class="chart-slider-btn" onclick="goToHistorialPage(historialPage-1)" id="historial-btn-prev" title="Pagina anterior"><i class="fa-solid fa-chevron-left"></i></button>
+                            <span id="historial-page-indicator" style="font-size:0.82rem;color:var(--text-main);padding:0 0.4rem;white-space:nowrap;"></span>
+                            <button class="chart-slider-btn" onclick="goToHistorialPage(historialPage+1)" id="historial-btn-next" title="Pagina siguiente"><i class="fa-solid fa-chevron-right"></i></button>
+                            <button class="chart-slider-btn" onclick="goToHistorialPage(historialMeta ? historialMeta.totalPages : 1)" id="historial-btn-last" title="Ultima pagina"><i class="fa-solid fa-angles-right"></i></button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <!-- Pedidos Detail Modal -->
@@ -2403,7 +2424,7 @@ async function saveEditPallet() {
         if (resp.success) {
             closeEditPallet();
             // Refresh data
-            await Promise.all([loadResumen(), loadTendencias(), loadTableData()]);
+            await Promise.all([loadResumen(), loadTendencias(), loadTableData(), loadPiezasPorSemana()]);
             renderRecords(lastTableData);
         } else { showToast(resp.error || 'Error al guardar', 'error'); }
     } catch(e) { showToast('Error: ' + e.message, 'error'); }
@@ -2416,7 +2437,7 @@ async function deletePallet(id, palletId) {
         const resp = await apiFetch(`${API}/api/escaneadoras/${id}`, { method: 'DELETE', body: JSON.stringify({ reason: 'Eliminado por admin desde dashboard' }) });
         if (resp.success) {
             // Refresh data
-            await Promise.all([loadResumen(), loadTendencias(), loadTableData()]);
+            await Promise.all([loadResumen(), loadTendencias(), loadTableData(), loadPiezasPorSemana()]);
             renderRecords(lastTableData);
         } else { showToast(resp.error || 'Error al eliminar', 'error'); }
     } catch(e) { showToast('Error: ' + e.message, 'error'); }
@@ -3461,6 +3482,7 @@ let currentRecordView = 'grouped';
 let lastTableData = [];
 let lastSalidaData = []; // records shipped today but produced on other days
 let lastResumen = null;
+let lastPiezasSemana = null; // { serie, metaSemanal, metaGlobalDiaria } from /api/dashboard/piezas-semana
 let searchTimer = null;
 
 const COLORS = ['#4f7cff','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#06b6d4'];
@@ -3595,7 +3617,7 @@ async function loadDashboard() {
     });
 
     try {
-        await Promise.all([loadResumen(), loadTendencias(), loadTableData(), loadCatalogos()]);
+        await Promise.all([loadResumen(), loadTendencias(), loadTableData(), loadCatalogos(), loadPiezasPorSemana()]);
     } catch (err) {
         console.error('[DASHBOARD] Error loading:', err);
     } finally {
@@ -3642,7 +3664,7 @@ function refreshDashboard() {
     const dashView = document.getElementById('view-dashboard');
     if (!dashView || !dashView.classList.contains('active')) return;
     _refreshing = true;
-    Promise.all([loadResumen(), loadTendencias(), loadTableData()]).catch(()=>{}).finally(() => { _refreshing = false; });
+    Promise.all([loadResumen(), loadTendencias(), loadTableData(), loadPiezasPorSemana()]).catch(()=>{}).finally(() => { _refreshing = false; });
 }
 
 function startPolling() {
@@ -4706,85 +4728,68 @@ function drawBulkyWindow() {
 }
 
 
-// ── Piezas Paletizadas por Dia (bar chart) ──
-const META_PIEZAS_DIA = 1000;
+// ── Piezas Paletizadas por Semana (bar chart, agregacion real desde backend) ──
+// Reemplaza la vista "por Dia": cada barra ahora es una semana completa (24 Jun - 30 Jun),
+// calculada 100% en Mongo ($group por semana) via /api/dashboard/piezas-semana, sin depender
+// de lastTableData ni de ningun limite de registros cargados al frontend.
+const META_PIEZAS_DIA_FALLBACK = 1000; // usado solo si no hay Meta Global configurada en Ajustes
 
-function pzColorForValue(v) {
-    return v >= META_PIEZAS_DIA ? '#22c55e' : '#ef4444';
+function pzColorForValue(v, meta) {
+    return v >= meta ? '#22c55e' : '#ef4444';
 }
 
-// Track previous state to avoid unnecessary redraws
 var _pzLastKey = '';
 
-function renderPiezasPorDia() {
+async function loadPiezasPorSemana() {
+    try {
+        const params = getFilterParams();
+        const resp = await apiFetch(`${API}/api/dashboard/piezas-semana?${params}`);
+        if (!resp.success) return;
+        lastPiezasSemana = resp;
+        renderPiezasPorSemana();
+    } catch (err) {
+        console.error('[PIEZAS-SEMANA]', err);
+    }
+}
+
+function renderPiezasPorSemana() {
     var ctx = document.getElementById("chart-piezas-dia");
-    if (!ctx || !lastTableData || lastTableData.length === 0) {
-        var kpiEl = document.getElementById("pzd-kpi");
+    var kpiEl = document.getElementById("pzd-kpi");
+    if (!ctx || !lastPiezasSemana || !lastPiezasSemana.serie || lastPiezasSemana.serie.length === 0) {
         if (kpiEl) kpiEl.innerHTML = "";
         if (chartPiezasDia) { chartPiezasDia.destroy(); chartPiezasDia = null; }
         _pzLastKey = '';
         return;
     }
 
-    var pzByDate = {};
-    lastTableData.forEach(function(r) {
-        var f = r.fecha || "Sin fecha";
-        pzByDate[f] = (pzByDate[f] || 0) + (parseInt(r.cantidad) || 0);
-    });
+    var serie = lastPiezasSemana.serie; // ya viene ordenada ascendente por semana desde el backend
+    var metaSemanal = lastPiezasSemana.metaSemanal > 0 ? lastPiezasSemana.metaSemanal : (META_PIEZAS_DIA_FALLBACK * 7);
 
-    var entries = Object.entries(pzByDate).map(function(pair) {
-        var f = pair[0], total = pair[1];
-        var p = f.split("/");
-        var dt = p.length === 3 ? new Date(parseInt(p[2]), parseInt(p[0]) - 1, parseInt(p[1])) : null;
-        return { fecha: f, total: total, dt: dt };
-    }).filter(function(e) { return e.dt; }).sort(function(a, b) { return a.dt - b.dt; });
-
-    if (entries.length === 0) return;
-
+    // Selector: limitar a las ultimas N semanas visibles (el calculo de KPIs/meta sigue usando TODA la serie del backend)
     var sel = document.getElementById("pzd-week-select");
-    var weeks = {};
-    entries.forEach(function(e) {
-        var d = e.dt;
-        var dow = d.getDay();
-        var mon = new Date(d);
-        mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
-        var key = mon.toISOString().slice(0, 10);
-        if (!weeks[key]) weeks[key] = [];
-        weeks[key].push(e);
-    });
-    var weekKeys = Object.keys(weeks).sort();
-    var curVal = sel.value;
-    sel.innerHTML = '<option value="all">Todas</option>';
-    weekKeys.forEach(function(wk) {
-        var d = new Date(wk + "T00:00:00");
-        var lbl = d.getDate() + "/" + (d.getMonth() + 1) + "/" + d.getFullYear();
-        sel.innerHTML += '<option value="' + wk + '">Sem ' + lbl + '</option>';
-    });
-    if (curVal && Array.from(sel.options).some(function(o) { return o.value === curVal; })) sel.value = curVal;
-
-    var filtered = entries;
-    if (sel.value !== "all") {
-        filtered = weeks[sel.value] || entries;
+    var windowSel = sel ? sel.value : 'all';
+    var filtered = serie;
+    if (windowSel !== 'all') {
+        var n = parseInt(windowSel) || serie.length;
+        filtered = serie.slice(-n);
     }
 
-    var dayNames = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"];
-    var labels = filtered.map(function(e) { return dayNames[e.dt.getDay()] + " " + e.dt.getDate() + "/" + (e.dt.getMonth() + 1); });
-    var values = filtered.map(function(e) { return e.total; });
-    var total = values.reduce(function(a, b) { return a + b; }, 0);
-    var avg = filtered.length > 0 ? Math.round(total / filtered.length) : 0;
-    var diasMeta = values.filter(function(v) { return v >= META_PIEZAS_DIA; }).length;
+    var labels = filtered.map(function(w) { return w.label; });
+    var values = filtered.map(function(w) { return w.totalPiezas; });
+    var totalGlobal = serie.reduce(function(a, w) { return a + w.totalPiezas; }, 0);
+    var avgSemanal = filtered.length > 0 ? Math.round(values.reduce(function(a,b){return a+b;},0) / filtered.length) : 0;
+    var semanasMeta = filtered.filter(function(w) { return w.totalPiezas >= metaSemanal; }).length;
 
-    var kpi = document.getElementById("pzd-kpi");
-    if (kpi) {
-        kpi.innerHTML = '<span style="background:#14b8a620;color:#14b8a6;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Total: ' + total.toLocaleString() + ' pz</span>' +
-            '<span style="background:#4f7cff20;color:#4f7cff;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Prom: ' + avg.toLocaleString() + ' pz/dia</span>' +
-            '<span style="background:#22c55e20;color:#22c55e;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Meta: ' + diasMeta + '/' + filtered.length + ' dias</span>';
+    if (kpiEl) {
+        kpiEl.innerHTML = '<span style="background:#14b8a620;color:#14b8a6;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Total historico: ' + totalGlobal.toLocaleString() + ' pz</span>' +
+            '<span style="background:#4f7cff20;color:#4f7cff;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Prom: ' + avgSemanal.toLocaleString() + ' pz/semana</span>' +
+            '<span style="background:#22c55e20;color:#22c55e;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;font-weight:600;">Meta: ' + semanasMeta + '/' + filtered.length + ' semanas</span>';
     }
 
-    var barColors = values.map(function(v) { return pzColorForValue(v); });
+    var barColors = values.map(function(v) { return pzColorForValue(v, metaSemanal); });
 
     // Build a key to detect if data actually changed
-    var dataKey = labels.join('|') + ':' + values.join('|');
+    var dataKey = labels.join('|') + ':' + values.join('|') + ':' + metaSemanal;
 
     // If chart exists and data hasn't changed, skip redraw entirely
     if (chartPiezasDia && _pzLastKey === dataKey) return;
@@ -4794,6 +4799,7 @@ function renderPiezasPorDia() {
         chartPiezasDia.data.labels = labels;
         chartPiezasDia.data.datasets[0].data = values;
         chartPiezasDia.data.datasets[0].backgroundColor = barColors;
+        chartPiezasDia.options.plugins.metaValue = metaSemanal;
         chartPiezasDia.update('none'); // 'none' = no animation on update
         _pzLastKey = dataKey;
         return;
@@ -4813,7 +4819,7 @@ function renderPiezasPorDia() {
                 backgroundColor: barColors,
                 borderRadius: 6,
                 borderSkipped: false,
-                maxBarThickness: 36
+                maxBarThickness: 48
             }]
         },
         plugins: [{
@@ -4822,7 +4828,8 @@ function renderPiezasPorDia() {
                 var yScale = chart.scales.y;
                 var xScale = chart.scales.x;
                 if (!yScale || !xScale) return;
-                var yPixel = yScale.getPixelForValue(META_PIEZAS_DIA);
+                var meta = chart.options.plugins.metaValue || metaSemanal;
+                var yPixel = yScale.getPixelForValue(meta);
                 if (yPixel < yScale.top || yPixel > yScale.bottom) return;
                 var c = chart.ctx;
                 c.save();
@@ -4836,7 +4843,7 @@ function renderPiezasPorDia() {
                 c.fillStyle = "#22c55e";
                 c.font = "bold 10px sans-serif";
                 c.textAlign = "right";
-                c.fillText("Meta " + META_PIEZAS_DIA.toLocaleString(), xScale.right - 4, yPixel - 6);
+                c.fillText("Meta " + meta.toLocaleString() + "/sem", xScale.right - 4, yPixel - 6);
                 c.restore();
             }
         }],
@@ -4847,14 +4854,21 @@ function renderPiezasPorDia() {
             layout: { padding: { top: 24 } },
             plugins: {
                 legend: { display: false },
+                metaValue: metaSemanal,
                 tooltip: {
                     ...tooltipStyle,
                     callbacks: {
+                        title: function(items) {
+                            var w = filtered[items[0].dataIndex];
+                            return w ? (w.label + ' (' + w.diasConDatos + ' dias con datos)') : items[0].label;
+                        },
                         label: function(c) {
                             var v = c.parsed.y;
-                            var diff = v - META_PIEZAS_DIA;
+                            var diff = v - metaSemanal;
                             var sign = diff >= 0 ? "+" : "";
-                            return v.toLocaleString() + " piezas (" + sign + diff.toLocaleString() + " vs meta)";
+                            var w = filtered[c.dataIndex];
+                            var extra = w ? (' · promedio diario: ' + w.promedioDiario.toLocaleString() + ' pz') : '';
+                            return v.toLocaleString() + " piezas (" + sign + diff.toLocaleString() + " vs meta)" + extra;
                         }
                     }
                 },
@@ -4863,7 +4877,7 @@ function renderPiezasPorDia() {
                     anchor: "end",
                     align: "top",
                     offset: 4,
-                    color: function(ctx2) { return pzColorForValue(ctx2.dataset.data[ctx2.dataIndex]); },
+                    color: function(ctx2) { return pzColorForValue(ctx2.dataset.data[ctx2.dataIndex], metaSemanal); },
                     font: { weight: "700", size: 11 },
                     formatter: function(v) { return v > 0 ? v.toLocaleString() : ""; }
                 }
@@ -4871,6 +4885,12 @@ function renderPiezasPorDia() {
             scales: {
                 x: { ticks: { color: CHART_THEME.muted, font: { size: 10 } }, grid: { display: false } },
                 y: { beginAtZero: true, grace: "15%", ticks: { color: CHART_THEME.muted, font: { size: 10 } }, grid: { color: CHART_THEME.gridLight } }
+            },
+            onClick: (evt, elements) => {
+                if (!elements.length) return;
+                var w = filtered[elements[0].index];
+                if (!w) return;
+                showToast(w.label + ': ' + w.totalPiezas.toLocaleString() + ' pz en ' + w.totalPallets + ' pallets', 'info');
             }
         }
     });
@@ -5186,7 +5206,9 @@ async function loadTableData() {
         const busqueda = document.getElementById('dash-busqueda').value;
         const params = getFilterParams();
         const extra = busqueda ? `&busqueda=${encodeURIComponent(busqueda)}` : '';
-        const data = await apiFetch(`${API}/api/dashboard/registros?${params}${extra}&limit=2000`);
+        // Sin limit explicito: el backend aplica su techo de seguridad (20000), muy por encima
+        // del volumen real, en vez del limite fijo de 2000 que ocultaba registros antiguos.
+        const data = await apiFetch(`${API}/api/dashboard/registros?${params}${extra}`);
         if (!data.success) return;
         lastTableData = data.data;
         // salidaData = records shipped today but produced on other days (for pedido/BULKY only)
@@ -5200,7 +5222,6 @@ async function loadTableData() {
             renderProduccionPorHora();
             renderDiaNoche();
             renderBulkyPorDia();
-            renderPiezasPorDia();
         });
     } catch (err) {
         console.error('[TABLE]', err);
@@ -5314,27 +5335,44 @@ function renderTableView(records) {
 // ══════════════════════════════════════════════
 // HISTORIAL MODAL
 // ══════════════════════════════════════════════
-let historialMode = ''; // 'condicion' or 'registros'
+let historialMode = ''; // 'condicion' | 'registros' | 'pedidos'
 
 const historialExpandedDates = new Set();
+
+// Server-side pagination state (mode 'registros' only — condicion/pedidos are pre-grouped views)
+let historialPage = 1;
+let historialMeta = null; // { totalRecords, currentPage, pageSize, totalPages, totalDates, hasNextPage, hasPrevPage }
 
 function openHistorial(mode) {
     historialMode = mode;
     historialExpandedDates.clear();
+    historialPage = 1;
+    historialMeta = null;
     const modal = document.getElementById('historial-modal');
     const title = document.getElementById('historial-title');
     const searchFecha = document.getElementById('historial-search-fecha');
     const searchTexto = document.getElementById('historial-search-texto');
+    const fechaInicio = document.getElementById('historial-fecha-inicio');
+    const fechaFin = document.getElementById('historial-fecha-fin');
+    const pageSizeSel = document.getElementById('historial-pagesize');
     searchFecha.value = '';
     searchTexto.value = '';
+    fechaInicio.value = '';
+    fechaFin.value = '';
     // Show text search for registros and pedidos modes
     searchTexto.style.display = (mode === 'registros' || mode === 'pedidos') ? '' : 'none';
     searchTexto.placeholder = mode === 'pedidos' ? 'Buscar pedido o pallet...' : 'Pallet ID o Pedido...';
+    // Rango de fechas + selector de pagina solo aplica al listado paginado de registros
+    const isRegistros = mode === 'registros';
+    fechaInicio.style.display = isRegistros ? '' : 'none';
+    fechaFin.style.display = isRegistros ? '' : 'none';
+    pageSizeSel.style.display = isRegistros ? '' : 'none';
+    document.getElementById('historial-pagination').style.display = isRegistros ? 'flex' : 'none';
     const titles = { condicion: 'Historial - Condiciones por Fecha', registros: 'Historial de Registros de Pallets', pedidos: 'Control de Pedidos - Historial' };
     title.textContent = titles[mode] || 'Historial';
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
-    filterHistorial();
+    filterHistorial(true);
 }
 
 function closeHistorial() {
@@ -5343,34 +5381,76 @@ function closeHistorial() {
 }
 
 let historialTimer = null;
-let historialData = []; // full data from API, not limited to 200
+let historialData = [];
 
-async function filterHistorial() {
+// resetPage=true when a filter changed (must go back to page 1); false when just navigating pages
+async function filterHistorial(resetPage) {
+    if (resetPage) historialPage = 1;
     clearTimeout(historialTimer);
     historialTimer = setTimeout(() => doFilterHistorial(), 300);
+}
+
+function goToHistorialPage(page) {
+    const maxPage = historialMeta ? historialMeta.totalPages : 1;
+    historialPage = Math.max(1, Math.min(page, maxPage));
+    doFilterHistorial();
+}
+
+function changeHistorialPageSize() {
+    historialPage = 1;
+    doFilterHistorial();
+}
+
+function renderHistorialPagination() {
+    const bar = document.getElementById('historial-pagination');
+    if (historialMode !== 'registros' || !historialMeta) { if (bar) bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    const m = historialMeta;
+    const startRow = m.totalRecords === 0 ? 0 : (m.currentPage - 1) * m.pageSize + 1;
+    const endRow = Math.min(m.currentPage * m.pageSize, m.totalRecords);
+    document.getElementById('historial-pagination-info').textContent =
+        `Mostrando ${startRow}-${endRow} de ${m.totalRecords} registros · ${m.totalDates} fechas`;
+    document.getElementById('historial-page-indicator').textContent = `Pagina ${m.currentPage} de ${m.totalPages}`;
+    document.getElementById('historial-btn-first').disabled = !m.hasPrevPage;
+    document.getElementById('historial-btn-prev').disabled = !m.hasPrevPage;
+    document.getElementById('historial-btn-next').disabled = !m.hasNextPage;
+    document.getElementById('historial-btn-last').disabled = !m.hasNextPage;
 }
 
 async function doFilterHistorial() {
     const fechaQ = document.getElementById('historial-search-fecha').value.trim();
     const textoQ = document.getElementById('historial-search-texto').value.trim();
+    const fechaInicioQ = document.getElementById('historial-fecha-inicio').value;
+    const fechaFinQ = document.getElementById('historial-fecha-fin').value;
+    const pageSize = parseInt(document.getElementById('historial-pagesize').value) || 100;
     const body = document.getElementById('historial-body');
     body.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>';
 
     try {
-        // Build query params for API
         const params = new URLSearchParams();
+        params.set('mode', historialMode || 'registros');
         if (fechaQ) params.set('fecha', fechaQ);
         if (textoQ) params.set('q', textoQ);
-        const qs = params.toString();
+        if (historialMode === 'registros') {
+            if (fechaInicioQ) params.set('fechaInicio', fechaInicioQ);
+            if (fechaFinQ) params.set('fechaFin', fechaFinQ);
+            params.set('page', historialPage);
+            params.set('pageSize', pageSize);
+        }
 
-        const resp = await apiFetch(`${API}/api/historial${qs ? '?' + qs : ''}`);
+        const resp = await apiFetch(`${API}/api/historial?${params.toString()}`);
         if (!resp.success) { body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--danger);">Error al cargar</div>'; return; }
 
         historialData = resp.data;
-        const totalLabel = `<div style="margin-bottom:0.75rem;font-size:0.82rem;color:var(--text-muted);">${resp.total} registros encontrados</div>`;
+        historialMeta = resp.meta || null;
+
+        const totalLabel = historialMeta
+            ? `<div style="margin-bottom:0.75rem;font-size:0.82rem;color:var(--text-muted);">${historialMeta.totalRecords} registros encontrados (${historialMeta.totalDates} fechas)</div>`
+            : `<div style="margin-bottom:0.75rem;font-size:0.82rem;color:var(--text-muted);">${resp.total} registros encontrados</div>`;
 
         if (historialData.length === 0) {
             body.innerHTML = totalLabel + '<div style="text-align:center;padding:1.5rem;color:var(--text-muted);">Sin resultados</div>';
+            renderHistorialPagination();
             return;
         }
 
@@ -5383,6 +5463,7 @@ async function doFilterHistorial() {
         }
         // Prepend total count
         body.insertAdjacentHTML('afterbegin', totalLabel);
+        renderHistorialPagination();
     } catch(e) {
         body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--danger);">Error: ' + e.message + '</div>';
     }
@@ -5498,7 +5579,8 @@ function renderRegistrosHistorial(body, fechaQuery, textoQuery, sourceData) {
     const forceOpen = !!textoQuery;
 
     const totalRegs = dates.reduce((s, f) => s + groups[f].length, 0);
-    let html = `<div style="margin-bottom:1rem;font-size:0.85rem;color:var(--text-muted);">${totalRegs} registros en ${dates.length} fecha${dates.length>1?'s':''}</div>`;
+    const pageLabel = historialMeta ? 'en esta pagina' : '';
+    let html = `<div style="margin-bottom:1rem;font-size:0.85rem;color:var(--text-muted);">${totalRegs} registros ${pageLabel} en ${dates.length} fecha${dates.length>1?'s':''}</div>`;
 
     html += dates.map(fecha => {
         const recs = groups[fecha];
@@ -6529,7 +6611,7 @@ async function exportDashboardExcel() {
     try {
         const params = getFilterParams();
         const [regResp, resResp] = await Promise.all([
-            apiFetch(`${API}/api/dashboard/registros?${params}&limit=5000`),
+            apiFetch(`${API}/api/dashboard/registros?${params}`),
             apiFetch(`${API}/api/dashboard/resumen?${params}`)
         ]);
         freshData = regResp.success ? regResp.data : lastTableData;
