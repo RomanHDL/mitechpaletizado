@@ -8,25 +8,40 @@ const { rx, inDateRange } = require('../utils/query');
 // Dashboard solo para admin
 router.use(auth, roleGuard('admin'));
 
+// "Hoy" y las franjas de turno se calculan en hora de Mexico, sin importar
+// en que timezone corra el proceso, para que registros de la tarde/noche no
+// se cuenten como del dia siguiente.
+function mexicoDateStr(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Mexico_City', month: 'numeric', day: 'numeric', year: 'numeric'
+  }).formatToParts(date).reduce((o, p) => (o[p.type] = p.value, o), {});
+  return `${parts.month}/${parts.day}/${parts.year}`;
+}
+function mexicoMinutesOfDay(date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Mexico_City', hour: 'numeric', minute: 'numeric', hourCycle: 'h23'
+  }).formatToParts(date).reduce((o, p) => (o[p.type] = p.value, o), {});
+  return parseInt(parts.hour, 10) * 60 + parseInt(parts.minute, 10);
+}
+
 // Helper: normalize turno for grouping
 function normalizeTurno(t) {
   if (!t) return 'Otro';
   const l = t.toLowerCase();
+  if (l.includes('extra')) return 'Tiempo Extra';
   if (l.includes('noche') || l.includes('night')) return 'Noche';
   if (l.includes('día') || l.includes('dia') || l.includes('day')) return 'Día';
   return t;
 }
 
-// Helper: calculate turno dynamically from createdAt hour
+// Helper: calculate the real 3-way turno from createdAt hour, in Mexico local time
+// Matutino/Dia: 7:00am-5:10pm · Tiempo Extra: 5:10pm-10:00pm · Nocturno: 10:00pm-7:00am
 function calcTurnoFromHour(date) {
   if (!date) return 'Otro';
-  const h = date.getHours(), m = date.getMinutes();
-  const mins = h * 60 + m;
-  // Day: 7:00 AM (420) to 5:10 PM (1030)
-  if (mins >= 420 && mins <= 1030) return 'Dia';
-  // Night: 10:00 PM (1320) to 7:00 AM (420 next day)
-  if (mins >= 1320 || mins < 420) return 'Noche';
-  return 'Otro';
+  const mins = mexicoMinutesOfDay(date);
+  if (mins >= 420 && mins < 1030) return 'Día';
+  if (mins >= 1030 && mins < 1320) return 'Tiempo Extra';
+  return 'Noche';
 }
 
 // GET /api/dashboard/resumen — KPIs y resumen general
@@ -55,8 +70,7 @@ router.get('/resumen', async (req, res) => {
       });
     }
 
-    const now = new Date();
-    const hoyStr = `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()}`;
+    const hoyStr = mexicoDateStr();
     const registrosHoy = registros.filter(r => r.fecha === hoyStr);
 
     // Por escaneadora
@@ -68,11 +82,10 @@ router.get('/resumen', async (req, res) => {
       porEscaneadora[key].unidades += (r.cantidad || 0);
     });
 
-    // Por turno (with dynamic calculation fallback)
+    // Por turno — clasificado por la hora real de escaneo (createdAt, hora Mexico)
     const porTurno = {};
     registros.forEach(r => {
-      let t = normalizeTurno(r.turno);
-      if (t === 'Otro' && r.createdAt) t = calcTurnoFromHour(new Date(r.createdAt));
+      let t = r.createdAt ? calcTurnoFromHour(new Date(r.createdAt)) : normalizeTurno(r.turno);
       if (!porTurno[t]) porTurno[t] = { registros: 0, unidades: 0 };
       porTurno[t].registros++;
       porTurno[t].unidades += (r.cantidad || 0);
@@ -178,19 +191,27 @@ router.get('/tendencias', async (req, res) => {
     const pipeline = [];
     if (Object.keys(matchFilter).length > 0) pipeline.push({ $match: matchFilter });
 
+    // Bucket by real scan hour (createdAt, Mexico time), not the stored turno string —
+    // mobile assigns turno fijo por operador, no por hora real de escaneo.
     pipeline.push(
-      { $addFields: { turnoLower: { $toLower: '$turno' } } },
+      { $addFields: { turnoMins: {
+          $add: [
+            { $multiply: [{ $hour: { date: '$createdAt', timezone: 'America/Mexico_City' } }, 60] },
+            { $minute: { date: '$createdAt', timezone: 'America/Mexico_City' } }
+          ]
+      } } },
       { $group: {
           _id: '$fecha',
-          dia: { $sum: { $cond: [{ $or: [{ $regexMatch: { input: '$turnoLower', regex: /day|día|dia/ } }] }, 1, 0] } },
-          noche: { $sum: { $cond: [{ $or: [{ $regexMatch: { input: '$turnoLower', regex: /night|noche/ } }] }, 1, 0] } },
+          dia:   { $sum: { $cond: [{ $and: [{ $gte: ['$turnoMins', 420] }, { $lt: ['$turnoMins', 1030] }] }, 1, 0] } },
+          extra: { $sum: { $cond: [{ $and: [{ $gte: ['$turnoMins', 1030] }, { $lt: ['$turnoMins', 1320] }] }, 1, 0] } },
+          noche: { $sum: { $cond: [{ $or: [{ $gte: ['$turnoMins', 1320] }, { $lt: ['$turnoMins', 420] }] }, 1, 0] } },
           total: { $sum: 1 }
       }},
       { $match: { total: { $gt: 0 } } },
       { $sort: { _id: -1 } },
       { $limit: limit },
       { $sort: { _id: 1 } },
-      { $project: { _id: 0, date: '$_id', dia: 1, noche: 1, total: 1 } }
+      { $project: { _id: 0, date: '$_id', dia: 1, extra: 1, noche: 1, total: 1 } }
     );
 
     let tendencia = await EscaneadoraRegistro.aggregate(pipeline);
@@ -221,8 +242,7 @@ router.get('/tendencias', async (req, res) => {
 
     const turnoStats = {}, turnoDates = {};
     registros.forEach(r => {
-      let t = normalizeTurno(r.turno);
-      if (t === 'Otro' && r.createdAt) t = calcTurnoFromHour(new Date(r.createdAt));
+      let t = r.createdAt ? calcTurnoFromHour(new Date(r.createdAt)) : normalizeTurno(r.turno);
       if (!turnoStats[t]) { turnoStats[t] = 0; turnoDates[t] = new Set(); }
       turnoStats[t]++;
       turnoDates[t].add(r.fecha);

@@ -554,8 +554,7 @@ app.post('/api/escaneadoras/retrabajo', auth, roleGuard('admin'), async (req, re
     if (!originalId) return res.status(400).json({ success: false, error: 'originalId requerido' });
     const original = await EscReg.findById(originalId);
     if (!original) return res.status(404).json({ success: false, error: 'Registro original no encontrado' });
-    const now = new Date();
-    const hoy = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
+    const hoy = mexicoDateStr();
     // Crear copia con fecha de hoy y marcado como retrabajo
     // Observaciones se mantienen intactas para que la clasificacion de pedidos funcione
     const doc = await EscReg.create({
@@ -615,8 +614,7 @@ app.put('/api/escaneadoras/:id', auth, roleGuard('admin'), async (req, res) => {
     });
     // Auto-set fechaSalida when pedido is assigned for the first time
     if (req.body.pedido && req.body.pedido.trim() && !oldData.fechaSalida) {
-      const now = new Date();
-      const todayStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
+      const todayStr = mexicoDateStr();
       doc.fechaSalida = todayStr;
       changes.push({ field: 'fechaSalida', oldValue: '', newValue: todayStr });
     }
@@ -653,9 +651,25 @@ app.delete('/api/escaneadoras/:id', auth, roleGuard('admin'), async (req, res) =
 });
 
 // ═══════════ DASHBOARD (admin only) ═══════════
+// "Hoy" y las franjas de turno se calculan en hora de Mexico, sin importar
+// en que timezone corra el proceso (Vercel = UTC), para que registros de la
+// tarde/noche no se cuenten como del dia siguiente.
+function mexicoDateStr(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Mexico_City', month: 'numeric', day: 'numeric', year: 'numeric'
+  }).formatToParts(date).reduce((o, p) => (o[p.type] = p.value, o), {});
+  return `${parts.month}/${parts.day}/${parts.year}`;
+}
+function mexicoMinutesOfDay(date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Mexico_City', hour: 'numeric', minute: 'numeric', hourCycle: 'h23'
+  }).formatToParts(date).reduce((o, p) => (o[p.type] = p.value, o), {});
+  return parseInt(parts.hour, 10) * 60 + parseInt(parts.minute, 10);
+}
 function normalizeTurno(t) {
   if (!t) return 'Otro';
   const l = t.toLowerCase();
+  if (l.includes('extra')) return 'Tiempo Extra';
   if (l.includes('noche') || l.includes('night')) return 'Noche';
   if (l.includes('día') || l.includes('dia') || l.includes('day')) return 'Día';
   return t;
@@ -685,8 +699,7 @@ app.get('/api/dashboard/resumen', auth, moduleGuard('dashboard'), async (req, re
       });
     }
 
-    const now = new Date();
-    const hoyStr = `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`;
+    const hoyStr = mexicoDateStr();
     // "Registros Hoy" is ALWAYS today's real count, independent of filters
     const registrosHoyCount = await EscReg.countDocuments({ fecha: hoyStr });
 
@@ -695,8 +708,10 @@ app.get('/api/dashboard/resumen', auth, moduleGuard('dashboard'), async (req, re
 
     registros.forEach(r => {
       const e = r.escaneadora, d = r.destino || 'Otro', c = r.condicion || 'Sin condicion';
-      let t = normalizeTurno(r.turno);
-      if (t === 'Otro' && r.createdAt) t = calcTurnoFromHour(new Date(r.createdAt));
+      // La franja de turno se calcula por la hora real de escaneo (createdAt, hora Mexico),
+      // no por el string guardado — en mobile el turno es fijo por operador (Day/Night)
+      // y no refleja si en realidad escaneo en tiempo extra o turno nocturno.
+      let t = r.createdAt ? calcTurnoFromHour(new Date(r.createdAt)) : normalizeTurno(r.turno);
       if (!porEscaneadora[e]) porEscaneadora[e] = { registros: 0, unidades: 0 };
       porEscaneadora[e].registros++; porEscaneadora[e].unidades += (r.cantidad || 0);
       if (!porTurno[t]) porTurno[t] = { registros: 0, unidades: 0 };
@@ -771,16 +786,14 @@ app.get('/api/dashboard/registros', auth, moduleGuard('dashboard'), async (req, 
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// Helper: calculate turno dynamically from createdAt hour
+// Helper: calculate the real 3-way turno from createdAt hour, in Mexico local time
+// Matutino/Dia: 7:00am-5:10pm · Tiempo Extra: 5:10pm-10:00pm · Nocturno: 10:00pm-7:00am
 function calcTurnoFromHour(date) {
   if (!date) return 'Otro';
-  const h = date.getHours(), m = date.getMinutes();
-  const mins = h * 60 + m;
-  // Day: 7:00 AM (420) to 5:10 PM (1030)
-  if (mins >= 420 && mins <= 1030) return 'Dia';
-  // Night: 10:00 PM (1320) to 7:00 AM (420 next day)
-  if (mins >= 1320 || mins < 420) return 'Noche';
-  return 'Otro';
+  const mins = mexicoMinutesOfDay(date);
+  if (mins >= 420 && mins < 1030) return 'Día';
+  if (mins >= 1030 && mins < 1320) return 'Tiempo Extra';
+  return 'Noche';
 }
 
 app.get('/api/dashboard/tendencias', auth, moduleGuard('dashboard'), async (req, res) => {
@@ -797,14 +810,25 @@ app.get('/api/dashboard/tendencias', auth, moduleGuard('dashboard'), async (req,
     const pipeline = [];
     if (Object.keys(matchFilter).length > 0) pipeline.push({ $match: matchFilter });
 
+    // Bucket by real scan hour (createdAt, Mexico time), not the stored turno string —
+    // mobile assigns turno fijo por operador, no por hora real de escaneo.
     pipeline.push(
-      { $addFields: { turnoLower: { $toLower: '$turno' } } },
-      { $group: { _id: '$fecha', dia: { $sum: { $cond: [{ $or: [{ $regexMatch: { input: '$turnoLower', regex: /day|día|dia/ } }] }, 1, 0] } }, noche: { $sum: { $cond: [{ $or: [{ $regexMatch: { input: '$turnoLower', regex: /night|noche/ } }] }, 1, 0] } }, total: { $sum: 1 } } },
+      { $addFields: { turnoMins: {
+          $add: [
+            { $multiply: [{ $hour: { date: '$createdAt', timezone: 'America/Mexico_City' } }, 60] },
+            { $minute: { date: '$createdAt', timezone: 'America/Mexico_City' } }
+          ]
+      } } },
+      { $group: { _id: '$fecha',
+          dia:   { $sum: { $cond: [{ $and: [{ $gte: ['$turnoMins', 420] }, { $lt: ['$turnoMins', 1030] }] }, 1, 0] } },
+          extra: { $sum: { $cond: [{ $and: [{ $gte: ['$turnoMins', 1030] }, { $lt: ['$turnoMins', 1320] }] }, 1, 0] } },
+          noche: { $sum: { $cond: [{ $or: [{ $gte: ['$turnoMins', 1320] }, { $lt: ['$turnoMins', 420] }] }, 1, 0] } },
+          total: { $sum: 1 } } },
       { $match: { total: { $gt: 0 } } },
       { $sort: { _id: -1 } },
       { $limit: limit },
       { $sort: { _id: 1 } },
-      { $project: { _id: 0, date: '$_id', dia: 1, noche: 1, total: 1 } }
+      { $project: { _id: 0, date: '$_id', dia: 1, extra: 1, noche: 1, total: 1 } }
     );
 
     let tendencia = await EscReg.aggregate(pipeline);
@@ -835,9 +859,8 @@ app.get('/api/dashboard/tendencias', auth, moduleGuard('dashboard'), async (req,
 
     const turnoStats = {}, turnoDates = {};
     registros.forEach(r => {
-      let t = normalizeTurno(r.turno);
-      // Dynamic turno calculation if turno is empty/unknown
-      if (t === 'Otro' && r.createdAt) t = calcTurnoFromHour(new Date(r.createdAt));
+      // Misma clasificacion por hora real usada en /api/dashboard/resumen
+      let t = r.createdAt ? calcTurnoFromHour(new Date(r.createdAt)) : normalizeTurno(r.turno);
       if (!turnoStats[t]) { turnoStats[t]=0; turnoDates[t]=new Set(); }
       turnoStats[t]++; turnoDates[t].add(r.fecha);
     });
@@ -1106,7 +1129,7 @@ app.delete('/api/clasificaciones/:id', auth, roleGuard('admin'), async (req, res
 
 // ═══════════ METAS DE PRODUCCION (admin 3647 only) ═══════════
 const targetSchema = new mongoose.Schema({
-  turno: { type: String, required: true, enum: ['Día', 'Noche', 'Global'], unique: true },
+  turno: { type: String, required: true, enum: ['Día', 'Tiempo Extra', 'Noche', 'Global'], unique: true },
   targetPallets: { type: Number, default: 0, min: 0 },
   targetPiezas: { type: Number, default: 0, min: 0 },
   isActive: { type: Boolean, default: true },

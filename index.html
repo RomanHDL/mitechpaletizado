@@ -1019,6 +1019,7 @@
                                 <select class="form-input" id="esc-turno" required>
                                     <option value="" disabled selected>Seleccionar...</option>
                                     <option value="Day (dia)">Day (Dia)</option>
+                                    <option value="Tiempo Extra">Tiempo Extra</option>
                                     <option value="Night (noche)">Night (Noche)</option>
                                 </select>
                             </div>
@@ -1109,6 +1110,7 @@
                                 <select class="form-input" id="res-turno" required>
                                     <option value="" disabled selected>Seleccionar...</option>
                                     <option value="Day (dia)">Day (Dia)</option>
+                                    <option value="Tiempo Extra">Tiempo Extra</option>
                                     <option value="Night (noche)">Night (Noche)</option>
                                 </select>
                             </div>
@@ -2884,7 +2886,10 @@ function loadConfig() {
 
 function setDefaultDate() {
     const el = document.getElementById('esc-fecha');
-    if (el && !el.value) el.value = new Date().toISOString().split('T')[0];
+    if (el && !el.value) {
+        const d = new Date();
+        el.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
 }
 
 // ══════════════════════════════════════════════
@@ -3081,7 +3086,7 @@ async function loadControlMetas() {
         if (!data.success) throw new Error(data.error);
         ctrlMetasData = data.data || [];
         const byTurno = {}; ctrlMetasData.forEach(m => { byTurno[m.turno] = m; });
-        const rows = ['Día','Noche','Global'].map(t => {
+        const rows = ['Día','Tiempo Extra','Noche','Global'].map(t => {
             const m = byTurno[t] || {};
             return `<div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;border:1px solid var(--border);border-radius:8px;padding:0.75rem;">
                 <div style="font-weight:600;min-width:70px;">${t}</div>
@@ -3095,7 +3100,7 @@ async function loadControlMetas() {
 }
 
 async function saveControlMetas() {
-    const targets = ['Día','Noche','Global'].map(t => ({
+    const targets = ['Día','Tiempo Extra','Noche','Global'].map(t => ({
         turno: t,
         targetPallets: parseInt(document.getElementById('meta-pallets-'+t).value, 10) || 0,
         targetPiezas: parseInt(document.getElementById('meta-piezas-'+t).value, 10) || 0,
@@ -3173,7 +3178,9 @@ async function ctrlExportAuditoria(format) {
             a.action, a.palletId, a.escaneadora, a.changedBy, a.source, a.reason,
             (a.changes||[]).map(c => `${c.field}: ${c.before} -> ${c.after}`).join(' | ')
         ]);
-        exportCSV(`Auditoria_${new Date().toISOString().split('T')[0]}.csv`, cols, aoa);
+        const auditDate = new Date();
+        const auditDateStr = `${auditDate.getFullYear()}-${String(auditDate.getMonth()+1).padStart(2,'0')}-${String(auditDate.getDate()).padStart(2,'0')}`;
+        exportCSV(`Auditoria_${auditDateStr}.csv`, cols, aoa);
         msg.textContent = `${rows.length} eventos de auditoria exportados.`;
         showToast(`Auditoria exportada (${rows.length} eventos)`, 'success');
     } catch (e) { msg.textContent = ''; showToast(e.message, 'error'); }
@@ -3581,7 +3588,7 @@ function renderCumplimiento(data) {
     };
     cont.innerHTML = metas.map(m => {
         const a = actual(m.turno);
-        const icon = m.turno === 'Día' ? 'fa-sun' : m.turno === 'Noche' ? 'fa-moon' : 'fa-bullseye';
+        const icon = m.turno === 'Día' ? 'fa-sun' : m.turno === 'Noche' ? 'fa-moon' : m.turno === 'Tiempo Extra' ? 'fa-clock' : 'fa-bullseye';
         return `<div class="card"><div style="font-size:0.8rem;font-weight:600;margin-bottom:0.25rem;"><i class="fa-solid ${icon}" style="color:var(--accent);margin-right:5px;"></i>Meta ${m.turno}</div>${bar('Pallets', a.pallets, m.targetPallets||0)}${bar('Piezas', a.piezas, m.targetPiezas||0)}</div>`;
     }).join('');
 }
@@ -3807,6 +3814,16 @@ function toggleDateGroup(fecha) {
     }
 }
 
+// Misma clasificacion de 3 franjas que el backend (calcTurnoFromHour), en hora local
+// del navegador (el dashboard se ve desde Mexico, no hace falta convertir timezone aqui).
+function calcTurnoFromHourClient(date) {
+    if (!date) return 'Otro';
+    const mins = date.getHours() * 60 + date.getMinutes();
+    if (mins >= 420 && mins < 1030) return 'Día';
+    if (mins >= 1030 && mins < 1320) return 'Tiempo Extra';
+    return 'Noche';
+}
+
 function showKpiDetail(type) {
     const res = lastResumen;
     if (!res) return;
@@ -3853,7 +3870,7 @@ function showKpiDetail(type) {
         const hoyUds = hoyRecs.reduce((s,r) => s + (r.cantidad||0), 0);
         const hoyEsc = new Set(hoyRecs.map(r=>r.escaneadora)).size;
         const hoyDest = {}; hoyRecs.forEach(r => { hoyDest[r.destino] = (hoyDest[r.destino]||0) + 1; });
-        const hoyTurno = {}; hoyRecs.forEach(r => { const t=r.turno||'Otro'; if(!hoyTurno[t])hoyTurno[t]={reg:0,uds:0}; hoyTurno[t].reg++; hoyTurno[t].uds+=(r.cantidad||0); });
+        const hoyTurno = {}; hoyRecs.forEach(r => { const t = r.createdAt ? calcTurnoFromHourClient(new Date(r.createdAt)) : (r.turno||'Otro'); if(!hoyTurno[t])hoyTurno[t]={reg:0,uds:0}; hoyTurno[t].reg++; hoyTurno[t].uds+=(r.cantidad||0); });
         const hoyEscData = {}; hoyRecs.forEach(r => { if(!hoyEscData[r.escaneadora])hoyEscData[r.escaneadora]={reg:0,uds:0}; hoyEscData[r.escaneadora].reg++; hoyEscData[r.escaneadora].uds+=(r.cantidad||0); });
         const hoyCond = {}; hoyRecs.forEach(r => { const c=r.condicion||'Sin'; hoyCond[c]=(hoyCond[c]||0)+1; });
         const hoyOrdered = [...hoyRecs].sort((a,b) => {
@@ -4605,11 +4622,14 @@ function renderDiaNoche() {
                 if (!elements.length || !lastTableData) return;
                 const idx = elements[0].index;
                 const turnoLabel = labels[idx];
-                const isDia = turnoLabel.toLowerCase().includes('día') || turnoLabel.toLowerCase().includes('dia') || turnoLabel.toLowerCase().includes('day');
-                const color = isDia ? '#f59e0b' : '#4f7cff';
+                const l = turnoLabel.toLowerCase();
+                const isDia = l.includes('día') || l.includes('dia') || l.includes('day');
+                const isExtra = l.includes('extra');
+                const color = isExtra ? '#22c55e' : (isDia ? '#f59e0b' : '#4f7cff');
+                // Misma clasificacion por hora real (createdAt) usada para armar las barras
                 const recs = lastTableData.filter(r => {
-                    const t = (r.turno||'').toLowerCase();
-                    return isDia ? (t.includes('day') || t.includes('dia') || t.includes('día')) : (t.includes('night') || t.includes('noche'));
+                    const t = r.createdAt ? calcTurnoFromHourClient(new Date(r.createdAt)) : (r.turno||'');
+                    return t === turnoLabel;
                 });
                 openDrillDown(`Turno ${turnoLabel} — ${recs.length} pallets`, recs, color);
             }
@@ -5083,14 +5103,15 @@ function renderTrendWidget(dateMap) {
         return new Date(pa[2], pa[0]-1, pa[1]) - new Date(pb[2], pb[0]-1, pb[1]);
     });
 
-    let totalDia = 0, totalNoche = 0;
-    dates.forEach(d => { totalDia += dateMap[d].Dia; totalNoche += dateMap[d].Noche; });
+    let totalDia = 0, totalExtra = 0, totalNoche = 0;
+    dates.forEach(d => { totalDia += dateMap[d].Dia; totalExtra += dateMap[d].Extra||0; totalNoche += dateMap[d].Noche; });
 
     // KPIs
     document.getElementById('trend-summary').innerHTML = `
         <div class="trend-kpi"><div class="trend-kpi-value" style="color:#f59e0b;">${totalDia}</div><div class="trend-kpi-label">Turno Dia</div></div>
+        <div class="trend-kpi"><div class="trend-kpi-value" style="color:#22c55e;">${totalExtra}</div><div class="trend-kpi-label">Tiempo Extra</div></div>
         <div class="trend-kpi"><div class="trend-kpi-value" style="color:#4f7cff;">${totalNoche}</div><div class="trend-kpi-label">Turno Noche</div></div>
-        <div class="trend-kpi"><div class="trend-kpi-value" style="color:var(--text-main);">${totalDia + totalNoche}</div><div class="trend-kpi-label">Total</div></div>
+        <div class="trend-kpi"><div class="trend-kpi-value" style="color:var(--text-main);">${totalDia + totalExtra + totalNoche}</div><div class="trend-kpi-label">Total</div></div>
     `;
 
     // Vertical grouped bar chart
@@ -5108,10 +5129,12 @@ function renderTrendWidget(dateMap) {
     // Format dates for display: M/D/YYYY → "DD/MM"
     const dateLabels = dates.map(d => { const p = d.split('/'); return p[1] + '/' + p[0]; });
     const diaValues = dates.map(d => dateMap[d].Dia);
+    const extraValues = dates.map(d => dateMap[d].Extra||0);
     const nocheValues = dates.map(d => dateMap[d].Noche);
 
     console.log('[TREND] Labels L→R:', dateLabels.join(' → '));
     console.log('[TREND] Dia values:', diaValues.join(', '));
+    console.log('[TREND] Extra values:', extraValues.join(', '));
     console.log('[TREND] Noche values:', nocheValues.join(', '));
 
     chartTrend = new Chart(ctx, {
@@ -5124,6 +5147,16 @@ function renderTrendWidget(dateMap) {
                     data: diaValues,
                     backgroundColor: 'rgba(245,158,11,0.85)',
                     hoverBackgroundColor: '#f59e0b',
+                    borderRadius: 3,
+                    borderSkipped: false,
+                    barPercentage: 0.9,
+                    categoryPercentage: 0.85,
+                },
+                {
+                    label: 'Tiempo Extra',
+                    data: extraValues,
+                    backgroundColor: 'rgba(34,197,94,0.85)',
+                    hoverBackgroundColor: '#22c55e',
                     borderRadius: 3,
                     borderSkipped: false,
                     barPercentage: 0.9,
@@ -5188,10 +5221,10 @@ async function loadTendencias() {
         const data = await apiFetch(`${API}/api/dashboard/tendencias?dias=7${separator}${filterParams}`);
         if (!data.success) return;
 
-        // New format: data.tendencia = [{ date, dia, noche, total }]
+        // New format: data.tendencia = [{ date, dia, extra, noche, total }]
         const dateMap = {};
         (data.tendencia || []).forEach(d => {
-            dateMap[d.date] = { Dia: d.dia, Noche: d.noche };
+            dateMap[d.date] = { Dia: d.dia, Extra: d.extra||0, Noche: d.noche };
         });
 
         trendCache = dateMap;
@@ -6342,7 +6375,10 @@ function initScannerInput() {
 
 function setResumenDate() {
     const el = document.getElementById('res-fecha');
-    if (el && !el.value) el.value = new Date().toISOString().split('T')[0];
+    if (el && !el.value) {
+        const d = new Date();
+        el.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
 }
 
 async function handleResumenSubmit(e) {
@@ -6860,7 +6896,7 @@ async function exportDashboardExcel() {
     const finalBuf = await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const url = URL.createObjectURL(finalBuf);
     const a = document.createElement('a'); a.href = url;
-    a.download = `Dashboard_FFT_${today.toISOString().split('T')[0]}.xlsx`;
+    a.download = `Dashboard_FFT_${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}.xlsx`;
     a.click(); URL.revokeObjectURL(url);
     const btnR = document.querySelector('[onclick="exportDashboardExcel()"]');
     if (btnR) { btnR.disabled = false; btnR.innerHTML = '<i class="fa-solid fa-file-excel"></i> Excel'; }
@@ -6886,7 +6922,8 @@ function exportFilteredExcel() {
     const ws = XLSX.utils.aoa_to_sheet([EXPORT_COLS, ...lastTableData.map(recordToRow)]);
     ws['!cols'] = EXPORT_COLS.map(() => ({ wch: 16 }));
     XLSX.utils.book_append_sheet(wb, ws, 'Registros Filtrados');
-    const today = new Date().toISOString().split('T')[0];
+    const todayD = new Date();
+    const today = `${todayD.getFullYear()}-${String(todayD.getMonth()+1).padStart(2,'0')}-${String(todayD.getDate()).padStart(2,'0')}`;
     downloadXlsx(wb, `Registros_Filtrados_${today}.xlsx`);
 }
 
