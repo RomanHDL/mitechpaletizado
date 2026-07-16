@@ -50,7 +50,7 @@
             --inset-bg-hover: rgba(255,255,255,0.06);
         }
 
-        /* ═══ Modo claro (solo activado para admin 3647 via data-theme="light") ═══ */
+        /* ═══ Modo claro (activado via data-theme="light") ═══ */
         :root[data-theme='light'] {
             --bg-dark: #F5F7FB;
             --bg-card: #FFFFFF;
@@ -71,9 +71,6 @@
             color-scheme: light;
         }
 
-        /* Gating de UI solo para el admin 3647 — oculto por defecto */
-        .user-3647-only { display:none !important; }
-        .user-3647-only.visible { display:inline-flex !important; }
         /* Cards exclusivas del admin 3647 dentro del grid de admin */
         .card-3647-only { display:none !important; }
         .card-3647-only.visible { display:flex !important; flex-direction:column; }
@@ -814,7 +811,7 @@
         </div>
         <div class="topbar-right">
             <span class="topbar-user"><strong id="user-display-name">-</strong> &middot; <span id="user-display-role">-</span></span>
-            <button class="theme-toggle-btn user-3647-only" id="theme-toggle-btn" onclick="toggleTheme3647()" title="Cambiar tema" aria-label="Cambiar tema">
+            <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Cambiar tema" aria-label="Cambiar tema">
                 <i class="fa-solid fa-moon" id="theme-toggle-icon"></i>
             </button>
             <button class="btn-logout-top" onclick="handleLogout()">
@@ -1230,7 +1227,7 @@
                     <button id="btn-capture-mode" style="display:none;padding:0.35rem 0.7rem;font-size:0.78rem;" class="btn btn-secondary btn-sm" onclick="toggleCaptureMode()">
                         <i class="fa-solid fa-camera"></i> Captura
                     </button>
-                    <button class="theme-toggle-btn user-3647-only" id="theme-toggle-btn-dash" onclick="toggleTheme3647()" title="Cambiar tema" aria-label="Cambiar tema" style="width:30px;height:30px;font-size:0.85rem;">
+                    <button class="theme-toggle-btn" id="theme-toggle-btn-dash" onclick="toggleTheme()" title="Cambiar tema" aria-label="Cambiar tema" style="width:30px;height:30px;font-size:0.85rem;">
                         <i class="fa-solid fa-moon" id="theme-toggle-icon-dash"></i>
                     </button>
                     <span style="width:1px;height:20px;background:var(--border);margin:0 0.25rem;"></span>
@@ -1878,14 +1875,12 @@ async function handleLogin(e) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   TEMA CLARO/OSCURO — exclusivo del admin 3647
-   Se aplica al entrar con el usuario 3647 (login o NFC) y se persiste
-   en localStorage.mitech_theme_3647. El resto de usuarios ven el dark
-   por defecto siempre (data-theme se elimina al logout o al entrar
-   otro usuario).
+   TEMA CLARO/OSCURO — disponible para todos los usuarios
+   Se aplica al entrar (login o NFC) y se persiste en este dispositivo
+   via localStorage.mitech_theme.
    ═══════════════════════════════════════════════════════════════════ */
-function applyTheme3647() {
-    const t = localStorage.getItem('mitech_theme_3647') || 'dark';
+function applyTheme() {
+    const t = localStorage.getItem('mitech_theme') || 'dark';
     if (t === 'light') {
         document.documentElement.setAttribute('data-theme', 'light');
     } else {
@@ -1923,8 +1918,7 @@ function showToast(message, type = 'info', duration = 4000) {
     return t;
 }
 
-function toggleTheme3647() {
-    if (!currentUser || String(currentUser.usuario) !== '3647') return;
+function toggleTheme() {
     const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
     const next = cur === 'light' ? 'dark' : 'light';
     // Evitar pintado gradual: desactivar transiciones por un frame
@@ -1934,7 +1928,7 @@ function toggleTheme3647() {
     } else {
         document.documentElement.removeAttribute('data-theme');
     }
-    localStorage.setItem('mitech_theme_3647', next);
+    localStorage.setItem('mitech_theme', next);
     updateThemeIcon(next);
     // Refrescar colores de Chart.js y redibujar los charts visibles
     applyChartTheme();
@@ -1982,9 +1976,6 @@ function handleLogout() {
     document.querySelectorAll('[id$="-modal"]').forEach(m => m.style.display = 'none');
     // Reset NFC state
     resetNfcBtn();
-    // Forzar modo oscuro al salir (el tema claro es exclusivo del admin 3647)
-    document.documentElement.removeAttribute('data-theme');
-    document.querySelectorAll('.user-3647-only').forEach(el => el.classList.remove('visible'));
 }
 
 async function checkSession() {
@@ -2035,16 +2026,15 @@ function enterApp() {
         document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('visible'));
     }
 
-    // Funciones exclusivas del admin 3647: toggle de tema claro/oscuro
+    // Cards exclusivas del admin 3647 (Centro de Control, gestion de pedidos, etc.)
     if (String(currentUser.usuario) === '3647') {
-        document.querySelectorAll('.user-3647-only').forEach(el => el.classList.add('visible'));
         document.querySelectorAll('.card-3647-only').forEach(el => el.classList.add('visible'));
-        applyTheme3647();
     } else {
-        document.querySelectorAll('.user-3647-only').forEach(el => el.classList.remove('visible'));
         document.querySelectorAll('.card-3647-only').forEach(el => el.classList.remove('visible'));
-        document.documentElement.removeAttribute('data-theme');
     }
+
+    // Tema claro/oscuro: disponible para todos los usuarios
+    applyTheme();
 
     // Sin acceso a escaneadoras: ocultar esos cards del home
     const escCard = document.querySelector('.mod-esc');
@@ -2868,17 +2858,12 @@ function loadConfig() {
     setTxt('cfg-device', localStorage.getItem('mitech_device_id') || 'No registrado');
     setTxt('cfg-online', navigator.onLine ? 'En linea' : 'Sin conexion');
 
-    // Theme preference: full toggle for 3647, informational note otherwise
+    // Theme preference: full toggle for everyone
     const wrap = document.getElementById('cfg-theme-wrap');
     const note = document.getElementById('cfg-theme-note');
     const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    if (String(currentUser.usuario) === '3647') {
-        if (wrap) wrap.innerHTML = `<button class="btn btn-secondary btn-sm" onclick="toggleTheme3647();loadConfig();"><i class="fa-solid ${isLight ? 'fa-moon' : 'fa-sun'}" style="margin-right:6px;"></i>${isLight ? 'Cambiar a oscuro' : 'Cambiar a claro'}</button>`;
-        if (note) note.textContent = 'El tema se guarda en este dispositivo.';
-    } else {
-        if (wrap) wrap.innerHTML = `<strong>${isLight ? 'Claro' : 'Oscuro'}</strong>`;
-        if (note) note.textContent = 'El cambio de tema esta disponible solo para el administrador.';
-    }
+    if (wrap) wrap.innerHTML = `<button class="btn btn-secondary btn-sm" onclick="toggleTheme();loadConfig();"><i class="fa-solid ${isLight ? 'fa-moon' : 'fa-sun'}" style="margin-right:6px;"></i>${isLight ? 'Cambiar a oscuro' : 'Cambiar a claro'}</button>`;
+    if (note) note.textContent = 'El tema se guarda en este dispositivo.';
 
     const adminActions = document.getElementById('cfg-admin-actions');
     if (adminActions) adminActions.style.display = currentUser.role === 'admin' ? '' : 'none';
@@ -3499,7 +3484,7 @@ Chart.defaults.animation.duration = 800;
 Chart.defaults.animation.easing = 'easeOutQuart';
 
 // ═══════════════════════════════════════════════════════════════════
-// Paleta de charts sensible al tema (admin 3647 puede alternar light).
+// Paleta de charts sensible al tema (todos los usuarios pueden alternar light).
 // Los charts capturan los strings al renderizar; para actualizarlos
 // cambiamos estos valores y llamamos loadDashboard() que los redibuja.
 // ═══════════════════════════════════════════════════════════════════
