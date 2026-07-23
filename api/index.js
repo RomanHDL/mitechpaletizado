@@ -165,6 +165,7 @@ const escRegSchema = new mongoose.Schema({
   incidencias: { type: String, default: '' },
   observaciones: { type: String, default: '' },
   capturadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  origen: { type: String, default: 'manual' }, // 'manual' | 'smartcontrol-sync'
 }, { timestamps: true });
 
 escRegSchema.index({ fecha: 1, turno: 1 });
@@ -644,6 +645,55 @@ app.get('/api/sc-pallet/:palletId', auth, async (req, res) => {
   } finally {
     clearTimeout(timeout);
   }
+});
+
+// ── Sync SmartControl → Mongo (solo admin 3647, aditivo, nunca sobreescribe) ──
+// 1) Diff: dado un listado de PalletIDs que SmartControl dice que existen, regresa cuales faltan en Mongo.
+app.post('/api/sc-pallet/diff', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+    const { palletIds } = req.body;
+    if (!Array.isArray(palletIds) || !palletIds.length) return res.status(400).json({ success: false, error: 'palletIds (array) requerido' });
+    const normalized = [...new Set(palletIds.map(normalizePalletId).filter(Boolean))];
+    const existing = await EscReg.find({ palletId: { $in: normalized } }).distinct('palletId');
+    const existingSet = new Set(existing.map(normalizePalletId));
+    const missing = normalized.filter(id => !existingSet.has(id));
+    res.json({ success: true, total: normalized.length, existentes: normalized.length - missing.length, faltantes: missing });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// 2) Import: inserta SOLO los pallets que no existan (re-valida por su cuenta, ignora los que ya esten).
+//    destino siempre entra como 'Sin clasificar' porque SmartControl no tiene ese dato (TRG/Almacen es una
+//    decision manual del operador en el formulario, no algo que el sistema de la empresa rastree).
+app.post('/api/sc-pallet/sync-import', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+    const { pallets } = req.body;
+    if (!Array.isArray(pallets) || !pallets.length) return res.status(400).json({ success: false, error: 'pallets (array) requerido' });
+
+    const inserted = [];
+    const skipped = [];
+    for (const p of pallets) {
+      const pid = normalizePalletId(p.palletId);
+      if (!pid) { skipped.push({ palletId: p.palletId, reason: 'palletId vacio' }); continue; }
+      const already = await EscReg.findOne({ palletId: pid });
+      if (already) { skipped.push({ palletId: pid, reason: 'ya existe' }); continue; }
+      const fechaMov = p.fechaMovimiento ? new Date(p.fechaMovimiento) : new Date();
+      const doc = await EscReg.create({
+        palletId: pid,
+        cantidad: parseInt(p.cantidadTotal, 10) || 0,
+        condicion: (p.condiciones || '').trim(),
+        destino: 'Sin clasificar',
+        turno: calcTurnoFromHour(fechaMov),
+        escaneadora: p.movidoPor || 'SmartControl',
+        fecha: mexicoDateStr(fechaMov),
+        observaciones: 'Importado automaticamente desde SmartControl - revisar destino',
+        origen: 'smartcontrol-sync',
+      });
+      inserted.push({ id: doc._id, palletId: pid });
+    }
+    res.json({ success: true, insertados: inserted.length, omitidos: skipped.length, inserted, skipped });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 // ── UPDATE pallet (admin only, with audit) ──
