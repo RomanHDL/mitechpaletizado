@@ -1033,13 +1033,25 @@ app.get('/api/dashboard/tv-stats', auth, moduleGuard('dashboard'), async (req, r
         try {
           const rawPallet = await scFetchJson(`https://appsc.mitechnologiesinc.com/Home/BinPalletID_GET_ApiAR?PalletID=${encodeURIComponent(pid)}`);
           const productos = scTryParse(rawPallet.Productos) || [];
-          const lpn = (Array.isArray(productos) ? productos : []).map(p => p.NumeroSerie).find(s => s && s.trim());
-          if (!lpn) return;
-          const rawLpn = await scFetchJson(`https://appsc.mitechnologiesinc.com/Classification/GetDataLicensePlateNumber_ApiAR?LPN=${encodeURIComponent(lpn)}`, 7000);
-          const workPlanArr = scTryParse(rawLpn.WorkPlanLicensePlateNumber) || [];
-          const info = Array.isArray(workPlanArr) ? workPlanArr[0] : null;
-          if (!info) return;
-          if (info.CategoryName && info.CategoryName !== 'Televisions') return; // solo TVs
+          const lista = Array.isArray(productos) ? productos : [];
+          // Un pallet puede traer mezcladas TVs con accesorios/soundbars/etc bajo otras SKUs.
+          // Preferimos candidatos cuya SKU empiece con "SNTV" (patron de TV visto en datos reales)
+          // y probamos varios hasta encontrar uno que la Classification API confirme como Televisions,
+          // en vez de asumir que el primer producto de la lista representa todo el pallet.
+          const candidatos = [
+            ...lista.filter(p => p.NumeroSerie && p.NumeroSerie.trim() && /^SNTV/i.test(p.SKU || '')),
+            ...lista.filter(p => p.NumeroSerie && p.NumeroSerie.trim() && !/^SNTV/i.test(p.SKU || '')),
+          ].map(p => p.NumeroSerie);
+
+          let info = null;
+          for (const lpn of candidatos.slice(0, 4)) {
+            const rawLpn = await scFetchJson(`https://appsc.mitechnologiesinc.com/Classification/GetDataLicensePlateNumber_ApiAR?LPN=${encodeURIComponent(lpn)}`, 7000);
+            const workPlanArr = scTryParse(rawLpn.WorkPlanLicensePlateNumber) || [];
+            const candidateInfo = Array.isArray(workPlanArr) ? workPlanArr[0] : null;
+            if (candidateInfo && candidateInfo.CategoryName === 'Televisions') { info = candidateInfo; break; }
+          }
+          if (!info) return; // este pallet no trae TVs identificables (o no responde)
+
           const brand = (info.Brand || '').trim() || 'Desconocida';
           porMarca[brand] = (porMarca[brand] || 0) + 1;
           const inches = parseInches(info.ItemDescription);
