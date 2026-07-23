@@ -5316,11 +5316,12 @@ function renderGroupedView(records) {
                     ${recs.map(r => {
                         const isRetrabajo = r.retrabajo;
                         const isSync = r.origen === 'smartcontrol-sync';
-                        const retrabajoStyle = isRetrabajo ? 'background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);' : (isSync ? 'background:rgba(245,158,11,0.06);border-color:rgba(245,158,11,0.25);' : '');
+                        const needsReview = isSync && r.destino === 'Sin clasificar';
+                        const retrabajoStyle = isRetrabajo ? 'background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);' : (needsReview ? 'background:rgba(245,158,11,0.06);border-color:rgba(245,158,11,0.25);' : '');
                         return `
                         <div class="record-card" style="position:relative;${retrabajoStyle}">
                             ${isRetrabajo ? '<span style="position:absolute;top:0.3rem;left:0.75rem;font-size:0.6rem;font-weight:700;color:#22c55e;background:rgba(34,197,94,0.15);padding:1px 6px;border-radius:3px;">RETRABAJO</span>' : ''}
-                            ${isSync ? '<span title="Importado de SmartControl - revisar destino" style="position:absolute;top:0.3rem;right:0.75rem;font-size:0.6rem;font-weight:700;color:#f59e0b;background:rgba(245,158,11,0.15);padding:1px 6px;border-radius:3px;"><i class="fa-solid fa-satellite-dish"></i> SC - REVISAR</span>' : ''}
+                            ${needsReview ? '<span title="Importado de SmartControl - revisar destino" style="position:absolute;top:0.3rem;right:0.75rem;font-size:0.6rem;font-weight:700;color:#f59e0b;background:rgba(245,158,11,0.15);padding:1px 6px;border-radius:3px;"><i class="fa-solid fa-satellite-dish"></i> SC - REVISAR</span>' : (isSync ? '<span title="Importado de SmartControl" style="position:absolute;top:0.3rem;right:0.75rem;font-size:0.6rem;font-weight:700;color:var(--accent);background:rgba(79,124,255,0.12);padding:1px 6px;border-radius:3px;"><i class="fa-solid fa-satellite-dish"></i> SC</span>' : '')}
                             <div class="rc-field"><span class="rc-label">Pallet</span><span class="rc-value bold">${scPalletLink(r.palletId)}</span></div>
                             <div class="rc-field"><span class="rc-label">Cantidad</span><span class="rc-value">${r.cantidad}</span></div>
                             <div class="rc-field"><span class="rc-label">Destino</span><span class="rc-value">${r.destino}</span></div>
@@ -5352,12 +5353,12 @@ function renderTableView(records) {
     }
     const isAdmin = currentUser && currentUser.role === 'admin';
     tbody.innerHTML = records.map(r => `
-        <tr ${r.origen === 'smartcontrol-sync' ? 'style="background:rgba(245,158,11,0.06);"' : ''}>
+        <tr ${r.origen === 'smartcontrol-sync' && r.destino === 'Sin clasificar' ? 'style="background:rgba(245,158,11,0.06);"' : ''}>
             <td>${r.fecha}</td>
             <td style="font-weight:600;">${scPalletLink(r.palletId)}</td>
             <td>${r.cantidad}</td>
             <td>${r.condicion ? `<span class="badge badge-blue">${r.condicion}</span>` : '-'}</td>
-            <td>${r.destino}${r.origen === 'smartcontrol-sync' && r.destino === 'Sin clasificar' ? ' <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;" title="Importado de SmartControl - falta clasificar destino"></i>' : ''}</td>
+            <td>${r.destino}${r.origen === 'smartcontrol-sync' ? (r.destino === 'Sin clasificar' ? ' <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;" title="Importado de SmartControl - falta clasificar destino"></i>' : ' <i class="fa-solid fa-satellite-dish" style="color:var(--accent);" title="Importado de SmartControl"></i>') : ''}</td>
             <td>${turnoBadge(r.turno)}</td>
             <td>${r.escaneadora}</td>
             <td>${r.pedido || '-'}</td>

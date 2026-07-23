@@ -662,35 +662,68 @@ app.post('/api/sc-pallet/diff', auth, roleGuard('admin'), async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// 2) Import: inserta SOLO los pallets que no existan (re-valida por su cuenta, ignora los que ya esten).
-//    destino siempre entra como 'Sin clasificar' porque SmartControl no tiene ese dato (TRG/Almacen es una
-//    decision manual del operador en el formulario, no algo que el sistema de la empresa rastree).
+// Helper: GET con timeout a un endpoint publico de SmartControl (appsc.mitechnologiesinc.com).
+async function scFetchJson(url, timeoutMs = 9000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, { signal: controller.signal });
+    if (!resp.ok) throw new Error(`SmartControl respondio ${resp.status}`);
+    return await resp.json();
+  } finally { clearTimeout(timeout); }
+}
+
+// Deduce destino (TRG/Almacen) tomando un LPN del pallet y revisando NeedTRGID en Classification API.
+// Confirmado con datos reales: NeedTRGID=true -> TRG, NeedTRGID=false -> Almacen.
+async function scDeduceDestino(productos) {
+  const lpn = (productos || []).map(p => p.NumeroSerie).find(s => s && s.trim());
+  if (!lpn) return 'Sin clasificar';
+  try {
+    const raw = await scFetchJson(`https://appsc.mitechnologiesinc.com/Classification/GetDataLicensePlateNumber_ApiAR?LPN=${encodeURIComponent(lpn)}`, 7000);
+    if (typeof raw.NeedTRGID === 'boolean') return raw.NeedTRGID ? 'TRG' : 'Almacen';
+    return 'Sin clasificar';
+  } catch { return 'Sin clasificar'; }
+}
+
+// 2) Import: dado un listado de PalletIDs, jala cada uno de SmartControl (pallet + LPN para destino),
+//    e inserta SOLO los que no existan ya en Mongo. Nunca sobreescribe ni borra nada existente.
 app.post('/api/sc-pallet/sync-import', auth, roleGuard('admin'), async (req, res) => {
   try {
     if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
-    const { pallets } = req.body;
-    if (!Array.isArray(pallets) || !pallets.length) return res.status(400).json({ success: false, error: 'pallets (array) requerido' });
+    const { palletIds } = req.body;
+    if (!Array.isArray(palletIds) || !palletIds.length) return res.status(400).json({ success: false, error: 'palletIds (array) requerido' });
 
     const inserted = [];
     const skipped = [];
-    for (const p of pallets) {
-      const pid = normalizePalletId(p.palletId);
-      if (!pid) { skipped.push({ palletId: p.palletId, reason: 'palletId vacio' }); continue; }
+    for (const rawId of palletIds) {
+      const pid = normalizePalletId(rawId);
+      if (!pid) { skipped.push({ palletId: rawId, reason: 'palletId vacio' }); continue; }
       const already = await EscReg.findOne({ palletId: pid });
       if (already) { skipped.push({ palletId: pid, reason: 'ya existe' }); continue; }
-      const fechaMov = p.fechaMovimiento ? new Date(p.fechaMovimiento) : new Date();
+
+      let raw;
+      try {
+        raw = await scFetchJson(`https://appsc.mitechnologiesinc.com/Home/BinPalletID_GET_ApiAR?PalletID=${encodeURIComponent(pid)}`);
+      } catch (e) { skipped.push({ palletId: pid, reason: 'SmartControl no respondio: ' + e.message }); continue; }
+
+      const productos = scTryParse(raw.Productos) || [];
+      const movimientos = scTryParse(raw.Movimientos) || [];
+      const primerMov = Array.isArray(movimientos) && movimientos.length ? movimientos[movimientos.length - 1] : null; // el mas antiguo = creacion
+      const fechaMov = primerMov && primerMov.FechaMovimiento ? new Date(primerMov.FechaMovimiento) : new Date();
+      const destino = await scDeduceDestino(Array.isArray(productos) ? productos : []);
+
       const doc = await EscReg.create({
         palletId: pid,
-        cantidad: parseInt(p.cantidadTotal, 10) || 0,
-        condicion: (p.condiciones || '').trim(),
-        destino: 'Sin clasificar',
+        cantidad: parseInt(raw.CantidadTotal, 10) || 0,
+        condicion: (raw.Condiciones || '').trim(),
+        destino,
         turno: calcTurnoFromHour(fechaMov),
-        escaneadora: p.movidoPor || 'SmartControl',
+        escaneadora: (primerMov && primerMov.MovidoPor) || 'SmartControl',
         fecha: mexicoDateStr(fechaMov),
-        observaciones: 'Importado automaticamente desde SmartControl - revisar destino',
+        observaciones: destino === 'Sin clasificar' ? 'Importado automaticamente desde SmartControl - revisar destino' : 'Importado automaticamente desde SmartControl',
         origen: 'smartcontrol-sync',
       });
-      inserted.push({ id: doc._id, palletId: pid });
+      inserted.push({ id: doc._id, palletId: pid, destino });
     }
     res.json({ success: true, insertados: inserted.length, omitidos: skipped.length, inserted, skipped });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
