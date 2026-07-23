@@ -3738,10 +3738,33 @@ function startPollingFallback() {
         if (!dashView || !dashView.classList.contains('active')) { stopPolling(); return; }
         refreshDashboard();
     }, 8000);
+    startTvStatsPolling();
 }
 
 function stopPolling() {
     if (dashPollTimer) { clearInterval(dashPollTimer); dashPollTimer = null; }
+    stopTvStatsPolling();
+}
+
+// ── TV stats: auto-refresh propio, mas espaciado que el poll de 8s del dashboard ──
+// (cada consulta cruza contra SmartControl en vivo, asi que no tiene caso pedirla tan seguido)
+let tvStatsPollTimer = null;
+let _tvStatsRefreshing = false;
+function startTvStatsPolling() {
+    stopTvStatsPolling();
+    if (!currentUser || currentUser.usuario !== '3647') return; // cards exclusivas de 3647
+    const tick = () => {
+        if (_tvStatsRefreshing || dashFiltersEditing) return;
+        const dashView = document.getElementById('view-dashboard');
+        if (!dashView || !dashView.classList.contains('active')) { stopTvStatsPolling(); return; }
+        _tvStatsRefreshing = true;
+        loadTvStats().catch(()=>{}).finally(() => { _tvStatsRefreshing = false; });
+    };
+    tick(); // primera carga inmediata, sin esperar al usuario ni al intervalo
+    tvStatsPollTimer = setInterval(tick, 60000);
+}
+function stopTvStatsPolling() {
+    if (tvStatsPollTimer) { clearInterval(tvStatsPollTimer); tvStatsPollTimer = null; }
 }
 
 function debouncedSearch() {
@@ -4848,10 +4871,11 @@ async function loadTvStats() {
         const data = await apiFetch(`${API}/api/dashboard/tv-stats?${params}`);
         if (!data.success) throw new Error(data.error || 'Error al consultar');
 
-        const nota = `${data.procesados} TVs identificadas de ${data.palletsMuestreados} pallet${data.palletsMuestreados!==1?'s':''} revisados`
-            + (data.muestreado ? ` (muestra de ${data.palletsMuestreados} de ${data.totalPalletsFiltro} pallets del filtro)` : '')
-            + (data.fromCache ? ' · cache' : '')
-            + (data.errores ? ` · ${data.errores} sin datos` : '');
+        const totalPzsEstimadas = data.porMarca.reduce((s,m) => s + m.total, 0);
+        const nota = `~${totalPzsEstimadas.toLocaleString()} piezas estimadas · ${data.procesados} de ${data.palletsMuestreados} pallet${data.palletsMuestreados!==1?'s':''} revisados`
+            + (data.muestreado ? ` (muestra de ${data.palletsMuestreados} de ${data.totalPalletsFiltro} del filtro)` : '')
+            + (data.errores ? ` · ${data.errores} sin datos` : '')
+            + (data.fromCache ? ' · cache' : '');
         noteM.textContent = nota;
         noteP.textContent = nota;
 

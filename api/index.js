@@ -1005,12 +1005,20 @@ app.get('/api/dashboard/tv-stats', auth, moduleGuard('dashboard'), async (req, r
     if (fecha) filter.fecha = fecha;
     if (escaneadora) filter.escaneadora = rx(escaneadora);
     if (turno) filter.turno = rx(turno);
-    let registros = await EscReg.find(filter).select('palletId fecha');
+    let registros = await EscReg.find(filter).select('palletId fecha cantidad');
     if (!fecha && fecha_inicio && fecha_fin) {
       const start = new Date(fecha_inicio), end = new Date(fecha_fin);
       end.setHours(23, 59, 59, 999);
       registros = registros.filter(r => inDateRange(r.fecha, start, end));
     }
+
+    // cantidad real (de tu propia DB) por pallet, para poder pesar la muestra por piezas
+    // en vez de contar "1" por pallet -> los totales se sienten cercanos a tus piezas reales.
+    const cantidadPorPallet = {};
+    registros.forEach(r => {
+      const pid = normalizePalletId(r.palletId);
+      if (pid) cantidadPorPallet[pid] = (cantidadPorPallet[pid] || 0) + (r.cantidad || 0);
+    });
 
     const allPalletIds = [...new Set(registros.map(r => normalizePalletId(r.palletId)).filter(Boolean))];
     const totalPalletsFiltro = allPalletIds.length;
@@ -1052,11 +1060,14 @@ app.get('/api/dashboard/tv-stats', auth, moduleGuard('dashboard'), async (req, r
           }
           if (!info) return; // este pallet no trae TVs identificables (o no responde)
 
+          // Pesamos por la cantidad REAL de piezas de tu DB para ese pallet (no "+1" por pallet),
+          // asi los totales reflejan piezas estimadas en vez de numero de pallets muestreados.
+          const peso = cantidadPorPallet[pid] || 1;
           const brand = (info.Brand || '').trim() || 'Desconocida';
-          porMarca[brand] = (porMarca[brand] || 0) + 1;
+          porMarca[brand] = (porMarca[brand] || 0) + peso;
           const inches = parseInches(info.ItemDescription);
           const bucket = inches ? `${inches}"` : 'Sin dato';
-          porPulgadas[bucket] = (porPulgadas[bucket] || 0) + 1;
+          porPulgadas[bucket] = (porPulgadas[bucket] || 0) + peso;
           procesados++;
         } catch (e) { errores++; }
       }));
