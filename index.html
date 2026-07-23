@@ -1521,6 +1521,21 @@
                 </div>
             </div>
 
+            <!-- SmartControl Pallet Detail Modal (solo lectura, en vivo) -->
+            <div id="sc-pallet-modal" style="display:none;position:fixed;inset:0;z-index:1400;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);">
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:16px;width:94%;max-width:760px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.85rem 1.25rem;border-bottom:1px solid var(--border);">
+                        <div style="display:flex;align-items:center;gap:0.6rem;">
+                            <i class="fa-solid fa-satellite-dish" style="color:var(--accent);"></i>
+                            <span style="font-weight:700;">SmartControl</span>
+                            <span id="sc-pallet-title" style="font-size:0.85rem;color:var(--text-muted);font-family:monospace;"></span>
+                        </div>
+                        <button onclick="closeScPalletDetail()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;color:var(--text-muted);cursor:pointer;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div id="sc-pallet-body" style="flex:1;overflow-y:auto;padding:1rem 1.25rem;overscroll-behavior:contain;"></div>
+                </div>
+            </div>
+
             <!-- Audit Modal -->
             <!-- Edit Pallet Modal -->
             <div id="edit-pallet-modal" style="display:none;position:fixed;inset:0;z-index:1300;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);">
@@ -5304,7 +5319,7 @@ function renderGroupedView(records) {
                         return `
                         <div class="record-card" style="position:relative;${retrabajoStyle}">
                             ${isRetrabajo ? '<span style="position:absolute;top:0.3rem;left:0.75rem;font-size:0.6rem;font-weight:700;color:#22c55e;background:rgba(34,197,94,0.15);padding:1px 6px;border-radius:3px;">RETRABAJO</span>' : ''}
-                            <div class="rc-field"><span class="rc-label">Pallet</span><span class="rc-value bold">${r.palletId}</span></div>
+                            <div class="rc-field"><span class="rc-label">Pallet</span><span class="rc-value bold">${r.palletId} <button onclick="event.stopPropagation();openScPalletDetail('${(r.palletId||'').replace(/'/g,"\\'")}')" title="Ver en SmartControl" style="background:none;border:none;color:var(--accent);cursor:pointer;padding:0 2px;font-size:0.75rem;"><i class="fa-solid fa-satellite-dish"></i></button></span></div>
                             <div class="rc-field"><span class="rc-label">Cantidad</span><span class="rc-value">${r.cantidad}</span></div>
                             <div class="rc-field"><span class="rc-label">Destino</span><span class="rc-value">${r.destino}</span></div>
                             <div class="rc-field"><span class="rc-label">Turno</span><span class="rc-value">${turnoBadge(r.turno)}</span></div>
@@ -5337,7 +5352,7 @@ function renderTableView(records) {
     tbody.innerHTML = records.map(r => `
         <tr>
             <td>${r.fecha}</td>
-            <td style="font-weight:600;">${r.palletId}</td>
+            <td style="font-weight:600;">${r.palletId} <button onclick="openScPalletDetail('${(r.palletId||'').replace(/'/g,"\\'")}')" title="Ver en SmartControl" style="background:none;border:none;color:var(--accent);cursor:pointer;padding:0 2px;font-size:0.75rem;"><i class="fa-solid fa-satellite-dish"></i></button></td>
             <td>${r.cantidad}</td>
             <td>${r.condicion ? `<span class="badge badge-blue">${r.condicion}</span>` : '-'}</td>
             <td>${r.destino}</td>
@@ -5855,7 +5870,7 @@ function buildPedidoTable(fecha, recs, color) {
         const rtBtn = (!isRt && currentUser && currentUser.usuario==='3647' && r._id) ? `<button onclick="crearRetrabajo('${r._id}','${r.palletId}');closeDrillDown();" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:4px;padding:1px 6px;color:#22c55e;cursor:pointer;font-size:0.65rem;white-space:nowrap;" title="Retrabajo"><i class="fa-solid fa-copy"></i></button>` : '';
         h += `<tr style="${rtStyle}">`;
         h += `<td style="${td}font-size:0.72rem;white-space:nowrap;">${formatFechaHora(r)}</td>`;
-        h += `<td style="${td}font-weight:600;">${r.palletId}${rtBadge} ${rtBtn}</td>`;
+        h += `<td style="${td}font-weight:600;">${r.palletId}${rtBadge} ${rtBtn} <button onclick="openScPalletDetail('${(r.palletId||'').replace(/'/g,"\\'")}')" title="Ver en SmartControl" style="background:none;border:none;color:var(--accent);cursor:pointer;padding:0 2px;font-size:0.72rem;"><i class="fa-solid fa-satellite-dish"></i></button></td>`;
         h += `<td style="${td}">${r.cantidad}</td>`;
         h += `<td style="${td}">${r.pedido||'-'}</td>`;
         h += `<td style="${td}">${r.destino}</td>`;
@@ -5905,6 +5920,107 @@ function openDrillDown(title, recs, color) {
 function closeDrillDown() {
     document.getElementById('drilldown-modal').style.display = 'none';
     document.body.style.overflow = '';
+}
+
+// ══════════════════════════════════════════════
+// SMARTCONTROL PALLET DETAIL (solo lectura, en vivo, no se guarda nada)
+// ══════════════════════════════════════════════
+async function openScPalletDetail(palletId) {
+    if (!palletId) return;
+    const modal = document.getElementById('sc-pallet-modal');
+    const body = document.getElementById('sc-pallet-body');
+    document.getElementById('sc-pallet-title').textContent = palletId;
+    body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin" style="font-size:1.3rem;"></i><div style="margin-top:0.5rem;">Consultando SmartControl...</div></div>';
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    try {
+        const data = await apiFetch(`${API}/api/sc-pallet/${encodeURIComponent(palletId)}`);
+        if (!data.success) throw new Error(data.error || 'No se pudo consultar SmartControl');
+        renderScPalletDetail(data.data, palletId);
+    } catch (e) {
+        body.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--danger);"><i class="fa-solid fa-triangle-exclamation" style="font-size:1.3rem;"></i><div style="margin-top:0.5rem;">${(e.message||'Error al consultar SmartControl').replace(/</g,'&lt;')}</div></div>`;
+    }
+}
+function closeScPalletDetail() {
+    document.getElementById('sc-pallet-modal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+function scFmtFecha(iso) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    if (isNaN(d)) return iso;
+    const pad = n => String(n).padStart(2,'0');
+    return `${pad(d.getMonth()+1)}/${pad(d.getDate())}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function renderScPalletDetail(d, palletId) {
+    const body = document.getElementById('sc-pallet-body');
+    if (!d || (!d.cantidadTotal && !d.productos.length && !d.movimientos.length && !d.fotos.length)) {
+        body.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-circle-question" style="font-size:1.3rem;"></i><div style="margin-top:0.5rem;">SmartControl no tiene datos para "${palletId}".</div></div>`;
+        return;
+    }
+    const info = [
+        ['Cantidad total', d.cantidadTotal ?? '-'],
+        ['Condiciones', d.condiciones || '-'],
+        ['Ubicacion', d.ubicacion || '-'],
+        ['Workcenter', d.workcenter || '-'],
+    ].map(([label, val]) => `<div style="background:var(--bg-sidebar);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.7rem;"><div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;">${label}</div><div style="font-size:0.9rem;font-weight:700;margin-top:2px;">${val}</div></div>`).join('');
+
+    const fotosHtml = d.fotos.length ? `
+        <div style="margin-top:1rem;">
+            <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.5rem;">Fotos (${d.fotos.length})</div>
+            <div style="display:flex;gap:0.5rem;overflow-x:auto;padding-bottom:0.3rem;">
+                ${d.fotos.map(f => `<a href="${f.URLFoto}" target="_blank" rel="noopener" title="${f.SubidoPor||''} · ${scFmtFecha(f.FechaSubida)}"><img src="${f.URLFoto}" style="height:90px;border-radius:8px;border:1px solid var(--border);object-fit:cover;"></a>`).join('')}
+            </div>
+        </div>` : '';
+
+    const prodRows = d.productos.map(p => `
+        <tr>
+            <td style="padding:0.3rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.05);font-family:monospace;font-size:0.75rem;">${p.SKU||'-'}</td>
+            <td style="padding:0.3rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.05);font-family:monospace;font-size:0.75rem;">${p.NumeroSerie||'-'}</td>
+            <td style="padding:0.3rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.05);"><span class="badge badge-blue">${p.Condicion||'-'}</span></td>
+            <td style="padding:0.3rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.75rem;color:var(--text-muted);">${p.SupplierName||'-'}</td>
+            <td style="padding:0.3rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.75rem;color:var(--text-muted);">${p.AgeDays!=null ? p.AgeDays+'d' : '-'}</td>
+        </tr>`).join('');
+    const productosHtml = d.productos.length ? `
+        <div style="margin-top:1rem;">
+            <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.5rem;">Productos (${d.productos.length})</div>
+            <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead style="position:sticky;top:0;background:var(--bg-sidebar);"><tr>
+                        ${['SKU','Serie','Cond.','Proveedor','Edad'].map(c=>`<th style="padding:0.3rem 0.5rem;text-align:left;font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;">${c}</th>`).join('')}
+                    </tr></thead>
+                    <tbody>${prodRows}</tbody>
+                </table>
+            </div>
+        </div>` : '';
+
+    const movHtml = d.movimientos.length ? `
+        <div style="margin-top:1rem;">
+            <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.5rem;">Historial de movimientos (${d.movimientos.length})</div>
+            <div style="max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:0.4rem;">
+                ${d.movimientos.map(m => `
+                    <div style="border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:0.5rem 0.7rem;background:var(--bg-sidebar);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                            <span style="font-weight:700;font-size:0.8rem;">${m.TipoMovimiento||'-'}</span>
+                            <span style="font-size:0.7rem;color:var(--text-muted);">${scFmtFecha(m.FechaMovimiento)}</span>
+                        </div>
+                        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">
+                            ${m.MovidoPor ? `por <strong style="color:var(--text-main);">${m.MovidoPor}</strong>` : ''}
+                            ${m.PalletOrigen || m.PalletDestino ? ` &middot; ${m.PalletOrigen||'?'} &rarr; ${m.PalletDestino||'?'}` : ''}
+                        </div>
+                        ${m.Comments ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px;font-style:italic;">"${m.Comments}"</div>` : ''}
+                        ${Array.isArray(m.ProductosMovidos) && m.ProductosMovidos.length ? `<div style="font-size:0.7rem;color:var(--text-muted);margin-top:3px;">${m.ProductosMovidos.map(pm=>`${pm.ProductSKU}${pm.SerialNumber?' ('+pm.SerialNumber+')':''}`).join(', ')}</div>` : ''}
+                    </div>`).join('')}
+            </div>
+        </div>` : '';
+
+    body.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0.5rem;">${info}</div>
+        ${fotosHtml}
+        ${productosHtml}
+        ${movHtml}
+        <div style="margin-top:1rem;font-size:0.68rem;color:var(--text-muted);text-align:center;">Datos en vivo desde SmartControl (appsc.mitechnologiesinc.com) &middot; solo lectura</div>
+    `;
 }
 function ddSetFilter(type, val) {
     ddFilters[type] = ddFilters[type] === val ? '' : val; // toggle

@@ -601,6 +601,51 @@ app.get('/api/escaneadoras/:id', auth, moduleGuard('escaneadoras'), async (req, 
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// ── SmartControl (empresa): detalle real de un pallet en vivo (solo lectura, no se guarda nada) ──
+function scTryParse(v) {
+  if (typeof v !== 'string' || !v) return v;
+  try { return JSON.parse(v); } catch { return v; }
+}
+app.get('/api/sc-pallet/:palletId', auth, async (req, res) => {
+  const palletId = String(req.params.palletId || '').trim();
+  if (!palletId) return res.status(400).json({ success: false, error: 'PalletID requerido' });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 9000);
+  try {
+    const url = `https://appsc.mitechnologiesinc.com/Home/BinPalletID_GET_ApiAR?PalletID=${encodeURIComponent(palletId)}`;
+    const resp = await fetch(url, { signal: controller.signal });
+    if (!resp.ok) return res.status(502).json({ success: false, error: `SmartControl respondio ${resp.status}` });
+    const raw = await resp.json();
+    const productos = scTryParse(raw.Productos) || [];
+    const fotos = scTryParse(raw.Fotos) || [];
+    const palletsContent = scTryParse(raw.PalletsContent);
+    let movimientos = scTryParse(raw.Movimientos) || [];
+    if (Array.isArray(movimientos)) {
+      movimientos = movimientos.map(m => ({ ...m, ProductosMovidos: scTryParse(m.ProductosMovidos) || [] }));
+    }
+    res.json({
+      success: true,
+      data: {
+        nombrePallet: raw.NombrePallet || palletId,
+        cantidadTotal: raw.CantidadTotal,
+        condiciones: raw.Condiciones,
+        foto: raw.Foto,
+        workcenter: raw.WorkcenterMovimiento,
+        ubicacion: raw.Ubicacion,
+        fotos: Array.isArray(fotos) ? fotos : [],
+        productos: Array.isArray(productos) ? productos : [],
+        movimientos: Array.isArray(movimientos) ? movimientos : [],
+        palletsContent,
+      }
+    });
+  } catch (error) {
+    const msg = error.name === 'AbortError' ? 'SmartControl no respondio a tiempo' : error.message;
+    res.status(502).json({ success: false, error: msg });
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
 // ── UPDATE pallet (admin only, with audit) ──
 app.put('/api/escaneadoras/:id', auth, roleGuard('admin'), async (req, res) => {
   try {
