@@ -984,6 +984,86 @@ app.get('/api/dashboard/registros', auth, moduleGuard('dashboard'), async (req, 
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// ── TV Stats: marca y pulgadas cruzando los pallets del filtro actual contra SmartControl ──
+// Tu Mongo no guarda marca/modelo/pulgadas (solo palletId/cantidad/condicion) - ese dato solo
+// vive en SmartControl. Se cachea por 5 min y se muestrea (max N pallets) para no saturar el
+// endpoint externo ni hacer lenta la pagina. Se dispara manual, no en el poll de 8s.
+const tvStatsCache = new Map();
+const TV_STATS_CACHE_MS = 5 * 60 * 1000;
+const TV_STATS_MAX_PALLETS = 80;
+
+function parseInches(desc) {
+  if (!desc) return null;
+  const m = String(desc).match(/(\d{2,3})\s*("|”|Class|Clase|in\.)/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+app.get('/api/dashboard/tv-stats', auth, moduleGuard('dashboard'), async (req, res) => {
+  try {
+    const { fecha, fecha_inicio, fecha_fin, escaneadora, turno } = req.query;
+    const filter = {};
+    if (fecha) filter.fecha = fecha;
+    if (escaneadora) filter.escaneadora = rx(escaneadora);
+    if (turno) filter.turno = rx(turno);
+    let registros = await EscReg.find(filter).select('palletId fecha');
+    if (!fecha && fecha_inicio && fecha_fin) {
+      const start = new Date(fecha_inicio), end = new Date(fecha_fin);
+      end.setHours(23, 59, 59, 999);
+      registros = registros.filter(r => inDateRange(r.fecha, start, end));
+    }
+
+    const allPalletIds = [...new Set(registros.map(r => normalizePalletId(r.palletId)).filter(Boolean))];
+    const totalPalletsFiltro = allPalletIds.length;
+    const muestreado = totalPalletsFiltro > TV_STATS_MAX_PALLETS;
+    const palletIds = muestreado ? allPalletIds.slice(0, TV_STATS_MAX_PALLETS) : allPalletIds;
+
+    const cacheKey = JSON.stringify({ fecha, fecha_inicio, fecha_fin, escaneadora, turno, n: palletIds.length });
+    const cached = tvStatsCache.get(cacheKey);
+    if (cached && (Date.now() - cached.ts) < TV_STATS_CACHE_MS) {
+      return res.json({ success: true, ...cached.data, fromCache: true });
+    }
+
+    const porMarca = {};
+    const porPulgadas = {};
+    let procesados = 0, errores = 0;
+    const BATCH = 8;
+    for (let i = 0; i < palletIds.length; i += BATCH) {
+      const batch = palletIds.slice(i, i + BATCH);
+      await Promise.all(batch.map(async (pid) => {
+        try {
+          const rawPallet = await scFetchJson(`https://appsc.mitechnologiesinc.com/Home/BinPalletID_GET_ApiAR?PalletID=${encodeURIComponent(pid)}`);
+          const productos = scTryParse(rawPallet.Productos) || [];
+          const lpn = (Array.isArray(productos) ? productos : []).map(p => p.NumeroSerie).find(s => s && s.trim());
+          if (!lpn) return;
+          const rawLpn = await scFetchJson(`https://appsc.mitechnologiesinc.com/Classification/GetDataLicensePlateNumber_ApiAR?LPN=${encodeURIComponent(lpn)}`, 7000);
+          const workPlanArr = scTryParse(rawLpn.WorkPlanLicensePlateNumber) || [];
+          const info = Array.isArray(workPlanArr) ? workPlanArr[0] : null;
+          if (!info) return;
+          if (info.CategoryName && info.CategoryName !== 'Televisions') return; // solo TVs
+          const brand = (info.Brand || '').trim() || 'Desconocida';
+          porMarca[brand] = (porMarca[brand] || 0) + 1;
+          const inches = parseInches(info.ItemDescription);
+          const bucket = inches ? `${inches}"` : 'Sin dato';
+          porPulgadas[bucket] = (porPulgadas[bucket] || 0) + 1;
+          procesados++;
+        } catch (e) { errores++; }
+      }));
+    }
+
+    const data = {
+      totalPalletsFiltro,
+      palletsMuestreados: palletIds.length,
+      muestreado,
+      procesados,
+      errores,
+      porMarca: Object.entries(porMarca).sort((a, b) => b[1] - a[1]).map(([marca, total]) => ({ marca, total })),
+      porPulgadas: Object.entries(porPulgadas).sort((a, b) => b[1] - a[1]).map(([pulgadas, total]) => ({ pulgadas, total })),
+    };
+    tvStatsCache.set(cacheKey, { ts: Date.now(), data });
+    res.json({ success: true, ...data, fromCache: false });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // Helper: calculate the real 3-way turno from createdAt hour, in Mexico local time
 // Matutino/Dia: 7:00am-5:10pm · Tiempo Extra: 5:10pm-10:00pm · Nocturno: 10:00pm-7:00am
 function calcTurnoFromHour(date) {
