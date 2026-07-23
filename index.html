@@ -2307,7 +2307,7 @@ async function loadAuditData() {
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.35rem;">
                     <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
                         <span style="padding:3px 10px;border-radius:4px;font-size:0.7rem;font-weight:800;letter-spacing:0.5px;background:${ac.col}22;color:${ac.col};"><i class="fa-solid ${ac.icon}" style="margin-right:4px;"></i>${ac.label}</span>
-                        <strong style="color:var(--text-main);font-size:0.95rem;font-family:monospace;">${r.palletId||'-'}</strong>
+                        <strong style="color:var(--text-main);font-size:0.95rem;font-family:monospace;">${scPalletLink(r.palletId)}</strong>
                     </div>
                     <div style="text-align:right;flex-shrink:0;">
                         <div style="font-size:0.78rem;color:var(--text-main);font-weight:600;">${dateStr}</div>
@@ -2377,7 +2377,7 @@ async function buscarRetrabajo() {
             const border = ret ? 'border-left:3px solid #22c55e;' : 'border-left:3px solid var(--border);';
             return `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.8rem;margin-bottom:0.4rem;border-radius:8px;background:${bg};${border}border:1px solid var(--border);">
                 <div>
-                    <div style="font-weight:700;font-size:0.95rem;">${r.palletId} ${ret?'<span style="color:#22c55e;font-size:0.7rem;">RETRABAJO</span>':''}</div>
+                    <div style="font-weight:700;font-size:0.95rem;">${scPalletLink(r.palletId)} ${ret?'<span style="color:#22c55e;font-size:0.7rem;">RETRABAJO</span>':''}</div>
                     <div style="font-size:0.78rem;color:var(--text-muted);">${r.fecha} &middot; ${r.cantidad} pzs &middot; ${r.destino} &middot; ${r.escaneadora} &middot; ${r.condicion||'-'}</div>
                 </div>
                 ${!ret ? `<button onclick="crearRetrabajo('${r._id}','${r.palletId}')" class="btn btn-primary btn-sm" style="padding:0.4rem 0.8rem;background:#22c55e;border-color:#22c55e;white-space:nowrap;"><i class="fa-solid fa-copy" style="margin-right:4px;"></i>Retrabajo</button>` : '<span style="font-size:0.72rem;color:#22c55e;">Ya es retrabajo</span>'}
@@ -3740,7 +3740,7 @@ function onGlobalSearch() {
                 const bg = isExact ? 'background:rgba(34,197,94,0.06);' : '';
                 return `<div style="padding:0.5rem 0.75rem;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:pointer;transition:background 0.15s;${bg}" onmouseover="this.style.background='rgba(79,124,255,0.08)'" onmouseout="this.style.background='${isExact?'rgba(34,197,94,0.06)':''}'">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <span><strong style="color:var(--text-main);">${r.palletId}</strong>${exactBadge} <span style="color:var(--text-muted);">&middot; ${r.cantidad} pz &middot; ${r.destino}</span></span>
+                        <span><strong style="color:var(--text-main);">${scPalletLink(r.palletId)}</strong>${exactBadge} <span style="color:var(--text-muted);">&middot; ${r.cantidad} pz &middot; ${r.destino}</span></span>
                         <span style="font-size:0.72rem;color:var(--text-muted);">${r.fecha}</span>
                     </div>
                     <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.15rem;">
@@ -3941,7 +3941,7 @@ function showKpiDetail(type) {
                 data.pallets.forEach(r => {
                     const isRt = r.retrabajo;
                     const rtStyle = isRt ? 'border-color:#22c55e;background:rgba(34,197,94,0.1);' : '';
-                    html += `<span style="font-size:0.72rem;padding:2px 6px;border-radius:4px;border:1px solid ${col}30;background:${col}10;color:var(--text-main);font-weight:500;${rtStyle}">${r.palletId}${isRt?' <span style="color:#22c55e;font-size:0.6rem;">RT</span>':''}</span>`;
+                    html += `<span style="font-size:0.72rem;padding:2px 6px;border-radius:4px;border:1px solid ${col}30;background:${col}10;color:var(--text-main);font-weight:500;${rtStyle}">${scPalletLink(r.palletId)}${isRt?' <span style="color:#22c55e;font-size:0.6rem;">RT</span>':''}</span>`;
                 });
                 html += `</div></div>`;
             });
@@ -3983,7 +3983,7 @@ function showKpiDetail(type) {
             const pedidoCol = clasifColors[clasif] || '';
             const pedidoHtml = esPedido ? `<span style="color:${pedidoCol||'var(--text-main)'};font-weight:600;font-size:0.75rem;">${clasif||'Pedido'}</span>` : '<span style="color:var(--text-muted);">-</span>';
             const retBadge = isRet ? '<span style="color:#22c55e;font-weight:700;font-size:0.65rem;margin-left:3px;">RT</span>' : '';
-            html += `<tr data-pallet="${(r.palletId||'').toLowerCase()}" data-dest="${(r.destino||'').toLowerCase()}" data-esc="${(r.escaneadora||'').toLowerCase()}" data-cond="${(r.condicion||'').toLowerCase()}" data-pedido="${(r.pedido||'').toLowerCase()}" style="background:${bg};${isRet?'border-left:3px solid #22c55e;':''}"><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${i+1}</td><td style="padding:0.35rem 0.6rem;font-weight:600">${r.palletId||''}${retBadge}</td><td style="padding:0.35rem 0.6rem;text-align:center">${r.cantidad||0}</td><td style="padding:0.35rem 0.6rem">${r.condicion||'-'}</td><td style="padding:0.35rem 0.6rem">${r.destino||'-'}</td><td style="padding:0.35rem 0.6rem">${pedidoHtml}</td><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${r.escaneadora||'-'}</td><td style="padding:0.35rem 0.6rem;text-align:right;color:var(--text-muted)">${hora}</td></tr>`;
+            html += `<tr data-pallet="${(r.palletId||'').toLowerCase()}" data-dest="${(r.destino||'').toLowerCase()}" data-esc="${(r.escaneadora||'').toLowerCase()}" data-cond="${(r.condicion||'').toLowerCase()}" data-pedido="${(r.pedido||'').toLowerCase()}" style="background:${bg};${isRet?'border-left:3px solid #22c55e;':''}"><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${i+1}</td><td style="padding:0.35rem 0.6rem;font-weight:600">${scPalletLink(r.palletId)}${retBadge}</td><td style="padding:0.35rem 0.6rem;text-align:center">${r.cantidad||0}</td><td style="padding:0.35rem 0.6rem">${r.condicion||'-'}</td><td style="padding:0.35rem 0.6rem">${r.destino||'-'}</td><td style="padding:0.35rem 0.6rem">${pedidoHtml}</td><td style="padding:0.35rem 0.6rem;color:var(--text-muted)">${r.escaneadora||'-'}</td><td style="padding:0.35rem 0.6rem;text-align:right;color:var(--text-muted)">${hora}</td></tr>`;
         });
         html += `</tbody></table></div></div>`;
 
@@ -5319,7 +5319,7 @@ function renderGroupedView(records) {
                         return `
                         <div class="record-card" style="position:relative;${retrabajoStyle}">
                             ${isRetrabajo ? '<span style="position:absolute;top:0.3rem;left:0.75rem;font-size:0.6rem;font-weight:700;color:#22c55e;background:rgba(34,197,94,0.15);padding:1px 6px;border-radius:3px;">RETRABAJO</span>' : ''}
-                            <div class="rc-field"><span class="rc-label">Pallet</span><span class="rc-value bold">${r.palletId} <button onclick="event.stopPropagation();openScPalletDetail('${(r.palletId||'').replace(/'/g,"\\'")}')" title="Ver en SmartControl" style="background:none;border:none;color:var(--accent);cursor:pointer;padding:0 2px;font-size:0.75rem;"><i class="fa-solid fa-satellite-dish"></i></button></span></div>
+                            <div class="rc-field"><span class="rc-label">Pallet</span><span class="rc-value bold">${scPalletLink(r.palletId)}</span></div>
                             <div class="rc-field"><span class="rc-label">Cantidad</span><span class="rc-value">${r.cantidad}</span></div>
                             <div class="rc-field"><span class="rc-label">Destino</span><span class="rc-value">${r.destino}</span></div>
                             <div class="rc-field"><span class="rc-label">Turno</span><span class="rc-value">${turnoBadge(r.turno)}</span></div>
@@ -5352,7 +5352,7 @@ function renderTableView(records) {
     tbody.innerHTML = records.map(r => `
         <tr>
             <td>${r.fecha}</td>
-            <td style="font-weight:600;">${r.palletId} <button onclick="openScPalletDetail('${(r.palletId||'').replace(/'/g,"\\'")}')" title="Ver en SmartControl" style="background:none;border:none;color:var(--accent);cursor:pointer;padding:0 2px;font-size:0.75rem;"><i class="fa-solid fa-satellite-dish"></i></button></td>
+            <td style="font-weight:600;">${scPalletLink(r.palletId)}</td>
             <td>${r.cantidad}</td>
             <td>${r.condicion ? `<span class="badge badge-blue">${r.condicion}</span>` : '-'}</td>
             <td>${r.destino}</td>
@@ -5669,7 +5669,7 @@ function renderRegistrosHistorial(body, fechaQuery, textoQuery, sourceData) {
                     // TRG cell
                     h += `<div style="padding:0.3rem 0.5rem;border-right:1px solid var(--border);">`;
                     if (tR) {
-                        h += `<strong style="color:var(--text-main);">${tR.palletId}</strong> <span style="color:var(--text-muted);">${tR.cantidad}pz</span>`;
+                        h += `<strong style="color:var(--text-main);">${scPalletLink(tR.palletId)}</strong> <span style="color:var(--text-muted);">${tR.cantidad}pz</span>`;
                         if (tR.condicion) h += ` <span class="badge badge-blue" style="font-size:0.6rem;">${tR.condicion}</span>`;
                         if (tR.pedido) h += ` <span style="color:var(--text-muted);font-size:0.7rem;">P:${tR.pedido}</span>`;
                     }
@@ -5677,7 +5677,7 @@ function renderRegistrosHistorial(body, fechaQuery, textoQuery, sourceData) {
                     // Almacen cell
                     h += `<div style="padding:0.3rem 0.5rem;">`;
                     if (aR) {
-                        h += `<strong style="color:var(--text-main);">${aR.palletId}</strong> <span style="color:var(--text-muted);">${aR.cantidad}pz</span>`;
+                        h += `<strong style="color:var(--text-main);">${scPalletLink(aR.palletId)}</strong> <span style="color:var(--text-muted);">${aR.cantidad}pz</span>`;
                         if (aR.condicion) h += ` <span class="badge badge-blue" style="font-size:0.6rem;">${aR.condicion}</span>`;
                         if (aR.pedido) h += ` <span style="color:var(--text-muted);font-size:0.7rem;">P:${aR.pedido}</span>`;
                     }
@@ -5870,7 +5870,7 @@ function buildPedidoTable(fecha, recs, color) {
         const rtBtn = (!isRt && currentUser && currentUser.usuario==='3647' && r._id) ? `<button onclick="crearRetrabajo('${r._id}','${r.palletId}');closeDrillDown();" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:4px;padding:1px 6px;color:#22c55e;cursor:pointer;font-size:0.65rem;white-space:nowrap;" title="Retrabajo"><i class="fa-solid fa-copy"></i></button>` : '';
         h += `<tr style="${rtStyle}">`;
         h += `<td style="${td}font-size:0.72rem;white-space:nowrap;">${formatFechaHora(r)}</td>`;
-        h += `<td style="${td}font-weight:600;">${r.palletId}${rtBadge} ${rtBtn} <button onclick="openScPalletDetail('${(r.palletId||'').replace(/'/g,"\\'")}')" title="Ver en SmartControl" style="background:none;border:none;color:var(--accent);cursor:pointer;padding:0 2px;font-size:0.72rem;"><i class="fa-solid fa-satellite-dish"></i></button></td>`;
+        h += `<td style="${td}font-weight:600;">${scPalletLink(r.palletId)}${rtBadge} ${rtBtn}</td>`;
         h += `<td style="${td}">${r.cantidad}</td>`;
         h += `<td style="${td}">${r.pedido||'-'}</td>`;
         h += `<td style="${td}">${r.destino}</td>`;
@@ -5925,6 +5925,12 @@ function closeDrillDown() {
 // ══════════════════════════════════════════════
 // SMARTCONTROL PALLET DETAIL (solo lectura, en vivo, no se guarda nada)
 // ══════════════════════════════════════════════
+// Envuelve cualquier palletId mostrado en un span clickeable que abre el detalle real de SmartControl.
+function scPalletLink(id, extraStyle) {
+    if (!id) return '-';
+    const esc = String(id).replace(/'/g, "\\'");
+    return `<span onclick="event.stopPropagation();openScPalletDetail('${esc}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--accent);text-underline-offset:2px;${extraStyle||''}" title="Ver detalle real en SmartControl">${id}</span>`;
+}
 async function openScPalletDetail(palletId) {
     if (!palletId) return;
     const modal = document.getElementById('sc-pallet-modal');
@@ -6138,7 +6144,7 @@ function renderDrillDown() {
                 const fh = formatFechaHora(r);
                 h += `<div style="padding:0.25rem 0.65rem;display:flex;align-items:center;gap:0.5rem;font-size:0.76rem;border-bottom:1px solid rgba(255,255,255,0.02);${bg}">
                     <span style="font-size:0.65rem;color:var(--text-muted);min-width:95px;white-space:nowrap;"><i class="fa-regular fa-clock" style="margin-right:3px;font-size:0.58rem;"></i>${fh}</span>
-                    <span style="font-weight:700;font-family:monospace;min-width:55px;color:var(--text-main);">${r.palletId}</span>
+                    <span style="font-weight:700;font-family:monospace;min-width:55px;color:var(--text-main);">${scPalletLink(r.palletId)}</span>
                     <span style="min-width:40px;color:var(--text-muted);">${r.cantidad} pz</span>
                     <span style="flex:1;font-size:0.68rem;">${r.condicion ? `<span class="badge badge-blue" style="font-size:0.62rem;padding:1px 5px;">${r.condicion}</span>` : ''}</span>
                     ${pedTag}
@@ -6258,7 +6264,7 @@ function renderPedidosHistorial(body, fechaQuery, textoQuery, sourceData) {
                 h += `</tr></thead><tbody>`;
                 fRecs.forEach(r => {
                     h += `<tr>`;
-                    h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);font-weight:600;">${r.palletId}</td>`;
+                    h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);font-weight:600;">${scPalletLink(r.palletId)}</td>`;
                     h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.cantidad}</td>`;
                     h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.pedido}</td>`;
                     h += `<td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.03);">${r.destino}</td>`;
