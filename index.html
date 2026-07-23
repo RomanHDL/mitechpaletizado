@@ -3560,13 +3560,28 @@ function applyChartTheme() {
 applyChartTheme();
 
 let fpPedidos = null;
+// Se pone en true mientras el usuario esta tocando algun filtro del dashboard (calendario abierto,
+// campo con foco, etc). El auto-refresh (polling/Pusher) respeta este flag y se salta ese ciclo en
+// vez de interrumpir la seleccion a medias - el auto-refresh sigue activo, solo espera su turno.
+let dashFiltersEditing = false;
+function wireFilterEditingGuards() {
+    ['dash-fecha', 'dash-fecha-inicio', 'dash-fecha-fin', 'dash-escaneadora', 'dash-turno'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || el._scGuardWired) return;
+        el._scGuardWired = true;
+        el.addEventListener('focus', () => { dashFiltersEditing = true; });
+        el.addEventListener('blur', () => { dashFiltersEditing = false; });
+    });
+}
 function initFlatpickr() {
+    wireFilterEditingGuards();
     if (fpInstance) return;
     fpInstance = flatpickr('#dash-fecha', {
         locale: 'es',
         dateFormat: 'n/j/Y',
         allowInput: true,
-        onClose: function() { loadDashboard(); }
+        onOpen: function() { dashFiltersEditing = true; },
+        onClose: function() { dashFiltersEditing = false; loadDashboard(); }
     });
     if (!fpPedidos) {
         fpPedidos = flatpickr('#pedidos-fecha', {
@@ -3683,7 +3698,7 @@ async function initRealtime() {
 }
 
 function refreshDashboard() {
-    if (_refreshing) return;
+    if (_refreshing || dashFiltersEditing) return;
     const dashView = document.getElementById('view-dashboard');
     if (!dashView || !dashView.classList.contains('active')) return;
     _refreshing = true;
