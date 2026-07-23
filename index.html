@@ -1536,6 +1536,21 @@
                 </div>
             </div>
 
+            <!-- SmartControl LPN Detail Modal (pieza individual, solo lectura, en vivo) -->
+            <div id="sc-lpn-modal" style="display:none;position:fixed;inset:0;z-index:1500;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);">
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:16px;width:94%;max-width:640px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.85rem 1.25rem;border-bottom:1px solid var(--border);">
+                        <div style="display:flex;align-items:center;gap:0.6rem;">
+                            <i class="fa-solid fa-tag" style="color:var(--accent);"></i>
+                            <span style="font-weight:700;">Pieza (LPN)</span>
+                            <span id="sc-lpn-title" style="font-size:0.85rem;color:var(--text-muted);font-family:monospace;"></span>
+                        </div>
+                        <button onclick="closeScLpnDetail()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;color:var(--text-muted);cursor:pointer;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div id="sc-lpn-body" style="flex:1;overflow-y:auto;padding:1rem 1.25rem;overscroll-behavior:contain;"></div>
+                </div>
+            </div>
+
             <!-- Audit Modal -->
             <!-- Edit Pallet Modal -->
             <div id="edit-pallet-modal" style="display:none;position:fixed;inset:0;z-index:1300;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);">
@@ -5983,16 +5998,16 @@ function renderScPalletDetail(d, palletId) {
         </div>` : '';
 
     const prodRows = d.productos.map(p => `
-        <tr>
+        <tr ${p.NumeroSerie ? `onclick="openScLpnDetail('${p.NumeroSerie.replace(/'/g,"\\'")}')" style="cursor:pointer;" onmouseover="this.style.background='rgba(79,124,255,0.06)'" onmouseout="this.style.background=''"` : ''}>
             <td style="padding:0.3rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.05);font-family:monospace;font-size:0.75rem;">${p.SKU||'-'}</td>
-            <td style="padding:0.3rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.05);font-family:monospace;font-size:0.75rem;">${p.NumeroSerie||'-'}</td>
+            <td style="padding:0.3rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.05);font-family:monospace;font-size:0.75rem;${p.NumeroSerie?'text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--accent);':''}">${p.NumeroSerie||'-'}</td>
             <td style="padding:0.3rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.05);"><span class="badge badge-blue">${p.Condicion||'-'}</span></td>
             <td style="padding:0.3rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.75rem;color:var(--text-muted);">${p.SupplierName||'-'}</td>
             <td style="padding:0.3rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.75rem;color:var(--text-muted);">${p.AgeDays!=null ? p.AgeDays+'d' : '-'}</td>
         </tr>`).join('');
     const productosHtml = d.productos.length ? `
         <div style="margin-top:1rem;">
-            <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.5rem;">Productos (${d.productos.length})</div>
+            <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.5rem;">Productos (${d.productos.length}) <span style="font-weight:400;normal-case:normal;text-transform:none;color:var(--text-muted);">— click en una fila para ver el detalle completo</span></div>
             <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
                 <table style="width:100%;border-collapse:collapse;">
                     <thead style="position:sticky;top:0;background:var(--bg-sidebar);"><tr>
@@ -6031,6 +6046,94 @@ function renderScPalletDetail(d, palletId) {
         <div style="margin-top:1rem;font-size:0.68rem;color:var(--text-muted);text-align:center;">Datos en vivo desde SmartControl (appsc.mitechnologiesinc.com) &middot; solo lectura</div>
     `;
 }
+
+// ══════════════════════════════════════════════
+// SMARTCONTROL LPN DETAIL (pieza individual, solo lectura, en vivo)
+// ══════════════════════════════════════════════
+async function openScLpnDetail(lpn) {
+    if (!lpn) return;
+    const modal = document.getElementById('sc-lpn-modal');
+    const body = document.getElementById('sc-lpn-body');
+    document.getElementById('sc-lpn-title').textContent = lpn;
+    body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin" style="font-size:1.3rem;"></i><div style="margin-top:0.5rem;">Consultando SmartControl...</div></div>';
+    modal.style.display = 'block';
+    try {
+        const data = await apiFetch(`${API}/api/sc-lpn/${encodeURIComponent(lpn)}`);
+        if (!data.success) throw new Error(data.error || 'No se pudo consultar SmartControl');
+        renderScLpnDetail(data.data, lpn);
+    } catch (e) {
+        body.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--danger);"><i class="fa-solid fa-triangle-exclamation" style="font-size:1.3rem;"></i><div style="margin-top:0.5rem;">${(e.message||'Error al consultar SmartControl').replace(/</g,'&lt;')}</div></div>`;
+    }
+}
+function closeScLpnDetail() {
+    document.getElementById('sc-lpn-modal').style.display = 'none';
+}
+function renderScLpnDetail(d, lpn) {
+    const body = document.getElementById('sc-lpn-body');
+    if (!d || !d.info) {
+        body.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-circle-question" style="font-size:1.3rem;"></i><div style="margin-top:0.5rem;">SmartControl no tiene datos para "${lpn}".</div></div>`;
+        return;
+    }
+    const i = d.info;
+    const badge = (ok, label) => `<span style="display:inline-flex;align-items:center;gap:4px;font-size:0.72rem;padding:2px 8px;border-radius:12px;background:${ok?'rgba(34,197,94,0.12)':'rgba(255,255,255,0.05)'};color:${ok?'#22c55e':'var(--text-muted)'};border:1px solid ${ok?'rgba(34,197,94,0.3)':'var(--border)'};"><i class="fa-solid ${ok?'fa-check':'fa-xmark'}"></i> ${label}</span>`;
+
+    const header = `
+        <div style="display:flex;gap:1rem;margin-bottom:1rem;">
+            ${i.imagen ? `<img src="${i.imagen}" style="width:90px;height:90px;object-fit:contain;border-radius:8px;border:1px solid var(--border);background:#fff;flex-shrink:0;">` : ''}
+            <div style="min-width:0;">
+                <div style="font-weight:700;font-size:1.05rem;">${i.brand||'-'} <span style="color:var(--text-muted);font-weight:400;">${i.modelo||''}</span></div>
+                <div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">${i.descripcion||'-'}</div>
+                <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.4rem;">
+                    <span class="badge badge-blue">${i.categoria||'-'}</span>
+                    ${i.classification ? `<span class="badge badge-blue">${i.classification.ClassificationName}</span>` : ''}
+                    <span style="font-size:0.72rem;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,0.05);color:var(--text-muted);">${i.estado||'-'}</span>
+                </div>
+            </div>
+        </div>`;
+
+    const info = [
+        ['SKU', i.sku || '-'],
+        ['Serie', i.serie || lpn],
+        ['Proveedor', i.supplierName || '-'],
+        ['TRG ID', i.trgId && i.trgId !== 'No label' ? i.trgId : '-'],
+    ].map(([label, val]) => `<div style="background:var(--bg-sidebar);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.7rem;"><div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;font-weight:600;">${label}</div><div style="font-size:0.85rem;font-weight:700;margin-top:2px;font-family:monospace;overflow:hidden;text-overflow:ellipsis;">${val}</div></div>`).join('');
+
+    const destinoInfo = `
+        <div style="margin-top:1rem;padding:0.6rem 0.8rem;border-radius:8px;border:1px solid ${d.needTRGID?'rgba(34,197,94,0.3)':'var(--border)'};background:${d.needTRGID?'rgba(34,197,94,0.06)':'rgba(255,255,255,0.02)'};display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.8rem;color:var(--text-muted);">Destino deducido (NeedTRGID)</span>
+            <span style="font-weight:700;color:${d.needTRGID?'#22c55e':'#4f7cff'};">${d.needTRGID ? 'TRG' : 'Almacen'}</span>
+        </div>`;
+
+    const steps = i.steps ? `
+        <div style="margin-top:1rem;">
+            <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.5rem;">Proceso</div>
+            <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+                ${badge(i.steps.upc, 'UPC')}
+                ${badge(i.steps.clasificacion, 'Clasificacion')}
+                ${badge(i.steps.empaque, 'Empaque')}
+                ${badge(i.steps.accesorios, 'Accesorios')}
+                ${badge(i.steps.comentario, 'Comentario')}
+                ${badge(i.steps.foto, 'Foto')}
+            </div>
+        </div>` : '';
+
+    const cantidades = `
+        <div style="margin-top:1rem;display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;">
+            <div style="text-align:center;"><div style="font-size:1.1rem;font-weight:700;">${d.totalPalletQuantity ?? '-'}</div><div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;">Pallets totales</div></div>
+            <div style="text-align:center;"><div style="font-size:1.1rem;font-weight:700;">${d.totalQuantityReceived ?? '-'}</div><div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;">Recibido</div></div>
+            <div style="text-align:center;"><div style="font-size:1.1rem;font-weight:700;">${d.totalQuantityInspection ?? '-'}</div><div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;">En inspeccion</div></div>
+        </div>`;
+
+    body.innerHTML = `
+        ${header}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0.5rem;">${info}</div>
+        ${destinoInfo}
+        ${steps}
+        ${cantidades}
+        <div style="margin-top:1rem;font-size:0.68rem;color:var(--text-muted);text-align:center;">Datos en vivo desde SmartControl (appsc.mitechnologiesinc.com) &middot; solo lectura</div>
+    `;
+}
+
 function ddSetFilter(type, val) {
     ddFilters[type] = ddFilters[type] === val ? '' : val; // toggle
     renderDrillDown();

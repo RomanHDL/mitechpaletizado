@@ -647,6 +647,73 @@ app.get('/api/sc-pallet/:palletId', auth, async (req, res) => {
   }
 });
 
+// ── SmartControl: detalle real de un LPN (pieza individual) en vivo, solo lectura ──
+app.get('/api/sc-lpn/:lpn', auth, async (req, res) => {
+  const lpn = String(req.params.lpn || '').trim();
+  if (!lpn) return res.status(400).json({ success: false, error: 'LPN requerido' });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 9000);
+  try {
+    const url = `https://appsc.mitechnologiesinc.com/Classification/GetDataLicensePlateNumber_ApiAR?LPN=${encodeURIComponent(lpn)}`;
+    const resp = await fetch(url, { signal: controller.signal });
+    if (!resp.ok) return res.status(502).json({ success: false, error: `SmartControl respondio ${resp.status}` });
+    const raw = await resp.json();
+    const workPlanArr = scTryParse(raw.WorkPlanLicensePlateNumber) || [];
+    const info = Array.isArray(workPlanArr) ? workPlanArr[0] : null;
+    const palletInfo = scTryParse(raw.PalletInfo) || [];
+    const categoryBrandModels = scTryParse(raw.CategoryBrandModels) || [];
+    res.json({
+      success: true,
+      data: {
+        lpn,
+        wasScanned: raw.wasScanned,
+        isValid: raw.isValid,
+        isReclassification: raw.Is_Reclassification,
+        needTRGID: raw.NeedTRGID,
+        totalPalletQuantity: raw.TotalPalletQuantity,
+        totalQuantityReceived: raw.TotalQuantityReceived,
+        totalQuantityInspection: raw.TotalQuantityInspection,
+        info: info ? {
+          sku: info.SKU,
+          brand: info.Brand,
+          modelo: info.MFGSKU,
+          descripcion: info.ItemDescription,
+          categoria: info.CategoryName,
+          estado: info.StatusDescription,
+          serie: info.SerialNumber,
+          trgId: info.TRGID,
+          needTRGID: info.NeedTRGID,
+          supplierName: info.SupplierName,
+          imagen: info.SKUImage,
+          qtyOrdered: info.QtyOrdered,
+          qtyPacked: info.QtyPacked,
+          qtyPrinted: info.QtyPrinted,
+          sourceOrderId: info.SourceOrderID,
+          dueDate: info.DueDate,
+          classification: info.Step2 && info.Step2[0] ? info.Step2[0].data : null,
+          packing: info.Step3 && info.Step3[0] ? info.Step3[0] : null,
+          accessories: info.Step4 && info.Step4[0] ? info.Step4[0] : null,
+          steps: {
+            upc: info.Step1 && info.Step1[0] ? info.Step1[0].isComplete : null,
+            clasificacion: info.Step2 && info.Step2[0] ? info.Step2[0].isComplete : null,
+            empaque: info.Step3 && info.Step3[0] ? info.Step3[0].isComplete : null,
+            accesorios: info.Step4 && info.Step4[0] ? info.Step4[0].isComplete : null,
+            comentario: info.Step5 && info.Step5[0] ? info.Step5[0].isComplete : null,
+            foto: info.Step6 && info.Step6[0] ? info.Step6[0].isComplete : null,
+          },
+        } : null,
+        palletInfo: Array.isArray(palletInfo) ? palletInfo : [],
+        categoryBrandModels: Array.isArray(categoryBrandModels) ? categoryBrandModels : [],
+      }
+    });
+  } catch (error) {
+    const msg = error.name === 'AbortError' ? 'SmartControl no respondio a tiempo' : error.message;
+    res.status(502).json({ success: false, error: msg });
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
 // ── Sync SmartControl → Mongo (solo admin 3647, aditivo, nunca sobreescribe) ──
 // 1) Diff: dado un listado de PalletIDs que SmartControl dice que existen, regresa cuales faltan en Mongo.
 app.post('/api/sc-pallet/diff', auth, roleGuard('admin'), async (req, res) => {
