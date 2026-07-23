@@ -2036,10 +2036,10 @@ function enterApp() {
     // Tema claro/oscuro: disponible para todos los usuarios
     applyTheme();
 
-    // Sin acceso a escaneadoras: ocultar esos cards del home
+    // Sin acceso a escaneadoras: ocultar esos cards del home (los administradores siempre ven todo)
     const escCard = document.querySelector('.mod-esc');
     const resCard = document.querySelector('.mod-resumen');
-    if (!hasModule('escaneadoras')) {
+    if (currentUser.role !== 'admin' && !hasModule('escaneadoras')) {
         if (escCard) escCard.style.display = 'none';
         if (resCard) resCard.style.display = 'none';
     } else {
@@ -2048,7 +2048,7 @@ function enterApp() {
     }
 
     // Solo dashboard, sin escaneadoras (ej. viewer): ir directo al dashboard
-    if (hasModule('dashboard') && !hasModule('escaneadoras')) {
+    if (currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras')) {
         switchView('dashboard');
         return;
     }
@@ -2807,7 +2807,8 @@ function switchView(viewName) {
         return;
     }
     // Usuarios con dashboard pero sin escaneadoras (ej. viewer): limitados a dashboard/config
-    if (currentUser && hasModule('dashboard') && !hasModule('escaneadoras') && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
+    // Los administradores (y siempre 3647) quedan exentos: nunca deben perder acceso a "inicio" o al Centro de Control.
+    if (currentUser && currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras') && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
     // Centro de Control: exclusivo del administrador 3647
     if (viewName === 'control' && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
     // Save current view for restore on refresh
@@ -2915,7 +2916,7 @@ async function loadControlUsuarios() {
                 + ['admin','lider','escaneadora','viewer'].map(r => `<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('') + '</select>';
             const mods = u.effectiveModules || [];
             const isCustom = Array.isArray(u.modulosCustom);
-            const chk = (m, label) => `<label style="font-size:0.7rem;margin-right:6px;white-space:nowrap;"><input type="checkbox" class="ctrl-mod-chk" data-mod="${m}" ${mods.includes(m)?'checked':''} onchange="ctrlSyncModules('${u._id}', this)"> ${label}</label>`;
+            const chk = (m, label) => `<label style="font-size:0.7rem;margin-right:6px;white-space:nowrap;"><input type="checkbox" class="ctrl-mod-chk" data-mod="${m}" ${mods.includes(m)?'checked':''} ${is3647?'disabled title="El administrador 3647 siempre tiene todos los modulos"':''} onchange="ctrlSyncModules('${u._id}', this)"> ${label}</label>`;
             const modulosCell = chk('dashboard','dashboard') + chk('escaneadoras','escaneadoras')
                 + (isCustom ? `<button class="ctrl-iconbtn" title="Restablecer al rol" onclick="ctrlResetModules('${u._id}')" style="margin-left:2px;"><i class="fa-solid fa-rotate-left"></i></button>` : '<span style="font-size:0.68rem;color:var(--text-muted);">(rol)</span>');
             const estado = u.isActive ? '<span class="ctrl-badge on">Activo</span>' : '<span class="ctrl-badge off">Inactivo</span>';

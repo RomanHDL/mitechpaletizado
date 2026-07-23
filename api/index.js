@@ -395,6 +395,9 @@ app.put('/api/users/:id', auth, roleGuard('admin'), async (req, res) => {
         if (!Array.isArray(modulosCustom) || !modulosCustom.every(m => ALL_MODULES.includes(m))) {
           return res.status(400).json({ success: false, error: 'modulosCustom invalido: debe ser null o un subconjunto de ' + ALL_MODULES.join(', ') });
         }
+        if (isSelf3647 && !ALL_MODULES.every(m => modulosCustom.includes(m))) {
+          return res.status(403).json({ success: false, error: 'No puedes restringir tus propios modulos como administrador 3647' });
+        }
         user.modulosCustom = modulosCustom;
       }
     }
