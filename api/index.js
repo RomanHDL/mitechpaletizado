@@ -1005,7 +1005,9 @@ app.get('/api/dashboard/tv-stats', auth, moduleGuard('dashboard'), async (req, r
     if (fecha) filter.fecha = fecha;
     if (escaneadora) filter.escaneadora = rx(escaneadora);
     if (turno) filter.turno = rx(turno);
-    let registros = await EscReg.find(filter).select('palletId fecha cantidad');
+    // Ordenado por mas reciente: sin esto Mongo regresa en orden arbitrario y la muestra de 80
+    // podia caer en pallets viejos (peor probabilidad de responder bien en SmartControl).
+    let registros = await EscReg.find(filter).select('palletId fecha cantidad').sort({ createdAt: -1 });
     if (!fecha && fecha_inicio && fecha_fin) {
       const start = new Date(fecha_inicio), end = new Date(fecha_fin);
       end.setHours(23, 59, 59, 999);
@@ -1015,24 +1017,25 @@ app.get('/api/dashboard/tv-stats', auth, moduleGuard('dashboard'), async (req, r
     // cantidad real (de tu propia DB) por pallet, para poder pesar la muestra por piezas
     // en vez de contar "1" por pallet -> los totales se sienten cercanos a tus piezas reales.
     const cantidadPorPallet = {};
+    const ordenPallets = [];
     registros.forEach(r => {
       const pid = normalizePalletId(r.palletId);
-      if (pid) cantidadPorPallet[pid] = (cantidadPorPallet[pid] || 0) + (r.cantidad || 0);
+      if (!pid) return;
+      if (!(pid in cantidadPorPallet)) ordenPallets.push(pid);
+      cantidadPorPallet[pid] = (cantidadPorPallet[pid] || 0) + (r.cantidad || 0);
     });
 
-    const allPalletIds = [...new Set(registros.map(r => normalizePalletId(r.palletId)).filter(Boolean))];
-    const totalPalletsFiltro = allPalletIds.length;
+    const totalPalletsFiltro = ordenPallets.length;
     const muestreado = totalPalletsFiltro > TV_STATS_MAX_PALLETS;
-    const palletIds = muestreado ? allPalletIds.slice(0, TV_STATS_MAX_PALLETS) : allPalletIds;
+    const palletIds = muestreado ? ordenPallets.slice(0, TV_STATS_MAX_PALLETS) : ordenPallets;
 
-    const cacheKey = JSON.stringify({ fecha, fecha_inicio, fecha_fin, escaneadora, turno, n: palletIds.length });
+    const cacheKey = JSON.stringify({ fecha, fecha_inicio, fecha_fin, escaneadora, turno, n: palletIds.length, palletIds: palletIds[0] });
     const cached = tvStatsCache.get(cacheKey);
     if (cached && (Date.now() - cached.ts) < TV_STATS_CACHE_MS) {
       return res.json({ success: true, ...cached.data, fromCache: true });
     }
 
-    const porMarca = {};
-    const porPulgadas = {};
+    const muestras = []; // detalle por pallet, para poder listar al hacer click en una rebanada
     let procesados = 0, errores = 0;
     const BATCH = 8;
     for (let i = 0; i < palletIds.length; i += BATCH) {
@@ -1064,13 +1067,31 @@ app.get('/api/dashboard/tv-stats', auth, moduleGuard('dashboard'), async (req, r
           // asi los totales reflejan piezas estimadas en vez de numero de pallets muestreados.
           const peso = cantidadPorPallet[pid] || 1;
           const brand = (info.Brand || '').trim() || 'Desconocida';
-          porMarca[brand] = (porMarca[brand] || 0) + peso;
           const inches = parseInches(info.ItemDescription);
-          const bucket = inches ? `${inches}"` : 'Sin dato';
-          porPulgadas[bucket] = (porPulgadas[bucket] || 0) + peso;
+          muestras.push({
+            palletId: pid,
+            peso,
+            marca: brand,
+            pulgadas: inches ? `${inches}"` : 'Sin dato',
+            modelo: info.MFGSKU || '',
+            descripcion: info.ItemDescription || '',
+          });
           procesados++;
         } catch (e) { errores++; }
       }));
+    }
+
+    function agrupar(keyName) {
+      const grupos = {};
+      muestras.forEach(m => {
+        const key = m[keyName];
+        if (!grupos[key]) grupos[key] = { total: 0, pallets: [] };
+        grupos[key].total += m.peso;
+        grupos[key].pallets.push({ palletId: m.palletId, cantidad: m.peso, modelo: m.modelo, descripcion: m.descripcion, marca: m.marca, pulgadas: m.pulgadas });
+      });
+      return Object.entries(grupos)
+        .sort((a, b) => b[1].total - a[1].total)
+        .map(([key, v]) => ({ [keyName]: key, total: v.total, pallets: v.pallets.sort((a, b) => b.cantidad - a.cantidad) }));
     }
 
     const data = {
@@ -1079,8 +1100,8 @@ app.get('/api/dashboard/tv-stats', auth, moduleGuard('dashboard'), async (req, r
       muestreado,
       procesados,
       errores,
-      porMarca: Object.entries(porMarca).sort((a, b) => b[1] - a[1]).map(([marca, total]) => ({ marca, total })),
-      porPulgadas: Object.entries(porPulgadas).sort((a, b) => b[1] - a[1]).map(([pulgadas, total]) => ({ pulgadas, total })),
+      porMarca: agrupar('marca'),
+      porPulgadas: agrupar('pulgadas'),
     };
     tvStatsCache.set(cacheKey, { ts: Date.now(), data });
     res.json({ success: true, ...data, fromCache: false });

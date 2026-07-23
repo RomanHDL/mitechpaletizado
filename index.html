@@ -1348,7 +1348,9 @@
                     </div>
                     <div id="tv-marca-note" style="font-size:0.68rem;color:var(--text-muted);margin-bottom:0.3rem;text-align:center;"></div>
                     <div id="tv-marca-empty" style="text-align:center;padding:1.5rem;color:var(--text-muted);font-size:0.82rem;">Click en <i class="fa-solid fa-rotate"></i> para cargar (consulta SmartControl en vivo, puede tardar unos segundos)</div>
+                    <div id="tv-marca-center" style="text-align:center;margin-bottom:0.25rem;display:none;"></div>
                     <canvas id="chart-tv-marca" height="160" style="display:none;"></canvas>
+                    <div id="tv-marca-legend" style="display:flex;flex-wrap:wrap;justify-content:center;gap:0.5rem;margin-top:0.4rem;"></div>
                 </div>
                 <div class="card card-3647-only" style="padding:0.6rem 0.8rem;">
                     <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
@@ -1357,7 +1359,9 @@
                     </div>
                     <div id="tv-pulgadas-note" style="font-size:0.68rem;color:var(--text-muted);margin-bottom:0.3rem;text-align:center;"></div>
                     <div id="tv-pulgadas-empty" style="text-align:center;padding:1.5rem;color:var(--text-muted);font-size:0.82rem;">Click en <i class="fa-solid fa-rotate"></i> para cargar</div>
+                    <div id="tv-pulgadas-center" style="text-align:center;margin-bottom:0.25rem;display:none;"></div>
                     <canvas id="chart-tv-pulgadas" height="160" style="display:none;"></canvas>
+                    <div id="tv-pulgadas-legend" style="display:flex;flex-wrap:wrap;justify-content:center;gap:0.5rem;margin-top:0.4rem;"></div>
                 </div>
             </div>
 
@@ -1555,6 +1559,21 @@
                         <button onclick="closeScPalletDetail()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;color:var(--text-muted);cursor:pointer;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div id="sc-pallet-body" style="flex:1;overflow-y:auto;padding:1rem 1.25rem;overscroll-behavior:contain;"></div>
+                </div>
+            </div>
+
+            <!-- TV Stats Slice Detail Modal (click en una rebanada de Marca/Pulgadas) -->
+            <div id="tv-slice-modal" style="display:none;position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);">
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:16px;width:94%;max-width:640px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.85rem 1.25rem;border-bottom:1px solid var(--border);">
+                        <div style="display:flex;align-items:center;gap:0.6rem;">
+                            <span id="tv-slice-dot" style="width:12px;height:12px;border-radius:50%;"></span>
+                            <span id="tv-slice-title" style="font-weight:700;"></span>
+                            <span id="tv-slice-count" style="font-size:0.75rem;color:var(--text-muted);background:rgba(255,255,255,0.05);padding:2px 8px;border-radius:10px;"></span>
+                        </div>
+                        <button onclick="closeTvSliceDetail()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;color:var(--text-muted);cursor:pointer;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div id="tv-slice-body" style="flex:1;overflow-y:auto;padding:0.75rem 1.25rem;overscroll-behavior:contain;"></div>
                 </div>
             </div>
 
@@ -4851,7 +4870,7 @@ async function loadPiezasPorSemana() {
 // ══════════════════════════════════════════════
 // TV STATS (marca / pulgadas via SmartControl) — carga manual, no en el poll de 8s
 // ══════════════════════════════════════════════
-let chartTvMarca = null, chartTvPulgadas = null;
+const tvCharts = {}; // { marca: ChartInstance, pulgadas: ChartInstance }
 async function loadTvStats() {
     const noteM = document.getElementById('tv-marca-note');
     const noteP = document.getElementById('tv-pulgadas-note');
@@ -4879,36 +4898,95 @@ async function loadTvStats() {
         noteM.textContent = nota;
         noteP.textContent = nota;
 
-        if (!data.porMarca.length) {
-            emptyM.style.display = ''; emptyM.textContent = 'Sin TVs identificadas en este filtro.';
-        } else {
-            emptyM.style.display = 'none'; canvasM.style.display = '';
-            if (chartTvMarca) chartTvMarca.destroy();
-            chartTvMarca = new Chart(canvasM.getContext('2d'), {
-                type: 'bar',
-                data: { labels: data.porMarca.map(m=>m.marca), datasets: [{ data: data.porMarca.map(m=>m.total), backgroundColor: COLORS.slice(0, data.porMarca.length), borderRadius: 4 }] },
-                options: { responsive: true, animation: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: CHART_THEME.muted } }, y: { ticks: { color: CHART_THEME.text } } } }
-            });
-        }
+        lastTvMarca = data.porMarca;
+        lastTvPulgadas = [...data.porPulgadas].sort((a,b) => (parseInt(a.pulgadas)||999) - (parseInt(b.pulgadas)||999));
 
-        if (!data.porPulgadas.length) {
-            emptyP.style.display = ''; emptyP.textContent = 'Sin TVs identificadas en este filtro.';
-        } else {
-            emptyP.style.display = 'none'; canvasP.style.display = '';
-            if (chartTvPulgadas) chartTvPulgadas.destroy();
-            // Ordenar por pulgadas numericas (no por total) para que la barra se lea de menor a mayor
-            const sorted = [...data.porPulgadas].sort((a,b) => (parseInt(a.pulgadas)||999) - (parseInt(b.pulgadas)||999));
-            chartTvPulgadas = new Chart(canvasP.getContext('2d'), {
-                type: 'bar',
-                data: { labels: sorted.map(m=>m.pulgadas), datasets: [{ data: sorted.map(m=>m.total), backgroundColor: COLORS[1], borderRadius: 4 }] },
-                options: { responsive: true, animation: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: CHART_THEME.text } }, y: { ticks: { color: CHART_THEME.muted } } } }
-            });
-        }
+        renderTvDonut('marca', lastTvMarca);
+        renderTvDonut('pulgadas', lastTvPulgadas);
     } catch (err) {
         emptyM.style.display = ''; emptyM.textContent = 'Error: ' + err.message;
         emptyP.style.display = ''; emptyP.textContent = 'Error: ' + err.message;
         canvasM.style.display = 'none'; canvasP.style.display = 'none';
     }
+}
+
+let lastTvMarca = [], lastTvPulgadas = [];
+// tipo: 'marca' | 'pulgadas'. Dona con color propio por rebanada + leyenda clickeable (igual que
+// las otras graficas del dashboard) - click en rebanada o en la leyenda abre el detalle de pallets.
+function renderTvDonut(tipo, items) {
+    const empty = document.getElementById(`tv-${tipo}-empty`);
+    const center = document.getElementById(`tv-${tipo}-center`);
+    const canvas = document.getElementById(`chart-tv-${tipo}`);
+    const legend = document.getElementById(`tv-${tipo}-legend`);
+    const keyName = tipo === 'marca' ? 'marca' : 'pulgadas';
+
+    if (!items.length) {
+        empty.style.display = ''; empty.textContent = 'Sin TVs identificadas en este filtro.';
+        center.style.display = 'none'; canvas.style.display = 'none'; legend.innerHTML = '';
+        return;
+    }
+    empty.style.display = 'none'; center.style.display = ''; canvas.style.display = '';
+    const total = items.reduce((s,m) => s + m.total, 0);
+    center.innerHTML = `<span style="font-size:1.6rem;font-weight:700;color:var(--text-main);">${total.toLocaleString()}</span><br><span style="font-size:0.7rem;color:var(--text-muted);">piezas estimadas</span>`;
+
+    const colors = items.map((_,i) => COLORS[i % COLORS.length]);
+    if (tvCharts[tipo]) tvCharts[tipo].destroy();
+    tvCharts[tipo] = new Chart(canvas.getContext('2d'), {
+        type: 'doughnut',
+        data: { labels: items.map(m=>m[keyName]), datasets: [{ data: items.map(m=>m.total), backgroundColor: colors, borderWidth: 2, borderColor: CHART_THEME.donutBorder, hoverOffset: 8 }] },
+        options: {
+            responsive: true, animation: false, cutout: '55%',
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: (c) => { const pct = total>0?Math.round(c.parsed/total*100):0; return ` ${c.label}: ${c.parsed.toLocaleString()} (${pct}%)`; } } },
+            },
+            onClick: (evt, elements) => { if (elements.length) openTvSliceDetail(tipo, elements[0].index); }
+        }
+    });
+
+    legend.innerHTML = items.map((m,i) => {
+        const pct = total>0?Math.round(m.total/total*100):0;
+        return `<span onclick="openTvSliceDetail('${tipo}', ${i})" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:0.75rem;padding:3px 9px;border-radius:12px;background:${colors[i]}18;border:1px solid ${colors[i]}44;">
+            <span style="width:8px;height:8px;border-radius:50%;background:${colors[i]};"></span>${m[keyName]} <strong>${pct}%</strong>
+        </span>`;
+    }).join('');
+}
+
+function closeTvSliceDetail() {
+    document.getElementById('tv-slice-modal').style.display = 'none';
+}
+// idx: indice dentro de lastTvMarca/lastTvPulgadas (evita pasar JSON crudo dentro de un atributo HTML)
+function openTvSliceDetail(tipo, idx) {
+    const modal = document.getElementById('tv-slice-modal');
+    const keyName = tipo === 'marca' ? 'marca' : 'pulgadas';
+    const source = tipo === 'marca' ? lastTvMarca : lastTvPulgadas;
+    const item = source[idx];
+    if (!item) return;
+    const color = COLORS[idx % COLORS.length];
+    document.getElementById('tv-slice-dot').style.background = color;
+    document.getElementById('tv-slice-title').textContent = (tipo === 'marca' ? 'Marca: ' : 'Pulgadas: ') + item[keyName];
+    document.getElementById('tv-slice-count').textContent = `${item.pallets.length} pallet${item.pallets.length!==1?'s':''} · ~${item.total.toLocaleString()} piezas`;
+    const body = document.getElementById('tv-slice-body');
+    body.innerHTML = `
+        <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+            <thead><tr>
+                ${['Pallet','Piezas est.','Marca','Pulgadas','Modelo'].map(c=>`<th style="padding:0.35rem 0.5rem;text-align:left;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap;">${c}</th>`).join('')}
+            </tr></thead>
+            <tbody>
+                ${item.pallets.map(p => `<tr>
+                    <td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.04);font-weight:600;">${scPalletLink(p.palletId)}</td>
+                    <td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.04);">${p.cantidad.toLocaleString()}</td>
+                    <td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.04);">${p.marca}</td>
+                    <td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.04);">${p.pulgadas}</td>
+                    <td style="padding:0.35rem 0.5rem;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text-muted);font-size:0.75rem;">${p.modelo||'-'}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>
+        </div>
+        <div style="margin-top:0.75rem;font-size:0.65rem;color:var(--text-muted);text-align:center;">Estimado: 1 muestra por pallet, pesada por su cantidad real de piezas.</div>
+    `;
+    modal.style.display = 'block';
 }
 
 function renderPiezasPorSemana() {
