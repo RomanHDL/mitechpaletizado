@@ -3769,6 +3769,7 @@ function stopPolling() {
 // (cada consulta cruza contra SmartControl en vivo, asi que no tiene caso pedirla tan seguido)
 let tvStatsPollTimer = null;
 let _tvStatsRefreshing = false;
+let _tvStatsFirstLoadDone = false; // solo se dispara solo una vez al entrar; cambiar de filtro NO la re-dispara
 function startTvStatsPolling() {
     stopTvStatsPolling();
     if (!currentUser || currentUser.usuario !== '3647') return; // cards exclusivas de 3647
@@ -3779,7 +3780,10 @@ function startTvStatsPolling() {
         _tvStatsRefreshing = true;
         loadTvStats().catch(()=>{}).finally(() => { _tvStatsRefreshing = false; });
     };
-    tick(); // primera carga inmediata, sin esperar al usuario ni al intervalo
+    // Primera carga automatica solo una vez por sesion (no cada vez que cambias un filtro y
+    // se reinicia el polling) - asi cambiar de fecha/escaneadora se siente rapido, la card de
+    // TV se actualiza sola cada 60s o con el boton manual, sin bloquear lo demas.
+    if (!_tvStatsFirstLoadDone) { _tvStatsFirstLoadDone = true; tick(); }
     tvStatsPollTimer = setInterval(tick, 60000);
 }
 function stopTvStatsPolling() {
@@ -4176,6 +4180,13 @@ function showKpiDetail(type) {
         try {
             await loadResumen();
             await loadTableData();
+            // Revisar de nuevo: el usuario pudo haber cerrado el modal mientras esto cargaba -
+            // sin este check, showKpiDetail() lo reabriria de golpe aunque ya lo hubiera cerrado.
+            if (!document.getElementById('kpi-modal').classList.contains('open')) {
+                clearInterval(window._kpiModalInterval);
+                window._kpiModalInterval = null;
+                return;
+            }
             showKpiDetail(window._kpiModalType);
             // Restaurar filtros
             const sEl = document.getElementById('hoy-search');
