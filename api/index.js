@@ -881,12 +881,14 @@ app.get('/api/dashboard/resumen', auth, moduleGuard('dashboard'), async (req, re
     if (escaneadora) filter.escaneadora = rx(escaneadora);
     if (turno) filter.turno = rx(turno);
 
-    let registros = await EscReg.find(filter).sort({ createdAt: -1 });
+    // .lean() + select: esta ruta solo agrega en JS (no necesita instancias de Mongoose),
+    // y no usa observaciones/incidencias/pedido/palletId - traerlos completos era peso muerto.
+    let registros = await EscReg.find(filter).select('escaneadora destino condicion createdAt cantidad turno fecha').sort({ createdAt: -1 }).lean();
 
-    // Also fetch records that SHIPPED today (fechaSalida match) for pedido charts
-    let salidaRecords = [];
+    // Solo se usa el conteo (salidaCount) - countDocuments evita traer los documentos completos
+    let salidaCount = 0;
     if (fecha) {
-      salidaRecords = await EscReg.find({ fechaSalida: fecha, fecha: { $ne: fecha } }).sort({ createdAt: -1 });
+      salidaCount = await EscReg.countDocuments({ fechaSalida: fecha, fecha: { $ne: fecha } });
     }
 
     if (!fecha && fecha_inicio && fecha_fin) {
@@ -922,7 +924,7 @@ app.get('/api/dashboard/resumen', auth, moduleGuard('dashboard'), async (req, re
     });
 
     let metas = [];
-    try { metas = await ProductionTarget.find({ isActive: true }); } catch(e) { /* targets opcionales */ }
+    try { metas = await ProductionTarget.find({ isActive: true }).lean(); } catch(e) { /* targets opcionales */ }
 
     res.json({
       success: true,
@@ -930,7 +932,7 @@ app.get('/api/dashboard/resumen', auth, moduleGuard('dashboard'), async (req, re
       registrosHoy: registrosHoyCount,
       totalUnidades,
       fechaHoy: hoyStr,
-      salidaCount: salidaRecords.length,
+      salidaCount,
       metas,
       porEscaneadora: Object.entries(porEscaneadora).map(([nombre, d]) => ({ nombre, ...d })),
       porTurno: Object.entries(porTurno).map(([turno, d]) => ({ turno, ...d })),
@@ -963,7 +965,9 @@ app.get('/api/dashboard/registros', auth, moduleGuard('dashboard'), async (req, 
     // Safety ceiling only (not a "results per page" default) — comfortably above real data volume
     // so dashboard metrics/charts never silently drop older records like the old 2000 default did.
     query = query.limit(Math.min(20000, parseInt(limit) || 20000));
-    let registros = await query.populate('capturadoPor', 'nombre');
+    // .lean() evita el overhead de hidratar cada resultado como documento de Mongoose completo
+    // (con getters/casting) - el frontend solo lee los campos como JSON de todos modos.
+    let registros = await query.populate('capturadoPor', 'nombre').lean();
 
     if (!fecha && fecha_inicio && fecha_fin) {
       const start = new Date(fecha_inicio), end = new Date(fecha_fin);
@@ -976,7 +980,7 @@ app.get('/api/dashboard/registros', auth, moduleGuard('dashboard'), async (req, 
     // Also fetch records shipped on this date (for pedido/BULKY charts)
     let salidaRecords = [];
     if (fecha) {
-      salidaRecords = await EscReg.find({ fechaSalida: fecha, fecha: { $ne: fecha } }).sort({ createdAt: -1 }).populate('capturadoPor', 'nombre');
+      salidaRecords = await EscReg.find({ fechaSalida: fecha, fecha: { $ne: fecha } }).sort({ createdAt: -1 }).populate('capturadoPor', 'nombre').lean();
     }
 
     const total = registros.length;
@@ -1170,7 +1174,7 @@ app.get('/api/dashboard/tendencias', auth, moduleGuard('dashboard'), async (req,
     if (escaneadora) proFilter.escaneadora = rx(escaneadora);
     if (turno) proFilter.turno = rx(turno);
 
-    let registros = await EscReg.find(proFilter);
+    let registros = await EscReg.find(proFilter).select('createdAt turno fecha').lean();
     if (!fecha && fecha_inicio && fecha_fin) {
       const start = new Date(fecha_inicio), end = new Date(fecha_fin);
       end.setHours(23, 59, 59, 999);
@@ -1254,10 +1258,13 @@ app.get('/api/dashboard/piezas-semana', auth, moduleGuard('dashboard'), async (r
 
 app.get('/api/dashboard/catalogos', auth, moduleGuard('dashboard'), async (req, res) => {
   try {
-    const escaneadoras = await EscReg.distinct('escaneadora');
-    const destinos = await EscReg.distinct('destino');
-    const turnos = await EscReg.distinct('turno');
-    const fechas = await EscReg.distinct('fecha');
+    // Antes corrian uno tras otro (4 round-trips seguidos); en paralelo tardan lo del mas lento, no la suma.
+    const [escaneadoras, destinos, turnos, fechas] = await Promise.all([
+      EscReg.distinct('escaneadora'),
+      EscReg.distinct('destino'),
+      EscReg.distinct('turno'),
+      EscReg.distinct('fecha'),
+    ]);
     res.json({ success: true, escaneadoras: escaneadoras.sort(), destinos: destinos.sort(), turnos: turnos.sort(), fechas: fechas.sort() });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
