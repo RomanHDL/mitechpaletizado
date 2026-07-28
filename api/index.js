@@ -4,6 +4,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Pusher = require('pusher');
+const sql = require('mssql');
 
 const app = express();
 app.use(cors());
@@ -800,6 +801,106 @@ app.post('/api/sc-pallet/sync-import', auth, roleGuard('admin'), async (req, res
     }
     res.json({ success: true, insertados: inserted.length, omitidos: skipped.length, inserted, skipped });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ══════════════════════════════════════════════
+// BinManagerRO (SQL Server, solo lectura) — TODOS los pallets reales de la
+// empresa, no solo los que se escanearon en esta app. Ni la API HTTP de
+// SmartControl (appsc.mitechnologiesinc.com) ni /api/sc-pallet/diff-import
+// (arriba) pueden listar "todos" — ambas necesitan que ya sepas el PalletID.
+// La unica forma real de descubrir el universo completo es conectando
+// directo a la base del almacen, igual que ya se hizo en Cubicaje
+// (mi2-apps/cubicaje) — mismo patron, credenciales SEPARADAS por decision
+// de Roman (usuario SQL propio para esta app, no reusar el de Cubicaje).
+//
+// Requiere SQLSERVER_HOST/PORT/USER/PASSWORD/DB en las env vars de Vercel.
+// Sin esas variables, isSqlServerConfigured() es false y el endpoint
+// responde 503 claro en vez de tronar — el resto de la app sigue igual.
+//
+// BM.Bins.BinTypeID referencia BM.BinTypes (clasificacion de negocio), NO
+// BM.ContainerTypes. Categorias con pallets reales cargables confirmadas en
+// Cubicaje (ver [[cubicaje_pallets_architecture]]): 2=PRODUCTO TERMINADO
+// (la mas grande por lejos), 5=PRODUCTO EN PROCESO, 6=Finished Good,
+// 12=Wholesale, 14=NO CLASIFICADO. Excluidas a proposito: TRANSITO,
+// DEFECTUOSO, MISSING, RECYCLE, PENDING, Proceso Entrada/Salida, FBA/FULL,
+// FFTPRO, Released, ECOMMERCE — no son inventario disponible tal cual.
+// ══════════════════════════════════════════════
+const SQLSERVER_HOST = process.env.SQLSERVER_HOST;
+const SQLSERVER_PORT = parseInt(process.env.SQLSERVER_PORT, 10) || 1433;
+const SQLSERVER_USER = process.env.SQLSERVER_USER;
+const SQLSERVER_PASSWORD = process.env.SQLSERVER_PASSWORD;
+const SQLSERVER_DB = process.env.SQLSERVER_DB;
+function isSqlServerConfigured() {
+  return !!(SQLSERVER_HOST && SQLSERVER_USER && SQLSERVER_PASSWORD && SQLSERVER_DB);
+}
+let sqlPoolPromise = null;
+function getSqlPool() {
+  if (!sqlPoolPromise) {
+    sqlPoolPromise = new sql.ConnectionPool({
+      server: SQLSERVER_HOST,
+      port: SQLSERVER_PORT,
+      user: SQLSERVER_USER,
+      password: SQLSERVER_PASSWORD,
+      database: SQLSERVER_DB,
+      options: { encrypt: true, trustServerCertificate: false },
+      pool: { max: 5, min: 0, idleTimeoutMillis: 30000 },
+    }).connect().catch(err => { sqlPoolPromise = null; throw err; });
+  }
+  return sqlPoolPromise;
+}
+const REAL_PALLET_BIN_TYPES = [2, 5, 6, 12, 14];
+
+// Lista TODOS los pallets reales con contenido (paginado, con busqueda por
+// prefijo de Pallet ID). No trae SKUs/detalle — para eso se usa
+// scPalletLink() -> GET /api/sc-pallet/:palletId (ya existente), que si
+// tiene el contenido completo via SmartControl. Este endpoint solo resuelve
+// "cuales pallets existen", que es justo lo que faltaba.
+app.get('/api/sc-pallets/live', auth, roleGuard('admin'), async (req, res) => {
+  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+  if (!isSqlServerConfigured()) return res.status(503).json({ success: false, error: 'SQLSERVER_* no configurada para este proyecto' });
+  try {
+    const pool = await getSqlPool();
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 100));
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+    const search = (req.query.search || '').trim();
+    const typeList = REAL_PALLET_BIN_TYPES.join(',');
+
+    const request = pool.request();
+    request.input('search', sql.NVarChar, search ? `${search}%` : null);
+    request.input('offset', sql.Int, offset);
+    request.input('limit', sql.Int, limit);
+    const result = await request.query(`
+      SELECT b.BinCode AS palletId, b.BinTypeID, bt.BinTypeName AS binTypeName,
+             SUM(bc.Qty) AS cantidadTotal, COUNT(DISTINCT bc.ProductSKU) AS skuCount
+      FROM BM.Bins b
+      JOIN BM.BinContent bc ON bc.BinID = b.BinID
+      LEFT JOIN BM.BinTypes bt ON bt.BinTypeID = b.BinTypeID
+      WHERE b.BinTypeID IN (${typeList}) AND b.isActive = 1 AND bc.Qty > 0
+        AND (@search IS NULL OR b.BinCode LIKE @search)
+      GROUP BY b.BinCode, b.BinTypeID, bt.BinTypeName
+      ORDER BY b.BinCode DESC
+      OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+    `);
+
+    const countReq = pool.request();
+    countReq.input('search', sql.NVarChar, search ? `${search}%` : null);
+    const countResult = await countReq.query(`
+      SELECT COUNT(DISTINCT b.BinCode) AS total
+      FROM BM.Bins b
+      JOIN BM.BinContent bc ON bc.BinID = b.BinID
+      WHERE b.BinTypeID IN (${typeList}) AND b.isActive = 1 AND bc.Qty > 0
+        AND (@search IS NULL OR b.BinCode LIKE @search)
+    `);
+
+    res.json({
+      success: true,
+      data: result.recordset,
+      total: countResult.recordset[0]?.total || 0,
+      limit, offset,
+    });
+  } catch (error) {
+    res.status(502).json({ success: false, error: 'No se pudo conectar a BinManagerRO: ' + error.message });
+  }
 });
 
 // ── UPDATE pallet (admin only, with audit) ──

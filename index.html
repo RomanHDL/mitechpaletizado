@@ -738,6 +738,12 @@
         .ctrl-tab.active{background:var(--accent);border-color:var(--accent);color:#fff;}
         .ctrl-panel{display:none;}
         .ctrl-panel.active{display:block;animation:fadeIn 0.2s ease;}
+        /* Clase separada de .ctrl-panel a proposito: setControlTab() hace
+           querySelectorAll('.ctrl-panel') GLOBAL, asi que si Monitor en Vivo
+           usara esa misma clase, entrar a Centro de Control despues le
+           quitaria 'active' a los paneles del Monitor tambien. */
+        .monitor-panel{display:none;}
+        .monitor-panel.active{display:block;animation:fadeIn 0.2s ease;}
         @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
         .ctrl-table{width:100%;border-collapse:collapse;font-size:0.82rem;}
         .ctrl-table th{text-align:left;color:var(--text-muted);font-weight:600;padding:0.5rem 0.6rem;border-bottom:1px solid var(--border);white-space:nowrap;}
@@ -1822,53 +1828,97 @@
             <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
             <div class="page-header" style="text-align:center;">
                 <h1 style="font-size:1.3rem;margin:0;"><i class="fa-solid fa-satellite-dish" style="color:#22c55e;margin-right:6px;"></i>Monitor en Vivo</h1>
-                <p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--text-muted);">Cada pallet escaneado aparece aqui al instante — exclusivo del administrador 3647</p>
+                <p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--text-muted);">Exclusivo del administrador 3647</p>
             </div>
 
-            <div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem;">
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
-                    <div style="display:flex;align-items:center;gap:0.5rem;">
-                        <span id="monitor-live-dot" style="width:9px;height:9px;border-radius:50%;background:#6b7280;display:inline-block;"></span>
-                        <span id="monitor-live-label" style="font-size:0.78rem;color:var(--text-muted);font-weight:600;">Conectando...</span>
-                        <span id="monitor-count" style="font-size:0.75rem;color:var(--text-muted);background:rgba(255,255,255,0.05);padding:1px 8px;border-radius:10px;"></span>
+            <div class="ctrl-tabs" id="monitor-tabs">
+                <button class="ctrl-tab monitor-tab active" data-tab="escaneados" onclick="monitorSetTab('escaneados')"><i class="fa-solid fa-barcode"></i> Escaneados en la app</button>
+                <button class="ctrl-tab monitor-tab" data-tab="todos" onclick="monitorSetTab('todos')"><i class="fa-solid fa-warehouse"></i> Todos los pallets reales</button>
+            </div>
+
+            <!-- Tab: Escaneados (EscaneadoraRegistro, en vivo via Pusher) -->
+            <div class="monitor-panel active" id="monitor-panel-escaneados">
+                <div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                            <span id="monitor-live-dot" style="width:9px;height:9px;border-radius:50%;background:#6b7280;display:inline-block;"></span>
+                            <span id="monitor-live-label" style="font-size:0.78rem;color:var(--text-muted);font-weight:600;">Conectando...</span>
+                            <span id="monitor-count" style="font-size:0.75rem;color:var(--text-muted);background:rgba(255,255,255,0.05);padding:1px 8px;border-radius:10px;"></span>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" onclick="loadMonitor()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
                     </div>
-                    <button class="btn btn-secondary btn-sm" onclick="loadMonitor()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+                        <input type="text" class="form-input" id="monitor-filter-busqueda" placeholder="Buscar por Pallet ID o Pedido..." oninput="renderMonitorTable()" style="flex:1;min-width:180px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+                        <input type="date" class="form-input" id="monitor-filter-fecha" onchange="loadMonitor()" style="padding:0.4rem 0.6rem;font-size:0.85rem;">
+                        <select class="form-input" id="monitor-filter-turno" onchange="loadMonitor()" style="padding:0.4rem 0.6rem;font-size:0.85rem;width:auto;">
+                            <option value="">Todos los turnos</option>
+                            <option value="Dia">Dia</option>
+                            <option value="Noche">Noche</option>
+                            <option value="Extra">Extra</option>
+                        </select>
+                        <input type="text" class="form-input" id="monitor-filter-escaneadora" placeholder="Escaneadora..." oninput="loadMonitor()" style="width:140px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+                        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('monitor-filter-busqueda').value='';document.getElementById('monitor-filter-fecha').value='';document.getElementById('monitor-filter-turno').value='';document.getElementById('monitor-filter-escaneadora').value='';loadMonitor();"><i class="fa-solid fa-xmark"></i> Limpiar</button>
+                    </div>
                 </div>
-                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
-                    <input type="text" class="form-input" id="monitor-filter-busqueda" placeholder="Buscar por Pallet ID o Pedido..." oninput="renderMonitorTable()" style="flex:1;min-width:180px;padding:0.4rem 0.6rem;font-size:0.85rem;">
-                    <input type="date" class="form-input" id="monitor-filter-fecha" onchange="loadMonitor()" style="padding:0.4rem 0.6rem;font-size:0.85rem;">
-                    <select class="form-input" id="monitor-filter-turno" onchange="loadMonitor()" style="padding:0.4rem 0.6rem;font-size:0.85rem;width:auto;">
-                        <option value="">Todos los turnos</option>
-                        <option value="Dia">Dia</option>
-                        <option value="Noche">Noche</option>
-                        <option value="Extra">Extra</option>
-                    </select>
-                    <input type="text" class="form-input" id="monitor-filter-escaneadora" placeholder="Escaneadora..." oninput="loadMonitor()" style="width:140px;padding:0.4rem 0.6rem;font-size:0.85rem;">
-                    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('monitor-filter-busqueda').value='';document.getElementById('monitor-filter-fecha').value='';document.getElementById('monitor-filter-turno').value='';document.getElementById('monitor-filter-escaneadora').value='';loadMonitor();"><i class="fa-solid fa-xmark"></i> Limpiar</button>
-                </div>
-            </div>
 
-            <div class="card" style="padding:0;overflow:hidden;">
-                <div style="overflow-x:auto;max-height:65vh;overflow-y:auto;">
-                    <table class="ctrl-table" style="width:100%;">
-                        <thead style="position:sticky;top:0;background:var(--bg-sidebar);z-index:1;">
-                            <tr>
-                                <th>Hora</th>
-                                <th>Pallet ID</th>
-                                <th>Cantidad</th>
-                                <th>Condicion</th>
-                                <th>Destino</th>
-                                <th>Turno</th>
-                                <th>Escaneadora</th>
-                                <th>Pedido</th>
-                                <th>Incidencias</th>
-                            </tr>
-                        </thead>
-                        <tbody id="monitor-body"><tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</td></tr></tbody>
-                    </table>
+                <div class="card" style="padding:0;overflow:hidden;">
+                    <div style="overflow-x:auto;max-height:65vh;overflow-y:auto;">
+                        <table class="ctrl-table" style="width:100%;">
+                            <thead style="position:sticky;top:0;background:var(--bg-sidebar);z-index:1;">
+                                <tr>
+                                    <th>Hora</th>
+                                    <th>Pallet ID</th>
+                                    <th>Cantidad</th>
+                                    <th>Condicion</th>
+                                    <th>Destino</th>
+                                    <th>Turno</th>
+                                    <th>Escaneadora</th>
+                                    <th>Pedido</th>
+                                    <th>Incidencias</th>
+                                </tr>
+                            </thead>
+                            <tbody id="monitor-body"><tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</td></tr></tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-            <p style="margin-top:0.75rem;font-size:0.7rem;color:var(--text-muted);text-align:center;">Click en un Pallet ID para ver su contenido completo (SKUs, fotos, movimientos) en vivo desde SmartControl.</p>
+                <p style="margin-top:0.75rem;font-size:0.7rem;color:var(--text-muted);text-align:center;">Solo pallets que ya pasaron por el formulario de escaneo de esta app. Click en un Pallet ID para ver su contenido completo (SKUs, fotos, movimientos) en vivo desde SmartControl.</p>
+            </div><!-- /monitor-panel-escaneados -->
+
+            <!-- Tab: Todos los pallets reales (BinManagerRO, SQL Server directo) -->
+            <div class="monitor-panel" id="monitor-panel-todos">
+                <div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                            <span id="monitor-all-count" style="font-size:0.75rem;color:var(--text-muted);background:rgba(255,255,255,0.05);padding:1px 8px;border-radius:10px;"></span>
+                        </div>
+                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+                            <input type="text" class="form-input" id="monitor-all-search" placeholder="Buscar por Pallet ID (prefijo)..." onkeydown="if(event.key==='Enter'){monitorAllOffset=0;loadMonitorAll();}" style="min-width:200px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+                            <button class="btn btn-secondary btn-sm" onclick="monitorAllOffset=0;loadMonitorAll();"><i class="fa-solid fa-search"></i> Buscar</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="padding:0;overflow:hidden;">
+                    <div style="overflow-x:auto;max-height:65vh;overflow-y:auto;">
+                        <table class="ctrl-table" style="width:100%;">
+                            <thead style="position:sticky;top:0;background:var(--bg-sidebar);z-index:1;">
+                                <tr>
+                                    <th>Pallet ID</th>
+                                    <th>Categoria</th>
+                                    <th>Cantidad total</th>
+                                    <th>SKUs distintos</th>
+                                </tr>
+                            </thead>
+                            <tbody id="monitor-all-body"><tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text-muted);">Escribe una busqueda o dale Actualizar</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:center;align-items:center;gap:0.75rem;margin-top:0.75rem;">
+                    <button class="btn btn-secondary btn-sm" id="monitor-all-prev" onclick="monitorAllPage(-1)" disabled><i class="fa-solid fa-chevron-left"></i> Anterior</button>
+                    <span id="monitor-all-page-label" style="font-size:0.78rem;color:var(--text-muted);"></span>
+                    <button class="btn btn-secondary btn-sm" id="monitor-all-next" onclick="monitorAllPage(1)" disabled>Siguiente <i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+                <p style="margin-top:0.75rem;font-size:0.7rem;color:var(--text-muted);text-align:center;">Directo de la base real de la empresa (BinManagerRO) — todos los pallets con contenido, esten o no escaneados en esta app. Click en un Pallet ID para ver su contenido completo.</p>
+            </div><!-- /monitor-panel-todos -->
         </div><!-- /view-monitor -->
 
         <!-- Modales globales de SmartControl — a proposito FUERA de cualquier
@@ -4014,6 +4064,78 @@ function startMonitorPolling() {
 }
 function stopMonitorPolling() {
     if (monitorPollTimer) { clearInterval(monitorPollTimer); monitorPollTimer = null; }
+}
+
+function monitorSetTab(tab) {
+    document.querySelectorAll('#monitor-tabs .monitor-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.monitor-panel').forEach(p => p.classList.remove('active'));
+    const panel = document.getElementById('monitor-panel-' + tab);
+    if (panel) panel.classList.add('active');
+    if (tab === 'todos' && monitorAllRecords.length === 0) loadMonitorAll();
+}
+
+// ── Tab "Todos los pallets reales" — BinManagerRO (SQL Server directo) ──
+// Requiere SQLSERVER_* configurado en Vercel para este proyecto (credenciales
+// propias, separadas de Cubicaje por decision de Roman). Sin eso, el backend
+// responde 503 y aqui se muestra un mensaje claro en vez de un error crudo.
+let monitorAllRecords = [];
+let monitorAllOffset = 0;
+let monitorAllTotal = 0;
+const MONITOR_ALL_LIMIT = 100;
+
+async function loadMonitorAll() {
+    const tbody = document.getElementById('monitor-all-body');
+    const countEl = document.getElementById('monitor-all-count');
+    const search = document.getElementById('monitor-all-search')?.value.trim() || '';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Consultando BinManagerRO...</td></tr>';
+    try {
+        const params = new URLSearchParams({ limit: MONITOR_ALL_LIMIT, offset: monitorAllOffset });
+        if (search) params.set('search', search);
+        const data = await apiFetch(`${API}/api/sc-pallets/live?${params.toString()}`);
+        if (!data.success) throw new Error(data.error || 'Error al consultar');
+        monitorAllRecords = data.data || [];
+        monitorAllTotal = data.total || 0;
+        renderMonitorAllTable();
+    } catch (err) {
+        const isNotConfigured = /SQLSERVER_\*/.test(err.message || '');
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:2rem;color:${isNotConfigured?'var(--text-muted)':'var(--danger)'};">
+            <i class="fa-solid ${isNotConfigured?'fa-plug-circle-xmark':'fa-triangle-exclamation'}" style="font-size:1.3rem;"></i>
+            <div style="margin-top:0.5rem;">${isNotConfigured ? 'Todavia no esta configurada la conexion a la base de la empresa para este proyecto (pendiente credenciales de IT).' : (err.message||'Error').replace(/</g,'&lt;')}</div>
+        </td></tr>`;
+        if (countEl) countEl.textContent = '';
+        document.getElementById('monitor-all-prev').disabled = true;
+        document.getElementById('monitor-all-next').disabled = true;
+        document.getElementById('monitor-all-page-label').textContent = '';
+    }
+}
+
+function renderMonitorAllTable() {
+    const tbody = document.getElementById('monitor-all-body');
+    const countEl = document.getElementById('monitor-all-count');
+    if (countEl) countEl.textContent = `${monitorAllTotal} pallet${monitorAllTotal !== 1 ? 's' : ''} en total`;
+    if (monitorAllRecords.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text-muted);">Sin resultados</td></tr>';
+    } else {
+        tbody.innerHTML = monitorAllRecords.map(r => `
+            <tr>
+                <td style="font-weight:600;">${scPalletLink(r.palletId)}</td>
+                <td><span class="badge badge-blue">${r.binTypeName || 'Tipo ' + r.BinTypeID}</span></td>
+                <td>${r.cantidadTotal ?? '-'}</td>
+                <td>${r.skuCount ?? '-'}</td>
+            </tr>`).join('');
+    }
+    const page = Math.floor(monitorAllOffset / MONITOR_ALL_LIMIT) + 1;
+    const totalPages = Math.max(1, Math.ceil(monitorAllTotal / MONITOR_ALL_LIMIT));
+    document.getElementById('monitor-all-page-label').textContent = `Pagina ${page} de ${totalPages}`;
+    document.getElementById('monitor-all-prev').disabled = monitorAllOffset <= 0;
+    document.getElementById('monitor-all-next').disabled = monitorAllOffset + MONITOR_ALL_LIMIT >= monitorAllTotal;
+}
+
+function monitorAllPage(delta) {
+    const next = monitorAllOffset + delta * MONITOR_ALL_LIMIT;
+    if (next < 0) return;
+    monitorAllOffset = next;
+    loadMonitorAll();
 }
 
 function debouncedSearch() {
