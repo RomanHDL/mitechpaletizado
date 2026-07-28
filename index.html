@@ -362,7 +362,6 @@
             .filter-bar .form-group { min-width:130px; }
             .filter-bar .form-group label { font-size:0.72rem; }
             #home-stats-row { grid-template-columns:repeat(2,1fr); }
-            #admin-home-panel > div { grid-template-columns:1fr; }
             .page-header h1 { font-size:1.15rem; }
             .kpi-modal.wide { max-width:95vw; }
         }
@@ -384,14 +383,16 @@
             .filter-bar .form-input { padding:0.35rem 0.5rem; font-size:0.8rem; }
             .filter-bar .btn { padding:0.35rem 0.6rem; font-size:0.78rem; }
             #home-stats-row { grid-template-columns:repeat(2,1fr); gap:0.6rem; }
-            #home-stats-row .card { padding:0.7rem 0.5rem; }
-            #home-stats-row .card div:first-child { font-size:0.62rem; }
-            #home-stats-row .card div:last-child { font-size:1.3rem; }
-            #admin-home-panel > div { grid-template-columns:1fr; gap:0.75rem; }
+            #home-stats-row .home-stat-card.v2 { padding:0.85rem 0.9rem; }
+            #home-stats-row .home-stat-label { font-size:0.66rem; }
+            #home-stats-row .home-stat-value { font-size:1.35rem; }
             .module-card { padding:1.5rem 1.25rem; min-height:180px; }
             .module-card .module-icon { width:55px; height:55px; font-size:1.5rem; }
             .module-card .module-title { font-size:1.1rem; }
             .module-card .module-desc { font-size:0.78rem; }
+            .module-card.v2 .module-title { font-size:1.05rem; }
+            .module-card.v2 .module-desc { font-size:0.78rem; }
+            .home-tools-grid, .home-ops-grid { grid-template-columns:1fr; gap:0.75rem; }
             .record-card { grid-template-columns:1fr 1fr; gap:0.3rem 0.6rem; padding:0.6rem 0.75rem; font-size:0.78rem; }
             .date-group-header { padding:0.5rem 0.75rem; }
             .date-group-header .dg-date { font-size:0.85rem; }
@@ -556,6 +557,9 @@
         /* Para contenedores de grid dentro de admin-only, preservar display:grid */
         .admin-only.home-stats-grid.visible,
         .admin-only.home-admin-grid.visible { display:grid !important; }
+        /* home-tools-row es admin-only Y card-3647-only a la vez (evita hueco vacio
+           para admins normales, ya que sus 3 hijas son 100% 3647-exclusivas) */
+        .card-3647-only.home-tools-grid.visible { display:grid !important; }
 
         /* ── Top Bar ── */
         .topbar {
@@ -731,6 +735,95 @@
         .config-row:last-child{border-bottom:none;}
         .config-row > span:first-child{color:var(--text-muted);}
         .module-card.mod-config .module-icon{color:#8b5cf6;}
+
+        /* ══════════════════════════════════════════════
+           HOME REDESIGN (2026-07-28) — solo afecta #view-home. Ningun id,
+           onclick, clase compartida (.card/.btn/.admin-only/.card-3647-only/
+           .home-admin-grid usado tambien en Configuracion) se modifica en
+           su comportamiento; esto solo agrega envoltorios/estilos nuevos.
+           ══════════════════════════════════════════════ */
+        .home-screen-v2 { max-width:1360px; margin:0 auto; width:100%; }
+        .home-section { width:100%; margin-bottom:1.75rem; }
+        .home-section:last-child { margin-bottom:0; }
+
+        /* Bienvenida */
+        .home-welcome-row { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:0.75rem; }
+        .home-welcome-row .ops-context { justify-content:flex-start; margin:0.6rem 0 0; }
+
+        /* KPIs: card horizontal (icono | label+valor+desc) */
+        .home-stats-grid.v2 { grid-template-columns:repeat(4, 1fr); gap:1.1rem; }
+        .home-stat-card.v2 {
+            flex-direction:row; align-items:center; gap:0.9rem; text-align:left;
+            border-radius:18px; box-shadow:0 1px 3px rgba(15,23,42,0.06);
+        }
+        :root[data-theme='light'] .home-stat-card.v2 { box-shadow:0 2px 8px rgba(15,23,42,0.05); }
+        .home-stat-icon {
+            flex-shrink:0; width:46px; height:46px; border-radius:13px;
+            display:flex; align-items:center; justify-content:center; font-size:1.15rem;
+        }
+        .home-stat-body { min-width:0; }
+        .home-stat-card.v2 .home-stat-label { text-transform:none; font-size:0.74rem; letter-spacing:0.02em; margin-bottom:2px; }
+        .home-stat-card.v2 .home-stat-value { font-size:1.7rem; }
+        .home-stat-desc { font-size:0.72rem; color:var(--text-muted); margin-top:2px; }
+        @media (max-width:900px) { .home-stats-grid.v2 { grid-template-columns:repeat(2, 1fr); } }
+        @media (max-width:480px) { .home-stats-grid.v2 { grid-template-columns:repeat(2, 1fr); gap:0.6rem; } }
+
+        /* Cards principales grandes: ilustracion + contenido */
+        .home-grid.v2 { grid-template-columns:repeat(4, 1fr); gap:1.35rem; }
+        @media (max-width:1100px) { .home-grid.v2 { grid-template-columns:repeat(2, 1fr); } }
+        @media (max-width:520px)  { .home-grid.v2 { grid-template-columns:1fr; } }
+        .module-card.v2 {
+            padding:0; min-height:0; border-radius:20px; overflow:hidden; gap:0;
+            align-items:stretch; justify-content:flex-start;
+        }
+        .module-card.v2:hover { transform:translateY(-4px); box-shadow:0 12px 32px rgba(15,23,42,0.14); }
+        .module-illustration {
+            width:100%; aspect-ratio:16/9.5; display:flex; align-items:center; justify-content:center;
+            padding:1rem 1.5rem;
+        }
+        .module-illustration svg { width:100%; height:100%; max-height:110px; }
+        .module-card.v2 .module-body { padding:1.25rem 1.5rem 1.5rem; display:flex; flex-direction:column; gap:0.4rem; flex:1; }
+        .module-card.v2 .module-title { font-size:1.15rem; }
+        .module-card.v2 .module-desc { font-size:0.82rem; max-width:none; margin-bottom:0.25rem; }
+        .module-cta {
+            margin-top:auto; display:flex; align-items:center; justify-content:center; gap:8px;
+            padding:0.65rem 1rem; border-radius:11px; font-size:0.85rem; font-weight:700; color:#fff;
+            transition:filter 0.15s;
+        }
+        .module-card.v2:hover .module-cta { filter:brightness(1.08); }
+        .module-card.mod-esc .module-illustration { background:linear-gradient(160deg, rgba(79,124,255,0.14), rgba(99,102,241,0.06)); }
+        .module-card.mod-esc .module-cta { background:linear-gradient(90deg, #4f7cff, #6366f1); }
+        .module-card.mod-resumen .module-illustration { background:linear-gradient(160deg, rgba(245,158,11,0.14), rgba(249,115,22,0.06)); }
+        .module-card.mod-resumen .module-cta { background:linear-gradient(90deg, #f59e0b, #f97316); }
+        .module-card.mod-dash .module-illustration { background:linear-gradient(160deg, rgba(34,197,94,0.14), rgba(20,184,166,0.06)); }
+        .module-card.mod-dash .module-cta { background:linear-gradient(90deg, #22c55e, #14b8a6); }
+        .module-card.mod-config .module-illustration { background:linear-gradient(160deg, rgba(139,92,246,0.14), rgba(168,85,247,0.06)); }
+        .module-card.mod-config .module-cta { background:linear-gradient(90deg, #8b5cf6, #a855f7); }
+
+        /* Herramientas destacadas: Centro de Control / Monitor / LPN Duplicados */
+        .home-tools-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:1.1rem; width:100%; }
+        @media (max-width:900px) { .home-tools-grid { grid-template-columns:1fr; } }
+        .tool-card { display:flex; flex-direction:column; height:100%; }
+        .tool-card .tool-head { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem; }
+        .tool-card .tool-icon { width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:1.05rem; flex-shrink:0; }
+        .tool-card p { flex:1; }
+        .tool-card .btn { margin-top:0.75rem; }
+        .tool-blue .tool-icon { background:rgba(79,124,255,0.14); color:#4f7cff; }
+        .tool-green .tool-icon { background:rgba(34,197,94,0.14); color:#22c55e; }
+        .tool-red .tool-icon { background:rgba(239,68,68,0.14); color:#ef4444; }
+
+        /* Gestion operativa: Acceder como Escaneadora / Gestionar Escaneadoras / Retrabajo */
+        .home-ops-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:1.1rem; width:100%; align-items:stretch; }
+        @media (max-width:1000px) { .home-ops-grid { grid-template-columns:1fr; } }
+        .home-ops-grid > .card { display:flex; flex-direction:column; height:100%; }
+
+        /* Gestionar pedidos: card ancho completo, 2 columnas internas */
+        .home-pedidos-card { width:100%; }
+        .pedidos-split { display:grid; grid-template-columns:1.3fr 1fr; gap:1.5rem; align-items:start; }
+        @media (max-width:800px) { .pedidos-split { grid-template-columns:1fr; } }
+        .pedidos-split .pedidos-form-col { border-left:1px solid var(--border); padding-left:1.5rem; }
+        @media (max-width:800px) { .pedidos-split .pedidos-form-col { border-left:none; border-top:1px solid var(--border); padding-left:0; padding-top:1.25rem; } }
+
         /* ── Centro de Control ── */
         .ctrl-tabs{display:flex;flex-wrap:wrap;gap:0.4rem;border-bottom:1px solid var(--border);margin-bottom:1.25rem;padding-bottom:0.5rem;}
         .ctrl-tab{background:var(--inset-bg);border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:0.45rem 0.9rem;font-size:0.82rem;cursor:pointer;display:inline-flex;align-items:center;gap:0.4rem;transition:all 0.15s;}
@@ -834,99 +927,206 @@
         <!-- VIEW: HOME (Module selection)          -->
         <!-- ══════════════════════════════════════ -->
         <div class="view active" id="view-home">
-            <div class="home-screen">
+            <div class="home-screen home-screen-v2">
 
-                <!-- ═══ HEADER ═══ -->
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:1.5rem;">
+                <!-- ═══ BIENVENIDA ═══ -->
+                <div class="home-section home-welcome-row">
                     <div>
                         <h2 id="home-greeting" style="margin:0;font-size:1.4rem;font-weight:700;">Bienvenido</h2>
-                        <div class="ops-context" id="ops-context" style="margin:0.5rem 0 0;justify-content:flex-start;"></div>
+                        <div class="ops-context" id="ops-context"></div>
                     </div>
                 </div>
 
                 <!-- ═══ ADMIN: KPIs del dia ═══ -->
-                <div class="admin-only home-stats-grid" id="home-stats-row">
-                    <div class="home-stat-card" onclick="switchView('dashboard')">
-                        <div class="home-stat-label"><i class="fa-solid fa-boxes-stacked" style="color:var(--accent);"></i>Pallets hoy</div>
-                        <div class="home-stat-value" style="color:var(--accent);" id="home-stat-hoy">-</div>
+                <div class="admin-only home-stats-grid v2 home-section" id="home-stats-row">
+                    <div class="home-stat-card v2" onclick="switchView('dashboard')">
+                        <div class="home-stat-icon" style="background:var(--accent-glow);color:var(--accent);"><i class="fa-solid fa-boxes-stacked"></i></div>
+                        <div class="home-stat-body">
+                            <div class="home-stat-label">Pallets hoy</div>
+                            <div class="home-stat-value" style="color:var(--accent);" id="home-stat-hoy">-</div>
+                            <div class="home-stat-desc">Registrados</div>
+                        </div>
                     </div>
-                    <div class="home-stat-card" onclick="switchView('dashboard')">
-                        <div class="home-stat-label"><i class="fa-solid fa-cubes" style="color:var(--warning);"></i>Piezas</div>
-                        <div class="home-stat-value" style="color:var(--warning);" id="home-stat-piezas">-</div>
+                    <div class="home-stat-card v2" onclick="switchView('dashboard')">
+                        <div class="home-stat-icon" style="background:rgba(245,158,11,0.14);color:var(--warning);"><i class="fa-solid fa-cubes"></i></div>
+                        <div class="home-stat-body">
+                            <div class="home-stat-label">Piezas</div>
+                            <div class="home-stat-value" style="color:var(--warning);" id="home-stat-piezas">-</div>
+                            <div class="home-stat-desc">Total procesadas</div>
+                        </div>
                     </div>
-                    <div class="home-stat-card" onclick="switchView('dashboard')">
-                        <div class="home-stat-label"><i class="fa-solid fa-database" style="color:var(--success);"></i>Total general</div>
-                        <div class="home-stat-value" style="color:var(--success);" id="home-stat-total">-</div>
+                    <div class="home-stat-card v2" onclick="switchView('dashboard')">
+                        <div class="home-stat-icon" style="background:rgba(34,197,94,0.14);color:var(--success);"><i class="fa-solid fa-database"></i></div>
+                        <div class="home-stat-body">
+                            <div class="home-stat-label">Total general</div>
+                            <div class="home-stat-value" style="color:var(--success);" id="home-stat-total">-</div>
+                            <div class="home-stat-desc">Pallets en sistema</div>
+                        </div>
                     </div>
-                    <div class="home-stat-card" onclick="switchView('dashboard')">
-                        <div class="home-stat-label"><i class="fa-solid fa-barcode" style="color:#8b5cf6;"></i>Escaneadoras</div>
-                        <div class="home-stat-value" style="color:#8b5cf6;" id="home-stat-esc">-</div>
-                    </div>
-                </div>
-
-                <!-- ═══ MODULOS ═══ -->
-                <div class="home-grid" style="margin-bottom:1.5rem;">
-                    <div class="module-card mod-esc" onclick="switchView('escaneadoras')">
-                        <div class="module-icon"><i class="fa-solid fa-barcode"></i></div>
-                        <div class="module-title">Escaneadoras</div>
-                        <div class="module-desc">Registro operativo de pallets escaneados</div>
-                        <div class="module-arrow"><i class="fa-solid fa-arrow-right"></i></div>
-                    </div>
-                    <div class="module-card mod-resumen" onclick="switchView('resumen')">
-                        <div class="module-icon"><i class="fa-solid fa-clipboard-check"></i></div>
-                        <div class="module-title">Resumen Turno</div>
-                        <div class="module-desc">Resumen de paletizado por turno</div>
-                        <div class="module-arrow"><i class="fa-solid fa-arrow-right"></i></div>
-                    </div>
-                    <div class="module-card mod-dash" onclick="switchView('dashboard')" id="home-dash-card">
-                        <div class="module-icon"><i class="fa-solid fa-chart-pie"></i></div>
-                        <div class="module-title">Dashboard</div>
-                        <div class="module-desc">Resumen completo de la operacion</div>
-                        <div class="module-arrow"><i class="fa-solid fa-arrow-right"></i></div>
-                    </div>
-                    <div class="module-card mod-config" onclick="switchView('config')" id="home-config-card">
-                        <div class="module-icon"><i class="fa-solid fa-gear"></i></div>
-                        <div class="module-title">Configuracion</div>
-                        <div class="module-desc">Perfil, sesion y preferencias</div>
-                        <div class="module-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="home-stat-card v2" onclick="switchView('dashboard')">
+                        <div class="home-stat-icon" style="background:rgba(139,92,246,0.14);color:#8b5cf6;"><i class="fa-solid fa-barcode"></i></div>
+                        <div class="home-stat-body">
+                            <div class="home-stat-label">Escaneadoras</div>
+                            <div class="home-stat-value" style="color:#8b5cf6;" id="home-stat-esc">-</div>
+                            <div class="home-stat-desc">En operacion</div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- ═══ PANEL ADMIN — 3 tarjetas en grid consistente ═══ -->
-                <div class="admin-only home-admin-grid" id="admin-home-panel">
+                <!-- ═══ MODULOS PRINCIPALES ═══ -->
+                <div class="home-grid v2 home-section">
+                    <div class="module-card v2 mod-esc" onclick="switchView('escaneadoras')">
+                        <div class="module-illustration">
+                            <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <rect x="118" y="34" width="62" height="52" rx="10" fill="#ffffff" stroke="#bfdbfe" stroke-width="2"/>
+                                <rect x="132" y="48" width="4" height="24" fill="#4f7cff"/>
+                                <rect x="140" y="48" width="2" height="24" fill="#4f7cff"/>
+                                <rect x="146" y="48" width="6" height="24" fill="#4f7cff"/>
+                                <rect x="156" y="48" width="3" height="24" fill="#4f7cff"/>
+                                <rect x="163" y="48" width="2" height="24" fill="#4f7cff"/>
+                                <rect x="169" y="48" width="4" height="24" fill="#4f7cff"/>
+                                <path d="M108 55 L70 68" stroke="#93c5fd" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 8"/>
+                                <circle cx="70" cy="68" r="5" fill="#bfdbfe"/>
+                                <path d="M22 62 h34 a14 14 0 0 1 14 14 v4 h-16 l-10 20 h-14 a10 10 0 0 1 -10 -10 v-16 a12 12 0 0 1 12 -12 z" fill="#4f7cff"/>
+                                <rect x="30" y="70" width="24" height="12" rx="3" fill="#93c5fd"/>
+                                <rect x="34" y="52" width="16" height="14" rx="4" fill="#4f7cff"/>
+                            </svg>
+                        </div>
+                        <div class="module-body">
+                            <div class="module-title">Escaneadoras</div>
+                            <div class="module-desc">Registro operativo de pallets escaneados</div>
+                            <div class="module-cta">Ir ahora <i class="fa-solid fa-arrow-right"></i></div>
+                        </div>
+                    </div>
+                    <div class="module-card v2 mod-resumen" onclick="switchView('resumen')">
+                        <div class="module-illustration">
+                            <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <rect x="60" y="18" width="80" height="96" rx="12" fill="#ffffff" stroke="#fed7aa" stroke-width="2"/>
+                                <rect x="82" y="10" width="36" height="16" rx="6" fill="#f97316"/>
+                                <rect x="90" y="14" width="20" height="8" rx="3" fill="#ffedd5"/>
+                                <rect x="76" y="42" width="14" height="14" rx="4" fill="#22c55e"/>
+                                <path d="M79 49 l3 3 l6 -7" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                                <rect x="96" y="46" width="34" height="6" rx="3" fill="#fdba74"/>
+                                <rect x="76" y="66" width="14" height="14" rx="4" fill="#22c55e"/>
+                                <path d="M79 73 l3 3 l6 -7" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                                <rect x="96" y="70" width="34" height="6" rx="3" fill="#fdba74"/>
+                                <rect x="76" y="90" width="14" height="14" rx="4" fill="none" stroke="#f97316" stroke-width="2.5"/>
+                                <rect x="96" y="94" width="26" height="6" rx="3" fill="#fed7aa"/>
+                            </svg>
+                        </div>
+                        <div class="module-body">
+                            <div class="module-title">Resumen Turno</div>
+                            <div class="module-desc">Resumen de paletizado por turno</div>
+                            <div class="module-cta">Ir ahora <i class="fa-solid fa-arrow-right"></i></div>
+                        </div>
+                    </div>
+                    <div class="module-card v2 mod-dash" onclick="switchView('dashboard')" id="home-dash-card">
+                        <div class="module-illustration">
+                            <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <circle cx="62" cy="60" r="34" fill="none" stroke="#bbf7d0" stroke-width="14"/>
+                                <path d="M62 26 a34 34 0 0 1 0 68" fill="none" stroke="#22c55e" stroke-width="14" stroke-linecap="round"/>
+                                <path d="M62 26 a34 34 0 0 1 29 17" fill="none" stroke="#14b8a6" stroke-width="14" stroke-linecap="round"/>
+                                <rect x="126" y="70" width="14" height="30" rx="4" fill="#99f6e4"/>
+                                <rect x="146" y="52" width="14" height="48" rx="4" fill="#14b8a6"/>
+                                <rect x="166" y="34" width="14" height="66" rx="4" fill="#22c55e"/>
+                            </svg>
+                        </div>
+                        <div class="module-body">
+                            <div class="module-title">Dashboard</div>
+                            <div class="module-desc">Resumen completo de la operacion</div>
+                            <div class="module-cta">Ir ahora <i class="fa-solid fa-arrow-right"></i></div>
+                        </div>
+                    </div>
+                    <div class="module-card v2 mod-config" onclick="switchView('config')" id="home-config-card">
+                        <div class="module-illustration">
+                            <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <g transform="translate(126 46)">
+                                    <g fill="#ddd6fe">
+                                        <rect x="-4" y="-30" width="8" height="12" rx="2"/>
+                                        <rect x="-4" y="18" width="8" height="12" rx="2"/>
+                                        <rect x="-30" y="-4" width="12" height="8" rx="2"/>
+                                        <rect x="18" y="-4" width="12" height="8" rx="2"/>
+                                        <rect x="-4" y="-30" width="8" height="12" rx="2" transform="rotate(45)"/>
+                                        <rect x="-4" y="18" width="8" height="12" rx="2" transform="rotate(45)"/>
+                                        <rect x="-30" y="-4" width="12" height="8" rx="2" transform="rotate(45)"/>
+                                        <rect x="18" y="-4" width="12" height="8" rx="2" transform="rotate(45)"/>
+                                    </g>
+                                    <circle r="20" fill="#c4b5fd"/>
+                                    <circle r="8" fill="#f5f3ff"/>
+                                </g>
+                                <g transform="translate(78 74)">
+                                    <g fill="#c4b5fd">
+                                        <rect x="-3" y="-22" width="6" height="9" rx="1.5"/>
+                                        <rect x="-3" y="13" width="6" height="9" rx="1.5"/>
+                                        <rect x="-22" y="-3" width="9" height="6" rx="1.5"/>
+                                        <rect x="13" y="-3" width="9" height="6" rx="1.5"/>
+                                        <rect x="-3" y="-22" width="6" height="9" rx="1.5" transform="rotate(45)"/>
+                                        <rect x="-3" y="13" width="6" height="9" rx="1.5" transform="rotate(45)"/>
+                                        <rect x="-22" y="-3" width="9" height="6" rx="1.5" transform="rotate(45)"/>
+                                        <rect x="13" y="-3" width="9" height="6" rx="1.5" transform="rotate(45)"/>
+                                    </g>
+                                    <circle r="15" fill="#8b5cf6"/>
+                                    <circle r="6" fill="#f5f3ff"/>
+                                </g>
+                            </svg>
+                        </div>
+                        <div class="module-body">
+                            <div class="module-title">Configuracion</div>
+                            <div class="module-desc">Perfil, sesion y preferencias</div>
+                            <div class="module-cta">Ir ahora <i class="fa-solid fa-arrow-right"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ HERRAMIENTAS DESTACADAS: Centro de Control / Monitor / LPN Duplicados ═══ -->
+                <!-- card-3647-only aqui tambien: las 3 hijas ya son 3647-exclusivas,
+                     asi evitamos un hueco vacio en el layout para admins normales -->
+                <div class="admin-only card-3647-only home-tools-grid home-section" id="home-tools-row">
                     <!-- Centro de Control (solo admin 3647) -->
-                    <div class="card card-3647-only" id="control-access-card" style="padding:1.25rem;display:none;cursor:pointer;border:1px solid var(--accent);" onclick="switchView('control')">
-                        <div class="card-title" style="font-size:0.9rem;margin-bottom:0.5rem;color:var(--accent);"><i class="fa-solid fa-sliders"></i> Centro de Control</div>
-                        <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.75rem;">Administra usuarios, sesiones, tarjetas NFC, metas de produccion, reportes y ajustes del sistema en un solo lugar.</p>
-                        <button class="btn btn-primary btn-sm" style="align-self:flex-start;"><i class="fa-solid fa-arrow-right" style="margin-right:4px;"></i>Abrir Centro de Control</button>
+                    <div class="card card-3647-only tool-card tool-blue" id="control-access-card" style="cursor:pointer;border:1px solid var(--accent);" onclick="switchView('control')">
+                        <div class="tool-head">
+                            <div class="tool-icon"><i class="fa-solid fa-sliders"></i></div>
+                            <div class="card-title" style="font-size:0.95rem;margin-bottom:0;color:var(--accent);">Centro de Control</div>
+                        </div>
+                        <p style="font-size:0.8rem;color:var(--text-muted);">Administra usuarios, sesiones, tarjetas NFC, metas de produccion, reportes y ajustes del sistema en un solo lugar.</p>
+                        <button class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right" style="margin-right:4px;"></i>Abrir Centro de Control</button>
                     </div>
 
                     <!-- Monitor en Vivo (solo admin 3647) -->
-                    <div class="card card-3647-only" id="monitor-access-card" style="padding:1.25rem;display:none;cursor:pointer;border:1px solid #22c55e;" onclick="switchView('monitor')">
-                        <div class="card-title" style="font-size:0.9rem;margin-bottom:0.5rem;color:#22c55e;"><i class="fa-solid fa-satellite-dish fa-beat-fade"></i> Monitor en Vivo</div>
-                        <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.75rem;">Ve en tiempo real cada pallet que se escanea, con su contenido completo (SKUs), pedido y toda la informacion de SmartControl.</p>
-                        <button class="btn btn-primary btn-sm" style="align-self:flex-start;background:#22c55e;border-color:#22c55e;"><i class="fa-solid fa-arrow-right" style="margin-right:4px;"></i>Abrir Monitor</button>
+                    <div class="card card-3647-only tool-card tool-green" id="monitor-access-card" style="cursor:pointer;border:1px solid #22c55e;" onclick="switchView('monitor')">
+                        <div class="tool-head">
+                            <div class="tool-icon"><i class="fa-solid fa-satellite-dish fa-beat-fade"></i></div>
+                            <div class="card-title" style="font-size:0.95rem;margin-bottom:0;color:#22c55e;">Monitor en Vivo</div>
+                        </div>
+                        <p style="font-size:0.8rem;color:var(--text-muted);">Ve en tiempo real cada pallet que se escanea, con su contenido completo (SKUs), pedido y toda la informacion de SmartControl.</p>
+                        <button class="btn btn-primary btn-sm" style="background:#22c55e;border-color:#22c55e;"><i class="fa-solid fa-arrow-right" style="margin-right:4px;"></i>Abrir Monitor</button>
                     </div>
 
                     <!-- LPN Duplicados (solo admin 3647) -->
-                    <div class="card card-3647-only" id="lpn-access-card" style="padding:1.25rem;display:none;cursor:pointer;border:1px solid #ef4444;position:relative;" onclick="switchView('lpn')">
+                    <div class="card card-3647-only tool-card tool-red" id="lpn-access-card" style="cursor:pointer;border:1px solid #ef4444;position:relative;" onclick="switchView('lpn')">
                         <span id="lpn-badge" style="display:none;position:absolute;top:-8px;right:-8px;background:#ef4444;color:#fff;font-size:0.7rem;font-weight:700;min-width:20px;height:20px;border-radius:10px;align-items:center;justify-content:center;padding:0 5px;">0</span>
-                        <div class="card-title" style="font-size:0.9rem;margin-bottom:0.5rem;color:#ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> LPN Duplicados</div>
-                        <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.75rem;">Detecta cuando el mismo LPN aparece registrado en dos areas/bins a la vez — con en donde estaba, en donde se duplico y quien lo movio.</p>
-                        <button class="btn btn-primary btn-sm" style="align-self:flex-start;background:#ef4444;border-color:#ef4444;"><i class="fa-solid fa-arrow-right" style="margin-right:4px;"></i>Ver duplicados</button>
+                        <div class="tool-head">
+                            <div class="tool-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <div class="card-title" style="font-size:0.95rem;margin-bottom:0;color:#ef4444;">LPN Duplicados</div>
+                        </div>
+                        <p style="font-size:0.8rem;color:var(--text-muted);">Detecta cuando el mismo LPN aparece registrado en dos areas/bins a la vez — con en donde estaba, en donde se duplico y quien lo movio.</p>
+                        <button class="btn btn-primary btn-sm" style="background:#ef4444;border-color:#ef4444;"><i class="fa-solid fa-arrow-right" style="margin-right:4px;"></i>Ver duplicados</button>
                     </div>
+                </div>
 
+                <!-- ═══ GESTION OPERATIVA ═══ -->
+                <div class="admin-only home-ops-grid home-section" id="home-ops-row">
                     <!-- Acceder como Escaneadora -->
-                    <div class="card" id="impersonate-panel" style="padding:1.25rem;">
-                        <div class="card-title" style="font-size:0.9rem;margin-bottom:0.75rem;"><i class="fa-solid fa-user-secret"></i> Acceder como Escaneadora</div>
+                    <div class="card" id="impersonate-panel">
+                        <div class="card-title" style="font-size:0.9rem;"><i class="fa-solid fa-user-secret"></i> Acceder como Escaneadora</div>
                         <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.75rem;">Acceso paralelo. No cierra la sesion activa.</p>
                         <div id="impersonate-buttons" style="display:flex;flex-wrap:wrap;gap:0.5rem;"></div>
                         <p id="impersonate-status" style="font-size:0.78rem;margin-top:0.5rem;min-height:1em;"></p>
                     </div>
 
                     <!-- Gestionar Escaneadoras -->
-                    <div class="card" id="user-mgmt-panel" style="padding:1.25rem;">
-                        <div class="card-title" style="font-size:0.9rem;margin-bottom:0.75rem;"><i class="fa-solid fa-users-gear"></i> Gestionar Escaneadoras</div>
+                    <div class="card" id="user-mgmt-panel">
+                        <div class="card-title" style="font-size:0.9rem;"><i class="fa-solid fa-users-gear"></i> Gestionar Escaneadoras</div>
                         <div id="user-mgmt-list" style="margin-bottom:0.75rem;"></div>
                         <div style="border-top:1px solid var(--border);padding-top:0.75rem;margin-top:auto;">
                             <div style="font-size:0.78rem;font-weight:600;color:var(--success);margin-bottom:0.5rem;"><i class="fa-solid fa-user-plus" style="margin-right:4px;"></i>Agregar nueva escaneadora</div>
@@ -941,8 +1141,8 @@
                     </div>
 
                     <!-- Retrabajo -->
-                    <div class="card" style="padding:1.25rem;">
-                        <div class="card-title" style="font-size:0.9rem;margin-bottom:0.75rem;"><i class="fa-solid fa-copy" style="color:#22c55e;"></i> Retrabajo de Pallet</div>
+                    <div class="card" id="retrabajo-panel">
+                        <div class="card-title" style="font-size:0.9rem;"><i class="fa-solid fa-copy" style="color:#22c55e;"></i> Retrabajo de Pallet</div>
                         <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.75rem;">Busca un pallet de dias anteriores y crealo como retrabajo para hoy. El original no se modifica.</p>
                         <div style="display:flex;gap:0.5rem;align-items:center;">
                             <input type="text" class="form-input" id="retrabajo-search" placeholder="Pallet ID (6 digitos)" inputmode="numeric" maxlength="6" oninput="this.value=this.value.replace(/\D/g,'')" style="flex:1;padding:0.5rem 0.75rem;font-size:0.95rem;">
@@ -950,13 +1150,17 @@
                         </div>
                         <div id="retrabajo-result" style="margin-top:0.75rem;"></div>
                     </div>
+                </div>
 
-                    <!-- Gestionar Pedidos (solo admin 3647) -->
-                    <div class="card card-3647-only" id="pedidos-mgmt-panel" style="padding:1.25rem;display:none;">
-                        <div class="card-title" style="font-size:0.9rem;margin-bottom:0.75rem;"><i class="fa-solid fa-tags" style="color:#a855f7;"></i> Gestionar Pedidos</div>
-                        <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.75rem;">Crea o renombra los pedidos que aparecen en la clasificacion del formulario. Renombrar actualiza todos los registros existentes.</p>
-                        <div id="pedidos-mgmt-list" style="margin-bottom:0.75rem;max-height:230px;overflow-y:auto;"></div>
-                        <div style="border-top:1px solid var(--border);padding-top:0.75rem;margin-top:auto;">
+                <!-- ═══ GESTIONAR PEDIDOS (solo admin 3647) ═══ -->
+                <div class="card card-3647-only home-pedidos-card home-section" id="pedidos-mgmt-panel">
+                    <div class="card-title" style="font-size:0.9rem;"><i class="fa-solid fa-tags" style="color:#a855f7;"></i> Gestionar Pedidos</div>
+                    <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1rem;">Crea o renombra los pedidos que aparecen en la clasificacion del formulario. Renombrar actualiza todos los registros existentes.</p>
+                    <div class="pedidos-split">
+                        <div class="pedidos-list-col">
+                            <div id="pedidos-mgmt-list" style="max-height:280px;overflow-y:auto;"></div>
+                        </div>
+                        <div class="pedidos-form-col">
                             <div style="font-size:0.78rem;font-weight:600;color:var(--success);margin-bottom:0.5rem;"><i class="fa-solid fa-plus" style="margin-right:4px;"></i>Agregar nuevo pedido</div>
                             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
                                 <input type="text" class="form-input" id="new-pedido-nombre" placeholder="Nombre del pedido" style="flex:1;min-width:140px;padding:0.4rem 0.6rem;font-size:0.85rem;" maxlength="40">
