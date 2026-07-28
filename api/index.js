@@ -613,15 +613,15 @@ function scTryParse(v) {
   if (typeof v !== 'string' || !v) return v;
   try { return JSON.parse(v); } catch { return v; }
 }
-app.get('/api/sc-pallet/:palletId', auth, async (req, res) => {
-  const palletId = String(req.params.palletId || '').trim();
-  if (!palletId) return res.status(400).json({ success: false, error: 'PalletID requerido' });
+// Extraido a helper (usado por la ruta de abajo y por /api/lpn-duplicates/:id/mapa
+// para verificar en vivo si un LPN sigue presente en un pallet especifico).
+async function fetchScPalletLive(palletId) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 9000);
   try {
     const url = `https://appsc.mitechnologiesinc.com/Home/BinPalletID_GET_ApiAR?PalletID=${encodeURIComponent(palletId)}`;
     const resp = await fetch(url, { signal: controller.signal });
-    if (!resp.ok) return res.status(502).json({ success: false, error: `SmartControl respondio ${resp.status}` });
+    if (!resp.ok) throw new Error(`SmartControl respondio ${resp.status}`);
     const raw = await resp.json();
     const productos = scTryParse(raw.Productos) || [];
     const fotos = scTryParse(raw.Fotos) || [];
@@ -630,26 +630,32 @@ app.get('/api/sc-pallet/:palletId', auth, async (req, res) => {
     if (Array.isArray(movimientos)) {
       movimientos = movimientos.map(m => ({ ...m, ProductosMovidos: scTryParse(m.ProductosMovidos) || [] }));
     }
-    res.json({
-      success: true,
-      data: {
-        nombrePallet: raw.NombrePallet || palletId,
-        cantidadTotal: raw.CantidadTotal,
-        condiciones: raw.Condiciones,
-        foto: raw.Foto,
-        workcenter: raw.WorkcenterMovimiento,
-        ubicacion: raw.Ubicacion,
-        fotos: Array.isArray(fotos) ? fotos : [],
-        productos: Array.isArray(productos) ? productos : [],
-        movimientos: Array.isArray(movimientos) ? movimientos : [],
-        palletsContent,
-      }
-    });
+    return {
+      nombrePallet: raw.NombrePallet || palletId,
+      cantidadTotal: raw.CantidadTotal,
+      condiciones: raw.Condiciones,
+      foto: raw.Foto,
+      workcenter: raw.WorkcenterMovimiento,
+      ubicacion: raw.Ubicacion,
+      fotos: Array.isArray(fotos) ? fotos : [],
+      productos: Array.isArray(productos) ? productos : [],
+      movimientos: Array.isArray(movimientos) ? movimientos : [],
+      palletsContent,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+app.get('/api/sc-pallet/:palletId', auth, async (req, res) => {
+  const palletId = String(req.params.palletId || '').trim();
+  if (!palletId) return res.status(400).json({ success: false, error: 'PalletID requerido' });
+  try {
+    const data = await fetchScPalletLive(palletId);
+    res.json({ success: true, data });
   } catch (error) {
     const msg = error.name === 'AbortError' ? 'SmartControl no respondio a tiempo' : error.message;
     res.status(502).json({ success: false, error: msg });
-  } finally {
-    clearTimeout(timeout);
   }
 });
 
@@ -868,7 +874,40 @@ app.get('/api/sc-pallets/live', auth, roleGuard('admin'), async (req, res) => {
 // timer). Barato: solo golpea a Cubicaje (que ya tiene la conexion real a
 // BinManagerRO) y hace un puñado de upserts en Mongo. La notificacion en
 // vivo (Pusher) y la lista solo son visibles para 3647.
+//
+// Gotcha de lag (confirmado 2026-07-28 con un caso real de Roman):
+// BinManagerRO (de donde viene Cubicaje) sincroniza ~1x/dia — un LPN
+// candidato puede llevar horas resuelto sin que la vista de Cubicaje se
+// entere. Por eso ANTES de avisar a 3647 se hace una verificacion en vivo
+// contra la API de SmartControl (appsc.mitechnologiesinc.com, sin ese
+// retraso) via liveVerifyDuplicate() — solo se notifica si el LPN sigue
+// realmente presente en mas de un pallet AHORITA MISMO.
 // ══════════════════════════════════════════════
+
+// Dado un doc de LpnDuplicate (candidato de BinManagerRO, posiblemente con
+// horas de retraso), confirma en vivo contra SmartControl si el LPN sigue
+// presente en mas de uno de los pallets candidatos. Cap defensivo de 6
+// pallets (fisico normalmente trae 2; transferencia trae origen+destino
+// de cada evento, tipicamente 2 tambien) para no encadenar demasiadas
+// llamadas HTTP externas por candidato.
+async function liveVerifyDuplicate(doc) {
+  const candidatos = doc.tipo === 'transferencia'
+    ? [...new Set((doc.events || []).flatMap(e => [e.fromBinCode, e.toBinCode]).filter(Boolean))]
+    : [...new Set((doc.locations || []).map(l => l.binCode).filter(Boolean))];
+  const checks = [];
+  for (const palletId of candidatos.slice(0, 6)) {
+    try {
+      const live = await fetchScPalletLive(palletId);
+      const presente = (live.productos || []).some(p => p.NumeroSerie === doc.serialNumber);
+      checks.push({ palletId, presente, cantidadTotal: live.cantidadTotal, ubicacion: live.ubicacion, workcenter: live.workcenter, condiciones: live.condiciones });
+    } catch (e) {
+      checks.push({ palletId, error: e.message || 'Error al consultar SmartControl' });
+    }
+  }
+  const duplicadoEnVivo = checks.filter(c => c.presente).length > 1;
+  return { checks, duplicadoEnVivo };
+}
+
 app.post('/api/lpn-duplicates/check', auth, async (req, res) => {
   const base = process.env.CUBICAJE_API_BASE_URL;
   const key = process.env.CUBICAJE_INTEGRATION_KEY;
@@ -934,14 +973,31 @@ app.post('/api/lpn-duplicates/check', auth, async (req, res) => {
       );
     }
 
-    if (nuevos.length > 0) {
+    // Verificacion en vivo (SmartControl, sin el retraso de BinManagerRO)
+    // antes de notificar — BinManagerRO puede tardar horas en reflejar que
+    // algo ya se corrigio, y no queremos avisarle a 3647 de un problema
+    // que ya no existe.
+    const confirmadosEnVivo = [];
+    for (const doc of nuevos) {
+      let liveDuplicado = null;
+      try {
+        const { duplicadoEnVivo } = await liveVerifyDuplicate(doc);
+        liveDuplicado = duplicadoEnVivo;
+      } catch { /* si SmartControl falla, no bloquea el aviso — se notifica igual */ }
+      doc.liveDuplicado = liveDuplicado;
+      doc.liveCheckedAt = now;
+      await doc.save();
+      if (liveDuplicado !== false) confirmadosEnVivo.push(doc);
+    }
+
+    if (confirmadosEnVivo.length > 0) {
       emitEvent('paletizado', 'lpn:duplicado', {
-        count: nuevos.length,
-        items: nuevos.slice(0, 10).map(d => ({ serialNumber: d.serialNumber, productSku: d.productSku, tipo: d.tipo })),
+        count: confirmadosEnVivo.length,
+        items: confirmadosEnVivo.slice(0, 10).map(d => ({ serialNumber: d.serialNumber, productSku: d.productSku, tipo: d.tipo })),
       });
     }
     const totalPendientes = await LpnDuplicate.countDocuments({ resuelto: false });
-    res.json({ success: true, nuevos: nuevos.length, totalPendientes });
+    res.json({ success: true, nuevos: nuevos.length, confirmadosEnVivo: confirmadosEnVivo.length, totalPendientes });
   } catch (error) {
     const msg = error.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : error.message;
     res.status(502).json({ success: false, error: 'No se pudo consultar Cubicaje: ' + msg });
@@ -972,6 +1028,67 @@ app.post('/api/lpn-duplicates/:id/resolver', auth, roleGuard('admin'), async (re
     const totalPendientes = await LpnDuplicate.countDocuments({ resuelto: false });
     emitEvent('paletizado', 'lpn:resuelto', { serialNumber: doc.serialNumber, totalPendientes });
     res.json({ success: true, data: doc, totalPendientes });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// "Mapa completo" de un LPN (2026-07-28, pedido explicito de Roman): linea
+// de tiempo area por area (via Cubicaje, historico BinManagerRO) + estado
+// actual y confirmacion en vivo (via SmartControl, sin el retraso) + a que
+// pedido de venta va de salida.
+app.get('/api/lpn-duplicates/:id/mapa', auth, roleGuard('admin'), async (req, res) => {
+  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+  try {
+    const doc = await LpnDuplicate.findById(req.params.id);
+    if (!doc) return res.status(404).json({ success: false, error: 'No encontrado' });
+
+    const base = process.env.CUBICAJE_API_BASE_URL;
+    const key = process.env.CUBICAJE_INTEGRATION_KEY;
+    let timeline = [], salesOrder = null, currentLocation = null, timelineError = null;
+    if (!base || !key) {
+      timelineError = 'CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas';
+    } else {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+        let resp;
+        try {
+          resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/lpn-timeline/${encodeURIComponent(doc.serialNumber)}`, {
+            headers: { 'X-Integration-Key': key },
+            signal: controller.signal,
+          });
+        } finally { clearTimeout(timeout); }
+        const data = await resp.json();
+        if (resp.ok && data.success) {
+          timeline = data.data.timeline || [];
+          salesOrder = data.data.salesOrder;
+          currentLocation = data.data.currentLocation;
+        } else {
+          timelineError = data.error || `Cubicaje respondio ${resp.status}`;
+        }
+      } catch (e) {
+        timelineError = e.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : e.message;
+      }
+    }
+
+    const { checks, duplicadoEnVivo } = await liveVerifyDuplicate(doc);
+    doc.liveDuplicado = duplicadoEnVivo;
+    doc.liveCheckedAt = new Date();
+    await doc.save();
+
+    res.json({
+      success: true,
+      data: {
+        serialNumber: doc.serialNumber,
+        tipo: doc.tipo,
+        productSku: doc.productSku,
+        timeline,
+        timelineError,
+        salesOrder,
+        currentLocation,
+        liveChecks: checks,
+        duplicadoEnVivo,
+      },
+    });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -1716,6 +1833,11 @@ const lpnDuplicateSchema = new mongoose.Schema({
   events: [lpnDuplicateEventSchema],
   firstSeenAt: { type: Date, default: Date.now },
   lastSeenAt: { type: Date, default: Date.now },
+  // Verificacion en vivo contra SmartControl (appsc.mitechnologiesinc.com,
+  // sin el retraso de ~1 dia de BinManagerRO) — se llena en cada /check
+  // antes de decidir si vale la pena notificar (ver liveVerifyDuplicate()).
+  liveDuplicado: { type: Boolean, default: null },
+  liveCheckedAt: Date,
   resuelto: { type: Boolean, default: false },
   resueltoPor: { type: String, default: '' },
   resueltoFecha: Date,
