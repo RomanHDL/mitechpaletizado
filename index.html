@@ -547,6 +547,7 @@
             animation:live-blink 2s infinite; margin-right:6px; vertical-align:middle;
         }
         @keyframes live-blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+        @keyframes monitorFlash { 0% { background:rgba(34,197,94,0.25); } 100% { background:transparent; } }
         .live-label { font-size:0.78rem; color:var(--success); font-weight:500; }
 
         /* Admin-only elements (hidden by default, shown via JS) */
@@ -892,6 +893,13 @@
                         <div class="card-title" style="font-size:0.9rem;margin-bottom:0.5rem;color:var(--accent);"><i class="fa-solid fa-sliders"></i> Centro de Control</div>
                         <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.75rem;">Administra usuarios, sesiones, tarjetas NFC, metas de produccion, reportes y ajustes del sistema en un solo lugar.</p>
                         <button class="btn btn-primary btn-sm" style="align-self:flex-start;"><i class="fa-solid fa-arrow-right" style="margin-right:4px;"></i>Abrir Centro de Control</button>
+                    </div>
+
+                    <!-- Monitor en Vivo (solo admin 3647) -->
+                    <div class="card card-3647-only" id="monitor-access-card" style="padding:1.25rem;display:none;cursor:pointer;border:1px solid #22c55e;" onclick="switchView('monitor')">
+                        <div class="card-title" style="font-size:0.9rem;margin-bottom:0.5rem;color:#22c55e;"><i class="fa-solid fa-satellite-dish fa-beat-fade"></i> Monitor en Vivo</div>
+                        <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.75rem;">Ve en tiempo real cada pallet que se escanea, con su contenido completo (SKUs), pedido y toda la informacion de SmartControl.</p>
+                        <button class="btn btn-primary btn-sm" style="align-self:flex-start;background:#22c55e;border-color:#22c55e;"><i class="fa-solid fa-arrow-right" style="margin-right:4px;"></i>Abrir Monitor</button>
                     </div>
 
                     <!-- Acceder como Escaneadora -->
@@ -1836,6 +1844,62 @@
                 </div>
             </div>
         </div><!-- /view-control -->
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: MONITOR EN VIVO (solo admin 3647) -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-monitor">
+            <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
+            <div class="page-header" style="text-align:center;">
+                <h1 style="font-size:1.3rem;margin:0;"><i class="fa-solid fa-satellite-dish" style="color:#22c55e;margin-right:6px;"></i>Monitor en Vivo</h1>
+                <p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--text-muted);">Cada pallet escaneado aparece aqui al instante — exclusivo del administrador 3647</p>
+            </div>
+
+            <div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <span id="monitor-live-dot" style="width:9px;height:9px;border-radius:50%;background:#6b7280;display:inline-block;"></span>
+                        <span id="monitor-live-label" style="font-size:0.78rem;color:var(--text-muted);font-weight:600;">Conectando...</span>
+                        <span id="monitor-count" style="font-size:0.75rem;color:var(--text-muted);background:rgba(255,255,255,0.05);padding:1px 8px;border-radius:10px;"></span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="loadMonitor()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                </div>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+                    <input type="text" class="form-input" id="monitor-filter-busqueda" placeholder="Buscar por Pallet ID o Pedido..." oninput="renderMonitorTable()" style="flex:1;min-width:180px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+                    <input type="date" class="form-input" id="monitor-filter-fecha" onchange="loadMonitor()" style="padding:0.4rem 0.6rem;font-size:0.85rem;">
+                    <select class="form-input" id="monitor-filter-turno" onchange="loadMonitor()" style="padding:0.4rem 0.6rem;font-size:0.85rem;width:auto;">
+                        <option value="">Todos los turnos</option>
+                        <option value="Dia">Dia</option>
+                        <option value="Noche">Noche</option>
+                        <option value="Extra">Extra</option>
+                    </select>
+                    <input type="text" class="form-input" id="monitor-filter-escaneadora" placeholder="Escaneadora..." oninput="loadMonitor()" style="width:140px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+                    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('monitor-filter-busqueda').value='';document.getElementById('monitor-filter-fecha').value='';document.getElementById('monitor-filter-turno').value='';document.getElementById('monitor-filter-escaneadora').value='';loadMonitor();"><i class="fa-solid fa-xmark"></i> Limpiar</button>
+                </div>
+            </div>
+
+            <div class="card" style="padding:0;overflow:hidden;">
+                <div style="overflow-x:auto;max-height:65vh;overflow-y:auto;">
+                    <table class="ctrl-table" style="width:100%;">
+                        <thead style="position:sticky;top:0;background:var(--bg-sidebar);z-index:1;">
+                            <tr>
+                                <th>Hora</th>
+                                <th>Pallet ID</th>
+                                <th>Cantidad</th>
+                                <th>Condicion</th>
+                                <th>Destino</th>
+                                <th>Turno</th>
+                                <th>Escaneadora</th>
+                                <th>Pedido</th>
+                                <th>Incidencias</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monitor-body"><tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+            <p style="margin-top:0.75rem;font-size:0.7rem;color:var(--text-muted);text-align:center;">Click en un Pallet ID para ver su contenido completo (SKUs, fotos, movimientos) en vivo desde SmartControl.</p>
+        </div><!-- /view-monitor -->
 
     </main>
 </div><!-- /app -->
@@ -2880,8 +2944,8 @@ function switchView(viewName) {
     // Usuarios con dashboard pero sin escaneadoras (ej. viewer): limitados a dashboard/config
     // Los administradores (y siempre 3647) quedan exentos: nunca deben perder acceso a "inicio" o al Centro de Control.
     if (currentUser && currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras') && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
-    // Centro de Control: exclusivo del administrador 3647
-    if (viewName === 'control' && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
+    // Centro de Control y Monitor en Vivo: exclusivos del administrador 3647
+    if ((viewName === 'control' || viewName === 'monitor') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
     // Save current view for restore on refresh
     sessionStorage.setItem('mitech_view', viewName);
 
@@ -2915,6 +2979,7 @@ function switchView(viewName) {
     if (viewName === 'home') loadOpsContext();
     if (viewName === 'config') loadConfig();
     if (viewName === 'control') loadControl();
+    if (viewName === 'monitor') loadMonitor();
 }
 
 // ══════════════════════════════════════════════
@@ -3788,6 +3853,159 @@ function startTvStatsPolling() {
 }
 function stopTvStatsPolling() {
     if (tvStatsPollTimer) { clearInterval(tvStatsPollTimer); tvStatsPollTimer = null; }
+}
+
+// ══════════════════════════════════════════════
+// MONITOR EN VIVO (solo admin 3647)
+// Lista de pallets escaneados en tiempo real. Reusa /api/escaneadoras para
+// la carga inicial + historico, y el canal Pusher 'paletizado' (ya emitido
+// por POST /api/escaneadoras) para las llegadas en vivo. El contenido/SKUs
+// de cada pallet se ve con scPalletLink() — el mismo modal de SmartControl
+// que ya usa el dashboard, no se duplica nada.
+// ══════════════════════════════════════════════
+let monitorPollTimer = null;
+let monitorRealtimeBound = false;
+let monitorRecords = [];
+
+function monitorFilterParams() {
+    const p = new URLSearchParams();
+    const fecha = document.getElementById('monitor-filter-fecha')?.value;
+    const turno = document.getElementById('monitor-filter-turno')?.value;
+    const esc = document.getElementById('monitor-filter-escaneadora')?.value;
+    if (fecha) { const [y,m,d] = fecha.split('-'); p.set('fecha', `${parseInt(m)}/${parseInt(d)}/${y}`); }
+    if (turno) p.set('turno', turno);
+    if (esc) p.set('escaneadora', esc);
+    p.set('limit', '200');
+    return p.toString();
+}
+
+async function loadMonitor() {
+    const tbody = document.getElementById('monitor-body');
+    try {
+        const data = await apiFetch(`${API}/api/escaneadoras?${monitorFilterParams()}`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar');
+        monitorRecords = data.data || [];
+        renderMonitorTable();
+        setupMonitorRealtime();
+    } catch (err) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--danger);">${(err.message||'Error').replace(/</g,'&lt;')}</td></tr>`;
+    }
+}
+
+function renderMonitorTable() {
+    const tbody = document.getElementById('monitor-body');
+    const countEl = document.getElementById('monitor-count');
+    if (!tbody) return;
+    const busqueda = (document.getElementById('monitor-filter-busqueda')?.value || '').trim().toLowerCase();
+    const filtered = busqueda
+        ? monitorRecords.filter(r => (r.palletId||'').toLowerCase().includes(busqueda) || (r.pedido||'').toLowerCase().includes(busqueda))
+        : monitorRecords;
+    if (countEl) countEl.textContent = `${filtered.length} pallet${filtered.length !== 1 ? 's' : ''}`;
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted);">Sin pallets todavia</td></tr>';
+        return;
+    }
+    tbody.innerHTML = filtered.map(r => monitorRowHtml(r)).join('');
+}
+
+function monitorFmtHora(iso) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    if (isNaN(d)) return '-';
+    return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function monitorPedidoHtml(r) {
+    if (!r.pedido) return '-';
+    const ob = (r.observaciones || '').split('|')[0].trim();
+    const cl = Object.keys(clasifColors).find(k => ob.toLowerCase() === k.toLowerCase());
+    if (!cl) return r.pedido;
+    return `<span style="color:${clasifColors[cl]};font-weight:600;">${cl}</span> <span style="color:var(--text-muted);font-size:0.75rem;">(#${r.pedido})</span>`;
+}
+
+function monitorRowHtml(r, isNew) {
+    return `
+        <tr id="monitor-row-${r._id}" ${isNew ? 'style="animation:monitorFlash 2.5s ease-out;"' : ''}>
+            <td style="font-size:0.78rem;color:var(--text-muted);white-space:nowrap;">${monitorFmtHora(r.createdAt)}</td>
+            <td style="font-weight:600;">${scPalletLink(r.palletId)}</td>
+            <td>${r.cantidad}</td>
+            <td>${r.condicion ? `<span class="badge badge-blue">${r.condicion}</span>` : '-'}</td>
+            <td>${r.destino || '-'}</td>
+            <td>${turnoBadge(r.turno || '')}</td>
+            <td>${r.escaneadora || '-'}</td>
+            <td>${monitorPedidoHtml(r)}</td>
+            <td style="color:${r.incidencias ? 'var(--danger)' : 'var(--text-muted)'};">${r.incidencias || '-'}</td>
+        </tr>`;
+}
+
+function setMonitorLiveStatus(connected) {
+    const dot = document.getElementById('monitor-live-dot');
+    const label = document.getElementById('monitor-live-label');
+    if (!dot || !label) return;
+    if (connected) {
+        dot.style.background = '#22c55e';
+        dot.style.boxShadow = '0 0 6px #22c55e';
+        label.textContent = 'En vivo';
+        label.style.color = '#22c55e';
+    } else {
+        dot.style.background = '#6b7280';
+        dot.style.boxShadow = 'none';
+        label.textContent = 'Actualizando cada 8s (sin tiempo real)';
+        label.style.color = 'var(--text-muted)';
+    }
+}
+
+// Se llama cada vez que se entra a la vista — idempotente, no vuelve a
+// suscribirse dos veces al mismo canal (monitorRealtimeBound).
+async function setupMonitorRealtime() {
+    await initRealtime(); // no-op si ya esta listo — comparte el mismo canal 'paletizado' del dashboard
+    if (pusherChannel && !monitorRealtimeBound) {
+        monitorRealtimeBound = true;
+        pusherChannel.bind('registro:nuevo', (payload) => onMonitorNuevo(payload));
+        pusherChannel.bind('registro:updated', () => { if (isMonitorActive()) loadMonitor(); });
+        pusherChannel.bind('registro:deleted', (payload) => onMonitorDeleted(payload));
+    }
+    if (pusherChannel) {
+        setMonitorLiveStatus(true);
+        stopMonitorPolling();
+    } else {
+        setMonitorLiveStatus(false);
+        startMonitorPolling();
+    }
+}
+
+function isMonitorActive() {
+    const v = document.getElementById('view-monitor');
+    return !!v && v.classList.contains('active');
+}
+
+async function onMonitorNuevo(payload) {
+    if (!isMonitorActive() || !payload || !payload.id) return;
+    try {
+        const data = await apiFetch(`${API}/api/escaneadoras/${payload.id}`);
+        if (!data.success || !data.data) return;
+        monitorRecords = [data.data, ...monitorRecords.filter(r => r._id !== data.data._id)];
+        renderMonitorTable();
+        const row = document.getElementById(`monitor-row-${data.data._id}`);
+        if (row) { row.style.animation = 'monitorFlash 2.5s ease-out'; }
+        showToast(`Nuevo pallet escaneado: ${data.data.palletId}`, 'success', 3000);
+    } catch (e) { /* si falla el detalle, el proximo loadMonitor() lo recupera */ }
+}
+
+function onMonitorDeleted(payload) {
+    // El evento solo trae palletId (no el _id de Mongo), a diferencia de
+    // registro:nuevo/registro:updated.
+    if (!isMonitorActive() || !payload || !payload.palletId) return;
+    monitorRecords = monitorRecords.filter(r => r.palletId !== payload.palletId);
+    renderMonitorTable();
+}
+
+function startMonitorPolling() {
+    stopMonitorPolling();
+    monitorPollTimer = setInterval(() => { if (isMonitorActive()) loadMonitor(); else stopMonitorPolling(); }, 8000);
+}
+function stopMonitorPolling() {
+    if (monitorPollTimer) { clearInterval(monitorPollTimer); monitorPollTimer = null; }
 }
 
 function debouncedSearch() {
