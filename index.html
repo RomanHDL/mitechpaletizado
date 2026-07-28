@@ -694,7 +694,7 @@
            su comportamiento; esto solo agrega envoltorios/estilos nuevos.
            ══════════════════════════════════════════════ */
         .home-screen-v2 { max-width:1800px; margin:0 auto; width:100%; }
-        .home-section { width:100%; margin-bottom:1.75rem; }
+        .home-section { width:100%; margin-bottom:1.25rem; }
         .home-section:last-child { margin-bottom:0; }
 
         /* Bienvenida */
@@ -729,40 +729,47 @@
            anidado, no en toda la hero-card, para no ocultar de mas ni
            de menos comparado con el comportamiento original.
            ══════════════════════════════════════════════ */
-        .hero-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:1.5rem; }
+        .hero-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:1.15rem; }
         @media (max-width:1200px) { .hero-grid { grid-template-columns:repeat(2, 1fr); } }
         @media (max-width:640px)  { .hero-grid { grid-template-columns:1fr; } }
 
         .hero-card {
-            background:var(--bg-card); border:1px solid var(--border); border-radius:22px;
+            background:var(--bg-card); border:1px solid var(--border); border-radius:20px;
             overflow:hidden; display:flex; flex-direction:column; transition:transform 0.2s ease, box-shadow 0.2s ease;
         }
-        .hero-card:hover { transform:translateY(-4px); box-shadow:0 14px 36px rgba(15,23,42,0.14); }
+        .hero-card:hover { transform:translateY(-3px); box-shadow:0 10px 28px rgba(15,23,42,0.13); }
 
-        .hero-illustration { width:100%; aspect-ratio:16/7.5; display:flex; align-items:center; justify-content:center; padding:1rem 1.75rem; flex-shrink:0; }
-        .hero-illustration svg { width:100%; height:100%; max-height:120px; }
+        /* Ilustracion compacta a proposito (2026-07-28 v3): antes ocupaba
+           aspect-ratio:16/7.5 + svg hasta 120px de alto — dominaba la card.
+           Ahora es una franja decorativa fija y chica, no el protagonista. */
+        .hero-illustration { width:100%; height:64px; display:flex; align-items:center; justify-content:center; padding:0.5rem 1.5rem; flex-shrink:0; }
+        .hero-illustration svg { width:100%; height:100%; max-height:56px; }
 
-        .hero-body { padding:1.5rem 1.75rem 1.75rem; display:flex; flex-direction:column; gap:0.5rem; flex:1; }
-        .hero-title { font-size:1.25rem; font-weight:700; letter-spacing:-0.2px; }
-        .hero-desc { font-size:0.85rem; color:var(--text-muted); line-height:1.5; }
+        .hero-body { padding:1rem 1.4rem 1.15rem; display:flex; flex-direction:column; gap:0.35rem; flex:1; }
+        .hero-title { font-size:1.05rem; font-weight:700; letter-spacing:-0.2px; }
+        .hero-desc { font-size:0.78rem; color:var(--text-muted); line-height:1.4; }
 
         .hero-cta {
             margin-top:auto; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;
-            padding:0.75rem 1.1rem; border-radius:12px; font-size:0.9rem; font-weight:700; color:#fff;
+            padding:0.6rem 1rem; border-radius:11px; font-size:0.83rem; font-weight:700; color:#fff;
             transition:filter 0.15s;
         }
         .hero-cta:hover { filter:brightness(1.08); }
 
         /* Sub-bloques agrupados dentro de una hero-card (ej. Gestionar Escaneadoras
-           dentro de Escaneadoras, Centro de Control dentro de Configuracion) */
-        .hero-quick { border-top:1px solid var(--border); padding-top:0.9rem; margin-top:0.4rem; display:flex; flex-direction:column; gap:0.5rem; }
-        .hero-quick-label { font-size:0.82rem; font-weight:700; display:flex; align-items:center; gap:0.4rem; }
-        .hero-quick-desc { font-size:0.78rem; color:var(--text-muted); margin:0; line-height:1.45; }
-        .hero-chip-row { display:flex; flex-wrap:wrap; gap:0.4rem; }
-        .hero-mini-list { max-height:150px; overflow-y:auto; }
-        .hero-mini-msg { font-size:0.75rem; min-height:1em; margin:0; }
-        .hero-inline-form { display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; }
-        .hero-inline-form .form-input { flex:1; min-width:110px; padding:0.4rem 0.6rem; font-size:0.82rem; }
+           dentro de Escaneadoras, Centro de Control dentro de Configuracion).
+           Compactados (2026-07-28 v3): menos padding, listas con tope de
+           altura mas chico (con scroll interno) para que un contenido largo
+           (muchas escaneadoras/pedidos) no estire la card entera. */
+        .hero-quick { border-top:1px solid var(--border); padding-top:0.6rem; margin-top:0.2rem; display:flex; flex-direction:column; gap:0.35rem; }
+        .hero-quick-label { font-size:0.76rem; font-weight:700; display:flex; align-items:center; gap:0.4rem; }
+        .hero-quick-desc { font-size:0.72rem; color:var(--text-muted); margin:0; line-height:1.35; }
+        .hero-chip-row { display:flex; flex-wrap:wrap; gap:0.35rem; max-height:64px; overflow-y:auto; }
+        .hero-mini-list { max-height:88px; overflow-y:auto; }
+        .hero-mini-msg { font-size:0.72rem; min-height:1em; margin:0; }
+        .hero-inline-form { display:flex; flex-wrap:wrap; gap:0.4rem; align-items:center; }
+        .hero-inline-form .form-input { flex:1; min-width:95px; padding:0.32rem 0.5rem; font-size:0.76rem; }
+        .hero-inline-form .btn-sm { padding:0.32rem 0.65rem; font-size:0.74rem; }
 
         /* Colores por card */
         .hero-blue .hero-illustration { background:linear-gradient(160deg, rgba(79,124,255,0.14), rgba(99,102,241,0.06)); }
@@ -779,10 +786,10 @@
         .hero-teal .hero-cta { background:linear-gradient(90deg, #14b8a6, #0d9488); }
 
         @media (max-width:480px) {
-            .hero-illustration { padding:0.75rem 1.25rem; aspect-ratio:16/8.5; }
-            .hero-illustration svg { max-height:95px; }
-            .hero-body { padding:1.1rem 1.25rem 1.25rem; }
-            .hero-title { font-size:1.1rem; }
+            .hero-illustration { height:56px; padding:0.4rem 1.1rem; }
+            .hero-illustration svg { max-height:48px; }
+            .hero-body { padding:0.9rem 1.1rem 1rem; }
+            .hero-title { font-size:1rem; }
         }
 
         /* ── Centro de Control ── */
