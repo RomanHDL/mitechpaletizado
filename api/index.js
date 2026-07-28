@@ -887,24 +887,33 @@ app.post('/api/lpn-duplicates/check', auth, async (req, res) => {
     if (!resp.ok || !data.success) return res.status(resp.status === 401 ? 502 : resp.status).json({ success: false, error: data.error || `Cubicaje respondio ${resp.status}` });
 
     const fresh = data.data || [];
-    const freshSerials = new Set(fresh.map(g => g.serialNumber));
+    // Clave compuesta: un mismo LPN puede tener a la vez un duplicado 'fisico'
+    // Y uno de 'transferencia' — son fallas distintas, se rastrean por separado.
+    const freshKeys = new Set(fresh.map(g => `${g.serialNumber}|${g.tipo || 'fisico'}`));
     const nuevos = [];
     const now = new Date();
 
     for (const g of fresh) {
-      const existing = await LpnDuplicate.findOne({ serialNumber: g.serialNumber });
+      const tipo = g.tipo === 'transferencia' ? 'transferencia' : 'fisico';
+      const existing = await LpnDuplicate.findOne({ serialNumber: g.serialNumber, tipo });
       const esNuevoOReaparecio = !existing || existing.resuelto;
       const locations = (g.locations || []).map(l => ({
         binId: l.binId, binCode: l.binCode, locationId: l.locationId,
         locationName: l.locationName, warehouseName: l.warehouseName,
         lastMovedBy: l.lastMovedBy, lastMovedDate: l.lastMovedDate ? new Date(l.lastMovedDate) : null,
       }));
+      const events = (g.events || []).map(e => ({
+        containerMovementId: e.containerMovementId, movementDate: e.movementDate ? new Date(e.movementDate) : null,
+        fromBinCode: e.fromBinCode, toBinCode: e.toBinCode,
+        fromLocationName: e.fromLocationName, toLocationName: e.toLocationName, movementBy: e.movementBy,
+      }));
       const doc = await LpnDuplicate.findOneAndUpdate(
-        { serialNumber: g.serialNumber },
+        { serialNumber: g.serialNumber, tipo },
         {
           $set: {
             productSku: g.productSku || '',
             locations,
+            events,
             lastSeenAt: now,
             resuelto: false,
             ...(esNuevoOReaparecio ? { firstSeenAt: now } : {}),
@@ -915,16 +924,20 @@ app.post('/api/lpn-duplicates/check', auth, async (req, res) => {
       if (esNuevoOReaparecio) nuevos.push(doc);
     }
 
-    // Auto-resolver los que Cubicaje ya no reporta como duplicados (se corrigieron fisicamente)
-    await LpnDuplicate.updateMany(
-      { resuelto: false, serialNumber: { $nin: [...freshSerials] } },
-      { $set: { resuelto: true, resueltoPor: 'sistema (ya no duplicado)', resueltoFecha: now } },
-    );
+    // Auto-resolver los que Cubicaje ya no reporta como duplicados (se corrigieron)
+    const pendientes = await LpnDuplicate.find({ resuelto: false }).select('serialNumber tipo');
+    const aResolver = pendientes.filter(p => !freshKeys.has(`${p.serialNumber}|${p.tipo}`)).map(p => p._id);
+    if (aResolver.length > 0) {
+      await LpnDuplicate.updateMany(
+        { _id: { $in: aResolver } },
+        { $set: { resuelto: true, resueltoPor: 'sistema (ya no duplicado)', resueltoFecha: now } },
+      );
+    }
 
     if (nuevos.length > 0) {
       emitEvent('paletizado', 'lpn:duplicado', {
         count: nuevos.length,
-        items: nuevos.slice(0, 10).map(d => ({ serialNumber: d.serialNumber, productSku: d.productSku })),
+        items: nuevos.slice(0, 10).map(d => ({ serialNumber: d.serialNumber, productSku: d.productSku, tipo: d.tipo })),
       });
     }
     const totalPendientes = await LpnDuplicate.countDocuments({ resuelto: false });
@@ -1671,6 +1684,12 @@ const settingSchema = new mongoose.Schema({
 const AppSetting = mongoose.models.AppSetting || mongoose.model('AppSetting', settingSchema);
 
 // ═══════════ LPN DUPLICADOS (seguimiento cross-area, solo admin 3647) ═══════════
+// Dos tipos, misma coleccion:
+// - 'fisico': el LPN esta AHORITA en mas de un bin a la vez (BM.BinContent).
+// - 'transferencia': el mismo lote de transferencia masiva pallet-a-pallet
+//   se sometio DOS VECES en menos de una hora (BM.ContainerMovements) —
+//   caso real que Roman encontro 2026-07-28, causa retrabajo aunque
+//   todavia no se vea como duplicado fisico. Ver [[project_mitechpaletizado]].
 const lpnDuplicateLocationSchema = new mongoose.Schema({
   binId: Number,
   binCode: String,
@@ -1680,16 +1699,28 @@ const lpnDuplicateLocationSchema = new mongoose.Schema({
   lastMovedBy: String,
   lastMovedDate: Date,
 }, { _id: false });
+const lpnDuplicateEventSchema = new mongoose.Schema({
+  containerMovementId: Number,
+  movementDate: Date,
+  fromBinCode: String,
+  toBinCode: String,
+  fromLocationName: String,
+  toLocationName: String,
+  movementBy: String,
+}, { _id: false });
 const lpnDuplicateSchema = new mongoose.Schema({
-  serialNumber: { type: String, required: true, unique: true },
+  serialNumber: { type: String, required: true },
+  tipo: { type: String, enum: ['fisico', 'transferencia'], required: true, default: 'fisico' },
   productSku: { type: String, default: '' },
   locations: [lpnDuplicateLocationSchema],
+  events: [lpnDuplicateEventSchema],
   firstSeenAt: { type: Date, default: Date.now },
   lastSeenAt: { type: Date, default: Date.now },
   resuelto: { type: Boolean, default: false },
   resueltoPor: { type: String, default: '' },
   resueltoFecha: Date,
 }, { timestamps: true });
+lpnDuplicateSchema.index({ serialNumber: 1, tipo: 1 }, { unique: true });
 const LpnDuplicate = mongoose.models.LpnDuplicate || mongoose.model('LpnDuplicate', lpnDuplicateSchema);
 
 // Defaults para catalogos (basados en los valores hardcodeados actuales)

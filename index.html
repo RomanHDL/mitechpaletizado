@@ -1960,9 +1960,9 @@
                         <thead style="position:sticky;top:0;background:var(--bg-sidebar);z-index:1;">
                             <tr>
                                 <th>LPN</th>
-                                <th>SKU</th>
+                                <th>SKU / Tipo</th>
                                 <th>Detectado</th>
-                                <th>Ubicaciones (area / bin / quien / cuando)</th>
+                                <th>Detalle (area / bin / quien / cuando)</th>
                                 <th>Estado</th>
                                 <th></th>
                             </tr>
@@ -4273,20 +4273,30 @@ function renderLpnTable() {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">Sin LPN duplicados.</td></tr>';
         return;
     }
+    const fmtFecha = (v) => v ? new Date(v).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }) : '-';
+    const binCodigo = (bc) => /^\d+-\d+$/.test(bc || '') ? scPalletLink(bc) : (bc || '-');
     tbody.innerHTML = lpnRecords.map(d => {
-        const ubicaciones = (d.locations || []).map(l => {
-            const codigo = /^\d+-\d+$/.test(l.binCode || '') ? scPalletLink(l.binCode) : (l.binCode || '-');
-            const area = [l.warehouseName, l.locationName].filter(Boolean).join(' / ') || (l.locationId != null ? `Ubicacion ${l.locationId}` : '-');
-            const quien = l.lastMovedBy || '-';
-            const cuando = l.lastMovedDate ? new Date(l.lastMovedDate).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }) : '-';
-            return `<div style="padding:2px 0;border-bottom:1px dashed var(--border);"><b>${area}</b> — bin ${codigo} — ${quien} — ${cuando}</div>`;
-        }).join('');
+        const esTransferencia = d.tipo === 'transferencia';
+        const detalle = esTransferencia
+            ? (d.events || []).map(e => {
+                const ruta = `${binCodigo(e.fromBinCode)} → ${binCodigo(e.toBinCode)}`;
+                const area = [e.fromLocationName, e.toLocationName].filter(Boolean).join(' → ');
+                return `<div style="padding:2px 0;border-bottom:1px dashed var(--border);"><b>${ruta}</b>${area ? ' (' + area + ')' : ''} — ${e.movementBy || '-'} — ${fmtFecha(e.movementDate)}</div>`;
+              }).join('')
+            : (d.locations || []).map(l => {
+                const codigo = binCodigo(l.binCode);
+                const area = [l.warehouseName, l.locationName].filter(Boolean).join(' / ') || (l.locationId != null ? `Ubicacion ${l.locationId}` : '-');
+                return `<div style="padding:2px 0;border-bottom:1px dashed var(--border);"><b>${area}</b> — bin ${codigo} — ${l.lastMovedBy || '-'} — ${fmtFecha(l.lastMovedDate)}</div>`;
+              }).join('');
+        const tipoBadge = esTransferencia
+            ? '<span class="badge badge-amber" title="Mismo lote de transferencia sometido dos veces en menos de 1h">Transferencia duplicada</span>'
+            : '<span class="badge badge-blue" title="El LPN esta ahorita en mas de un bin a la vez">Duplicado fisico</span>';
         return `
             <tr>
                 <td style="font-family:monospace;font-weight:600;">${d.serialNumber}</td>
-                <td style="font-family:monospace;font-size:0.8rem;">${d.productSku || '-'}</td>
-                <td style="font-size:0.78rem;white-space:nowrap;">${d.firstSeenAt ? new Date(d.firstSeenAt).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }) : '-'}</td>
-                <td style="font-size:0.78rem;">${ubicaciones}</td>
+                <td style="font-family:monospace;font-size:0.8rem;">${d.productSku || '-'}<br>${tipoBadge}</td>
+                <td style="font-size:0.78rem;white-space:nowrap;">${fmtFecha(d.firstSeenAt)}</td>
+                <td style="font-size:0.78rem;">${detalle}</td>
                 <td>${d.resuelto ? `<span class="badge badge-green">Resuelto${d.resueltoPor ? ' — ' + d.resueltoPor : ''}</span>` : '<span class="badge badge-red">Pendiente</span>'}</td>
                 <td>${d.resuelto ? '' : `<button class="btn btn-secondary btn-sm" onclick="resolverLpn('${d._id}')"><i class="fa-solid fa-check"></i> Marcar revisado</button>`}</td>
             </tr>`;
