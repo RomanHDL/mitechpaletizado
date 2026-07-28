@@ -854,6 +854,114 @@ app.get('/api/sc-pallets/live', auth, roleGuard('admin'), async (req, res) => {
   }
 });
 
+// ══════════════════════════════════════════════
+// LPN DUPLICADOS: mismo LPN (numero de serie) registrado como presente en
+// mas de un area/bin a la vez en BinManagerRO (bug de integridad de
+// inventario, o algo peor). Pedido explicito de Roman (2026-07-28): seguir
+// el LPN por todas partes y avisarle a el (admin 3647) en que area estaba,
+// donde se duplico, y quien fue la persona, con tiempo para reaccionar.
+//
+// Este proyecto es una funcion serverless de Vercel (sin proceso en
+// segundo plano posible) — por eso el "check" no corre en un cron propio
+// de este repo, sino que lo dispara CUALQUIER cliente logueado con la app
+// abierta (index.html llama a este endpoint cada pocos minutos via
+// timer). Barato: solo golpea a Cubicaje (que ya tiene la conexion real a
+// BinManagerRO) y hace un puñado de upserts en Mongo. La notificacion en
+// vivo (Pusher) y la lista solo son visibles para 3647.
+// ══════════════════════════════════════════════
+app.post('/api/lpn-duplicates/check', auth, async (req, res) => {
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key) return res.status(503).json({ success: false, error: 'CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto' });
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let resp;
+    try {
+      resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/lpn-duplicates`, {
+        headers: { 'X-Integration-Key': key },
+        signal: controller.signal,
+      });
+    } finally { clearTimeout(timeout); }
+    const data = await resp.json();
+    if (!resp.ok || !data.success) return res.status(resp.status === 401 ? 502 : resp.status).json({ success: false, error: data.error || `Cubicaje respondio ${resp.status}` });
+
+    const fresh = data.data || [];
+    const freshSerials = new Set(fresh.map(g => g.serialNumber));
+    const nuevos = [];
+    const now = new Date();
+
+    for (const g of fresh) {
+      const existing = await LpnDuplicate.findOne({ serialNumber: g.serialNumber });
+      const esNuevoOReaparecio = !existing || existing.resuelto;
+      const locations = (g.locations || []).map(l => ({
+        binId: l.binId, binCode: l.binCode, locationId: l.locationId,
+        locationName: l.locationName, warehouseName: l.warehouseName,
+        lastMovedBy: l.lastMovedBy, lastMovedDate: l.lastMovedDate ? new Date(l.lastMovedDate) : null,
+      }));
+      const doc = await LpnDuplicate.findOneAndUpdate(
+        { serialNumber: g.serialNumber },
+        {
+          $set: {
+            productSku: g.productSku || '',
+            locations,
+            lastSeenAt: now,
+            resuelto: false,
+            ...(esNuevoOReaparecio ? { firstSeenAt: now } : {}),
+          },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+      if (esNuevoOReaparecio) nuevos.push(doc);
+    }
+
+    // Auto-resolver los que Cubicaje ya no reporta como duplicados (se corrigieron fisicamente)
+    await LpnDuplicate.updateMany(
+      { resuelto: false, serialNumber: { $nin: [...freshSerials] } },
+      { $set: { resuelto: true, resueltoPor: 'sistema (ya no duplicado)', resueltoFecha: now } },
+    );
+
+    if (nuevos.length > 0) {
+      emitEvent('paletizado', 'lpn:duplicado', {
+        count: nuevos.length,
+        items: nuevos.slice(0, 10).map(d => ({ serialNumber: d.serialNumber, productSku: d.productSku })),
+      });
+    }
+    const totalPendientes = await LpnDuplicate.countDocuments({ resuelto: false });
+    res.json({ success: true, nuevos: nuevos.length, totalPendientes });
+  } catch (error) {
+    const msg = error.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : error.message;
+    res.status(502).json({ success: false, error: 'No se pudo consultar Cubicaje: ' + msg });
+  }
+});
+
+app.get('/api/lpn-duplicates', auth, roleGuard('admin'), async (req, res) => {
+  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+  try {
+    const filter = {};
+    if (req.query.resuelto === 'false') filter.resuelto = false;
+    if (req.query.resuelto === 'true') filter.resuelto = true;
+    const docs = await LpnDuplicate.find(filter).sort({ resuelto: 1, firstSeenAt: -1 }).limit(300);
+    const totalPendientes = await LpnDuplicate.countDocuments({ resuelto: false });
+    res.json({ success: true, data: docs, total: docs.length, totalPendientes });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.post('/api/lpn-duplicates/:id/resolver', auth, roleGuard('admin'), async (req, res) => {
+  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+  try {
+    const doc = await LpnDuplicate.findByIdAndUpdate(
+      req.params.id,
+      { $set: { resuelto: true, resueltoPor: req.user.nombre || req.user.usuario, resueltoFecha: new Date() } },
+      { new: true },
+    );
+    if (!doc) return res.status(404).json({ success: false, error: 'No encontrado' });
+    const totalPendientes = await LpnDuplicate.countDocuments({ resuelto: false });
+    emitEvent('paletizado', 'lpn:resuelto', { serialNumber: doc.serialNumber, totalPendientes });
+    res.json({ success: true, data: doc, totalPendientes });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // ── UPDATE pallet (admin only, with audit) ──
 app.put('/api/escaneadoras/:id', auth, roleGuard('admin'), async (req, res) => {
   try {
@@ -1561,6 +1669,28 @@ const settingSchema = new mongoose.Schema({
   updatedBy: { type: String, default: '' },
 }, { timestamps: true });
 const AppSetting = mongoose.models.AppSetting || mongoose.model('AppSetting', settingSchema);
+
+// ═══════════ LPN DUPLICADOS (seguimiento cross-area, solo admin 3647) ═══════════
+const lpnDuplicateLocationSchema = new mongoose.Schema({
+  binId: Number,
+  binCode: String,
+  locationId: Number,
+  locationName: String,
+  warehouseName: String,
+  lastMovedBy: String,
+  lastMovedDate: Date,
+}, { _id: false });
+const lpnDuplicateSchema = new mongoose.Schema({
+  serialNumber: { type: String, required: true, unique: true },
+  productSku: { type: String, default: '' },
+  locations: [lpnDuplicateLocationSchema],
+  firstSeenAt: { type: Date, default: Date.now },
+  lastSeenAt: { type: Date, default: Date.now },
+  resuelto: { type: Boolean, default: false },
+  resueltoPor: { type: String, default: '' },
+  resueltoFecha: Date,
+}, { timestamps: true });
+const LpnDuplicate = mongoose.models.LpnDuplicate || mongoose.model('LpnDuplicate', lpnDuplicateSchema);
 
 // Defaults para catalogos (basados en los valores hardcodeados actuales)
 const SETTING_DEFAULTS = {
