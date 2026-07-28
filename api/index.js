@@ -205,6 +205,12 @@ const ROLE_MODULES = {
   viewer: ['dashboard'],
 };
 function getUserModules(user) {
+  // El admin 3647 es superusuario en TODO el resto del codigo (decenas de
+  // checks explicitos `usuario !== '3647'`) — moduleGuard era la unica
+  // excepcion, y un modulosCustom desactualizado/incompleto en su propio
+  // registro (ej. sin 'escaneadoras') lo dejaba fuera de sus propios
+  // endpoints con 403. Nunca debe depender de modulosCustom.
+  if (String(user.usuario) === '3647') return ['dashboard', 'escaneadoras'];
   return Array.isArray(user.modulosCustom) ? user.modulosCustom : (ROLE_MODULES[user.role] || []);
 }
 function moduleGuard(moduleName) {

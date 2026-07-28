@@ -1925,6 +1925,9 @@ const ROLE_MODULES = {
 };
 function hasModule(m) {
     if (!currentUser) return false;
+    // El 3647 nunca debe depender de modulosCustom (mismo criterio que
+    // getUserModules() en api/index.js) — es superusuario en todo lo demas.
+    if (String(currentUser.usuario) === '3647') return ['dashboard', 'escaneadoras'].includes(m);
     const mods = Array.isArray(currentUser.modulosCustom) ? currentUser.modulosCustom : (ROLE_MODULES[currentUser.role] || []);
     return mods.includes(m);
 }
