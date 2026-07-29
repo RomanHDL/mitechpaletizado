@@ -974,6 +974,7 @@ app.post('/api/lpn-duplicates/check', auth, async (req, res) => {
   const base = process.env.CUBICAJE_API_BASE_URL;
   const key = process.env.CUBICAJE_INTEGRATION_KEY;
   if (!base || !key) return res.status(503).json({ success: false, error: 'CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto' });
+  const t0 = Date.now();
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
@@ -994,7 +995,14 @@ app.post('/api/lpn-duplicates/check', auth, async (req, res) => {
     const nuevos = [];
     const now = new Date();
 
-    for (const g of fresh) {
+    // En paralelo (antes era secuencial: un findOne + un findOneAndUpdate por
+    // item, uno tras otro) — con `fresh` teniendo decenas de items (~59+
+    // confirmados en produccion), esa secuencia de ~2x round-trips a Mongo
+    // por item era lenta de sobra para acercarse al limite de tiempo de la
+    // funcion serverless, incluso antes de llegar a la verificacion en vivo.
+    // Cada item es independiente (clave unica serialNumber+tipo), asi que
+    // correrlos concurrentes no cambia el resultado, solo el tiempo total.
+    const procesados = await Promise.all(fresh.map(async (g) => {
       const tipo = g.tipo === 'transferencia' ? 'transferencia' : 'fisico';
       const existing = await LpnDuplicate.findOne({ serialNumber: g.serialNumber, tipo });
       const esNuevoOReaparecio = !existing || existing.resuelto;
@@ -1022,8 +1030,9 @@ app.post('/api/lpn-duplicates/check', auth, async (req, res) => {
         },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       );
-      if (esNuevoOReaparecio) nuevos.push(doc);
-    }
+      return { doc, esNuevoOReaparecio };
+    }));
+    for (const p of procesados) { if (p.esNuevoOReaparecio) nuevos.push(p.doc); }
 
     // Auto-resolver los que Cubicaje ya no reporta como duplicados (se corrigieron)
     const pendientes = await LpnDuplicate.find({ resuelto: false }).select('serialNumber tipo');
@@ -1070,9 +1079,11 @@ app.post('/api/lpn-duplicates/check', auth, async (req, res) => {
       });
     }
     const totalPendientes = await LpnDuplicate.countDocuments({ resuelto: false });
+    console.log(`lpn-duplicates/check OK en ${Date.now() - t0}ms — fresh:${fresh.length} nuevos:${nuevos.length} rezagados:${rezagados.length} pendientes:${totalPendientes}`);
     res.json({ success: true, nuevos: nuevos.length, confirmadosEnVivo: confirmadosEnVivo.length, reverificados: rezagados.length, totalPendientes });
   } catch (error) {
     const msg = error.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : error.message;
+    console.error(`lpn-duplicates/check FALLO en ${Date.now() - t0}ms:`, error);
     res.status(502).json({ success: false, error: 'No se pudo consultar Cubicaje: ' + msg });
   }
 });
