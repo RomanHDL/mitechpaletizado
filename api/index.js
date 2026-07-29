@@ -850,10 +850,40 @@ app.get('/api/sc-pallets/live', auth, roleGuard('admin'), async (req, res) => {
     if (!resp.ok || !data.success) return res.status(resp.status === 401 ? 502 : resp.status).json({ success: false, error: data.error || `Cubicaje respondio ${resp.status}` });
     res.json({
       success: true,
-      data: (data.data || []).map(r => ({ palletId: r.palletId, BinTypeID: r.binTypeId, binTypeName: r.binTypeName, cantidadTotal: r.cantidadTotal, skuCount: r.skuCount })),
+      data: (data.data || []).map(r => ({ palletId: r.palletId, BinTypeID: r.binTypeId, binTypeName: r.binTypeName, cantidadTotal: r.cantidadTotal, skuCount: r.skuCount, locationName: r.locationName ?? null })),
       total: data.total || 0,
       limit, offset,
     });
+  } catch (error) {
+    const msg = error.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : error.message;
+    res.status(502).json({ success: false, error: 'No se pudo consultar Cubicaje: ' + msg });
+  }
+});
+
+// ══════════════════════════════════════════════
+// KPIs de "Todos los pallets reales": conteo por categoria (BinTypeID) sobre
+// el TOTAL real en BinManagerRO (no solo la pagina actual). Mismo patron de
+// proxy que /api/sc-pallets/live — llama a Cubicaje via GET
+// /api/integrations/live-pallets-stats con la misma llave compartida.
+// ══════════════════════════════════════════════
+app.get('/api/sc-pallets/live-stats', auth, roleGuard('admin'), async (req, res) => {
+  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key) return res.status(503).json({ success: false, error: 'CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto' });
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    let resp;
+    try {
+      resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/live-pallets-stats`, {
+        headers: { 'X-Integration-Key': key },
+        signal: controller.signal,
+      });
+    } finally { clearTimeout(timeout); }
+    const data = await resp.json();
+    if (!resp.ok || !data.success) return res.status(resp.status === 401 ? 502 : resp.status).json({ success: false, error: data.error || `Cubicaje respondio ${resp.status}` });
+    res.json({ success: true, data: data.data || [] });
   } catch (error) {
     const msg = error.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : error.message;
     res.status(502).json({ success: false, error: 'No se pudo consultar Cubicaje: ' + msg });

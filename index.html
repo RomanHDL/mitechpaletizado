@@ -487,6 +487,7 @@
         .badge-green { background:rgba(34,197,94,0.15); color:#22c55e; }
         .badge-amber { background:rgba(245,158,11,0.15); color:#f59e0b; }
         .badge-red { background:rgba(239,68,68,0.15); color:#ef4444; }
+        .badge-gray { background:rgba(148,163,184,0.15); color:#94a3b8; }
 
         /* ── View Toggle Tabs ── */
         .view-tabs { display:flex; gap:4px; background:var(--bg-input); border-radius:8px; padding:3px; width:fit-content; }
@@ -1996,7 +1997,15 @@
             <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
             <div class="page-header" style="text-align:center;">
                 <h1 style="font-size:1.3rem;margin:0;"><i class="fa-solid fa-satellite-dish" style="color:#22c55e;margin-right:6px;"></i>Monitor en Vivo</h1>
-                <p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--text-muted);">Exclusivo del administrador 3647</p>
+                <div style="display:flex;justify-content:center;gap:0.4rem;flex-wrap:wrap;margin-top:0.4rem;">
+                    <span style="display:inline-flex;align-items:center;gap:5px;font-size:0.7rem;font-weight:700;color:#22c55e;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.35);padding:2px 9px;border-radius:20px;">
+                        <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;"></span> EN VIVO
+                    </span>
+                    <span style="display:inline-flex;align-items:center;gap:5px;font-size:0.7rem;font-weight:700;color:#a78bfa;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.35);padding:2px 9px;border-radius:20px;">
+                        <i class="fa-solid fa-shield-halved"></i> SOLO ADMINISTRADOR
+                    </span>
+                </div>
+                <p style="margin:0.35rem 0 0;font-size:0.8rem;color:var(--text-muted);">Exclusivo del administrador 3647 &middot; consulta directa contra BinManagerRO y SmartControl</p>
             </div>
 
             <div class="ctrl-tabs" id="monitor-tabs">
@@ -2054,16 +2063,27 @@
 
             <!-- Tab: Todos los pallets reales (BinManagerRO, SQL Server directo) -->
             <div class="monitor-panel" id="monitor-panel-todos">
+                <!-- KPIs: totales reales por categoria (BinTypeID), calculados sobre TODO BinManagerRO, no solo la pagina visible -->
+                <div id="monitor-all-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.6rem;margin-bottom:1rem;"></div>
+
                 <div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem;">
                     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
                         <div style="display:flex;align-items:center;gap:0.5rem;">
                             <span id="monitor-all-count" style="font-size:0.75rem;color:var(--text-muted);background:rgba(255,255,255,0.05);padding:1px 8px;border-radius:10px;"></span>
+                            <button class="btn btn-secondary btn-sm" onclick="loadMonitorAllStats();loadMonitorAll();" title="Actualizar"><i class="fa-solid fa-rotate"></i></button>
                         </div>
                         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
                             <input type="text" class="form-input" id="monitor-all-search" placeholder="Buscar por Pallet ID (prefijo)..." onkeydown="if(event.key==='Enter'){monitorAllOffset=0;loadMonitorAll();}" style="min-width:200px;padding:0.4rem 0.6rem;font-size:0.85rem;">
                             <button class="btn btn-secondary btn-sm" onclick="monitorAllOffset=0;loadMonitorAll();"><i class="fa-solid fa-search"></i> Buscar</button>
+                            <select class="form-input" id="monitor-all-limit" onchange="monitorAllLimit=parseInt(this.value,10);monitorAllOffset=0;loadMonitorAll();" style="padding:0.4rem 0.6rem;font-size:0.85rem;width:auto;" title="Filas por pagina">
+                                <option value="25">25 / pagina</option>
+                                <option value="50">50 / pagina</option>
+                                <option value="100" selected>100 / pagina</option>
+                                <option value="200">200 / pagina</option>
+                            </select>
                         </div>
                     </div>
+                    <p style="margin:0.5rem 0 0;font-size:0.68rem;color:var(--text-muted);">La busqueda es por prefijo de Pallet ID (Bin Code). Filtrar por pedido, SKU o ubicacion todavia no esta disponible en esta conexion.</p>
                 </div>
                 <div class="card" style="padding:0;overflow:hidden;">
                     <div style="overflow-x:auto;max-height:65vh;overflow-y:auto;">
@@ -2074,16 +2094,19 @@
                                     <th>Categoria</th>
                                     <th>Cantidad total</th>
                                     <th>SKUs distintos</th>
+                                    <th>Ubicacion</th>
                                 </tr>
                             </thead>
-                            <tbody id="monitor-all-body"><tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text-muted);">Escribe una busqueda o dale Actualizar</td></tr></tbody>
+                            <tbody id="monitor-all-body"><tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">Escribe una busqueda o dale Actualizar</td></tr></tbody>
                         </table>
                     </div>
                 </div>
-                <div style="display:flex;justify-content:center;align-items:center;gap:0.75rem;margin-top:0.75rem;">
+                <div style="display:flex;justify-content:center;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;">
+                    <button class="btn btn-secondary btn-sm" id="monitor-all-first" onclick="monitorAllGoto(0)" disabled title="Primera pagina"><i class="fa-solid fa-angles-left"></i></button>
                     <button class="btn btn-secondary btn-sm" id="monitor-all-prev" onclick="monitorAllPage(-1)" disabled><i class="fa-solid fa-chevron-left"></i> Anterior</button>
                     <span id="monitor-all-page-label" style="font-size:0.78rem;color:var(--text-muted);"></span>
                     <button class="btn btn-secondary btn-sm" id="monitor-all-next" onclick="monitorAllPage(1)" disabled>Siguiente <i class="fa-solid fa-chevron-right"></i></button>
+                    <button class="btn btn-secondary btn-sm" id="monitor-all-last" onclick="monitorAllGotoLast()" disabled title="Ultima pagina"><i class="fa-solid fa-angles-right"></i></button>
                 </div>
                 <p style="margin-top:0.75rem;font-size:0.7rem;color:var(--text-muted);text-align:center;">Directo de la base real de la empresa (BinManagerRO) — todos los pallets con contenido, esten o no escaneados en esta app. Click en un Pallet ID para ver su contenido completo.</p>
             </div><!-- /monitor-panel-todos -->
@@ -4416,7 +4439,10 @@ function monitorSetTab(tab) {
     document.querySelectorAll('.monitor-panel').forEach(p => p.classList.remove('active'));
     const panel = document.getElementById('monitor-panel-' + tab);
     if (panel) panel.classList.add('active');
-    if (tab === 'todos' && monitorAllRecords.length === 0) loadMonitorAll();
+    if (tab === 'todos') {
+        if (monitorAllRecords.length === 0) loadMonitorAll();
+        if (!monitorAllStatsLoaded) loadMonitorAllStats();
+    }
 }
 
 // ── Operaciones y Pedidos: Retrabajo de Pallet + Gestionar Pedidos ──
@@ -4450,15 +4476,57 @@ function closeEscHub() {
 let monitorAllRecords = [];
 let monitorAllOffset = 0;
 let monitorAllTotal = 0;
-const MONITOR_ALL_LIMIT = 100;
+let monitorAllLimit = 100;
+let monitorAllStatsLoaded = false;
+
+// Nombre/color visual por BinTypeID conocido (ver [[cubicaje_pallets_architecture]] /
+// REAL_PALLET_BIN_TYPES_SQL = "2,5,6,12,14"). Solo cambia el color del badge;
+// el nombre real (binTypeName) siempre viene del backend, nunca se inventa aqui.
+function monitorAllCategoryBadgeClass(binTypeId) {
+    const id = Number(binTypeId);
+    if (id === 2 || id === 6) return 'badge-green';   // Producto terminado / Finished Good
+    if (id === 5) return 'badge-amber';               // Producto en proceso
+    if (id === 12) return 'badge-blue';               // Wholesale
+    return 'badge-gray';                              // 14 = No clasificado / desconocido
+}
+
+async function loadMonitorAllStats() {
+    const box = document.getElementById('monitor-all-kpis');
+    if (!box) return;
+    if (!monitorAllStatsLoaded) {
+        box.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:0.75rem;color:var(--text-muted);font-size:0.8rem;"><i class="fa-solid fa-spinner fa-spin"></i> Calculando KPIs...</div>';
+    }
+    try {
+        const data = await apiFetch(`${API}/api/sc-pallets/live-stats`);
+        if (!data.success) throw new Error(data.error || 'Error al consultar KPIs');
+        const rows = data.data || [];
+        monitorAllStatsLoaded = true;
+        const total = rows.reduce((s, r) => s + (r.count || 0), 0);
+        const kpiCard = (label, value, color) => `
+            <div class="card" style="padding:0.7rem 0.9rem;border-left:3px solid ${color};">
+                <div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;">${label}</div>
+                <div style="font-size:1.4rem;font-weight:800;margin-top:2px;">${value.toLocaleString('es-MX')}</div>
+            </div>`;
+        const cards = [kpiCard('Total real (BinManagerRO)', total, 'var(--accent)')];
+        for (const r of rows.sort((a, b) => b.count - a.count)) {
+            const cls = monitorAllCategoryBadgeClass(r.binTypeId);
+            const color = cls === 'badge-green' ? '#22c55e' : cls === 'badge-amber' ? '#f59e0b' : cls === 'badge-blue' ? '#4f7cff' : '#94a3b8';
+            cards.push(kpiCard(r.binTypeName || `Tipo ${r.binTypeId}`, r.count, color));
+        }
+        box.innerHTML = cards.join('');
+    } catch (err) {
+        const isNotConfigured = /CUBICAJE_API_BASE_URL|CUBICAJE_INTEGRATION_KEY/.test(err.message || '');
+        box.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:0.6rem;color:var(--text-muted);font-size:0.75rem;">${isNotConfigured ? 'KPIs no disponibles: falta configurar la conexion con Cubicaje.' : ('No se pudieron cargar los KPIs: ' + (err.message||'').replace(/</g,'&lt;'))}</div>`;
+    }
+}
 
 async function loadMonitorAll() {
     const tbody = document.getElementById('monitor-all-body');
     const countEl = document.getElementById('monitor-all-count');
     const search = document.getElementById('monitor-all-search')?.value.trim() || '';
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Consultando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Consultando...</td></tr>';
     try {
-        const params = new URLSearchParams({ limit: MONITOR_ALL_LIMIT, offset: monitorAllOffset });
+        const params = new URLSearchParams({ limit: monitorAllLimit, offset: monitorAllOffset });
         if (search) params.set('search', search);
         const data = await apiFetch(`${API}/api/sc-pallets/live?${params.toString()}`);
         if (!data.success) throw new Error(data.error || 'Error al consultar');
@@ -4467,13 +4535,15 @@ async function loadMonitorAll() {
         renderMonitorAllTable();
     } catch (err) {
         const isNotConfigured = /CUBICAJE_API_BASE_URL|CUBICAJE_INTEGRATION_KEY/.test(err.message || '');
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:2rem;color:${isNotConfigured?'var(--text-muted)':'var(--danger)'};">
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:2rem;color:${isNotConfigured?'var(--text-muted)':'var(--danger)'};">
             <i class="fa-solid ${isNotConfigured?'fa-plug-circle-xmark':'fa-triangle-exclamation'}" style="font-size:1.3rem;"></i>
             <div style="margin-top:0.5rem;">${isNotConfigured ? 'Todavia no esta configurada la conexion con Cubicaje para esta funcion (falta la llave de integracion en Vercel).' : (err.message||'Error').replace(/</g,'&lt;')}</div>
         </td></tr>`;
         if (countEl) countEl.textContent = '';
+        document.getElementById('monitor-all-first').disabled = true;
         document.getElementById('monitor-all-prev').disabled = true;
         document.getElementById('monitor-all-next').disabled = true;
+        document.getElementById('monitor-all-last').disabled = true;
         document.getElementById('monitor-all-page-label').textContent = '';
     }
 }
@@ -4481,29 +4551,45 @@ async function loadMonitorAll() {
 function renderMonitorAllTable() {
     const tbody = document.getElementById('monitor-all-body');
     const countEl = document.getElementById('monitor-all-count');
-    if (countEl) countEl.textContent = `${monitorAllTotal} pallet${monitorAllTotal !== 1 ? 's' : ''} en total`;
     if (monitorAllRecords.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text-muted);">Sin resultados</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">Sin resultados</td></tr>';
     } else {
         tbody.innerHTML = monitorAllRecords.map(r => `
             <tr>
                 <td style="font-weight:600;">${scPalletLink(r.palletId)}</td>
-                <td><span class="badge badge-blue">${r.binTypeName || 'Tipo ' + r.BinTypeID}</span></td>
+                <td><span class="badge ${monitorAllCategoryBadgeClass(r.BinTypeID)}">${r.binTypeName || 'Tipo ' + r.BinTypeID}</span></td>
                 <td>${r.cantidadTotal ?? '-'}</td>
                 <td>${r.skuCount ?? '-'}</td>
+                <td style="color:var(--text-muted);">${r.locationName || '-'}</td>
             </tr>`).join('');
     }
-    const page = Math.floor(monitorAllOffset / MONITOR_ALL_LIMIT) + 1;
-    const totalPages = Math.max(1, Math.ceil(monitorAllTotal / MONITOR_ALL_LIMIT));
+    const from = monitorAllTotal === 0 ? 0 : monitorAllOffset + 1;
+    const to = Math.min(monitorAllOffset + monitorAllLimit, monitorAllTotal);
+    if (countEl) countEl.textContent = `Mostrando ${from.toLocaleString('es-MX')}-${to.toLocaleString('es-MX')} de ${monitorAllTotal.toLocaleString('es-MX')} pallet${monitorAllTotal !== 1 ? 's' : ''}`;
+    const page = Math.floor(monitorAllOffset / monitorAllLimit) + 1;
+    const totalPages = Math.max(1, Math.ceil(monitorAllTotal / monitorAllLimit));
     document.getElementById('monitor-all-page-label').textContent = `Pagina ${page} de ${totalPages}`;
+    document.getElementById('monitor-all-first').disabled = monitorAllOffset <= 0;
     document.getElementById('monitor-all-prev').disabled = monitorAllOffset <= 0;
-    document.getElementById('monitor-all-next').disabled = monitorAllOffset + MONITOR_ALL_LIMIT >= monitorAllTotal;
+    document.getElementById('monitor-all-next').disabled = monitorAllOffset + monitorAllLimit >= monitorAllTotal;
+    document.getElementById('monitor-all-last').disabled = monitorAllOffset + monitorAllLimit >= monitorAllTotal;
 }
 
 function monitorAllPage(delta) {
-    const next = monitorAllOffset + delta * MONITOR_ALL_LIMIT;
+    const next = monitorAllOffset + delta * monitorAllLimit;
     if (next < 0) return;
     monitorAllOffset = next;
+    loadMonitorAll();
+}
+
+function monitorAllGoto(offset) {
+    monitorAllOffset = Math.max(0, offset);
+    loadMonitorAll();
+}
+
+function monitorAllGotoLast() {
+    const totalPages = Math.max(1, Math.ceil(monitorAllTotal / monitorAllLimit));
+    monitorAllOffset = (totalPages - 1) * monitorAllLimit;
     loadMonitorAll();
 }
 
