@@ -924,18 +924,44 @@ async function liveVerifyDuplicate(doc) {
   const candidatos = doc.tipo === 'transferencia'
     ? [...new Set((doc.events || []).flatMap(e => [e.fromBinCode, e.toBinCode]).filter(Boolean))]
     : [...new Set((doc.locations || []).map(l => l.binCode).filter(Boolean))];
-  const checks = [];
-  for (const palletId of candidatos.slice(0, 6)) {
+  // En paralelo (antes era secuencial) — necesario para poder re-verificar
+  // en vivo lotes de LPN ya pendientes (no solo los nuevos) dentro del
+  // tiempo limite de una funcion serverless de Vercel; con 6 candidatos
+  // secuenciales y 9s de timeout cada uno, un solo LPN podia tardar
+  // hasta 54s antes de este cambio.
+  const checks = await Promise.all(candidatos.slice(0, 6).map(async (palletId) => {
     try {
       const live = await fetchScPalletLive(palletId);
       const presente = (live.productos || []).some(p => p.NumeroSerie === doc.serialNumber);
-      checks.push({ palletId, presente, cantidadTotal: live.cantidadTotal, ubicacion: live.ubicacion, workcenter: live.workcenter, condiciones: live.condiciones });
+      return { palletId, presente, cantidadTotal: live.cantidadTotal, ubicacion: live.ubicacion, workcenter: live.workcenter, condiciones: live.condiciones };
     } catch (e) {
-      checks.push({ palletId, error: e.message || 'Error al consultar SmartControl' });
+      return { palletId, error: e.message || 'Error al consultar SmartControl' };
     }
-  }
+  }));
   const duplicadoEnVivo = checks.filter(c => c.presente).length > 1;
   return { checks, duplicadoEnVivo };
+}
+
+// Aplica el resultado de liveVerifyDuplicate a un doc: si SmartControl (en
+// vivo, sin el retraso de BinManagerRO) confirma que el LPN YA NO esta en
+// mas de un lugar, se marca resuelto de una vez en lugar de esperar a que
+// BinManagerRO se ponga al dia (~1 dia, ver [[project_cubicaje_binmanagerro_lag]]).
+// Devuelve true si el doc quedo resuelto en esta pasada.
+async function applyLiveVerification(doc, now) {
+  let liveDuplicado = null;
+  try {
+    const { duplicadoEnVivo } = await liveVerifyDuplicate(doc);
+    liveDuplicado = duplicadoEnVivo;
+  } catch { /* si SmartControl falla, no se toca el estado — se reintenta en el siguiente ciclo */ }
+  doc.liveDuplicado = liveDuplicado;
+  doc.liveCheckedAt = now;
+  if (liveDuplicado === false && !doc.resuelto) {
+    doc.resuelto = true;
+    doc.resueltoPor = 'sistema (verificado en vivo contra SmartControl)';
+    doc.resueltoFecha = now;
+  }
+  await doc.save();
+  return liveDuplicado;
 }
 
 app.post('/api/lpn-duplicates/check', auth, async (req, res) => {
@@ -1006,19 +1032,26 @@ app.post('/api/lpn-duplicates/check', auth, async (req, res) => {
     // Verificacion en vivo (SmartControl, sin el retraso de BinManagerRO)
     // antes de notificar — BinManagerRO puede tardar horas en reflejar que
     // algo ya se corrigio, y no queremos avisarle a 3647 de un problema
-    // que ya no existe.
-    const confirmadosEnVivo = [];
-    for (const doc of nuevos) {
-      let liveDuplicado = null;
-      try {
-        const { duplicadoEnVivo } = await liveVerifyDuplicate(doc);
-        liveDuplicado = duplicadoEnVivo;
-      } catch { /* si SmartControl falla, no bloquea el aviso — se notifica igual */ }
-      doc.liveDuplicado = liveDuplicado;
-      doc.liveCheckedAt = now;
-      await doc.save();
-      if (liveDuplicado !== false) confirmadosEnVivo.push(doc);
-    }
+    // que ya no existe. applyLiveVerification ademas auto-resuelve el doc
+    // si SmartControl confirma que ya no esta duplicado.
+    const nuevosLive = await Promise.all(nuevos.map(doc => applyLiveVerification(doc, now)));
+    const confirmadosEnVivo = nuevos.filter((_doc, i) => nuevosLive[i] !== false);
+
+    // Re-verificacion en vivo de un lote acotado de LPN YA pendientes
+    // (no nuevos en este ciclo). Sin esto, un LPN que ya se corrigio en la
+    // realidad se quedaba "pendiente" para siempre: `fresh` viene de
+    // BinManagerRO via Cubicaje, que tarda ~1 dia en reflejar la correccion
+    // (ver [[project_cubicaje_binmanagerro_lag]]), y antes de este cambio
+    // solo se re-verificaba en vivo a los recien detectados, nunca a los
+    // que ya llevaban rato en la lista. Se prioriza a los que tienen la
+    // verificacion en vivo mas vieja (o nula) y se acota a 8 por ciclo para
+    // no exceder el tiempo limite de una funcion serverless de Vercel — con
+    // 59 pendientes, cubre todo el rezago en unos pocos ciclos de 5 min.
+    const nuevosIds = nuevos.map(d => d._id);
+    const rezagados = await LpnDuplicate.find({ resuelto: false, _id: { $nin: nuevosIds } })
+      .sort({ liveCheckedAt: 1 })
+      .limit(8);
+    await Promise.all(rezagados.map(doc => applyLiveVerification(doc, now)));
 
     if (confirmadosEnVivo.length > 0) {
       emitEvent('paletizado', 'lpn:duplicado', {
@@ -1027,7 +1060,7 @@ app.post('/api/lpn-duplicates/check', auth, async (req, res) => {
       });
     }
     const totalPendientes = await LpnDuplicate.countDocuments({ resuelto: false });
-    res.json({ success: true, nuevos: nuevos.length, confirmadosEnVivo: confirmadosEnVivo.length, totalPendientes });
+    res.json({ success: true, nuevos: nuevos.length, confirmadosEnVivo: confirmadosEnVivo.length, reverificados: rezagados.length, totalPendientes });
   } catch (error) {
     const msg = error.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : error.message;
     res.status(502).json({ success: false, error: 'No se pudo consultar Cubicaje: ' + msg });
@@ -1040,7 +1073,7 @@ app.get('/api/lpn-duplicates', auth, roleGuard('admin'), async (req, res) => {
     const filter = {};
     if (req.query.resuelto === 'false') filter.resuelto = false;
     if (req.query.resuelto === 'true') filter.resuelto = true;
-    const docs = await LpnDuplicate.find(filter).sort({ resuelto: 1, firstSeenAt: -1 }).limit(300);
+    const docs = await LpnDuplicate.find(filter).sort({ resuelto: 1, liveDuplicado: -1, firstSeenAt: -1 }).limit(300);
     const totalPendientes = await LpnDuplicate.countDocuments({ resuelto: false });
     res.json({ success: true, data: docs, total: docs.length, totalPendientes });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
@@ -1101,8 +1134,14 @@ app.get('/api/lpn-duplicates/:id/mapa', auth, roleGuard('admin'), async (req, re
     }
 
     const { checks, duplicadoEnVivo } = await liveVerifyDuplicate(doc);
+    const now = new Date();
     doc.liveDuplicado = duplicadoEnVivo;
-    doc.liveCheckedAt = new Date();
+    doc.liveCheckedAt = now;
+    if (duplicadoEnVivo === false && !doc.resuelto) {
+      doc.resuelto = true;
+      doc.resueltoPor = 'sistema (verificado en vivo contra SmartControl)';
+      doc.resueltoFecha = now;
+    }
     await doc.save();
 
     res.json({
@@ -1117,6 +1156,8 @@ app.get('/api/lpn-duplicates/:id/mapa', auth, roleGuard('admin'), async (req, re
         currentLocation,
         liveChecks: checks,
         duplicadoEnVivo,
+        resuelto: doc.resuelto,
+        resueltoPor: doc.resueltoPor,
       },
     });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }

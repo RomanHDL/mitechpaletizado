@@ -2209,7 +2209,7 @@
                     </table>
                 </div>
             </div>
-            <p style="margin-top:0.75rem;font-size:0.7rem;color:var(--text-muted);text-align:center;">Se revisa automaticamente cada pocos minutos mientras haya alguna sesion abierta en la app. Click en "Buscar ahora" para forzar una revision inmediata contra BinManagerRO (via Cubicaje).</p>
+            <p style="margin-top:0.75rem;font-size:0.7rem;color:var(--text-muted);text-align:center;">Se revisa automaticamente cada pocos minutos mientras haya alguna sesion abierta en la app: trae candidatos de BinManagerRO (via Cubicaje, con hasta ~1 dia de retraso) y luego confirma en vivo contra SmartControl (sin ese retraso) — si SmartControl ya no lo ve duplicado, se marca resuelto automaticamente sin esperar a BinManagerRO. Cada ciclo re-verifica ademas un lote de los pendientes mas viejos, asi que un backlog grande se va limpiando solo en varios ciclos. Click en "Buscar ahora" para forzar un ciclo de inmediato, o en "Mapa" de una fila para forzar su verificacion en vivo puntual.</p>
         </div><!-- /view-lpn -->
 
         <!-- Modales globales de SmartControl — a proposito FUERA de cualquier
@@ -4676,12 +4676,15 @@ function renderLpnTable() {
             : '<span class="badge badge-blue" title="El LPN esta ahorita en mas de un bin a la vez">Duplicado fisico</span>';
         const liveBadge = d.liveDuplicado === true ? '<span class="badge badge-red" title="Confirmado ahorita mismo contra SmartControl">En vivo: SI</span>'
             : d.liveDuplicado === false ? '<span class="badge badge-green" title="Confirmado ahorita mismo contra SmartControl">En vivo: NO</span>'
-            : '<span class="badge" style="background:rgba(148,163,184,0.15);color:#94a3b8;" title="Todavia no se ha verificado en vivo">En vivo: ?</span>';
+            : '<span class="badge badge-gray" title="Todavia no se ha verificado en vivo">En vivo: ?</span>';
+        const liveCheckedLabel = d.liveCheckedAt
+            ? `<div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px;">verificado ${fmtFecha(d.liveCheckedAt)}</div>`
+            : `<div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px;">sin verificar aun</div>`;
         return `
             <tr>
                 <td style="font-family:monospace;font-weight:600;">${d.serialNumber}</td>
-                <td style="font-family:monospace;font-size:0.8rem;">${d.productSku || '-'}<br>${tipoBadge}<br>${liveBadge}</td>
-                <td style="font-size:0.78rem;white-space:nowrap;">${fmtFecha(d.firstSeenAt)}</td>
+                <td style="font-family:monospace;font-size:0.8rem;">${d.productSku || '-'}<br>${tipoBadge}<br>${liveBadge}${liveCheckedLabel}</td>
+                <td style="font-size:0.78rem;white-space:nowrap;">${fmtFecha(d.firstSeenAt)}<div style="color:var(--text-muted);font-size:0.68rem;margin-top:2px;">visto ${fmtFecha(d.lastSeenAt)}</div></td>
                 <td style="font-size:0.78rem;">${detalle}</td>
                 <td>${d.resuelto ? `<span class="badge badge-green">Resuelto${d.resueltoPor ? ' — ' + d.resueltoPor : ''}</span>` : '<span class="badge badge-red">Pendiente</span>'}</td>
                 <td style="white-space:nowrap;">
