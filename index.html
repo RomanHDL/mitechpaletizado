@@ -720,56 +720,44 @@
         @media (max-width:480px) { .home-stats-grid.v2 { grid-template-columns:repeat(2, 1fr); gap:0.6rem; } }
 
         /* ══════════════════════════════════════════════
-           HERO CARDS (2026-07-28, v2): 6 cards grandes unicas agrupando
-           todos los modulos — reemplaza el layout anterior de 4+3+3+1
-           cards sueltas. Ningun id/onclick/handler cambio, solo donde
-           viven dentro del HTML (ver comentarios en el markup de
-           #view-home). Los sub-bloques restringidos (admin-only /
-           card-3647-only) se marcaron individualmente en su propio div
-           anidado, no en toda la hero-card, para no ocultar de mas ni
-           de menos comparado con el comportamiento original.
+           HERO CARDS (2026-07-28, v4 — "menu visual puro"): las 6 cards ya
+           NO muestran formularios/listas/controles — solo ilustracion +
+           titulo + descripcion + CTA, un <button> real por card (accesible
+           por teclado/focus). El contenido que antes vivia inline se movio
+           a un modulo/modal propio (ver #esc-hub-modal y #view-operaciones
+           mas abajo) reutilizando exactamente los mismos ids/handlers.
+           Como las 6 cards ahora tienen la MISMA estructura, la altura sale
+           uniforme sola sin necesitar hacks de grid-row.
            ══════════════════════════════════════════════ */
-        .hero-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:1.15rem; }
+        .hero-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:1.25rem; }
         @media (max-width:1200px) { .hero-grid { grid-template-columns:repeat(2, 1fr); } }
         @media (max-width:640px)  { .hero-grid { grid-template-columns:1fr; } }
 
         .hero-card {
             background:var(--bg-card); border:1px solid var(--border); border-radius:20px;
             overflow:hidden; display:flex; flex-direction:column; transition:transform 0.2s ease, box-shadow 0.2s ease;
+            /* Reset de <button>: la card entera es el control clicable */
+            font:inherit; text-align:left; width:100%; padding:0; margin:0; cursor:pointer;
+            -webkit-appearance:none; appearance:none;
         }
         .hero-card:hover { transform:translateY(-3px); box-shadow:0 10px 28px rgba(15,23,42,0.13); }
+        .hero-card:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
 
-        /* Ilustracion compacta a proposito (2026-07-28 v3): antes ocupaba
-           aspect-ratio:16/7.5 + svg hasta 120px de alto — dominaba la card.
-           Ahora es una franja decorativa fija y chica, no el protagonista. */
-        .hero-illustration { width:100%; height:64px; display:flex; align-items:center; justify-content:center; padding:0.5rem 1.5rem; flex-shrink:0; }
-        .hero-illustration svg { width:100%; height:100%; max-height:56px; }
+        /* Ilustracion protagonista (130-170px en escritorio, pedido explicito
+           de Roman 2026-07-28 v4 — NO volver a achicarla). */
+        .hero-illustration { width:100%; height:150px; display:flex; align-items:center; justify-content:center; padding:1rem 1.75rem; flex-shrink:0; }
+        .hero-illustration svg { width:100%; height:100%; max-height:130px; }
 
-        .hero-body { padding:1rem 1.4rem 1.15rem; display:flex; flex-direction:column; gap:0.35rem; flex:1; }
-        .hero-title { font-size:1.05rem; font-weight:700; letter-spacing:-0.2px; }
-        .hero-desc { font-size:0.78rem; color:var(--text-muted); line-height:1.4; }
+        .hero-body { padding:1.1rem 1.5rem 1.35rem; display:flex; flex-direction:column; gap:0.4rem; flex:1; }
+        .hero-title { font-size:1.15rem; font-weight:700; letter-spacing:-0.2px; }
+        .hero-desc { font-size:0.82rem; color:var(--text-muted); line-height:1.45; }
 
         .hero-cta {
-            margin-top:auto; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;
-            padding:0.6rem 1rem; border-radius:11px; font-size:0.83rem; font-weight:700; color:#fff;
+            margin-top:auto; display:flex; align-items:center; justify-content:center; gap:8px;
+            padding:0.7rem 1.1rem; border-radius:11px; font-size:0.87rem; font-weight:700; color:#fff;
             transition:filter 0.15s;
         }
-        .hero-cta:hover { filter:brightness(1.08); }
-
-        /* Sub-bloques agrupados dentro de una hero-card (ej. Gestionar Escaneadoras
-           dentro de Escaneadoras, Centro de Control dentro de Configuracion).
-           Compactados (2026-07-28 v3): menos padding, listas con tope de
-           altura mas chico (con scroll interno) para que un contenido largo
-           (muchas escaneadoras/pedidos) no estire la card entera. */
-        .hero-quick { border-top:1px solid var(--border); padding-top:0.6rem; margin-top:0.2rem; display:flex; flex-direction:column; gap:0.35rem; }
-        .hero-quick-label { font-size:0.76rem; font-weight:700; display:flex; align-items:center; gap:0.4rem; }
-        .hero-quick-desc { font-size:0.72rem; color:var(--text-muted); margin:0; line-height:1.35; }
-        .hero-chip-row { display:flex; flex-wrap:wrap; gap:0.35rem; max-height:64px; overflow-y:auto; }
-        .hero-mini-list { max-height:88px; overflow-y:auto; }
-        .hero-mini-msg { font-size:0.72rem; min-height:1em; margin:0; }
-        .hero-inline-form { display:flex; flex-wrap:wrap; gap:0.4rem; align-items:center; }
-        .hero-inline-form .form-input { flex:1; min-width:95px; padding:0.32rem 0.5rem; font-size:0.76rem; }
-        .hero-inline-form .btn-sm { padding:0.32rem 0.65rem; font-size:0.74rem; }
+        .hero-card:hover .hero-cta { filter:brightness(1.08); }
 
         /* Colores por card */
         .hero-blue .hero-illustration { background:linear-gradient(160deg, rgba(79,124,255,0.14), rgba(99,102,241,0.06)); }
@@ -785,9 +773,22 @@
         .hero-teal .hero-illustration { background:linear-gradient(160deg, rgba(20,184,166,0.14), rgba(13,148,136,0.06)); }
         .hero-teal .hero-cta { background:linear-gradient(90deg, #14b8a6, #0d9488); }
 
+        /* Sub-bloques reutilizados dentro del modal de Escaneadoras y de la
+           vista Operaciones y Pedidos (ya NO viven dentro de una hero-card,
+           asi que pueden respirar mas). */
+        .hero-quick { border-top:1px solid var(--border); padding-top:0.9rem; margin-top:0.4rem; display:flex; flex-direction:column; gap:0.5rem; }
+        .hero-quick:first-child { border-top:none; padding-top:0; margin-top:0; }
+        .hero-quick-label { font-size:0.85rem; font-weight:700; display:flex; align-items:center; gap:0.4rem; }
+        .hero-quick-desc { font-size:0.78rem; color:var(--text-muted); margin:0; line-height:1.45; }
+        .hero-chip-row { display:flex; flex-wrap:wrap; gap:0.4rem; max-height:110px; overflow-y:auto; }
+        .hero-mini-list { max-height:180px; overflow-y:auto; }
+        .hero-mini-msg { font-size:0.78rem; min-height:1em; margin:0; }
+        .hero-inline-form { display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; }
+        .hero-inline-form .form-input { flex:1; min-width:110px; padding:0.4rem 0.6rem; font-size:0.85rem; }
+
         @media (max-width:480px) {
-            .hero-illustration { height:56px; padding:0.4rem 1.1rem; }
-            .hero-illustration svg { max-height:48px; }
+            .hero-illustration { height:120px; padding:0.75rem 1.25rem; }
+            .hero-illustration svg { max-height:105px; }
             .hero-body { padding:0.9rem 1.1rem 1rem; }
             .hero-title { font-size:1rem; }
         }
@@ -805,6 +806,10 @@
            quitaria 'active' a los paneles del Monitor tambien. */
         .monitor-panel{display:none;}
         .monitor-panel.active{display:block;animation:fadeIn 0.2s ease;}
+        /* Misma razon que .monitor-panel: clase propia para Operaciones y
+           Pedidos, independiente de .ctrl-panel/.monitor-panel */
+        .ops-panel{display:none;}
+        .ops-panel.active{display:block;animation:fadeIn 0.2s ease;}
         @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
         .ctrl-table{width:100%;border-collapse:collapse;font-size:0.82rem;}
         .ctrl-table th{text-align:left;color:var(--text-muted);font-weight:600;padding:0.5rem 0.6rem;border-bottom:1px solid var(--border);white-space:nowrap;}
@@ -941,11 +946,16 @@
                     </div>
                 </div>
 
-                <!-- ═══ MODULOS PRINCIPALES: 6 cards grandes ═══ -->
+                <!-- ═══ MODULOS PRINCIPALES: 6 cards grandes, menu visual puro ═══ -->
+                <!-- Cada card es un <button> real (accesible por teclado, focus visible) con
+                     UNA sola accion. El contenido detallado (formularios/listas) vive en el
+                     modulo/modal correspondiente, no aqui. -->
                 <div class="hero-grid home-section">
 
-                    <!-- A: Escaneadoras = Escaneadoras + Acceder como Escaneadora + Gestionar Escaneadoras -->
-                    <div class="hero-card hero-blue mod-esc">
+                    <!-- A: Escaneadoras. No-admin -> switchView('escaneadoras') directo (su ruta
+                         de siempre). Admin -> modal con acceso a esa misma ruta + Acceder como
+                         Escaneadora + Gestionar Escaneadoras (ver #esc-hub-modal). -->
+                    <button type="button" class="hero-card hero-blue mod-esc" onclick="openEscaneadorasModule()">
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="118" y="34" width="62" height="52" rx="10" fill="#ffffff" stroke="#bfdbfe" stroke-width="2"/>
@@ -965,31 +975,12 @@
                         <div class="hero-body">
                             <div class="hero-title">Escaneadoras</div>
                             <div class="hero-desc">Registro operativo de pallets escaneados</div>
-
-                            <div class="hero-quick admin-only" id="impersonate-panel">
-                                <div class="hero-quick-label"><i class="fa-solid fa-user-secret"></i> Acceder como Escaneadora</div>
-                                <div id="impersonate-buttons" class="hero-chip-row"></div>
-                                <p id="impersonate-status" class="hero-mini-msg"></p>
-                            </div>
-
-                            <div class="hero-quick admin-only" id="user-mgmt-panel">
-                                <div class="hero-quick-label"><i class="fa-solid fa-users-gear"></i> Gestionar Escaneadoras</div>
-                                <div id="user-mgmt-list" class="hero-mini-list"></div>
-                                <div class="hero-inline-form">
-                                    <input type="text" class="form-input" id="new-user-nombre" placeholder="Nombre completo">
-                                    <input type="text" class="form-input" id="new-user-usuario" placeholder="Usuario" style="width:85px;">
-                                    <input type="text" class="form-input" id="new-user-pass" placeholder="6 digitos" maxlength="6" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/\D/g,'')" style="width:75px;">
-                                    <button class="btn btn-primary btn-sm" onclick="createUser()"><i class="fa-solid fa-plus"></i> Crear</button>
-                                </div>
-                                <p id="user-mgmt-msg" class="hero-mini-msg"></p>
-                            </div>
-
-                            <div class="hero-cta" onclick="switchView('escaneadoras')">Ir ahora <i class="fa-solid fa-arrow-right"></i></div>
+                            <div class="hero-cta">Abrir modulo <i class="fa-solid fa-arrow-right"></i></div>
                         </div>
-                    </div>
+                    </button>
 
                     <!-- B: Resumen Turno -->
-                    <div class="hero-card hero-orange mod-resumen" onclick="switchView('resumen')">
+                    <button type="button" class="hero-card hero-orange mod-resumen" onclick="switchView('resumen')">
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="60" y="18" width="80" height="96" rx="12" fill="#ffffff" stroke="#fed7aa" stroke-width="2"/>
@@ -1010,10 +1001,12 @@
                             <div class="hero-desc">Resumen de paletizado por turno</div>
                             <div class="hero-cta">Ver resumen completo <i class="fa-solid fa-arrow-right"></i></div>
                         </div>
-                    </div>
+                    </button>
 
-                    <!-- C: Dashboard = Dashboard + Monitor en Vivo -->
-                    <div class="hero-card hero-green">
+                    <!-- C: Dashboard. Monitor en Vivo (misma ruta de siempre, view-monitor) ahora
+                         se abre desde un boton dentro del propio Dashboard (3647-only), no desde
+                         la homepage. -->
+                    <button type="button" class="hero-card hero-green" onclick="switchView('dashboard')" id="home-dash-card">
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <circle cx="62" cy="60" r="34" fill="none" stroke="#bbf7d0" stroke-width="14"/>
@@ -1027,18 +1020,13 @@
                         <div class="hero-body">
                             <div class="hero-title">Dashboard</div>
                             <div class="hero-desc">Resumen completo de la operacion</div>
-
-                            <div class="hero-quick card-3647-only" id="monitor-access-card" onclick="switchView('monitor')" style="cursor:pointer;">
-                                <div class="hero-quick-label" style="color:#22c55e;"><i class="fa-solid fa-satellite-dish fa-beat-fade"></i> Monitor en Vivo</div>
-                                <p class="hero-quick-desc">Ve en tiempo real cada pallet escaneado, con su contenido completo (SKUs), pedido y toda la informacion de SmartControl.</p>
-                            </div>
-
-                            <div class="hero-cta" onclick="switchView('dashboard')" id="home-dash-card">Ir al Dashboard <i class="fa-solid fa-arrow-right"></i></div>
+                            <div class="hero-cta">Ir al Dashboard <i class="fa-solid fa-arrow-right"></i></div>
                         </div>
-                    </div>
+                    </button>
 
-                    <!-- D: Configuracion = Configuracion + Centro de Control -->
-                    <div class="hero-card hero-purple">
+                    <!-- D: Configuracion. Centro de Control (misma ruta de siempre, view-control)
+                         ahora se abre desde un boton dentro de Configuracion (3647-only). -->
+                    <button type="button" class="hero-card hero-purple" onclick="switchView('config')" id="home-config-card">
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <g transform="translate(126 46)">
@@ -1074,18 +1062,12 @@
                         <div class="hero-body">
                             <div class="hero-title">Configuracion</div>
                             <div class="hero-desc">Perfil, sesion y preferencias</div>
-
-                            <div class="hero-quick card-3647-only" id="control-access-card" onclick="switchView('control')" style="cursor:pointer;">
-                                <div class="hero-quick-label" style="color:var(--accent);"><i class="fa-solid fa-sliders"></i> Centro de Control</div>
-                                <p class="hero-quick-desc">Usuarios, sesiones, tarjetas NFC, metas de produccion, reportes y ajustes del sistema en un solo lugar.</p>
-                            </div>
-
-                            <div class="hero-cta" onclick="switchView('config')" id="home-config-card">Ir ahora <i class="fa-solid fa-arrow-right"></i></div>
+                            <div class="hero-cta">Ir ahora <i class="fa-solid fa-arrow-right"></i></div>
                         </div>
-                    </div>
+                    </button>
 
-                    <!-- E: LPN Duplicados -->
-                    <div class="hero-card hero-red card-3647-only" id="lpn-access-card" onclick="switchView('lpn')" style="position:relative;">
+                    <!-- E: LPN Duplicados (ruta directa, sin cambios) -->
+                    <button type="button" class="hero-card hero-red card-3647-only" id="lpn-access-card" onclick="switchView('lpn')" style="position:relative;">
                         <span id="lpn-badge" style="display:none;position:absolute;top:0.75rem;right:0.75rem;z-index:1;background:#ef4444;color:#fff;font-size:0.7rem;font-weight:700;min-width:20px;height:20px;border-radius:10px;align-items:center;justify-content:center;padding:0 5px;">0</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -1106,13 +1088,14 @@
                         </div>
                         <div class="hero-body">
                             <div class="hero-title">LPN Duplicados</div>
-                            <div class="hero-desc">Detecta cuando el mismo LPN aparece registrado en dos areas/bins a la vez — con en donde estaba, en donde se duplico y quien lo movio.</div>
+                            <div class="hero-desc">Detecta cuando el mismo LPN aparece registrado en dos areas/bins a la vez.</div>
                             <div class="hero-cta">Ver duplicados <i class="fa-solid fa-arrow-right"></i></div>
                         </div>
-                    </div>
+                    </button>
 
-                    <!-- F: Operaciones y Pedidos = Retrabajo de Pallet + Gestionar Pedidos -->
-                    <div class="hero-card hero-teal admin-only">
+                    <!-- F: Operaciones y Pedidos = Retrabajo de Pallet + Gestionar Pedidos,
+                         ahora en su propia vista con pestañas (view-operaciones) -->
+                    <button type="button" class="hero-card hero-teal admin-only" onclick="switchView('operaciones')">
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="40" y="88" width="120" height="10" rx="3" fill="#5eead4"/>
@@ -1129,28 +1112,9 @@
                         <div class="hero-body">
                             <div class="hero-title">Operaciones y Pedidos</div>
                             <div class="hero-desc">Retrabajo de pallets y gestion de pedidos</div>
-
-                            <div class="hero-quick" id="retrabajo-panel">
-                                <div class="hero-quick-label"><i class="fa-solid fa-copy"></i> Retrabajo de Pallet</div>
-                                <div class="hero-inline-form">
-                                    <input type="text" class="form-input" id="retrabajo-search" placeholder="Pallet ID (6 digitos)" inputmode="numeric" maxlength="6" oninput="this.value=this.value.replace(/\D/g,'')">
-                                    <button class="btn btn-primary btn-sm" onclick="buscarRetrabajo()"><i class="fa-solid fa-search"></i> Buscar</button>
-                                </div>
-                                <div id="retrabajo-result" style="margin-top:0.5rem;"></div>
-                            </div>
-
-                            <div class="hero-quick card-3647-only" id="pedidos-mgmt-panel">
-                                <div class="hero-quick-label"><i class="fa-solid fa-tags"></i> Gestionar Pedidos</div>
-                                <div id="pedidos-mgmt-list" class="hero-mini-list"></div>
-                                <div class="hero-inline-form">
-                                    <input type="text" class="form-input" id="new-pedido-nombre" placeholder="Nombre del pedido" maxlength="40">
-                                    <input type="color" class="form-input" id="new-pedido-color" value="#0d9488" title="Color de identificacion" style="width:44px;padding:2px;">
-                                    <button class="btn btn-primary btn-sm" onclick="createPedido()"><i class="fa-solid fa-plus"></i> Crear</button>
-                                </div>
-                                <p id="pedidos-mgmt-msg" class="hero-mini-msg"></p>
-                            </div>
+                            <div class="hero-cta">Abrir modulo <i class="fa-solid fa-arrow-right"></i></div>
                         </div>
-                    </div>
+                    </button>
 
                 </div>
 
@@ -1428,6 +1392,12 @@
                     </button>
                     <button class="btn btn-secondary btn-sm admin-only" onclick="exportDashboardPDF()" style="padding:0.35rem 0.7rem;font-size:0.78rem;">
                         <i class="fa-solid fa-file-pdf"></i> PDF
+                    </button>
+                    <!-- Monitor en Vivo: misma ruta de siempre (view-monitor), ahora se
+                         abre desde aqui en vez de una card separada en la homepage
+                         (2026-07-28 v4). Mismo gate que btn-audit/btn-capture-mode: solo 3647. -->
+                    <button id="btn-monitor-link" style="display:none;padding:0.35rem 0.7rem;font-size:0.78rem;background:#22c55e;color:#fff;" class="btn btn-sm" onclick="switchView('monitor')">
+                        <i class="fa-solid fa-satellite-dish"></i> Monitor en Vivo
                     </button>
                     <button id="btn-audit" style="display:none;padding:0.35rem 0.7rem;font-size:0.78rem;" class="btn btn-secondary btn-sm" onclick="openAuditModal()">
                         <i class="fa-solid fa-shield-halved"></i> Auditoria
@@ -1899,7 +1869,11 @@
                     <div id="cfg-admin-actions" style="display:none;border-top:1px solid var(--border);padding-top:0.75rem;margin-top:0.75rem;">
                         <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;">Acciones rapidas</div>
                         <button class="btn btn-secondary btn-sm" onclick="switchView('dashboard')" style="width:100%;margin-bottom:0.4rem;"><i class="fa-solid fa-chart-pie" style="margin-right:6px;"></i>Ir al Dashboard</button>
-                        <button class="btn btn-secondary btn-sm" onclick="switchView('home')" style="width:100%;"><i class="fa-solid fa-users-gear" style="margin-right:6px;"></i>Gestionar escaneadoras</button>
+                        <button class="btn btn-secondary btn-sm" onclick="openEscaneadorasModule()" style="width:100%;margin-bottom:0.4rem;"><i class="fa-solid fa-users-gear" style="margin-right:6px;"></i>Gestionar escaneadoras</button>
+                        <!-- Centro de Control: misma ruta de siempre (view-control), ahora se
+                             abre desde aqui en vez de una card separada en la homepage
+                             (2026-07-28 v4). -->
+                        <button class="btn btn-secondary btn-sm card-3647-only" onclick="switchView('control')" style="width:100%;"><i class="fa-solid fa-sliders" style="margin-right:6px;"></i>Centro de Control</button>
                     </div>
                     <button class="btn btn-danger btn-sm" onclick="handleLogout()" style="width:100%;margin-top:0.75rem;"><i class="fa-solid fa-right-from-bracket" style="margin-right:6px;"></i>Cerrar sesion</button>
                 </div>
@@ -2116,6 +2090,61 @@
         </div><!-- /view-monitor -->
 
         <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: OPERACIONES Y PEDIDOS (admin)     -->
+        <!-- Retrabajo de Pallet + Gestionar Pedidos, exactamente el mismo -->
+        <!-- HTML/ids/handlers que antes vivian en la card de la homepage -->
+        <!-- (2026-07-28 v4) — ahora con pestañas propias (.ops-tab/.ops-panel, -->
+        <!-- clases NUEVAS y no .ctrl-tab/.ctrl-panel a proposito: setControlTab() -->
+        <!-- hace querySelectorAll('.ctrl-panel') GLOBAL, reusar esa clase aqui -->
+        <!-- rompería/seria roto por Centro de Control). -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-operaciones">
+            <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
+            <div class="page-header" style="text-align:center;">
+                <h1 style="font-size:1.3rem;margin:0;"><i class="fa-solid fa-boxes-packing" style="color:#0d9488;margin-right:6px;"></i>Operaciones y Pedidos</h1>
+                <p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--text-muted);">Retrabajo de pallets y gestion de pedidos</p>
+            </div>
+
+            <div class="ctrl-tabs" id="operaciones-tabs">
+                <button class="ctrl-tab ops-tab active" data-tab="retrabajo" onclick="setOperacionesTab('retrabajo')"><i class="fa-solid fa-copy"></i> Retrabajo de Pallet</button>
+                <button class="ctrl-tab ops-tab card-3647-only" data-tab="pedidos" onclick="setOperacionesTab('pedidos')"><i class="fa-solid fa-tags"></i> Gestionar Pedidos</button>
+            </div>
+
+            <!-- Retrabajo -->
+            <div class="ops-panel active" id="ops-panel-retrabajo">
+                <div class="card" id="retrabajo-panel">
+                    <div class="card-title" style="font-size:0.9rem;"><i class="fa-solid fa-copy" style="color:#22c55e;"></i> Retrabajo de Pallet</div>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.9rem;">Busca un pallet de dias anteriores y crealo como retrabajo para hoy. El original no se modifica.</p>
+                    <div style="display:flex;gap:0.5rem;align-items:center;max-width:420px;">
+                        <input type="text" class="form-input" id="retrabajo-search" placeholder="Pallet ID (6 digitos)" inputmode="numeric" maxlength="6" oninput="this.value=this.value.replace(/\D/g,'')">
+                        <button class="btn btn-primary btn-sm" onclick="buscarRetrabajo()" style="white-space:nowrap;"><i class="fa-solid fa-search" style="margin-right:4px;"></i> Buscar</button>
+                    </div>
+                    <div id="retrabajo-result" style="margin-top:0.75rem;"></div>
+                </div>
+            </div>
+
+            <!-- Gestionar Pedidos (solo admin 3647 — el gating real esta en el
+                 boton de la pestaña de arriba, que es card-3647-only; este div
+                 NO lleva esa clase para no pelear con .ops-panel.active) -->
+            <div class="ops-panel" id="ops-panel-pedidos">
+                <div class="card" id="pedidos-mgmt-panel">
+                    <div class="card-title" style="font-size:0.9rem;"><i class="fa-solid fa-tags" style="color:#0d9488;"></i> Gestionar Pedidos</div>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">Crea o renombra los pedidos que aparecen en la clasificacion del formulario. Renombrar actualiza todos los registros existentes.</p>
+                    <div id="pedidos-mgmt-list" style="max-height:320px;overflow-y:auto;margin-bottom:1rem;"></div>
+                    <div style="border-top:1px solid var(--border);padding-top:0.9rem;">
+                        <div style="font-size:0.8rem;font-weight:600;color:var(--success);margin-bottom:0.5rem;"><i class="fa-solid fa-plus" style="margin-right:4px;"></i>Agregar nuevo pedido</div>
+                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+                            <input type="text" class="form-input" id="new-pedido-nombre" placeholder="Nombre del pedido" style="flex:1;min-width:160px;" maxlength="40">
+                            <input type="color" class="form-input" id="new-pedido-color" value="#0d9488" title="Color de identificacion" style="width:48px;height:36px;padding:2px;cursor:pointer;">
+                            <button class="btn btn-primary btn-sm" onclick="createPedido()"><i class="fa-solid fa-plus" style="margin-right:4px;"></i>Crear</button>
+                        </div>
+                        <p id="pedidos-mgmt-msg" style="font-size:0.78rem;margin-top:0.4rem;min-height:1em;"></p>
+                    </div>
+                </div>
+            </div>
+        </div><!-- /view-operaciones -->
+
+        <!-- ══════════════════════════════════════ -->
         <!-- VIEW: LPN DUPLICADOS (solo admin 3647) -->
         <!-- ══════════════════════════════════════ -->
         <div class="view" id="view-lpn">
@@ -2207,6 +2236,45 @@
                     <button onclick="closeLpnMapa()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;color:var(--text-muted);cursor:pointer;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div id="lpn-mapa-body" style="flex:1;overflow-y:auto;padding:1rem 1.25rem;overscroll-behavior:contain;"></div>
+            </div>
+        </div>
+
+        <!-- Hub de Escaneadoras (solo admin): agrupa Acceder como Escaneadora +
+             Gestionar Escaneadoras, exactamente el mismo HTML/ids/handlers que
+             antes vivian directo en la card de la homepage (2026-07-28 v4).
+             Los usuarios sin rol admin nunca ven este modal — su card
+             "Escaneadoras" los manda derecho a switchView('escaneadoras'). -->
+        <div id="esc-hub-modal" style="display:none;position:fixed;inset:0;z-index:2300;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);">
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:16px;width:94%;max-width:560px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:0.85rem 1.25rem;border-bottom:1px solid var(--border);">
+                    <div style="display:flex;align-items:center;gap:0.6rem;">
+                        <i class="fa-solid fa-barcode" style="color:#4f7cff;"></i>
+                        <span style="font-weight:700;">Escaneadoras</span>
+                    </div>
+                    <button onclick="closeEscHub()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;color:var(--text-muted);cursor:pointer;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div style="flex:1;overflow-y:auto;padding:1.1rem 1.25rem;overscroll-behavior:contain;">
+                    <button class="btn btn-primary" style="margin-bottom:1rem;" onclick="closeEscHub();switchView('escaneadoras');"><i class="fa-solid fa-barcode" style="margin-right:6px;"></i>Ir a Registro de Escaneo</button>
+
+                    <div class="hero-quick" id="impersonate-panel">
+                        <div class="hero-quick-label"><i class="fa-solid fa-user-secret"></i> Acceder como Escaneadora</div>
+                        <p class="hero-quick-desc">Acceso paralelo. No cierra la sesion activa.</p>
+                        <div id="impersonate-buttons" class="hero-chip-row"></div>
+                        <p id="impersonate-status" class="hero-mini-msg"></p>
+                    </div>
+
+                    <div class="hero-quick" id="user-mgmt-panel">
+                        <div class="hero-quick-label"><i class="fa-solid fa-users-gear"></i> Gestionar Escaneadoras</div>
+                        <div id="user-mgmt-list" class="hero-mini-list"></div>
+                        <div class="hero-inline-form">
+                            <input type="text" class="form-input" id="new-user-nombre" placeholder="Nombre completo">
+                            <input type="text" class="form-input" id="new-user-usuario" placeholder="Usuario" style="width:100px;">
+                            <input type="text" class="form-input" id="new-user-pass" placeholder="6 digitos" maxlength="6" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/\D/g,'')" style="width:85px;">
+                            <button class="btn btn-primary btn-sm" onclick="createUser()"><i class="fa-solid fa-plus"></i> Crear</button>
+                        </div>
+                        <p id="user-mgmt-msg" class="hero-mini-msg"></p>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -3260,6 +3328,9 @@ function switchView(viewName) {
     if (currentUser && currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras') && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
     // Centro de Control, Monitor en Vivo y LPN Duplicados: exclusivos del administrador 3647
     if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
+    // Operaciones y Pedidos (Retrabajo + Gestionar Pedidos): cualquier admin.
+    // La pestaña "Gestionar Pedidos" adentro sigue siendo exclusiva de 3647.
+    if (viewName === 'operaciones' && (!currentUser || currentUser.role !== 'admin')) { switchView('home'); return; }
     // Save current view for restore on refresh
     sessionStorage.setItem('mitech_view', viewName);
 
@@ -3284,6 +3355,8 @@ function switchView(viewName) {
         if (capBtn) capBtn.style.display = (currentUser.usuario === '3647') ? '' : 'none';
         const auditBtn = document.getElementById('btn-audit');
         if (auditBtn) auditBtn.style.display = (currentUser.usuario === '3647') ? '' : 'none';
+        const monitorLinkBtn = document.getElementById('btn-monitor-link');
+        if (monitorLinkBtn) monitorLinkBtn.style.display = (currentUser.usuario === '3647') ? 'inline-flex' : 'none';
     }
 
     if (viewName === 'dashboard') { loadDashboard(); }
@@ -3295,6 +3368,7 @@ function switchView(viewName) {
     if (viewName === 'control') loadControl();
     if (viewName === 'monitor') loadMonitor();
     if (viewName === 'lpn') loadLpnDuplicates();
+    if (viewName === 'operaciones') { setOperacionesTab('retrabajo'); if (typeof renderPedidosAdminPanel === 'function') renderPedidosAdminPanel(); }
 }
 
 // ══════════════════════════════════════════════
@@ -4343,6 +4417,28 @@ function monitorSetTab(tab) {
     const panel = document.getElementById('monitor-panel-' + tab);
     if (panel) panel.classList.add('active');
     if (tab === 'todos' && monitorAllRecords.length === 0) loadMonitorAll();
+}
+
+// ── Operaciones y Pedidos: Retrabajo de Pallet + Gestionar Pedidos ──
+function setOperacionesTab(tab) {
+    document.querySelectorAll('#operaciones-tabs .ops-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.ops-panel').forEach(p => p.classList.remove('active'));
+    const panel = document.getElementById('ops-panel-' + tab);
+    if (panel) panel.classList.add('active');
+}
+
+// ── Escaneadoras: menu -> ruta directa (no-admin) o hub modal (admin) ──
+function openEscaneadorasModule() {
+    if (currentUser && currentUser.role === 'admin') {
+        document.getElementById('esc-hub-modal').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    } else {
+        switchView('escaneadoras');
+    }
+}
+function closeEscHub() {
+    document.getElementById('esc-hub-modal').style.display = 'none';
+    document.body.style.overflow = '';
 }
 
 // ── Tab "Todos los pallets reales" — proxy a Cubicaje (mi2-apps/cubicaje) ──
