@@ -2074,6 +2074,16 @@ app.get('/api/seed-nfc', async (req, res) => {
     // TODO Usuario 2 (modulo escaneadoras) — falta: NFC serial (PENDIENTE_DE_AGREGAR).
     // Agregar aqui siguiendo el patron de Hector arriba cuando Roman tenga el serial real.
 
+    // Cecilia Perez NFC (escaneadora — ya existia el usuario, solo faltaba la tarjeta)
+    const cecilia = await User.findOne({ usuario: 'cecilia' });
+    const ceciliaSerial = 'D2:A3:A5:42';
+    await col.updateOne(
+      { serialNumber: ceciliaSerial },
+      { $set: { serialNumber: ceciliaSerial, role: 'escaneadora', isActive: true, nombre: 'Cecilia Perez', ...(cecilia ? { userId: cecilia._id } : {}) }, $setOnInsert: { useCount: 0, createdAt: new Date() } },
+      { upsert: true }
+    );
+    results.push({ serial: ceciliaSerial, nombre: 'Cecilia Perez', role: 'escaneadora', linkedUserId: cecilia?._id || null });
+
     const allCards = await col.find({}).toArray();
     res.json({ success: true, results, totalCards: allCards.length, allCards });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
