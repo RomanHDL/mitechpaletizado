@@ -2084,6 +2084,15 @@ app.get('/api/seed-nfc', async (req, res) => {
     );
     results.push({ serial: ceciliaSerial, nombre: 'Cecilia Perez', role: 'escaneadora', linkedUserId: cecilia?._id || null });
 
+    // Cecilia Perez — segunda tarjeta NFC (misma usuaria, tiene dos)
+    const ceciliaSerial2 = '04:A8:68:3A:19:1C:90';
+    await col.updateOne(
+      { serialNumber: ceciliaSerial2 },
+      { $set: { serialNumber: ceciliaSerial2, role: 'escaneadora', isActive: true, nombre: 'Cecilia Perez', ...(cecilia ? { userId: cecilia._id } : {}) }, $setOnInsert: { useCount: 0, createdAt: new Date() } },
+      { upsert: true }
+    );
+    results.push({ serial: ceciliaSerial2, nombre: 'Cecilia Perez', role: 'escaneadora', linkedUserId: cecilia?._id || null });
+
     const allCards = await col.find({}).toArray();
     res.json({ success: true, results, totalCards: allCards.length, allCards });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
