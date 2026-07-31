@@ -187,6 +187,31 @@ escRegSchema.index({ createdAt: -1 });
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 const EscReg = mongoose.models.EscaneadoraRegistro || mongoose.model('EscaneadoraRegistro', escRegSchema);
 
+// ── Centro Operativo API: enriquecimiento PERSISTENTE por pallet (reemplaza el muestreo
+// temporal de 5 min por un cache real que nunca se descarta) — ver seccion de rutas
+// /api/centro-operativo/* para el flujo completo de por que existe esto. ──
+const palletEnrichmentProductSchema = new mongoose.Schema({
+  lpn: String, sku: String, marca: String, modelo: String, pulgadas: Number,
+  tvTypeTags: [String], condicion: String,
+}, { _id: false });
+const palletEnrichmentSchema = new mongoose.Schema({
+  palletId: { type: String, required: true, unique: true, index: true },
+  foundInSmartControl: { type: Boolean, default: false },
+  workcenter: String,
+  cantidadTotalSc: Number,
+  condicionesSc: String,
+  ubicacionSc: String,
+  lpns: [String],
+  productos: [palletEnrichmentProductSchema],
+  marcas: [String],
+  modelos: [String],
+  pulgadas: [Number],
+  tvTypeTags: [String],
+  lastSyncedAt: { type: Date, default: Date.now, index: true },
+  syncError: { type: String, default: '' },
+}, { timestamps: true });
+const PalletEnrichment = mongoose.models.PalletEnrichment || mongoose.model('PalletEnrichment', palletEnrichmentSchema);
+
 // ── Middleware ──
 async function auth(req, res, next) {
   const h = req.headers.authorization;
@@ -2417,28 +2442,60 @@ app.get('/api/historial', auth, moduleGuard('dashboard'), async (req, res) => {
 });
 
 // ══════════════════════════════════════════════
-// CENTRO OPERATIVO API (solo admin 3647) — modulo nuevo, independiente (2026-07-30).
+// CENTRO OPERATIVO API (solo admin 3647) — modulo independiente. Rediseño 2026-07-31:
+// reemplaza el "muestreo de los ultimos N pallets" (temporal, se reiniciaba cada 5 min,
+// tope fijo de 20-30) por un ENRIQUECIMIENTO PERSISTENTE por pallet (coleccion Mongo
+// PalletEnrichment, arriba en este archivo) que nunca se descarta y crece con el uso:
+//
+//   1. /resumen, /produccion, /televisiones piden TODOS los palletId que cumplen el
+//      filtro (barato: un $group sobre EscReg, solo strings, no documentos completos).
+//   2. getEnrichmentForPallets() busca cuales de esos YA estan enriquecidos (lookup
+//      local en Mongo, sin tocar SmartControl) y enriquece unos pocos mas de los que
+//      faltan en cada request (acotado por tiempo, ver CENTRO_ENRICH_DEADLINE_MS).
+//   3. Cada respuesta incluye `cobertura: {enriquecidos, total, porcentaje}` — nunca se
+//      presenta un total exacto cuando no lo es, pero a diferencia del muestreo viejo,
+//      la cobertura real SUBE con cada visita al modulo hasta llegar a 100%, en vez de
+//      quedarse fija para siempre en "20 de 4200".
+//   4. Un cron diario (/api/cron/enrich-pallets, ver vercel.json) hace un lote extra
+//      cada noche para que la cobertura tambien avance en dias sin uso del modulo
+//      (Vercel Hobby solo permite cron 1x/dia — por eso el enriquecimiento "de paso"
+//      en cada carga de pagina es la fuente principal de progreso, no el cron).
 //
 // Arquitectura: frontend -> estas rutas -> EscReg (Mongo, datos propios de esta app,
 // exactos) + SmartControl (appsc.mitechnologiesinc.com, en vivo, via scFetchJson/
-// fetchScPalletLive ya existentes) + Cubicaje (BinManagerRO, via el proxy
-// /api/sc-pallets/live* ya existente). Nunca se llama a SmartControl ni a Cubicaje
-// directo desde el navegador — todo pasa por aqui, igual que el resto de la app.
-//
-// LIMITACION REAL IMPORTANTE (documentada, no oculta): EscReg (escRegSchema, linea
-// ~155) NO guarda marca, modelo, pulgadas, LPN/numero de serie ni workcenter — esos
-// campos solo existen en vivo dentro de SmartControl, por pallet. Para no golpear
-// SmartControl una vez por cada registro (podrian ser miles), estos 5 valores se
-// calculan sobre una MUESTRA de los pallets mas recientes que cumplen el filtro
-// (ver buildSampledEnrichment), igual que ya hacia /api/dashboard/tv-stats. Todas
-// las respuestas que dependen de esto incluyen un bloque `muestreo` explicito
-// (totalPalletsFiltro/palletsMuestreados/muestreado) para que la UI lo muestre
-// honestamente en vez de presentar un total exacto que no lo es.
+// fetchScPalletLive) + Cubicaje/BinManagerRO (via X-Integration-Key, servidor-a-servidor,
+// nunca desde el navegador — misma llave que ya usan /api/sc-pallets/live y
+// /api/lpn-duplicates/check).
 // ══════════════════════════════════════════════
 
 function centroOperativoGuard(req, res, next) {
   if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
   next();
+}
+
+// ── Llamada directa a Cubicaje (server-to-server, misma llave que ya usan los otros
+// proxies de este archivo) — para la reconciliacion contra BinManagerRO. ──
+async function cubicajeFetch(path, timeoutMs = 8000) {
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key) return { configured: false, ok: false, data: null, error: 'CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas' };
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(`${base.replace(/\/$/, '')}${path}`, { headers: { 'X-Integration-Key': key }, signal: controller.signal });
+    const data = await resp.json().catch(() => null);
+    return { configured: true, ok: resp.ok && data?.success, status: resp.status, data, error: data?.error || (!resp.ok ? `Cubicaje respondio ${resp.status}` : null) };
+  } catch (e) {
+    return { configured: true, ok: false, data: null, error: e.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : e.message };
+  } finally { clearTimeout(t); }
+}
+// Busca un palletId EXACTO en BinManagerRO (via el mismo endpoint paginado que usa
+// /api/sc-pallets/live) — usa el parametro `search` como prefijo y filtra el exacto.
+async function findInBinManagerRO(palletId) {
+  const r = await cubicajeFetch(`/api/integrations/live-pallets?search=${encodeURIComponent(palletId)}&limit=5&offset=0`);
+  if (!r.ok) return { found: false, configured: r.configured, error: r.error };
+  const match = (r.data.data || []).find((row) => normalizePalletId(row.palletId) === palletId);
+  return { found: !!match, configured: true, row: match || null };
 }
 
 // Filtro Mongo compartido por todos los endpoints de este modulo. `escaneadoras`
@@ -2485,39 +2542,66 @@ function previousDayFecha(fecha) {
 }
 
 // ── Estado de conexion de las 2 APIs reales que usa este modulo ──
-app.get('/api/centro-operativo/estado', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
-  const estado = { smartControl: 'sin_probar', binManagerRO: 'sin_probar' };
-  try {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 6000);
-    try {
-      const resp = await fetch('https://appsc.mitechnologiesinc.com/', { signal: controller.signal });
-      estado.smartControl = resp ? 'ok' : 'error';
-    } catch (e) {
-      estado.smartControl = e.name === 'AbortError' ? 'timeout' : 'error';
-    } finally { clearTimeout(t); }
-  } catch { estado.smartControl = 'error'; }
+// Ultimo chequeo EXITOSO por fuente (en memoria del proceso/instancia tibia — se
+// pierde en cold start, igual que cualquier otro cache en memoria de este archivo).
+// Usado por /estado para no reportar "conectado" solo porque existen env vars, sino
+// porque una llamada real respondio bien, con cuando fue y cuanto tardo.
+const lastSuccessfulCheck = { smartControl: null, binManagerRO: null, aplicacion: null };
 
-  const base = process.env.CUBICAJE_API_BASE_URL;
-  const key = process.env.CUBICAJE_INTEGRATION_KEY;
-  if (!base || !key) {
-    estado.binManagerRO = 'no_configurado';
-  } else {
-    try {
+async function checkSourceHealth(name, fn) {
+  const t0 = Date.now();
+  try {
+    const result = await fn();
+    const latencyMs = Date.now() - t0;
+    lastSuccessfulCheck[name] = new Date().toISOString();
+    return { estado: 'ok', latencyMs, ultimaConsultaExitosa: lastSuccessfulCheck[name], ...result };
+  } catch (e) {
+    return { estado: e.name === 'AbortError' ? 'timeout' : 'error', latencyMs: Date.now() - t0, ultimaConsultaExitosa: lastSuccessfulCheck[name], error: e.message || 'error' };
+  }
+}
+app.get('/api/centro-operativo/estado', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  const [aplicacion, smartControl, binManagerRO] = await Promise.all([
+    checkSourceHealth('aplicacion', async () => {
+      const registros = await EscReg.estimatedDocumentCount();
+      return { registrosDisponibles: registros };
+    }),
+    checkSourceHealth('smartControl', async () => {
       const controller = new AbortController();
       const t = setTimeout(() => controller.abort(), 6000);
-      let resp;
       try {
-        resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/live-pallets-stats`, {
-          headers: { 'X-Integration-Key': key }, signal: controller.signal,
-        });
+        const resp = await fetch('https://appsc.mitechnologiesinc.com/', { signal: controller.signal });
+        if (!resp.ok && resp.status >= 500) throw new Error(`SmartControl respondio ${resp.status}`);
+        return {};
       } finally { clearTimeout(t); }
-      estado.binManagerRO = resp.ok ? 'ok' : (resp.status === 401 ? 'error_autenticacion' : 'error');
-    } catch (e) {
-      estado.binManagerRO = e.name === 'AbortError' ? 'timeout' : 'error';
-    }
-  }
-  res.json({ success: true, ...estado, timestamp: new Date().toISOString() });
+    }),
+    checkSourceHealth('binManagerRO', async () => {
+      const base = process.env.CUBICAJE_API_BASE_URL;
+      const key = process.env.CUBICAJE_INTEGRATION_KEY;
+      if (!base || !key) { const e = new Error('CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas'); e.name = 'NotConfigured'; throw e; }
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 6000);
+      try {
+        const resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/live-pallets-stats`, { headers: { 'X-Integration-Key': key }, signal: controller.signal });
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok) throw new Error(resp.status === 401 ? 'Error de autenticacion' : `Cubicaje respondio ${resp.status}`);
+        const totalRegistros = (data?.data || []).reduce((s, r) => s + (r.count || 0), 0);
+        return { registrosDisponibles: totalRegistros };
+      } finally { clearTimeout(t); }
+    }),
+  ]);
+  if (binManagerRO.error === 'CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas') binManagerRO.estado = 'no_configurado';
+
+  const [enrichStats] = await Promise.all([PalletEnrichment.estimatedDocumentCount()]);
+  const conectadas = [aplicacion, smartControl, binManagerRO].filter((s) => s.estado === 'ok').length;
+
+  res.json({
+    success: true,
+    fuentesConectadas: conectadas,
+    fuentesTotal: 3,
+    fuentes: { aplicacion, smartControl, binManagerRO },
+    palletsEnriquecidos: enrichStats,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // ── Valores reales para poblar los selectores de filtro (nunca texto escrito a mano) ──
@@ -2543,144 +2627,233 @@ app.get('/api/centro-operativo/filtros', auth, roleGuard('admin'), centroOperati
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// ── Muestreo enriquecido compartido: cruza pallets reales (EscReg) contra SmartControl ──
-// para sacar marca/modelo/pulgadas/tipo/LPN/workcenter. Cacheado 5 min por combinacion de
-// filtros. Usado por /resumen, /produccion y /televisiones para no triplicar las llamadas
-// a SmartControl entre los 3 endpoints (y para que los 3 muestren numeros consistentes).
-const centroCache = new Map();
-const CENTRO_CACHE_MS = 5 * 60 * 1000;
-// 30 (no 80, como tv-stats): con el modulo llamando esto en automatico desde 3 endpoints
-// distintos en cada carga/filtro (no con un boton manual como tv-stats), un muestreo de 80
-// midio 9-13s en vivo contra datos reales — riesgo real de exceder el limite de tiempo de
-// una funcion serverless de Vercel (ya paso hoy mismo con /api/lpn-duplicates/check).
-const CENTRO_MAX_PALLETS = 20;
-// Presupuesto de tiempo de la fase de muestreo: si se excede, se deja de lanzar mas lotes
-// y se regresa lo ya procesado (parcial, marcado explicitamente) en vez de arriesgar un
-// timeout total de la funcion. Medido en pruebas locales: incluso 20-30 pallets pueden
-// tardar 10s+ dependiendo de la latencia de red hacia SmartControl — este limite es la
-// red de seguridad, no la expectativa normal.
-const CENTRO_SAMPLE_DEADLINE_MS = 6000;
-
 async function classifyLpn(lpn) {
   const raw = await scFetchJson(`https://appsc.mitechnologiesinc.com/Classification/GetDataLicensePlateNumber_ApiAR?LPN=${encodeURIComponent(lpn)}`, 7000);
   const arr = scTryParse(raw.WorkPlanLicensePlateNumber) || [];
   return Array.isArray(arr) ? arr[0] : null;
 }
 
-async function buildSampledEnrichment(filter, query) {
-  // Cache-primero ANTES de tocar Mongo/SmartControl: /resumen, /produccion y
-  // /televisiones llaman esto con el mismo filtro en cada carga de pagina — sin esto,
-  // los 3 hacian su propio muestreo completo por separado (9-13s cada uno, medido
-  // contra datos reales). La llave es solo filtro+query (no los palletIds resueltos),
-  // para poder responder desde cache sin siquiera re-consultar EscReg.
-  const cacheKey = JSON.stringify({ f: filter, q: query });
-  const cached = centroCache.get(cacheKey);
-  if (cached && (Date.now() - cached.ts) < CENTRO_CACHE_MS) return cached.data;
+// Enriquece UN pallet contra SmartControl y lo guarda PERMANENTEMENTE en
+// PalletEnrichment (a diferencia del muestreo viejo, esto nunca se descarta ni
+// expira — la proxima vez que se pida este pallet, ya esta resuelto sin tocar
+// SmartControl). Usado tanto por las rutas bajo demanda como por el cron nocturno.
+async function enrichOnePallet(palletId) {
+  const now = new Date();
+  try {
+    const live = await fetchScPalletLive(palletId);
+    const productos = live.productos || [];
+    const candidatosPorProducto = productos.map((p) => p.NumeroSerie).filter(Boolean);
+    const infoPorLpn = new Map();
+    await Promise.all(candidatosPorProducto.map(async (lpn) => {
+      try { infoPorLpn.set(lpn, await classifyLpn(lpn)); } catch { infoPorLpn.set(lpn, null); }
+    }));
+    const enriquecidos = productos.map((p) => {
+      const info = p.NumeroSerie ? infoPorLpn.get(p.NumeroSerie) : null;
+      return {
+        lpn: p.NumeroSerie || null,
+        sku: (info && info.SKU) || p.SKU || null,
+        marca: info ? normalizeBrand(info.Brand) : null,
+        modelo: info ? normalizeModelo(info.MFGSKU) : null,
+        pulgadas: info ? parseInchesFromDescription(info.ItemDescription) : null,
+        tvTypeTags: info ? parseTvTypeTags(info.ItemDescription) : [],
+        condicion: p.Condicion || null,
+      };
+    });
+    const doc = {
+      palletId, foundInSmartControl: true,
+      workcenter: live.workcenter || null,
+      cantidadTotalSc: live.cantidadTotal ?? null,
+      condicionesSc: live.condiciones || null,
+      ubicacionSc: live.ubicacion || null,
+      lpns: [...dedupeUniqueLpns(productos.map((p) => p.NumeroSerie))],
+      productos: enriquecidos,
+      marcas: [...new Set(enriquecidos.map((e) => e.marca).filter(Boolean))],
+      modelos: [...new Set(enriquecidos.map((e) => e.modelo).filter(Boolean))],
+      pulgadas: [...new Set(enriquecidos.map((e) => e.pulgadas).filter(Boolean))],
+      tvTypeTags: [...new Set(enriquecidos.flatMap((e) => e.tvTypeTags))],
+      lastSyncedAt: now, syncError: '',
+    };
+    await PalletEnrichment.findOneAndUpdate({ palletId }, { $set: doc }, { upsert: true, setDefaultsOnInsert: true });
+    return doc;
+  } catch (e) {
+    await PalletEnrichment.findOneAndUpdate(
+      { palletId },
+      { $set: { palletId, lastSyncedAt: now, syncError: e.message || 'error desconocido' }, $setOnInsert: { foundInSmartControl: false } },
+      { upsert: true, setDefaultsOnInsert: true },
+    );
+    return null;
+  }
+}
 
-  // Conteo real y exacto de pallets distintos que cumplen el filtro (server-side, no
-  // viaja mas que un numero) — se usa para el flag "muestreado: X de Y", separado de la
-  // consulta de abajo que SI trae documentos completos.
-  const countPipeline = [{ $match: filter }];
-  applyCentroDateRange(countPipeline, query);
-  countPipeline.push({ $group: { _id: '$palletId' } }, { $count: 'total' });
-  const [countResult] = await EscReg.aggregate(countPipeline);
-  const totalPalletsFiltro = countResult?.total || 0;
+// Cuantos pallets NUEVOS se enriquecen "de paso" en cada request de /resumen,
+// /produccion o /televisiones. Acotado para no arriesgar el timeout de la funcion
+// (mismo principio que ya causo el incidente de /api/lpn-duplicates/check) — pero a
+// diferencia del muestreo viejo, este trabajo es INCREMENTAL Y PERMANENTE: cada
+// visita al modulo deja mas pallets resueltos para siempre, la cobertura solo sube.
+const CENTRO_ENRICH_BATCH = 15;
+const CENTRO_ENRICH_DEADLINE_MS = 6000;
 
-  // Los registros completos SOLO se piden hasta un tope generoso (500, muy por encima del
-  // maximo de pallets distintos que en verdad se van a muestrear) — sin este limite, un
-  // filtro amplio (o sin filtro) traia TODO el historico completo por la red antes de
-  // recortar del lado del cliente, lo cual midio 9-10s solo en transferencia con ~4200
-  // registros reales, aun cuando SmartControl mismo responde en <300ms por pallet.
+// Dado un arreglo de palletId (puede ser TODO el filtro, miles de ids — son solo
+// strings, barato), regresa el enriquecimiento ya conocido + enriquece un lote nuevo
+// de los que faltan. `cobertura` refleja el estado real, nunca se disfraza de exacto.
+async function getEnrichmentForPallets(palletIds) {
+  if (palletIds.length === 0) return { map: new Map(), total: 0, enriquecidos: 0, nuevos: 0, agotado: false, cobertura: 100 };
+  const existentes = await PalletEnrichment.find({ palletId: { $in: palletIds } }).lean();
+  const map = new Map(existentes.map((e) => [e.palletId, e]));
+  const faltantes = palletIds.filter((pid) => !map.has(pid));
+  const aEnriquecerAhora = faltantes.slice(0, CENTRO_ENRICH_BATCH);
+
+  let nuevos = 0, agotado = false;
+  const deadline = Date.now() + CENTRO_ENRICH_DEADLINE_MS;
+  const BATCH = 8;
+  for (let i = 0; i < aEnriquecerAhora.length; i += BATCH) {
+    if (Date.now() > deadline) { agotado = faltantes.length > aEnriquecerAhora.slice(0, i).length; break; }
+    const lote = aEnriquecerAhora.slice(i, i + BATCH);
+    const resultados = await Promise.all(lote.map((pid) => enrichOnePallet(pid)));
+    resultados.forEach((doc, idx) => { if (doc) { map.set(lote[idx], doc); nuevos++; } });
+  }
+
+  const enriquecidos = [...palletIds].filter((pid) => map.has(pid) && map.get(pid).foundInSmartControl).length;
+  return {
+    map, total: palletIds.length, enriquecidos, nuevos,
+    agotado: agotado || faltantes.length > aEnriquecerAhora.length,
+    cobertura: palletIds.length > 0 ? Number(((enriquecidos / palletIds.length) * 100).toFixed(1)) : 100,
+  };
+}
+
+// Trae TODOS los palletId distintos que cumplen el filtro (barato: solo strings, no
+// documentos completos) + sus metadatos de EscReg (cantidad sumada, campos mas
+// recientes) — reemplaza el tope fijo de 500/20 registros del enfoque anterior.
+// La deduplicacion por palletId (un pallet puede tener mas de un registro por
+// correcciones) se hace DENTRO de Mongo via $group ($last tras $sort para los campos
+// descriptivos, $sum para cantidad) — no se traen registros crudos para reducirlos en
+// Node. Con filtros amplios/sin fecha (miles de registros) traer documentos completos
+// sin reducir del lado del servidor fue exactamente el mismo problema ya encontrado y
+// corregido en /exportar y en el muestreo viejo — aqui se evita desde el diseño.
+async function getFilteredPalletsMeta(filter, query) {
   const pipeline = [{ $match: filter }];
   applyCentroDateRange(pipeline, query);
   pipeline.push(
     { $sort: { createdAt: -1 } },
-    { $limit: 500 },
-    { $project: { palletId: 1, cantidad: 1, escaneadora: 1, turno: 1, condicion: 1, destino: 1, pedido: 1, fecha: 1, createdAt: 1 } },
+    { $group: {
+        _id: '$palletId',
+        cantidad: { $sum: '$cantidad' },
+        escaneadora: { $first: '$escaneadora' },
+        turno: { $first: '$turno' },
+        condicion: { $first: '$condicion' },
+        destino: { $first: '$destino' },
+        pedido: { $first: '$pedido' },
+        fecha: { $first: '$fecha' },
+    } },
   );
-  const registros = await EscReg.aggregate(pipeline);
-
-  // Un palletId puede tener mas de un registro (correcciones); nos quedamos con el mas
-  // reciente para los campos descriptivos y sumamos cantidad, igual que ya hacia tv-stats.
-  const porPallet = new Map(); // palletId -> { cantidad, escaneadora, turno, condicion, destino, pedido, fecha }
+  const grupos = await EscReg.aggregate(pipeline);
+  const porPallet = new Map();
   const orden = [];
-  for (const r of registros) {
-    const pid = normalizePalletId(r.palletId);
+  for (const g of grupos) {
+    const pid = normalizePalletId(g._id);
     if (!pid) continue;
-    if (!porPallet.has(pid)) { porPallet.set(pid, { ...r, cantidad: 0 }); orden.push(pid); }
-    porPallet.get(pid).cantidad += (r.cantidad || 0);
+    porPallet.set(pid, { cantidad: g.cantidad, escaneadora: g.escaneadora, turno: g.turno, condicion: g.condicion, destino: g.destino, pedido: g.pedido, fecha: g.fecha });
+    orden.push(pid);
   }
-
-  const muestreado = totalPalletsFiltro > CENTRO_MAX_PALLETS;
-  const palletIds = orden.slice(0, CENTRO_MAX_PALLETS);
-
-  const perPallet = []; // enriquecido, uno por pallet muestreado
-  let procesados = 0, errores = 0, agotado = false;
-  const deadline = Date.now() + CENTRO_SAMPLE_DEADLINE_MS;
-  const BATCH = 8;
-  for (let i = 0; i < palletIds.length; i += BATCH) {
-    if (Date.now() > deadline) { agotado = true; break; }
-    const batch = palletIds.slice(i, i + BATCH);
-    await Promise.all(batch.map(async (pid) => {
-      const meta = porPallet.get(pid);
-      try {
-        const live = await fetchScPalletLive(pid);
-        const productos = live.productos || [];
-        const lpns = dedupeUniqueLpns(productos.map((p) => p.NumeroSerie));
-
-        // Igual que tv-stats: preferir candidatos SKU-de-TV (prefijo SNTV visto en datos
-        // reales) antes de aceptar cualquier otro producto del pallet como representativo.
-        const candidatos = [
-          ...productos.filter((p) => p.NumeroSerie && /^SNTV/i.test(p.SKU || '')),
-          ...productos.filter((p) => p.NumeroSerie && !/^SNTV/i.test(p.SKU || '')),
-        ].map((p) => p.NumeroSerie);
-
-        // En paralelo (antes secuencial con corte anticipado): probar 1 candidato a la vez
-        // era el cuello de botella real del muestreo (hasta 4 round-trips seguidos por
-        // pallet x 8 pallets por lote), medido en vivo en ~10-13s incluso con pocos
-        // pallets. Se dispara todo el lote de candidatos a la vez y se toma el primero
-        // (en el orden de prioridad original) que la Classification API confirme como TV.
-        let info = null;
-        const candidatoResults = await Promise.all(
-          candidatos.slice(0, 4).map((lpn) => classifyLpn(lpn).catch(() => null)),
-        );
-        for (const candidateInfo of candidatoResults) {
-          if (candidateInfo && candidateInfo.CategoryName === 'Televisions') { info = candidateInfo; break; }
-        }
-
-        perPallet.push({
-          palletId: pid,
-          cantidad: meta.cantidad,
-          escaneadora: meta.escaneadora,
-          turno: meta.turno,
-          condicion: meta.condicion,
-          destino: meta.destino,
-          pedido: meta.pedido,
-          fecha: meta.fecha,
-          workcenter: live.workcenter || null,
-          lpnCount: lpns.size,
-          lpns: [...lpns],
-          marca: info ? normalizeBrand(info.Brand) : null,
-          modelo: info ? normalizeModelo(info.MFGSKU) : null,
-          sku: info?.SKU || null,
-          pulgadas: info ? parseInches(info.ItemDescription) : null,
-          tvTypeTags: info ? parseTvTypeTags(info.ItemDescription) : [],
-          identificado: !!info,
-        });
-        procesados++;
-      } catch (e) {
-        perPallet.push({ palletId: pid, cantidad: meta.cantidad, escaneadora: meta.escaneadora, turno: meta.turno, condicion: meta.condicion, destino: meta.destino, pedido: meta.pedido, fecha: meta.fecha, workcenter: null, lpnCount: 0, lpns: [], marca: null, modelo: null, sku: null, pulgadas: null, tvTypeTags: [], identificado: false, error: true });
-        errores++;
-      }
-    }));
-  }
-
-  const data = { totalPalletsFiltro, palletsMuestreados: perPallet.length, muestreado: muestreado || agotado, procesados, errores, agotado, perPallet };
-  // Solo se cachea si termino completo — un resultado parcial por deadline no debe
-  // congelarse 5 min como si fuera el muestreo completo del filtro.
-  if (!agotado) centroCache.set(cacheKey, { ts: Date.now(), data });
-  return data;
+  return { orden, porPallet };
 }
+
+// Combina metadatos de EscReg (exactos) + enriquecimiento SmartControl (persistente,
+// cobertura creciente) en una sola lista por pallet — usado por /resumen, /produccion
+// y /televisiones para no repetir esta fusion 3 veces.
+async function buildEnrichedPalletList(filter, query) {
+  const { orden, porPallet } = await getFilteredPalletsMeta(filter, query);
+  const enrichment = await getEnrichmentForPallets(orden);
+  const perPallet = orden.map((pid) => {
+    const meta = porPallet.get(pid);
+    const enr = enrichment.map.get(pid);
+    return {
+      palletId: pid, cantidad: meta.cantidad, escaneadora: meta.escaneadora, turno: meta.turno,
+      condicion: meta.condicion, destino: meta.destino, pedido: meta.pedido, fecha: meta.fecha,
+      workcenter: enr?.workcenter || null,
+      lpns: enr?.lpns || [],
+      lpnCount: enr?.lpns?.length || 0,
+      marca: enr?.marcas?.[0] || null,
+      marcas: enr?.marcas || [],
+      modelo: enr?.modelos?.[0] || null,
+      modelos: enr?.modelos || [],
+      pulgadas: enr?.pulgadas || [],
+      tvTypeTags: enr?.tvTypeTags || [],
+      productos: enr?.productos || [],
+      identificado: !!(enr && enr.foundInSmartControl && enr.marcas && enr.marcas.length),
+      enriquecido: !!enr,
+    };
+  });
+  return {
+    perPallet,
+    cobertura: { total: enrichment.total, enriquecidos: enrichment.enriquecidos, nuevos: enrichment.nuevos, porcentaje: enrichment.cobertura, agotado: enrichment.agotado },
+  };
+}
+
+// ── Fuentes de datos: reconciliacion Aplicacion vs SmartControl vs BinManagerRO ──
+// Acotado a una PAGINA de pallets del filtro actual (no todo el historico) — cada fila
+// implica 1 lookup a BinManagerRO (barato, pero no gratis a miles); el enriquecimiento de
+// SmartControl reusa el cache persistente igual que /pallets. `modo` filtra el resultado
+// ya calculado (todas/coincide/diferencia/incompleto), no cambia lo que se consulta.
+app.get('/api/centro-operativo/sources', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const filter = buildCentroFilter(req.query);
+    const pageNum = Math.max(1, parseInt(req.query.page) || 1);
+    const size = Math.min(50, Math.max(1, parseInt(req.query.pageSize) || 20));
+    const pipeline = [{ $match: filter }];
+    applyCentroDateRange(pipeline, req.query);
+    pipeline.push({
+      $facet: {
+        data: [{ $sort: { createdAt: -1 } }, { $skip: (pageNum - 1) * size }, { $limit: size }],
+        totalCount: [{ $count: 'count' }],
+      },
+    });
+    const [result] = await EscReg.aggregate(pipeline);
+    const totalRecords = result.totalCount[0]?.count || 0;
+    const registros = result.data;
+    const palletIds = registros.map((r) => normalizePalletId(r.palletId)).filter(Boolean);
+
+    const [{ map: enrichMap }, bmroResults] = await Promise.all([
+      getEnrichmentForPallets(palletIds),
+      Promise.all(palletIds.map((pid) => findInBinManagerRO(pid).catch(() => ({ found: false, configured: false })))),
+    ]);
+    const bmroByPallet = new Map(palletIds.map((pid, i) => [pid, bmroResults[i]]));
+
+    let coincide = 0, diferencia = 0, incompleto = 0;
+    const filas = registros.map((r) => {
+      const pid = normalizePalletId(r.palletId);
+      const enr = enrichMap.get(pid);
+      const bmro = bmroByPallet.get(pid);
+      const scCantidad = enr?.cantidadTotalSc ?? null;
+      const bmCantidad = bmro?.row?.cantidadTotal ?? null;
+      const valores = [r.cantidad, scCantidad, bmCantidad].filter((v) => v != null);
+      let estado;
+      if (valores.length < 2) estado = 'Incompleto';
+      else estado = new Set(valores.map(String)).size === 1 ? 'Coincide' : 'Diferencia';
+      if (estado === 'Coincide') coincide++; else if (estado === 'Diferencia') diferencia++; else incompleto++;
+      return {
+        palletId: r.palletId,
+        aplicacion: { presente: true, cantidad: r.cantidad, condicion: r.condicion, destino: r.destino },
+        smartControl: enr ? { presente: enr.foundInSmartControl, cantidad: scCantidad, condicion: enr.condicionesSc, workcenter: enr.workcenter } : { presente: false },
+        binManagerRO: bmro?.configured === false ? { presente: false, noConfigurado: true } : { presente: !!bmro?.found, cantidad: bmCantidad, categoria: bmro?.row?.binTypeName ?? null, ubicacion: bmro?.row?.locationName ?? null },
+        estado,
+      };
+    });
+
+    const modo = req.query.modo;
+    const filasFiltradas = modo && modo !== 'todas'
+      ? filas.filter((f) => (modo === 'coincide' && f.estado === 'Coincide') || (modo === 'diferencia' && f.estado === 'Diferencia') || (modo === 'incompleto' && f.estado === 'Incompleto'))
+      : filas;
+
+    res.json({
+      success: true,
+      filas: filasFiltradas,
+      resumen: { coincide, diferencia, incompleto, totalPagina: filas.length },
+      total: totalRecords,
+      meta: { totalRecords, currentPage: pageNum, pageSize: size, totalPages: Math.max(1, Math.ceil(totalRecords / size)) },
+    });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
 
 // ── KPIs principales (2 filas de 6) ──
 app.get('/api/centro-operativo/resumen', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
@@ -2720,12 +2893,12 @@ app.get('/api/centro-operativo/resumen', auth, roleGuard('admin'), centroOperati
     }
 
     const actual = await kpisBase(filter, req.query);
-    const enrichment = await buildSampledEnrichment(filter, req.query);
+    const { perPallet, cobertura } = await buildEnrichedPalletList(filter, req.query);
     const marcas = new Set(), modelos = new Set(), pulgadas = new Set(), workcenters = new Set(), lpns = new Set();
-    for (const p of enrichment.perPallet) {
+    for (const p of perPallet) {
       if (p.marca) marcas.add(p.marca);
       if (p.modelo) modelos.add(p.modelo);
-      if (p.pulgadas) pulgadas.add(p.pulgadas);
+      for (const pu of p.pulgadas) pulgadas.add(pu);
       if (p.workcenter) workcenters.add(p.workcenter);
       for (const l of p.lpns) lpns.add(l);
     }
@@ -2741,24 +2914,25 @@ app.get('/api/centro-operativo/resumen', auth, roleGuard('admin'), centroOperati
       }
     }
     const delta = (key) => anterior ? computeDelta(actual[key], anterior[key]) : null;
+    const parcial = cobertura.porcentaje < 100;
 
     res.json({
       success: true,
       kpis: {
         totalPallets: { value: actual.totalPallets, deltaPct: delta('totalPallets') },
         totalPiezas: { value: actual.totalPiezas, deltaPct: delta('totalPiezas') },
-        lpnUnicos: { value: lpns.size, deltaPct: null, muestreado: enrichment.muestreado },
+        lpnUnicos: { value: lpns.size, deltaPct: null, parcial },
         escaneadorasActivas: { value: actual.escaneadorasActivas, deltaPct: delta('escaneadorasActivas') },
-        marcasProcesadas: { value: marcas.size, deltaPct: null, muestreado: enrichment.muestreado },
-        modelosProcesados: { value: modelos.size, deltaPct: null, muestreado: enrichment.muestreado },
-        pulgadasDiferentes: { value: pulgadas.size, deltaPct: null, muestreado: enrichment.muestreado },
+        marcasProcesadas: { value: marcas.size, deltaPct: null, parcial },
+        modelosProcesados: { value: modelos.size, deltaPct: null, parcial },
+        pulgadasDiferentes: { value: pulgadas.size, deltaPct: null, parcial },
         pedidosTrabajados: { value: actual.pedidosTrabajados, deltaPct: delta('pedidosTrabajados') },
         promedioPorPallet: { value: actual.promedioPorPallet, deltaPct: delta('promedioPorPallet') },
         produccionPorHora: { value: actual.produccionPorHora, deltaPct: delta('produccionPorHora') },
-        workcentersActivos: { value: workcenters.size, deltaPct: null, muestreado: enrichment.muestreado },
+        workcentersActivos: { value: workcenters.size, deltaPct: null, parcial },
         registrosIncompletos: { value: actual.registrosIncompletos, deltaPct: delta('registrosIncompletos') },
       },
-      muestreo: { totalPalletsFiltro: enrichment.totalPalletsFiltro, palletsMuestreados: enrichment.palletsMuestreados, muestreado: enrichment.muestreado, procesados: enrichment.procesados, errores: enrichment.errores, agotado: enrichment.agotado },
+      cobertura,
       deltaDisponible: !!anterior,
     });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
@@ -2806,19 +2980,19 @@ app.get('/api/centro-operativo/produccion', auth, roleGuard('admin'), centroOper
     });
 
     // Produccion por escaneadora (piezas/pallets exactos de Mongo; LPN unicos/modelos
-    // vienen del muestreo enriquecido compartido — se marcan aparte como estimados).
+    // vienen del enriquecimiento persistente — cobertura crece con el uso, nunca se reinicia).
     const porEscPipeline = [{ $match: filter }];
     applyCentroDateRange(porEscPipeline, req.query);
     porEscPipeline.push({ $group: { _id: '$escaneadora', piezas: { $sum: '$cantidad' }, pallets: { $addToSet: '$palletId' } } });
     const porEscRaw = await EscReg.aggregate(porEscPipeline);
 
-    const enrichment = await buildSampledEnrichment(filter, req.query);
+    const { perPallet, cobertura } = await buildEnrichedPalletList(filter, req.query);
     const lpnPorEsc = new Map(), modelosPorEsc = new Map();
-    for (const p of enrichment.perPallet) {
+    for (const p of perPallet) {
       if (!p.escaneadora) continue;
       if (!lpnPorEsc.has(p.escaneadora)) { lpnPorEsc.set(p.escaneadora, new Set()); modelosPorEsc.set(p.escaneadora, new Set()); }
       for (const l of p.lpns) lpnPorEsc.get(p.escaneadora).add(l);
-      if (p.modelo) modelosPorEsc.get(p.escaneadora).add(p.modelo);
+      for (const m of p.modelos) modelosPorEsc.get(p.escaneadora).add(m);
     }
 
     const porEscaneadora = porEscRaw
@@ -2837,29 +3011,37 @@ app.get('/api/centro-operativo/produccion', auth, roleGuard('admin'), centroOper
       porHora,
       porCondicion: porCondicion.map((c) => ({ condicion: c._id, piezas: c.piezas, porcentaje: totalCond > 0 ? (c.piezas / totalCond) * 100 : 0 })),
       porDestino: porDestino.map((d) => ({ destino: d._id, piezas: d.piezas, porcentaje: totalDest > 0 ? (d.piezas / totalDest) * 100 : 0 })),
-      muestreo: { totalPalletsFiltro: enrichment.totalPalletsFiltro, palletsMuestreados: enrichment.palletsMuestreados, muestreado: enrichment.muestreado, agotado: enrichment.agotado },
+      cobertura,
     });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// ── Resumen de televisiones: por marca, por modelo, por pulgadas ── (todo muestreado, ver arriba)
+// ── Resumen de televisiones: por marca, por modelo, por pulgadas, por tipo ──
+// Trabaja sobre PRODUCTOS individuales (cada TV real, no un representante por pallet) —
+// asi un pallet mixto aporta correctamente a varias marcas/modelos/pulgadas a la vez.
 app.get('/api/centro-operativo/televisiones', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
   try {
     const filter = buildCentroFilter(req.query);
-    const enrichment = await buildSampledEnrichment(filter, req.query);
-    const identificados = enrichment.perPallet.filter((p) => p.identificado);
+    const { perPallet, cobertura } = await buildEnrichedPalletList(filter, req.query);
+    // Aplana: cada producto identificado de cada pallet enriquecido = 1 pieza real.
+    const productosIdentificados = [];
+    for (const p of perPallet) {
+      for (const prod of p.productos) {
+        if (prod.marca) productosIdentificados.push({ ...prod, palletId: p.palletId });
+      }
+    }
 
-    const porMarcaGrupos = groupByFoldingCase(identificados, (p) => p.marca, (p) => p.cantidad);
+    const porMarcaGrupos = groupByFoldingCase(productosIdentificados, (p) => p.marca);
     const porMarca = porMarcaGrupos.map((g) => ({
       marca: g.key,
       piezas: g.total,
-      pallets: g.items.length,
+      pallets: new Set(g.items.map((i) => i.palletId)).size,
       modelos: new Set(g.items.map((i) => i.modelo)).size,
       pulgadas: [...new Set(g.items.map((i) => i.pulgadas).filter(Boolean))].sort((a, b) => a - b),
       porcentaje: g.porcentaje,
     }));
 
-    const porModeloGrupos = groupByFoldingCase(identificados, (p) => `${p.marca}|${p.modelo}`, (p) => p.cantidad);
+    const porModeloGrupos = groupByFoldingCase(productosIdentificados, (p) => `${p.marca}|${p.modelo}`);
     const porModelo = porModeloGrupos.map((g) => {
       const [marca, modelo] = g.key.split('|');
       return {
@@ -2867,13 +3049,13 @@ app.get('/api/centro-operativo/televisiones', auth, roleGuard('admin'), centroOp
         pulgadas: g.items[0]?.pulgadas ?? null,
         sku: g.items[0]?.sku ?? null,
         piezas: g.total,
-        pallets: g.items.length,
+        pallets: new Set(g.items.map((i) => i.palletId)).size,
         porcentaje: g.porcentaje,
       };
     });
 
-    const porPulgadasGrupos = groupBy(identificados.filter((p) => p.pulgadas), (p) => p.pulgadas, (p) => p.cantidad);
-    const sinPulgadas = identificados.filter((p) => !p.pulgadas).reduce((s, p) => s + p.cantidad, 0);
+    const porPulgadasGrupos = groupBy(productosIdentificados.filter((p) => p.pulgadas), (p) => p.pulgadas);
+    const sinPulgadas = productosIdentificados.filter((p) => !p.pulgadas).length;
     const totalPulgadasPiezas = porPulgadasGrupos.reduce((s, g) => s + g.total, 0) + sinPulgadas;
     const porPulgadas = porPulgadasGrupos
       .sort((a, b) => a.key - b.key)
@@ -2881,15 +3063,16 @@ app.get('/api/centro-operativo/televisiones', auth, roleGuard('admin'), centroOp
     if (sinPulgadas > 0) porPulgadas.push({ pulgadas: null, label: 'Sin identificar', piezas: sinPulgadas, porcentaje: totalPulgadasPiezas > 0 ? (sinPulgadas / totalPulgadasPiezas) * 100 : 0 });
 
     // Tipo de panel/resolucion: parseado de la descripcion real, nunca inventado — cada
-    // pallet puede aportar varios tags (ej. '4K' y 'LED' a la vez).
+    // producto puede aportar varios tags (ej. '4K' y 'LED' a la vez).
     const tipoCount = new Map();
-    for (const p of identificados) for (const tag of p.tvTypeTags) tipoCount.set(tag, (tipoCount.get(tag) || 0) + p.cantidad);
+    for (const p of productosIdentificados) for (const tag of p.tvTypeTags) tipoCount.set(tag, (tipoCount.get(tag) || 0) + 1);
     const porTipo = [...tipoCount.entries()].sort((a, b) => b[1] - a[1]).map(([tipo, piezas]) => ({ tipo, piezas }));
 
     res.json({
       success: true,
       porMarca, porModelo, porPulgadas, porTipo,
-      muestreo: { totalPalletsFiltro: enrichment.totalPalletsFiltro, palletsMuestreados: enrichment.palletsMuestreados, muestreado: enrichment.muestreado, procesados: enrichment.procesados, errores: enrichment.errores, agotado: enrichment.agotado },
+      totalTelevisiones: productosIdentificados.length,
+      cobertura,
     });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
@@ -2918,41 +3101,26 @@ app.get('/api/centro-operativo/pallets', auth, roleGuard('admin'), centroOperati
     const totalRecords = result.totalCount[0]?.count || 0;
     const totalPages = Math.max(1, Math.ceil(totalRecords / size));
 
-    // Enriquecer SOLO la pagina visible (25-200 filas), nunca el filtro completo —
-    // evita el problema N+1 de golpear SmartControl por cada registro del historico.
-    const enriquecidos = await Promise.all(result.data.map(async (r) => {
-      const base = {
+    // Enriquecer la pagina visible (25-200 filas) contra el cache PERSISTENTE — si ya
+    // se enriquecio antes (por este modulo o por el cron), no vuelve a tocar SmartControl.
+    // Solo las filas realmente nuevas disparan una llamada en vivo (acotado, ver
+    // getEnrichmentForPallets) — y ese trabajo queda guardado para siempre.
+    const palletIdsPagina = result.data.map((r) => normalizePalletId(r.palletId)).filter(Boolean);
+    const { map: enrichMap } = await getEnrichmentForPallets(palletIdsPagina);
+    const enriquecidos = result.data.map((r) => {
+      const pid = normalizePalletId(r.palletId);
+      const enr = enrichMap.get(pid);
+      const skuCount = enr ? new Set((enr.productos || []).map((p) => p.sku).filter(Boolean)).size : null;
+      return {
         palletId: r.palletId, fecha: r.fecha, hora: r.createdAt, cantidad: r.cantidad,
-        condicion: r.condicion, destino: r.destino, workcenter: null, escaneadora: r.escaneadora,
+        condicion: r.condicion, destino: r.destino, workcenter: enr?.workcenter || null, escaneadora: r.escaneadora,
         pedido: r.pedido, estado: r.incidencias ? 'Con incidencia' : 'Completado',
-        ultimoMovimiento: null, lpnUnicos: null, marcas: [], modelos: [], pulgadas: [], mixto: null,
+        ultimoMovimiento: null, lpnUnicos: enr?.lpns?.length ?? null,
+        marcas: enr?.marcas || [], modelos: enr?.modelos || [], pulgadas: enr?.pulgadas || [],
+        mixto: skuCount != null ? skuCount > 1 : null, skuCount,
+        enriquecido: !!enr,
       };
-      try {
-        const live = await fetchScPalletLive(r.palletId);
-        const productos = live.productos || [];
-        const lpns = dedupeUniqueLpns(productos.map((p) => p.NumeroSerie));
-        base.workcenter = live.workcenter || null;
-        base.ultimoMovimiento = live.movimientos?.[0]?.FechaMovimiento || null;
-        base.lpnUnicos = lpns.size;
-        // Solo se intenta identificar marca/modelo del PRIMER candidato (una llamada, no
-        // todo el pallet) — suficiente para la fila de tabla; el detalle completo (drawer)
-        // si busca en todos los candidatos.
-        const candidato = productos.find((p) => p.NumeroSerie && /^SNTV/i.test(p.SKU || '')) || productos.find((p) => p.NumeroSerie);
-        if (candidato) {
-          const info = await classifyLpn(candidato.NumeroSerie);
-          if (info && info.CategoryName === 'Televisions') {
-            base.marcas = [normalizeBrand(info.Brand)];
-            base.modelos = [normalizeModelo(info.MFGSKU)];
-            const inches = parseInches(info.ItemDescription);
-            if (inches) base.pulgadas = [inches];
-          }
-        }
-        const skusDistintos = new Set(productos.map((p) => p.SKU).filter(Boolean));
-        base.mixto = skusDistintos.size > 1;
-        base.skuCount = skusDistintos.size;
-      } catch { /* fila se muestra igual con lo que si hay de Mongo */ }
-      return base;
-    }));
+    });
 
     res.json({
       success: true,
@@ -2963,39 +3131,53 @@ app.get('/api/centro-operativo/pallets', auth, roleGuard('admin'), centroOperati
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// ── Detalle completo de un pallet (para el drawer) — reusa fetchScPalletLive, no duplica ──
+// ── Detalle completo de un pallet (para el drawer) — refresca y persiste via
+// enrichOnePallet (no duplica la logica de fetch+clasificacion) + reconciliacion
+// contra BinManagerRO (3ra fuente) para la pestaña "Comparacion de fuentes". ──
 app.get('/api/centro-operativo/pallets/:palletId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
   try {
     const palletId = normalizePalletId(req.params.palletId);
     if (!palletId) return res.status(400).json({ success: false, error: 'palletId requerido' });
 
-    const registro = await EscReg.findOne({ palletId: rx(palletId) }).sort({ createdAt: -1 });
-    const live = await fetchScPalletLive(palletId);
-    const productos = live.productos || [];
-
-    const enriquecidos = await Promise.all(productos.map(async (p) => {
-      let marca = null, modelo = null, pulgadas = null, tvTypeTags = [];
-      if (p.NumeroSerie) {
-        try {
-          const info = await classifyLpn(p.NumeroSerie);
-          if (info) { marca = normalizeBrand(info.Brand); modelo = normalizeModelo(info.MFGSKU); pulgadas = parseInches(info.ItemDescription); tvTypeTags = parseTvTypeTags(info.ItemDescription); }
-        } catch { /* se muestra el producto igual sin marca/modelo identificado */ }
-      }
-      return { lpn: p.NumeroSerie || null, sku: p.SKU || null, marca, modelo, pulgadas, tvTypeTags, condicion: p.Condicion || null, cantidad: 1, estado: marca ? 'Identificado' : 'Sin identificar' };
+    const [registro, live, enrichDoc, bmro] = await Promise.all([
+      EscReg.findOne({ palletId: rx(palletId) }).sort({ createdAt: -1 }),
+      fetchScPalletLive(palletId).catch(() => null),
+      enrichOnePallet(palletId),
+      findInBinManagerRO(palletId).catch(() => ({ found: false, configured: false })),
+    ]);
+    const enriquecidos = (enrichDoc?.productos || []).map((p) => ({
+      ...p, cantidad: 1, estado: p.marca ? 'Identificado' : 'Sin identificar',
     }));
-
-    const mixed = detectMixedPallet(enriquecidos.map((e) => ({ brand: e.marca, modelo: e.modelo, sku: e.sku })));
-    const lpns = dedupeUniqueLpns(productos.map((p) => p.NumeroSerie));
+    const lpns = enrichDoc?.lpns || [];
 
     const alertas = [];
-    if (!productos.length) alertas.push('Pallet sin contenido reportado por SmartControl.');
+    if (enriquecidos.length === 0) alertas.push('Pallet sin contenido reportado por SmartControl.');
     const sinIdentificar = enriquecidos.filter((e) => !e.marca).length;
     if (sinIdentificar > 0) alertas.push(`${sinIdentificar} pieza(s) sin marca/modelo identificado.`);
     const sinPulgadas = enriquecidos.filter((e) => e.marca && !e.pulgadas).length;
     if (sinPulgadas > 0) alertas.push(`${sinPulgadas} pieza(s) identificadas sin pulgadas detectadas en la descripcion.`);
-    if (registro && live.cantidadTotal != null && Number(live.cantidadTotal) !== registro.cantidad) {
+    if (registro && live?.cantidadTotal != null && Number(live.cantidadTotal) !== registro.cantidad) {
       alertas.push(`Cantidad registrada en la app (${registro.cantidad}) distinta a SmartControl (${live.cantidadTotal}).`);
     }
+    if (registro && bmro.found && bmro.row?.cantidadTotal != null && Number(bmro.row.cantidadTotal) !== registro.cantidad) {
+      alertas.push(`Cantidad registrada en la app (${registro.cantidad}) distinta a BinManagerRO (${bmro.row.cantidadTotal}).`);
+    }
+
+    // Comparacion de fuentes: que fuente reporta este pallet y con que valores —
+    // acotado a ESTE pallet (barato, 1 consulta a cada fuente), no a todo el historico.
+    const fuentes = {
+      aplicacion: registro ? { presente: true, cantidad: registro.cantidad, condicion: registro.condicion, destino: registro.destino } : { presente: false },
+      smartControl: live ? { presente: true, cantidad: live.cantidadTotal ?? null, condicion: live.condiciones ?? null, workcenter: live.workcenter ?? null } : { presente: false },
+      binManagerRO: bmro.configured === false ? { presente: false, noConfigurado: true } : { presente: bmro.found, cantidad: bmro.row?.cantidadTotal ?? null, categoria: bmro.row?.binTypeName ?? null, ubicacion: bmro.row?.locationName ?? null },
+    };
+    const comparacion = [
+      { campo: 'Cantidad', aplicacion: fuentes.aplicacion.cantidad ?? '—', smartControl: fuentes.smartControl.cantidad ?? '—', binManagerRO: fuentes.binManagerRO.cantidad ?? '—' },
+      { campo: 'Condicion', aplicacion: fuentes.aplicacion.condicion ?? '—', smartControl: fuentes.smartControl.condicion ?? '—', binManagerRO: fuentes.binManagerRO.categoria ?? '—' },
+    ].map((row) => {
+      const vals = [row.aplicacion, row.smartControl, row.binManagerRO].filter((v) => v !== '—');
+      const coincide = new Set(vals.map(String)).size <= 1;
+      return { ...row, estado: vals.length <= 1 ? 'Sin suficiente informacion' : (coincide ? 'Coincide' : 'Diferencia') };
+    });
 
     res.json({
       success: true,
@@ -3003,32 +3185,33 @@ app.get('/api/centro-operativo/pallets/:palletId', auth, roleGuard('admin'), cen
         resumen: {
           palletId,
           estado: registro?.incidencias ? 'Con incidencia' : (registro ? 'Completado' : 'No escaneado en la app'),
-          cantidadTotal: live.cantidadTotal ?? registro?.cantidad ?? null,
-          lpnUnicos: lpns.size,
-          skuDistintos: new Set(productos.map((p) => p.SKU).filter(Boolean)).size,
-          marcas: [...new Set(enriquecidos.map((e) => e.marca).filter(Boolean))],
-          modelos: [...new Set(enriquecidos.map((e) => e.modelo).filter(Boolean))],
-          pulgadas: [...new Set(enriquecidos.map((e) => e.pulgadas).filter(Boolean))],
-          condiciones: live.condiciones || registro?.condicion || null,
+          cantidadTotal: live?.cantidadTotal ?? registro?.cantidad ?? null,
+          lpnUnicos: lpns.length,
+          skuDistintos: new Set(enriquecidos.map((e) => e.sku).filter(Boolean)).size,
+          marcas: enrichDoc?.marcas || [],
+          modelos: enrichDoc?.modelos || [],
+          pulgadas: enrichDoc?.pulgadas || [],
+          condiciones: live?.condiciones || registro?.condicion || null,
           destino: registro?.destino || null,
-          workcenter: live.workcenter || null,
+          workcenter: enrichDoc?.workcenter || null,
           escaneadora: registro?.escaneadora || null,
           turno: registro?.turno || null,
           pedido: registro?.pedido || null,
           fechaCreacion: registro?.createdAt || null,
-          ultimoMovimiento: live.movimientos?.[0]?.FechaMovimiento || null,
+          ultimoMovimiento: live?.movimientos?.[0]?.FechaMovimiento || null,
         },
         contenido: enriquecidos,
         distribucion: {
-          porMarca: groupBy(enriquecidos.filter((e) => e.marca), (e) => e.marca, () => 1),
-          porModelo: groupBy(enriquecidos.filter((e) => e.modelo), (e) => e.modelo, () => 1),
-          porPulgadas: groupBy(enriquecidos.filter((e) => e.pulgadas), (e) => e.pulgadas, () => 1),
-          porCondicion: groupBy(enriquecidos.filter((e) => e.condicion), (e) => e.condicion, () => 1),
+          porMarca: groupBy(enriquecidos.filter((e) => e.marca), (e) => e.marca),
+          porModelo: groupBy(enriquecidos.filter((e) => e.modelo), (e) => e.modelo),
+          porPulgadas: groupBy(enriquecidos.filter((e) => e.pulgadas), (e) => e.pulgadas),
+          porCondicion: groupBy(enriquecidos.filter((e) => e.condicion), (e) => e.condicion),
         },
-        fotografias: live.fotos || [],
-        movimientos: live.movimientos || [],
+        fotografias: live?.fotos || [],
+        movimientos: live?.movimientos || [],
         alertas,
-        mixto: mixed,
+        mixto: detectMixedPallet(enriquecidos.map((e) => ({ brand: e.marca, modelo: e.modelo, sku: e.sku }))),
+        fuentes, comparacion,
       },
     });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
@@ -3061,6 +3244,42 @@ app.get('/api/centro-operativo/exportar', auth, roleGuard('admin'), centroOperat
       generado: new Date().toISOString(),
       rango: req.query.fecha || `${req.query.fecha_inicio || '(sin inicio)'} a ${req.query.fecha_fin || '(sin fin)'}`,
     });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ── Cron nocturno de respaldo: Vercel Hobby solo permite 1 ejecucion/dia, por eso NO
+// es la via principal para avanzar la cobertura (eso pasa "de paso" en cada carga real
+// del modulo, ver getEnrichmentForPallets) — esto es solo para que la cobertura tambien
+// avance en dias sin uso. Autenticado con el header que Vercel Cron manda automaticamente
+// (`Authorization: Bearer $CRON_SECRET`) cuando CRON_SECRET esta configurada; sin esa env
+// var, responde 503 en vez de correr sin proteccion.
+app.get('/api/cron/enrich-pallets', async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return res.status(503).json({ success: false, error: 'CRON_SECRET no configurada' });
+  if (req.headers.authorization !== `Bearer ${secret}`) return res.status(401).json({ success: false, error: 'No autorizado' });
+  try {
+    const CRON_BATCH = 150;
+    const CRON_DEADLINE_MS = 50000;
+    const todosLosPallets = await EscReg.aggregate([
+      { $sort: { createdAt: -1 } },
+      { $group: { _id: '$palletId' } },
+      { $limit: 5000 },
+    ]);
+    const ids = todosLosPallets.map((r) => normalizePalletId(r._id)).filter(Boolean);
+    const yaEnriquecidos = await PalletEnrichment.distinct('palletId', { palletId: { $in: ids } });
+    const yaSet = new Set(yaEnriquecidos);
+    const faltantes = ids.filter((pid) => !yaSet.has(pid)).slice(0, CRON_BATCH);
+
+    let procesados = 0;
+    const deadline = Date.now() + CRON_DEADLINE_MS;
+    const BATCH = 10;
+    for (let i = 0; i < faltantes.length; i += BATCH) {
+      if (Date.now() > deadline) break;
+      const lote = faltantes.slice(i, i + BATCH);
+      await Promise.all(lote.map((pid) => enrichOnePallet(pid)));
+      procesados += lote.length;
+    }
+    res.json({ success: true, procesados, faltantesEsteLote: faltantes.length, pendientesTotal: ids.length - yaSet.size - procesados });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 

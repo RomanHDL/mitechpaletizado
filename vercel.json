@@ -10,6 +10,9 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" }
   ],
+  "crons": [
+    { "path": "/api/cron/enrich-pallets", "schedule": "0 9 * * *" }
+  ],
   "headers": [
     { "source": "/api/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }, { "key": "Pragma", "value": "no-cache" }] },
     { "source": "/sw.js", "headers": [{ "key": "Service-Worker-Allowed", "value": "/" }] },
