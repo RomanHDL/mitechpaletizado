@@ -3046,7 +3046,11 @@ app.get('/api/centro-operativo/exportar', auth, roleGuard('admin'), centroOperat
     const filter = buildCentroFilter(req.query);
     const pipeline = [{ $match: filter }];
     applyCentroDateRange(pipeline, req.query);
-    pipeline.push({ $limit: 5000 }, { $project: { palletId: 1, fecha: 1, cantidad: 1, condicion: 1, destino: 1, turno: 1, escaneadora: 1, pedido: 1, createdAt: 1 } });
+    // 2000 (no 5000): exportar sin filtro (~4200 pallets reales medidos) tardaba ~9.6s solo
+    // en transferencia — el mismo problema real que ya se encontro y corrigio en
+    // buildSampledEnrichment. Se ordena por mas reciente antes de recortar, para que un
+    // export truncado traiga los pallets mas relevantes, no un subconjunto arbitrario.
+    pipeline.push({ $sort: { createdAt: -1 } }, { $limit: 2000 }, { $project: { palletId: 1, fecha: 1, cantidad: 1, condicion: 1, destino: 1, turno: 1, escaneadora: 1, pedido: 1, createdAt: 1 } });
     const pallets = await EscReg.aggregate(pipeline);
     const totalCount = await EscReg.countDocuments(filter);
     res.json({
