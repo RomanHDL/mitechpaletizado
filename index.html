@@ -832,6 +832,68 @@
         .ctrl-iconbtn.danger:hover{color:var(--danger);border-color:var(--danger);}
         .dash-cumplimiento{display:flex;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;}
         .dash-cumplimiento .card{flex:1;min-width:180px;padding:0.85rem 1rem;}
+
+        /* ── Centro Operativo API ── */
+        .co-status-bar{display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;}
+        .co-status-pill{display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;}
+        .co-status-pill.ok{color:#22c55e;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.35);}
+        .co-status-pill.warn{color:#f59e0b;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);}
+        .co-status-pill.err{color:#ef4444;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);}
+        .co-status-pill.muted{color:var(--text-muted);background:var(--inset-bg);border:1px solid var(--border);}
+        .co-status-dot{width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;}
+        .co-filter-bar{display:flex;flex-wrap:wrap;gap:0.6rem;align-items:flex-end;}
+        .co-filter-field{display:flex;flex-direction:column;gap:3px;min-width:130px;}
+        .co-filter-field label{font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:0.02em;}
+        .co-scan-select{position:relative;min-width:220px;flex:1;}
+        .co-scan-box{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-height:38px;border:1px solid var(--border);border-radius:8px;background:var(--bg-input);padding:4px 6px;cursor:text;}
+        .co-scan-input{border:none;background:none;outline:none;color:var(--text-main);font-size:0.82rem;flex:1;min-width:80px;padding:2px;}
+        .co-scan-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:0 12px 30px rgba(0,0,0,0.4);max-height:220px;overflow-y:auto;z-index:20;display:none;}
+        .co-scan-dropdown.open{display:block;}
+        .co-scan-opt{padding:0.5rem 0.7rem;font-size:0.82rem;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+        .co-scan-opt:hover{background:var(--inset-bg-hover);}
+        .co-scan-opt.selected{color:var(--accent);}
+        .co-kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:0.7rem;}
+        .co-kpi-grid.compact{margin-top:0.7rem;}
+        @media (max-width:1100px){.co-kpi-grid{grid-template-columns:repeat(3,1fr);}}
+        @media (max-width:640px){.co-kpi-grid{grid-template-columns:repeat(2,1fr);}}
+        .co-kpi{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.8rem 0.9rem;position:relative;}
+        .co-kpi-label{font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;display:flex;align-items:center;gap:5px;}
+        .co-kpi-value{font-size:1.55rem;font-weight:800;margin-top:3px;color:var(--text-main);}
+        .co-kpi.compact .co-kpi-value{font-size:1.2rem;}
+        .co-kpi-delta{font-size:0.72rem;font-weight:700;margin-top:2px;}
+        .co-kpi-delta.up{color:#22c55e;}
+        .co-kpi-delta.down{color:#ef4444;}
+        .co-kpi-delta.flat{color:var(--text-muted);}
+        .co-kpi-sample{font-size:0.62rem;color:var(--text-muted);margin-top:3px;}
+        .co-kpi.skeleton .co-kpi-value{background:var(--inset-bg);color:transparent;border-radius:4px;animation:coSkeleton 1.2s ease-in-out infinite;}
+        @keyframes coSkeleton{0%,100%{opacity:0.6;}50%{opacity:1;}}
+        .co-charts-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;}
+        @media (max-width:1300px){.co-charts-grid{grid-template-columns:repeat(2,1fr);}}
+        @media (max-width:700px){.co-charts-grid{grid-template-columns:1fr;}}
+        .co-chart-panel{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:0.9rem 1rem;display:flex;flex-direction:column;min-height:280px;}
+        .co-chart-title{font-size:0.82rem;font-weight:700;margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;}
+        .co-chart-canvas-wrap{flex:1;position:relative;min-height:190px;}
+        .co-tabs-mini{display:flex;gap:3px;background:var(--inset-bg);border-radius:7px;padding:2px;}
+        .co-tab-mini{background:none;border:none;color:var(--text-muted);font-size:0.68rem;font-weight:700;padding:3px 8px;border-radius:5px;cursor:pointer;}
+        .co-tab-mini.active{background:var(--accent);color:#fff;}
+        .co-tables-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:0.8rem;}
+        @media (max-width:1200px){.co-tables-grid{grid-template-columns:1fr;}}
+        .co-bar-row{display:flex;align-items:center;gap:6px;}
+        .co-bar-track{flex:1;height:6px;border-radius:3px;background:var(--inset-bg);overflow:hidden;}
+        .co-bar-fill{height:100%;border-radius:3px;background:var(--accent);}
+        .co-empty{text-align:center;padding:2rem 1rem;color:var(--text-muted);font-size:0.85rem;}
+        .co-sample-note{font-size:0.68rem;color:var(--text-muted);background:var(--inset-bg);border-radius:6px;padding:4px 8px;margin-top:0.4rem;display:inline-block;}
+        /* Drawer lateral de detalle de pallet (independiente de sc-pallet-modal, para no
+           afectar otras vistas que ya usan ese modal compartido) */
+        .co-drawer-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2400;display:none;}
+        .co-drawer-backdrop.open{display:block;}
+        .co-drawer{position:fixed;top:0;right:0;bottom:0;width:min(620px,94vw);background:var(--bg-card);border-left:1px solid var(--border);z-index:2401;display:flex;flex-direction:column;transform:translateX(100%);transition:transform 0.25s ease;box-shadow:-10px 0 40px rgba(0,0,0,0.4);}
+        .co-drawer.open{transform:translateX(0);}
+        .co-drawer-header{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+        .co-drawer-tabs{display:flex;gap:0.3rem;padding:0 1.25rem;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+        .co-drawer-body{flex:1;overflow-y:auto;padding:1rem 1.25rem;}
+        .co-drawer-section{display:none;}
+        .co-drawer-section.active{display:block;animation:fadeIn 0.15s ease;}
     </style>
 </head>
 <body>
@@ -1114,6 +1176,34 @@
                             <div class="hero-title">Operaciones y Pedidos</div>
                             <div class="hero-desc">Retrabajo de pallets y gestion de pedidos</div>
                             <div class="hero-cta">Abrir modulo <i class="fa-solid fa-arrow-right"></i></div>
+                        </div>
+                    </button>
+
+                    <!-- G: Centro Operativo API (exclusivo 3647, ruta directa) -->
+                    <button type="button" class="hero-card hero-blue card-3647-only" onclick="switchView('centro-operativo')" style="position:relative;">
+                        <span style="position:absolute;top:0.75rem;right:0.75rem;z-index:1;background:#4f7cff;color:#fff;font-size:0.6rem;font-weight:800;letter-spacing:0.03em;padding:2px 7px;border-radius:8px;">NUEVO</span>
+                        <div class="hero-illustration">
+                            <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <rect x="20" y="20" width="160" height="80" rx="8" fill="#0f1830" stroke="#4f7cff" stroke-width="2"/>
+                                <rect x="32" y="32" width="34" height="20" rx="3" fill="#1a2540"/>
+                                <rect x="36" y="44" width="10" height="4" fill="#4f7cff"/>
+                                <rect x="72" y="32" width="34" height="20" rx="3" fill="#1a2540"/>
+                                <rect x="76" y="44" width="14" height="4" fill="#22c55e"/>
+                                <rect x="112" y="32" width="56" height="20" rx="3" fill="#1a2540"/>
+                                <polyline points="118,48 128,38 138,44 148,34 158,40 164,36" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <rect x="32" y="60" width="60" height="30" rx="3" fill="#1a2540"/>
+                                <rect x="40" y="76" width="8" height="10" fill="#4f7cff"/>
+                                <rect x="52" y="70" width="8" height="16" fill="#22c55e"/>
+                                <rect x="64" y="66" width="8" height="20" fill="#a78bfa"/>
+                                <rect x="76" y="72" width="8" height="14" fill="#4f7cff"/>
+                                <circle cx="140" cy="75" r="14" fill="none" stroke="#22c55e" stroke-width="6"/>
+                                <circle cx="140" cy="75" r="14" fill="none" stroke="#4f7cff" stroke-width="6" stroke-dasharray="20 68" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div class="hero-body">
+                            <div class="hero-title">Centro Operativo API</div>
+                            <div class="hero-desc">Produccion real desde SmartControl y BinManagerRO: marcas, modelos, pulgadas y pallets</div>
+                            <div class="hero-cta">Abrir centro <i class="fa-solid fa-arrow-right"></i></div>
                         </div>
                     </button>
 
@@ -2212,11 +2302,228 @@
             <p style="margin-top:0.75rem;font-size:0.7rem;color:var(--text-muted);text-align:center;">Se revisa automaticamente cada pocos minutos mientras haya alguna sesion abierta en la app: trae candidatos de BinManagerRO (via Cubicaje, con hasta ~1 dia de retraso) y luego confirma en vivo contra SmartControl (sin ese retraso) — si SmartControl ya no lo ve duplicado, se marca resuelto automaticamente sin esperar a BinManagerRO. Cada ciclo re-verifica ademas un lote de los pendientes mas viejos, asi que un backlog grande se va limpiando solo en varios ciclos. Click en "Buscar ahora" para forzar un ciclo de inmediato, o en "Mapa" de una fila para forzar su verificacion en vivo puntual.</p>
         </div><!-- /view-lpn -->
 
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: CENTRO OPERATIVO API (solo admin 3647) -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-centro-operativo">
+            <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
+            <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem;text-align:left;">
+                <div>
+                    <h1 style="font-size:1.3rem;margin:0;"><i class="fa-solid fa-chart-line" style="color:var(--accent);margin-right:6px;"></i>Centro Operativo API</h1>
+                    <p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--text-muted);">Produccion real obtenida desde SmartControl y BinManagerRO</p>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0.4rem;align-items:flex-end;">
+                    <div class="co-status-bar" id="co-status-bar">
+                        <span class="co-status-pill muted"><span class="co-status-dot"></span> Conectando...</span>
+                    </div>
+                    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+                        <span style="font-size:0.72rem;color:var(--text-muted);">Ultima actualizacion: <b id="co-last-update" style="color:var(--text-main);">--</b></span>
+                        <label style="display:flex;align-items:center;gap:5px;font-size:0.72rem;color:var(--text-muted);cursor:pointer;">
+                            <input type="checkbox" id="co-auto-toggle" checked onchange="coToggleAuto()"> Auto: 30s
+                        </label>
+                        <button class="btn btn-secondary btn-sm" onclick="coLoadAll(true)"><i class="fa-solid fa-rotate"></i> Actualizar ahora</button>
+                        <div style="position:relative;">
+                            <button class="btn btn-secondary btn-sm" onclick="coToggleExportMenu()"><i class="fa-solid fa-download"></i> Exportar</button>
+                            <div id="co-export-menu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:0 12px 30px rgba(0,0,0,0.4);z-index:30;min-width:180px;overflow:hidden;">
+                                <button class="co-scan-opt" style="width:100%;text-align:left;border:none;background:none;color:var(--text-main);" onclick="coExport('csv')"><i class="fa-solid fa-file-csv" style="margin-right:6px;"></i>CSV</button>
+                                <button class="co-scan-opt" style="width:100%;text-align:left;border:none;background:none;color:var(--text-main);" onclick="coExport('xlsx')"><i class="fa-solid fa-file-excel" style="margin-right:6px;"></i>Excel</button>
+                                <button class="co-scan-opt" style="width:100%;text-align:left;border:none;background:none;color:var(--text-main);" onclick="coExport('pdf-ejecutivo')"><i class="fa-solid fa-file-pdf" style="margin-right:6px;"></i>PDF ejecutivo</button>
+                                <button class="co-scan-opt" style="width:100%;text-align:left;border:none;background:none;color:var(--text-main);" onclick="coExport('pdf-detallado')"><i class="fa-solid fa-file-pdf" style="margin-right:6px;"></i>PDF detallado</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem;">
+                <div class="co-filter-bar">
+                    <div class="co-filter-field"><label>Fecha</label><input type="text" class="form-input" id="co-f-fecha" placeholder="Cualquier fecha" style="padding:0.4rem 0.6rem;font-size:0.85rem;"></div>
+                    <div class="co-filter-field"><label>Desde</label><input type="date" class="form-input" id="co-f-desde" style="padding:0.4rem 0.6rem;font-size:0.85rem;"></div>
+                    <div class="co-filter-field"><label>Hasta</label><input type="date" class="form-input" id="co-f-hasta" style="padding:0.4rem 0.6rem;font-size:0.85rem;"></div>
+                    <div class="co-filter-field co-scan-select"><label>Escaneadoras</label>
+                        <div class="co-scan-box" id="co-scan-box" onclick="document.getElementById('co-scan-input').focus()">
+                            <span id="co-scan-chips"></span>
+                            <input type="text" class="co-scan-input" id="co-scan-input" placeholder="Buscar..." oninput="coScanFilterOptions()" onfocus="coScanOpenDropdown()">
+                        </div>
+                        <div class="co-scan-dropdown" id="co-scan-dropdown"></div>
+                    </div>
+                    <div class="co-filter-field"><label>Turno</label>
+                        <select class="form-input" id="co-f-turno" style="padding:0.4rem 0.6rem;font-size:0.85rem;"><option value="">Todos</option></select>
+                    </div>
+                    <div class="co-filter-field"><label>Condicion</label>
+                        <select class="form-input" id="co-f-condicion" style="padding:0.4rem 0.6rem;font-size:0.85rem;"><option value="">Todas</option></select>
+                    </div>
+                    <div class="co-filter-field"><label>Destino</label>
+                        <select class="form-input" id="co-f-destino" style="padding:0.4rem 0.6rem;font-size:0.85rem;"><option value="">Todos</option></select>
+                    </div>
+                    <div style="display:flex;gap:0.5rem;align-self:flex-end;">
+                        <button class="btn btn-primary btn-sm" onclick="coApplyFilters()"><i class="fa-solid fa-check"></i> Aplicar</button>
+                        <button class="btn btn-secondary btn-sm" onclick="coClearFilters()"><i class="fa-solid fa-xmark"></i> Limpiar</button>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" style="margin-top:0.6rem;" onclick="coToggleAdvanced()"><i class="fa-solid fa-sliders" id="co-adv-icon"></i> Filtros avanzados</button>
+                <div id="co-advanced-filters" style="display:none;margin-top:0.6rem;padding-top:0.6rem;border-top:1px dashed var(--border);">
+                    <div class="co-filter-bar">
+                        <div class="co-filter-field"><label>Pallet ID</label><input type="text" class="form-input" id="co-f-palletid" style="padding:0.4rem 0.6rem;font-size:0.85rem;"></div>
+                        <div class="co-filter-field"><label>Pedido</label><input type="text" class="form-input" id="co-f-pedido" style="padding:0.4rem 0.6rem;font-size:0.85rem;"></div>
+                        <div class="co-filter-field" style="min-width:220px;flex:1;"><label>Busqueda general</label><input type="text" class="form-input" id="co-f-q" placeholder="Pallet, pedido, escaneadora, condicion..." oninput="coDebouncedApply()" style="padding:0.4rem 0.6rem;font-size:0.85rem;"></div>
+                    </div>
+                    <p style="font-size:0.68rem;color:var(--text-muted);margin-top:0.5rem;">Marca, modelo, pulgadas, SKU y LPN se filtran dentro de las tablas de televisiones (abajo) — esos datos no vienen de esta base, se muestrean en vivo contra SmartControl.</p>
+                </div>
+            </div>
+
+            <!-- KPIs -->
+            <div class="co-kpi-grid" id="co-kpi-grid-1">
+                <div class="co-kpi skeleton" data-kpi="totalPallets"><div class="co-kpi-label"><i class="fa-solid fa-pallet"></i> Total Pallets</div><div class="co-kpi-value">--</div><div class="co-kpi-delta"></div></div>
+                <div class="co-kpi skeleton" data-kpi="totalPiezas"><div class="co-kpi-label"><i class="fa-solid fa-tv"></i> Total Piezas</div><div class="co-kpi-value">--</div><div class="co-kpi-delta"></div></div>
+                <div class="co-kpi skeleton" data-kpi="lpnUnicos"><div class="co-kpi-label"><i class="fa-solid fa-tag"></i> LPN Unicos</div><div class="co-kpi-value">--</div><div class="co-kpi-delta"></div></div>
+                <div class="co-kpi skeleton" data-kpi="escaneadorasActivas"><div class="co-kpi-label"><i class="fa-solid fa-users"></i> Escaneadoras Activas</div><div class="co-kpi-value">--</div><div class="co-kpi-delta"></div></div>
+                <div class="co-kpi skeleton" data-kpi="marcasProcesadas"><div class="co-kpi-label"><i class="fa-solid fa-tags"></i> Marcas Procesadas</div><div class="co-kpi-value">--</div><div class="co-kpi-delta"></div></div>
+                <div class="co-kpi skeleton" data-kpi="modelosProcesados"><div class="co-kpi-label"><i class="fa-solid fa-boxes-stacked"></i> Modelos Procesados</div><div class="co-kpi-value">--</div><div class="co-kpi-delta"></div></div>
+            </div>
+            <div class="co-kpi-grid compact" id="co-kpi-grid-2">
+                <div class="co-kpi compact skeleton" data-kpi="pulgadasDiferentes"><div class="co-kpi-label">Pulgadas Diferentes</div><div class="co-kpi-value">--</div><div class="co-kpi-delta"></div></div>
+                <div class="co-kpi compact skeleton" data-kpi="pedidosTrabajados"><div class="co-kpi-label">Pedidos Trabajados</div><div class="co-kpi-value">--</div><div class="co-kpi-delta"></div></div>
+                <div class="co-kpi compact skeleton" data-kpi="promedioPorPallet"><div class="co-kpi-label">Promedio por Pallet</div><div class="co-kpi-value">--</div><div class="co-kpi-delta"></div></div>
+                <div class="co-kpi compact skeleton" data-kpi="produccionPorHora"><div class="co-kpi-label">Produccion por Hora</div><div class="co-kpi-value">--</div><div class="co-kpi-delta"></div></div>
+                <div class="co-kpi compact skeleton" data-kpi="workcentersActivos"><div class="co-kpi-label">Workcenters Activos</div><div class="co-kpi-value">--</div><div class="co-kpi-delta"></div></div>
+                <div class="co-kpi compact skeleton" data-kpi="registrosIncompletos"><div class="co-kpi-label">Registros Incompletos</div><div class="co-kpi-value">--</div><div class="co-kpi-delta"></div></div>
+            </div>
+            <div id="co-sample-note-resumen"></div>
+
+            <!-- Graficas operativas -->
+            <div class="co-charts-grid" style="margin-top:1rem;">
+                <div class="co-chart-panel">
+                    <div class="co-chart-title"><span>Produccion por Escaneadora</span>
+                        <div class="co-tabs-mini" id="co-esc-tabs">
+                            <button class="co-tab-mini active" data-metric="piezas" onclick="coSetEscMetric('piezas')">Piezas</button>
+                            <button class="co-tab-mini" data-metric="pallets" onclick="coSetEscMetric('pallets')">Pallets</button>
+                            <button class="co-tab-mini" data-metric="lpnUnicos" onclick="coSetEscMetric('lpnUnicos')">LPN unicos</button>
+                            <button class="co-tab-mini" data-metric="modelos" onclick="coSetEscMetric('modelos')">Modelos</button>
+                        </div>
+                    </div>
+                    <div class="co-chart-canvas-wrap" id="co-wrap-escaneadora"><canvas id="co-chart-escaneadora"></canvas></div>
+                </div>
+                <div class="co-chart-panel">
+                    <div class="co-chart-title"><span>Piezas por Hora</span></div>
+                    <div class="co-chart-canvas-wrap" id="co-wrap-hora"><canvas id="co-chart-hora"></canvas></div>
+                </div>
+                <div class="co-chart-panel">
+                    <div class="co-chart-title"><span>Piezas por Condicion</span></div>
+                    <div class="co-chart-canvas-wrap" id="co-wrap-condicion"><canvas id="co-chart-condicion"></canvas></div>
+                </div>
+                <div class="co-chart-panel">
+                    <div class="co-chart-title"><span>Piezas por Destino</span></div>
+                    <div class="co-chart-canvas-wrap" id="co-wrap-destino"><canvas id="co-chart-destino"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Resumen de televisiones -->
+            <div class="co-tables-grid" style="margin-top:1rem;">
+                <div class="card" style="padding:1rem 1.25rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                        <h3 style="margin:0;font-size:0.95rem;">Resumen de Televisiones por Marca</h3>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="ctrl-table" id="co-tabla-marca"><thead><tr><th>Marca</th><th>Piezas</th><th>Pallets</th><th>Modelos</th><th>Pulgadas</th><th>%</th></tr></thead><tbody><tr><td colspan="6" class="co-empty">Cargando...</td></tr></tbody></table>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" id="co-marca-vermas" style="margin-top:0.5rem;display:none;" onclick="coToggleVerTodas('marca')">Ver todas las marcas</button>
+                </div>
+                <div class="card" style="padding:1rem 1.25rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                        <h3 style="margin:0;font-size:0.95rem;">Top Modelos</h3>
+                        <input type="text" class="form-input" id="co-modelo-search" placeholder="Buscar modelo..." oninput="coRenderModelos()" style="width:120px;padding:0.3rem 0.5rem;font-size:0.78rem;">
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="ctrl-table" id="co-tabla-modelo"><thead><tr><th>Marca</th><th>Modelo</th><th>Pulg.</th><th>Piezas</th><th>%</th></tr></thead><tbody><tr><td colspan="5" class="co-empty">Cargando...</td></tr></tbody></table>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" id="co-modelo-vermas" style="margin-top:0.5rem;display:none;" onclick="coToggleVerTodas('modelo')">Ver todos los modelos</button>
+                </div>
+                <div class="card" style="padding:1rem 1.25rem;">
+                    <h3 style="margin:0 0 0.5rem;font-size:0.95rem;">Distribucion por Pulgadas</h3>
+                    <div style="overflow-x:auto;">
+                        <table class="ctrl-table" id="co-tabla-pulgadas"><thead><tr><th>Pulgadas</th><th>Piezas</th><th>%</th></tr></thead><tbody><tr><td colspan="3" class="co-empty">Cargando...</td></tr></tbody></table>
+                    </div>
+                </div>
+            </div>
+            <div id="co-sample-note-tv"></div>
+
+            <!-- Pallets recientes -->
+            <div class="card" style="padding:1rem 1.25rem;margin-top:1rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+                    <h3 style="margin:0;font-size:0.95rem;">Pallets Recientes</h3>
+                    <div style="display:flex;gap:0.5rem;align-items:center;">
+                        <span id="co-pallets-count" style="font-size:0.75rem;color:var(--text-muted);"></span>
+                        <select class="form-input" id="co-pallets-orden" onchange="coPalletsOffset=0;coLoadPallets();" style="padding:0.3rem 0.5rem;font-size:0.8rem;width:auto;">
+                            <option value="">Mas recientes primero</option>
+                            <option value="fecha_asc">Mas antiguos primero</option>
+                            <option value="cantidad_desc">Mayor cantidad</option>
+                            <option value="cantidad_asc">Menor cantidad</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="card" style="padding:0;overflow:hidden;margin-top:0.6rem;">
+                <div style="overflow-x:auto;max-height:60vh;overflow-y:auto;">
+                    <table class="ctrl-table" style="width:100%;">
+                        <thead style="position:sticky;top:0;background:var(--bg-sidebar);z-index:1;">
+                            <tr>
+                                <th>Fecha</th><th>Hora</th><th>Pallet ID</th><th>Cantidad</th><th>LPN unicos</th>
+                                <th>Marcas</th><th>Modelos</th><th>Pulgadas</th><th>Condicion</th><th>Destino</th>
+                                <th>Workcenter</th><th>Escaneadora</th><th>Pedido</th><th>Estado</th><th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="co-pallets-body"><tr><td colspan="15" class="co-empty">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+            <div style="display:flex;justify-content:center;align-items:center;gap:0.5rem;margin-top:0.75rem;">
+                <select class="form-input" id="co-pallets-size" onchange="coPalletsPageSize=parseInt(this.value,10);coPalletsOffset=0;coLoadPallets();" style="padding:0.3rem 0.5rem;font-size:0.8rem;width:auto;">
+                    <option value="25">25 / pagina</option>
+                    <option value="50">50 / pagina</option>
+                    <option value="100">100 / pagina</option>
+                </select>
+                <button class="btn btn-secondary btn-sm" id="co-pallets-prev" onclick="coPalletsPage(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                <span id="co-pallets-page-label" style="font-size:0.78rem;color:var(--text-muted);"></span>
+                <button class="btn btn-secondary btn-sm" id="co-pallets-next" onclick="coPalletsPage(1)">Siguiente <i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+            <p style="margin-top:0.75rem;font-size:0.7rem;color:var(--text-muted);text-align:center;">Marca/Modelo/Pulgadas/LPN se calculan en vivo contra SmartControl solo para las filas visibles. Pedido y ultima actualizacion salen de esta app y de SmartControl respectivamente — no existe un campo separado de "ultima actualizacion" distinto al ultimo movimiento.</p>
+        </div><!-- /view-centro-operativo -->
+
         <!-- Modales globales de SmartControl — a proposito FUERA de cualquier
              .view (.view{display:none} ocultaria estos modales por herencia
              si vivieran dentro de una vista que no esta activa, ej. abrirlos
              desde Monitor en Vivo mientras el markup vivia dentro de
              view-dashboard). Deben poder abrirse desde cualquier vista. -->
+
+        <!-- Drawer de detalle de pallet — Centro Operativo API. Independiente de
+             sc-pallet-modal (no se reutiliza ese modal aqui para no arriesgar romper
+             las otras vistas que ya lo usan). -->
+        <div class="co-drawer-backdrop" id="co-drawer-backdrop" onclick="coCloseDrawer()"></div>
+        <div class="co-drawer" id="co-drawer">
+            <div class="co-drawer-header">
+                <div><b>Detalle de Pallet</b> <span id="co-drawer-title" style="font-family:monospace;color:var(--text-muted);"></span></div>
+                <button onclick="coCloseDrawer()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;color:var(--text-muted);cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="co-drawer-tabs" id="co-drawer-tabs">
+                <button class="ctrl-tab active" data-tab="resumen" onclick="coDrawerSetTab('resumen')">Resumen</button>
+                <button class="ctrl-tab" data-tab="contenido" onclick="coDrawerSetTab('contenido')">Contenido</button>
+                <button class="ctrl-tab" data-tab="distribucion" onclick="coDrawerSetTab('distribucion')">Distribucion</button>
+                <button class="ctrl-tab" data-tab="fotos" onclick="coDrawerSetTab('fotos')">Fotografias</button>
+                <button class="ctrl-tab" data-tab="movimientos" onclick="coDrawerSetTab('movimientos')">Movimientos</button>
+                <button class="ctrl-tab" data-tab="alertas" onclick="coDrawerSetTab('alertas')">Alertas</button>
+            </div>
+            <div class="co-drawer-body" id="co-drawer-body">
+                <div class="co-drawer-section active" id="co-drawer-resumen"></div>
+                <div class="co-drawer-section" id="co-drawer-contenido"></div>
+                <div class="co-drawer-section" id="co-drawer-distribucion"></div>
+                <div class="co-drawer-section" id="co-drawer-fotos"></div>
+                <div class="co-drawer-section" id="co-drawer-movimientos"></div>
+                <div class="co-drawer-section" id="co-drawer-alertas"></div>
+            </div>
+        </div>
+
         <!-- SmartControl Pallet Detail Modal (solo lectura, en vivo) -->
         <div id="sc-pallet-modal" style="display:none;position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);">
             <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:16px;width:94%;max-width:760px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
@@ -3350,7 +3657,7 @@ function switchView(viewName) {
     // Los administradores (y siempre 3647) quedan exentos: nunca deben perder acceso a "inicio" o al Centro de Control.
     if (currentUser && currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras') && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
     // Centro de Control, Monitor en Vivo y LPN Duplicados: exclusivos del administrador 3647
-    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
+    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn' || viewName === 'centro-operativo') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
     // Operaciones y Pedidos (Retrabajo + Gestionar Pedidos): cualquier admin.
     // La pestaña "Gestionar Pedidos" adentro sigue siendo exclusiva de 3647.
     if (viewName === 'operaciones' && (!currentUser || currentUser.role !== 'admin')) { switchView('home'); return; }
@@ -3392,6 +3699,7 @@ function switchView(viewName) {
     if (viewName === 'monitor') loadMonitor();
     if (viewName === 'lpn') loadLpnDuplicates();
     if (viewName === 'operaciones') { setOperacionesTab('retrabajo'); if (typeof renderPedidosAdminPanel === 'function') renderPedidosAdminPanel(); }
+    if (viewName === 'centro-operativo') initCentroOperativo();
 }
 
 // ══════════════════════════════════════════════
@@ -4770,6 +5078,667 @@ function renderLpnMapa(m) {
             <div style="font-size:0.85rem;font-weight:600;margin-bottom:0.5rem;"><i class="fa-solid fa-timeline" style="color:var(--accent);"></i> Historial area por area (BinManagerRO, puede ir ~1 dia atras)</div>
             ${timelineHtml}
         </div>`;
+}
+
+// ══════════════════════════════════════════════
+// CENTRO OPERATIVO API (solo admin 3647) — modulo nuevo, independiente (2026-07-30).
+// Backend real: /api/centro-operativo/* en api/index.js. Marca/Modelo/Pulgadas/LPN
+// vienen de un MUESTREO en vivo contra SmartControl (esta app no guarda esos campos,
+// ver comentario en la definicion de EscReg) — todo lo marcado "muestreado" en la UI
+// refleja eso honestamente, nunca se presenta como total exacto.
+// ══════════════════════════════════════════════
+let coInitialized = false;
+let coAutoTimer = null;
+let coAutoEnabled = true;
+let coAllEscaneadoras = [];
+let coSelectedEscaneadoras = [];
+let coEscMetric = 'piezas';
+let coCharts = {};
+let coLastProduccion = null;
+let coLastResumen = null;
+let coLastTelevisiones = null;
+let coMarcaExpanded = false;
+let coModeloExpanded = false;
+let coPalletsOffset = 0;
+let coPalletsPageSize = 25;
+let coPalletsTotal = 0;
+let coSearchDebounce = null;
+let coFpFecha = null;
+
+const CO_KPI_TOOLTIPS = {
+    totalPallets: 'Cantidad de Pallet ID distintos que cumplen el filtro (dato exacto, de esta app).',
+    totalPiezas: 'Suma del campo cantidad de todos los registros que cumplen el filtro (dato exacto).',
+    lpnUnicos: 'Numeros de serie (LPN) distintos encontrados en una muestra de los pallets mas recientes, cruzando contra SmartControl.',
+    escaneadorasActivas: 'Escaneadoras distintas con al menos un registro en el filtro (dato exacto).',
+    marcasProcesadas: 'Marcas distintas identificadas en la muestra de pallets contra SmartControl.',
+    modelosProcesados: 'Modelos (MFGSKU) distintos identificados en la muestra.',
+    pulgadasDiferentes: 'Tamanos de pulgada distintos detectados en la descripcion de producto de la muestra.',
+    pedidosTrabajados: 'Numeros de pedido distintos (no vacios) en el filtro (dato exacto).',
+    promedioPorPallet: 'Total de piezas entre total de pallets (dato exacto).',
+    produccionPorHora: 'Total de piezas entre las horas transcurridas entre el primer y ultimo registro del filtro (dato exacto).',
+    workcentersActivos: 'Workcenters distintos vistos en la muestra (SmartControl) — no se guarda en esta app.',
+    registrosIncompletos: 'Registros sin condicion o con cantidad menor o igual a 0 (dato exacto).',
+};
+
+async function initCentroOperativo() {
+    if (!coInitialized) {
+        coInitialized = true;
+        document.querySelectorAll('[data-kpi]').forEach(el => { el.title = CO_KPI_TOOLTIPS[el.dataset.kpi] || ''; });
+        if (typeof flatpickr === 'function' && !coFpFecha) {
+            coFpFecha = flatpickr('#co-f-fecha', { locale: 'es', dateFormat: 'n/j/Y', allowInput: true });
+        }
+        await coLoadFiltros();
+        coRestoreFilters();
+    }
+    coStartAuto();
+    coLoadAll(false);
+}
+
+// ── Filtros: catalogo real + persistencia (sessionStorage, igual que el resto de la app) ──
+async function coLoadFiltros() {
+    try {
+        const data = await apiFetch(`${API}/api/centro-operativo/filtros`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar filtros');
+        coAllEscaneadoras = data.escaneadoras || [];
+        const fillSelect = (id, opts) => {
+            const el = document.getElementById(id);
+            const current = el.value;
+            el.innerHTML = el.options[0].outerHTML + opts.map(o => `<option value="${o}">${o}</option>`).join('');
+            if (opts.includes(current)) el.value = current;
+        };
+        fillSelect('co-f-turno', data.turnos || []);
+        fillSelect('co-f-condicion', data.condiciones || []);
+        fillSelect('co-f-destino', data.destinos || []);
+    } catch (e) { showToast('No se pudieron cargar los filtros: ' + e.message, 'error'); }
+}
+function coPersistFilters() {
+    const state = {
+        fecha: document.getElementById('co-f-fecha').value,
+        desde: document.getElementById('co-f-desde').value,
+        hasta: document.getElementById('co-f-hasta').value,
+        turno: document.getElementById('co-f-turno').value,
+        condicion: document.getElementById('co-f-condicion').value,
+        destino: document.getElementById('co-f-destino').value,
+        palletId: document.getElementById('co-f-palletid').value,
+        pedido: document.getElementById('co-f-pedido').value,
+        q: document.getElementById('co-f-q').value,
+        escaneadoras: coSelectedEscaneadoras,
+    };
+    sessionStorage.setItem('mitech_co_filters', JSON.stringify(state));
+}
+function coRestoreFilters() {
+    try {
+        const raw = sessionStorage.getItem('mitech_co_filters');
+        if (!raw) return;
+        const s = JSON.parse(raw);
+        if (s.fecha && coFpFecha) coFpFecha.setDate(s.fecha, false, 'n/j/Y'); else document.getElementById('co-f-fecha').value = s.fecha || '';
+        document.getElementById('co-f-desde').value = s.desde || '';
+        document.getElementById('co-f-hasta').value = s.hasta || '';
+        if (s.turno) document.getElementById('co-f-turno').value = s.turno;
+        if (s.condicion) document.getElementById('co-f-condicion').value = s.condicion;
+        if (s.destino) document.getElementById('co-f-destino').value = s.destino;
+        document.getElementById('co-f-palletid').value = s.palletId || '';
+        document.getElementById('co-f-pedido').value = s.pedido || '';
+        document.getElementById('co-f-q').value = s.q || '';
+        coSelectedEscaneadoras = Array.isArray(s.escaneadoras) ? s.escaneadoras.filter(n => coAllEscaneadoras.includes(n)) : [];
+        coRenderScanChips();
+    } catch {}
+}
+function coBuildParams() {
+    const p = new URLSearchParams();
+    const fecha = document.getElementById('co-f-fecha').value.trim();
+    const desde = document.getElementById('co-f-desde').value;
+    const hasta = document.getElementById('co-f-hasta').value;
+    if (fecha) p.set('fecha', fecha);
+    if (!fecha && desde) p.set('fecha_inicio', desde);
+    if (!fecha && hasta) p.set('fecha_fin', hasta);
+    if (coSelectedEscaneadoras.length) p.set('escaneadoras', coSelectedEscaneadoras.join(','));
+    const turno = document.getElementById('co-f-turno').value; if (turno) p.set('turno', turno);
+    const condicion = document.getElementById('co-f-condicion').value; if (condicion) p.set('condicion', condicion);
+    const destino = document.getElementById('co-f-destino').value; if (destino) p.set('destino', destino);
+    const palletId = document.getElementById('co-f-palletid').value.trim(); if (palletId) p.set('palletId', palletId);
+    const pedido = document.getElementById('co-f-pedido').value.trim(); if (pedido) p.set('pedido', pedido);
+    const q = document.getElementById('co-f-q').value.trim(); if (q) p.set('q', q);
+    return p;
+}
+function coApplyFilters() {
+    coPersistFilters();
+    coPalletsOffset = 0;
+    coLoadAll(true);
+}
+function coClearFilters() {
+    ['co-f-fecha','co-f-desde','co-f-hasta','co-f-turno','co-f-condicion','co-f-destino','co-f-palletid','co-f-pedido','co-f-q'].forEach(id => { document.getElementById(id).value = ''; });
+    coSelectedEscaneadoras = [];
+    coRenderScanChips();
+    coPersistFilters();
+    coPalletsOffset = 0;
+    coLoadAll(true);
+}
+function coDebouncedApply() {
+    clearTimeout(coSearchDebounce);
+    coSearchDebounce = setTimeout(() => coApplyFilters(), 400);
+}
+function coToggleAdvanced() {
+    const el = document.getElementById('co-advanced-filters');
+    const show = el.style.display === 'none';
+    el.style.display = show ? 'block' : 'none';
+    document.getElementById('co-adv-icon').className = show ? 'fa-solid fa-chevron-up' : 'fa-solid fa-sliders';
+}
+
+// ── Selector multiple de escaneadoras (chips) ──
+function coRenderScanChips() {
+    const box = document.getElementById('co-scan-chips');
+    const max = 2;
+    const shown = coSelectedEscaneadoras.slice(0, max);
+    const extra = coSelectedEscaneadoras.length - shown.length;
+    box.innerHTML = shown.map(n => `<span class="ctrl-chip">${n} <button onclick="event.stopPropagation();coScanRemove('${n.replace(/'/g,"\\'")}')">&times;</button></span>`).join('')
+        + (extra > 0 ? `<span class="ctrl-chip">+${extra}</span>` : '');
+}
+function coScanRemove(name) {
+    coSelectedEscaneadoras = coSelectedEscaneadoras.filter(n => n !== name);
+    coRenderScanChips();
+    coApplyFilters();
+}
+function coScanOpenDropdown() { coScanFilterOptions(); }
+function coScanFilterOptions() {
+    const q = (document.getElementById('co-scan-input').value || '').trim().toLowerCase();
+    const dd = document.getElementById('co-scan-dropdown');
+    const opciones = coAllEscaneadoras.filter(n => !q || n.toLowerCase().includes(q));
+    const allSelected = coSelectedEscaneadoras.length === coAllEscaneadoras.length && coAllEscaneadoras.length > 0;
+    dd.innerHTML = `
+        ${coAllEscaneadoras.length ? `<div class="co-scan-opt" onclick="coScanToggleAll()"><b>${allSelected ? 'Quitar todas' : 'Seleccionar todas'}</b> <span style="color:var(--text-muted);">${coSelectedEscaneadoras.length}/${coAllEscaneadoras.length}</span></div>` : ''}
+        ${opciones.map(n => `<div class="co-scan-opt ${coSelectedEscaneadoras.includes(n)?'selected':''}" onclick="coScanToggle('${n.replace(/'/g,"\\'")}')">${n} ${coSelectedEscaneadoras.includes(n)?'<i class="fa-solid fa-check"></i>':''}</div>`).join('')}
+        ${opciones.length===0 ? '<div class="co-scan-opt" style="color:var(--text-muted);">Sin resultados</div>' : ''}
+    `;
+    dd.classList.add('open');
+}
+function coScanToggle(name) {
+    if (coSelectedEscaneadoras.includes(name)) coSelectedEscaneadoras = coSelectedEscaneadoras.filter(n => n !== name);
+    else coSelectedEscaneadoras.push(name);
+    coRenderScanChips();
+    coScanFilterOptions();
+    coApplyFilters();
+}
+function coScanToggleAll() {
+    coSelectedEscaneadoras = coSelectedEscaneadoras.length === coAllEscaneadoras.length ? [] : [...coAllEscaneadoras];
+    coRenderScanChips();
+    coScanFilterOptions();
+    coApplyFilters();
+}
+document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('co-scan-box');
+    const dd = document.getElementById('co-scan-dropdown');
+    if (wrap && dd && !wrap.contains(e.target) && !dd.contains(e.target)) dd.classList.remove('open');
+    const menu = document.getElementById('co-export-menu');
+    if (menu && menu.style.display !== 'none' && !e.target.closest('#co-export-menu') && e.target.getAttribute('onclick') !== 'coToggleExportMenu()') menu.style.display = 'none';
+});
+
+// ── Carga principal: estado + resumen (llena el cache de muestreo compartido) +
+// produccion/televisiones (deberian pegarle a ese cache) + pallets (independiente) ──
+async function coLoadAll(manual) {
+    coCheckEstado();
+    coLoadPallets();
+    await coLoadResumen();
+    await Promise.all([coLoadProduccion(), coLoadTelevisiones()]);
+    document.getElementById('co-last-update').textContent = new Date().toLocaleTimeString('es-MX');
+    if (manual) showToast('Centro Operativo actualizado', 'success', 1500);
+}
+
+async function coCheckEstado() {
+    const bar = document.getElementById('co-status-bar');
+    try {
+        const data = await apiFetch(`${API}/api/centro-operativo/estado`);
+        const pill = (cls, label) => `<span class="co-status-pill ${cls}"><span class="co-status-dot"></span>${label}</span>`;
+        const scMap = { ok: pill('ok','SmartControl conectado'), error: pill('err','SmartControl sin conexion'), timeout: pill('err','SmartControl: tiempo agotado') };
+        const bmMap = { ok: pill('ok','BinManagerRO conectado'), no_configurado: pill('muted','BinManagerRO no configurado'), error: pill('err','BinManagerRO sin conexion'), error_autenticacion: pill('err','BinManagerRO: error de autenticacion'), timeout: pill('err','BinManagerRO: tiempo agotado') };
+        bar.innerHTML = (scMap[data.smartControl] || pill('muted','SmartControl: desconocido')) + (bmMap[data.binManagerRO] || pill('muted','BinManagerRO: desconocido'));
+    } catch (e) {
+        bar.innerHTML = '<span class="co-status-pill err"><span class="co-status-dot"></span>API sin conexion</span>';
+    }
+}
+
+// ── KPIs ──
+async function coLoadResumen() {
+    try {
+        const data = await apiFetch(`${API}/api/centro-operativo/resumen?${coBuildParams().toString()}`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar resumen');
+        coLastResumen = data;
+        coRenderKpis(data);
+    } catch (e) { showToast('Error al cargar KPIs: ' + e.message, 'error'); }
+}
+function coRenderKpis(data) {
+    const fmt = (n) => typeof n === 'number' ? n.toLocaleString('es-MX', { maximumFractionDigits: 2 }) : (n ?? '--');
+    Object.entries(data.kpis).forEach(([key, k]) => {
+        const el = document.querySelector(`[data-kpi="${key}"]`);
+        if (!el) return;
+        el.classList.remove('skeleton');
+        el.querySelector('.co-kpi-value').textContent = fmt(k.value);
+        const deltaEl = el.querySelector('.co-kpi-delta');
+        if (k.deltaPct == null) {
+            deltaEl.textContent = data.deltaDisponible === false ? '-- vs dia anterior' : '';
+            deltaEl.className = 'co-kpi-delta flat';
+        } else {
+            const up = k.deltaPct > 0.05, down = k.deltaPct < -0.05;
+            deltaEl.textContent = `${up?'\u2191':down?'\u2193':'\u2014'} ${Math.abs(k.deltaPct).toFixed(1)}% vs dia anterior`;
+            deltaEl.className = 'co-kpi-delta ' + (up ? 'up' : down ? 'down' : 'flat');
+        }
+        let noteEl = el.querySelector('.co-kpi-sample');
+        if (k.muestreado) {
+            if (!noteEl) { noteEl = document.createElement('div'); noteEl.className = 'co-kpi-sample'; el.appendChild(noteEl); }
+            noteEl.textContent = 'Muestreado';
+        } else if (noteEl) { noteEl.remove(); }
+    });
+    const note = data.muestreo && data.muestreo.muestreado
+        ? `<div class="co-sample-note"><i class="fa-solid fa-circle-info"></i> Marca/Modelo/Pulgadas/LPN/Workcenters calculados sobre una muestra de ${data.muestreo.palletsMuestreados} de ${data.muestreo.totalPalletsFiltro.toLocaleString('es-MX')} pallets que cumplen el filtro (los mas recientes)${data.muestreo.agotado ? ' — muestreo parcial por tiempo, reintenta en unos segundos' : ''}.</div>`
+        : '';
+    document.getElementById('co-sample-note-resumen').innerHTML = note;
+}
+
+// ── Graficas operativas ──
+function coUpdateOrCreateChart(key, canvasId, config) {
+    if (coCharts[key]) { coCharts[key].destroy(); delete coCharts[key]; }
+    const canvasEl = document.getElementById(canvasId);
+    if (!canvasEl) return null;
+    coCharts[key] = new Chart(canvasEl.getContext('2d'), config);
+    return coCharts[key];
+}
+function coRenderChartOrEmpty(key, wrapId, canvasId, rows, renderFn) {
+    const wrap = document.getElementById(wrapId);
+    if (!rows || rows.length === 0) {
+        if (coCharts[key]) { coCharts[key].destroy(); delete coCharts[key]; }
+        wrap.innerHTML = '<div class="co-empty">Sin datos para este filtro.</div>';
+        return;
+    }
+    if (!document.getElementById(canvasId)) wrap.innerHTML = `<canvas id="${canvasId}"></canvas>`;
+    renderFn();
+}
+async function coLoadProduccion() {
+    try {
+        const data = await apiFetch(`${API}/api/centro-operativo/produccion?${coBuildParams().toString()}`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar produccion');
+        coLastProduccion = data;
+        coRenderEscChart();
+        coRenderChartOrEmpty('hora', 'co-wrap-hora', 'co-chart-hora', data.porHora && data.porHora.some(h => h.dia || h.noche) ? data.porHora : [], () => coRenderHoraChart(data.porHora));
+        coRenderChartOrEmpty('condicion', 'co-wrap-condicion', 'co-chart-condicion', data.porCondicion, () => coRenderCondicionChart(data.porCondicion));
+        coRenderChartOrEmpty('destino', 'co-wrap-destino', 'co-chart-destino', data.porDestino, () => coRenderDestinoChart(data.porDestino));
+    } catch (e) { showToast('Error en produccion: ' + e.message, 'error'); }
+}
+function coSetEscMetric(metric) {
+    coEscMetric = metric;
+    document.querySelectorAll('#co-esc-tabs .co-tab-mini').forEach(b => b.classList.toggle('active', b.dataset.metric === metric));
+    coRenderEscChart();
+}
+function coRenderEscChart() {
+    if (!coLastProduccion) return;
+    const rows = coLastProduccion.porEscaneadora || [];
+    coRenderChartOrEmpty('esc', 'co-wrap-escaneadora', 'co-chart-escaneadora', rows, () => {
+        coUpdateOrCreateChart('esc', 'co-chart-escaneadora', {
+            type: 'bar',
+            data: { labels: rows.map(r => r.escaneadora), datasets: [{ data: rows.map(r => r[coEscMetric]), backgroundColor: '#4f7cffcc', hoverBackgroundColor: '#4f7cff', borderRadius: 4, barPercentage: 0.7 }] },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false,
+                plugins: { legend: { display: false }, tooltip: { backgroundColor: CHART_THEME.tooltipBg, titleColor: CHART_THEME.text, bodyColor: CHART_THEME.tooltipBody, borderColor: CHART_THEME.tooltipBorder, borderWidth: 1 } },
+                scales: { x: { beginAtZero: true, ticks: { color: CHART_THEME.muted }, grid: { color: CHART_THEME.gridLight } }, y: { ticks: { color: CHART_THEME.muted }, grid: { display: false } } },
+            },
+        });
+    });
+}
+function coRenderHoraChart(porHora) {
+    coUpdateOrCreateChart('hora', 'co-chart-hora', {
+        type: 'line',
+        data: { labels: porHora.map(h => `${String(h.hora).padStart(2,'0')}:00`), datasets: [
+            { label: 'Dia', data: porHora.map(h => h.dia), borderColor: '#4f7cff', backgroundColor: 'rgba(79,124,255,0.15)', tension: 0.3, fill: true, pointRadius: 0 },
+            { label: 'Noche', data: porHora.map(h => h.noche), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.15)', tension: 0.3, fill: true, pointRadius: 0 },
+        ] },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: { legend: { display: true, labels: { color: CHART_THEME.muted, boxWidth: 10 } }, tooltip: { backgroundColor: CHART_THEME.tooltipBg, titleColor: CHART_THEME.text, bodyColor: CHART_THEME.tooltipBody, borderColor: CHART_THEME.tooltipBorder, borderWidth: 1 } },
+            scales: { x: { ticks: { color: CHART_THEME.muted, maxRotation: 0 }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: CHART_THEME.muted }, grid: { color: CHART_THEME.gridLight } } },
+        },
+    });
+}
+const CO_DONUT_COLORS = ['#4f7cff','#22c55e','#f59e0b','#a78bfa','#ef4444','#06b6d4','#f97316','#84cc16'];
+function coRenderCondicionChart(rows) {
+    coUpdateOrCreateChart('condicion', 'co-chart-condicion', {
+        type: 'doughnut',
+        data: { labels: rows.map(r => r.condicion), datasets: [{ data: rows.map(r => r.piezas), backgroundColor: CO_DONUT_COLORS, borderColor: CHART_THEME.donutBorder, borderWidth: 2 }] },
+        options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { position: 'right', labels: { color: CHART_THEME.muted, boxWidth: 10, font: { size: 10 } } }, tooltip: { callbacks: { label: (ctx) => { const r = rows[ctx.dataIndex]; return ` ${r.condicion}: ${r.piezas.toLocaleString('es-MX')} (${r.porcentaje.toFixed(1)}%)`; } } } } },
+    });
+}
+function coRenderDestinoChart(rows) {
+    coUpdateOrCreateChart('destino', 'co-chart-destino', {
+        type: 'doughnut',
+        data: { labels: rows.map(r => r.destino), datasets: [{ data: rows.map(r => r.piezas), backgroundColor: CO_DONUT_COLORS, borderColor: CHART_THEME.donutBorder, borderWidth: 2 }] },
+        options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { position: 'right', labels: { color: CHART_THEME.muted, boxWidth: 10, font: { size: 10 } } }, tooltip: { callbacks: { label: (ctx) => { const r = rows[ctx.dataIndex]; return ` ${r.destino}: ${r.piezas.toLocaleString('es-MX')} (${r.porcentaje.toFixed(1)}%)`; } } } } },
+    });
+}
+
+// ── Resumen de televisiones (marca / modelo / pulgadas) — todo muestreado ──
+async function coLoadTelevisiones() {
+    try {
+        const data = await apiFetch(`${API}/api/centro-operativo/televisiones?${coBuildParams().toString()}`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar televisiones');
+        coLastTelevisiones = data;
+        coRenderMarcaTable();
+        coRenderModelos();
+        coRenderPulgadasTable(data.porPulgadas);
+        const note = data.muestreo && data.muestreo.muestreado
+            ? `<div class="co-sample-note"><i class="fa-solid fa-circle-info"></i> Basado en una muestra de ${data.muestreo.palletsMuestreados} de ${data.muestreo.totalPalletsFiltro.toLocaleString('es-MX')} pallets.</div>`
+            : '';
+        document.getElementById('co-sample-note-tv').innerHTML = note;
+    } catch (e) { showToast('Error en televisiones: ' + e.message, 'error'); }
+}
+function coRenderMarcaTable() {
+    const rows = (coLastTelevisiones && coLastTelevisiones.porMarca) || [];
+    const tbody = document.querySelector('#co-tabla-marca tbody');
+    const btn = document.getElementById('co-marca-vermas');
+    if (rows.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="co-empty">Sin marcas identificadas en la muestra.</td></tr>'; btn.style.display = 'none'; return; }
+    const shown = coMarcaExpanded ? rows : rows.slice(0, 6);
+    tbody.innerHTML = shown.map(r => `
+        <tr>
+            <td><b>${r.marca}</b></td>
+            <td>${r.piezas.toLocaleString('es-MX')}</td>
+            <td>${r.pallets}</td>
+            <td>${r.modelos}</td>
+            <td>${(r.pulgadas || []).map(p => p + '"').join(', ') || '-'}</td>
+            <td><div class="co-bar-row"><div class="co-bar-track"><div class="co-bar-fill" style="width:${r.porcentaje}%;"></div></div><span style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;">${r.porcentaje.toFixed(1)}%</span></div></td>
+        </tr>`).join('');
+    btn.style.display = rows.length > 6 ? 'inline-flex' : 'none';
+    btn.textContent = coMarcaExpanded ? 'Ver menos' : 'Ver todas las marcas';
+}
+function coRenderModelos() {
+    const rows = (coLastTelevisiones && coLastTelevisiones.porModelo) || [];
+    const q = (document.getElementById('co-modelo-search').value || '').trim().toLowerCase();
+    const filtered = q ? rows.filter(r => (r.modelo || '').toLowerCase().includes(q) || (r.marca || '').toLowerCase().includes(q)) : rows;
+    const tbody = document.querySelector('#co-tabla-modelo tbody');
+    const btn = document.getElementById('co-modelo-vermas');
+    if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="co-empty">Sin modelos identificados.</td></tr>'; btn.style.display = 'none'; return; }
+    const shown = coModeloExpanded ? filtered : filtered.slice(0, 8);
+    tbody.innerHTML = shown.map(r => `<tr><td>${r.marca}</td><td>${r.modelo}</td><td>${r.pulgadas ? r.pulgadas + '"' : '-'}</td><td>${r.piezas.toLocaleString('es-MX')}</td><td>${r.porcentaje.toFixed(1)}%</td></tr>`).join('');
+    btn.style.display = filtered.length > 8 ? 'inline-flex' : 'none';
+    btn.textContent = coModeloExpanded ? 'Ver menos' : 'Ver todos los modelos';
+}
+function coRenderPulgadasTable(rows) {
+    const tbody = document.querySelector('#co-tabla-pulgadas tbody');
+    if (!rows || rows.length === 0) { tbody.innerHTML = '<tr><td colspan="3" class="co-empty">Sin pulgadas identificadas.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(r => `
+        <tr>
+            <td>${r.label || (r.pulgadas + '"')}</td>
+            <td>${r.piezas.toLocaleString('es-MX')}</td>
+            <td><div class="co-bar-row"><div class="co-bar-track"><div class="co-bar-fill" style="width:${r.porcentaje}%;"></div></div><span style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;">${r.porcentaje.toFixed(1)}%</span></div></td>
+        </tr>`).join('');
+}
+function coToggleVerTodas(which) {
+    if (which === 'marca') { coMarcaExpanded = !coMarcaExpanded; coRenderMarcaTable(); }
+    else { coModeloExpanded = !coModeloExpanded; coRenderModelos(); }
+}
+
+// ── Pallets recientes (paginado server-side) ──
+async function coLoadPallets() {
+    const tbody = document.getElementById('co-pallets-body');
+    tbody.innerHTML = '<tr><td colspan="15" class="co-empty"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</td></tr>';
+    try {
+        const params = coBuildParams();
+        params.set('page', Math.floor(coPalletsOffset / coPalletsPageSize) + 1);
+        params.set('pageSize', coPalletsPageSize);
+        const orden = document.getElementById('co-pallets-orden').value;
+        if (orden) params.set('orden', orden);
+        const data = await apiFetch(`${API}/api/centro-operativo/pallets?${params.toString()}`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar pallets');
+        coPalletsTotal = data.total || 0;
+        coRenderPalletsTable(data.data || []);
+        const from = coPalletsTotal === 0 ? 0 : coPalletsOffset + 1;
+        const to = Math.min(coPalletsOffset + coPalletsPageSize, coPalletsTotal);
+        document.getElementById('co-pallets-count').textContent = `Mostrando ${from.toLocaleString('es-MX')}-${to.toLocaleString('es-MX')} de ${coPalletsTotal.toLocaleString('es-MX')}`;
+        const totalPages = Math.max(1, Math.ceil(coPalletsTotal / coPalletsPageSize));
+        const page = Math.floor(coPalletsOffset / coPalletsPageSize) + 1;
+        document.getElementById('co-pallets-page-label').textContent = `Pagina ${page} de ${totalPages}`;
+        document.getElementById('co-pallets-prev').disabled = coPalletsOffset <= 0;
+        document.getElementById('co-pallets-next').disabled = coPalletsOffset + coPalletsPageSize >= coPalletsTotal;
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="15" class="co-empty" style="color:var(--danger);">${(e.message || 'Error').replace(/</g,'&lt;')}</td></tr>`;
+    }
+}
+function coPalletsPage(delta) {
+    const next = coPalletsOffset + delta * coPalletsPageSize;
+    if (next < 0) return;
+    coPalletsOffset = next;
+    coLoadPallets();
+}
+function coRenderPalletsTable(rows) {
+    const tbody = document.getElementById('co-pallets-body');
+    if (rows.length === 0) { tbody.innerHTML = '<tr><td colspan="15" class="co-empty">Sin pallets para este filtro.</td></tr>'; return; }
+    const fmtHora = v => v ? new Date(v).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '-';
+    tbody.innerHTML = rows.map(r => {
+        const pid = String(r.palletId).replace(/'/g, "\\'");
+        return `
+        <tr style="cursor:pointer;" onclick="coOpenDrawer('${pid}')">
+            <td>${r.fecha || '-'}</td>
+            <td>${fmtHora(r.hora)}</td>
+            <td style="font-weight:600;">${scPalletLink(r.palletId)}</td>
+            <td>${r.cantidad ?? '-'}</td>
+            <td>${r.lpnUnicos ?? '-'}</td>
+            <td>${r.mixto ? `<span class="badge badge-amber" title="${r.skuCount || 0} SKU distintos">Mixto</span>` : ((r.marcas && r.marcas[0]) || '-')}</td>
+            <td>${r.mixto ? '<span style="color:var(--text-muted);">ver detalle</span>' : ((r.modelos && r.modelos[0]) || '-')}</td>
+            <td>${(r.pulgadas && r.pulgadas.length) ? r.pulgadas.map(p => p + '"').join(', ') : '-'}</td>
+            <td>${r.condicion || '-'}</td>
+            <td>${r.destino || '-'}</td>
+            <td>${r.workcenter || '-'}</td>
+            <td>${r.escaneadora || '-'}</td>
+            <td>${r.pedido || '-'}</td>
+            <td><span class="badge ${r.estado === 'Completado' ? 'badge-green' : 'badge-amber'}">${r.estado}</span></td>
+            <td><button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();coOpenDrawer('${pid}')" title="Ver detalle"><i class="fa-solid fa-eye"></i></button></td>
+        </tr>`;
+    }).join('');
+}
+
+// ── Drawer de detalle de pallet ──
+function coDrawerSetTab(tab) {
+    document.querySelectorAll('#co-drawer-tabs .ctrl-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.co-drawer-section').forEach(s => s.classList.remove('active'));
+    document.getElementById('co-drawer-' + tab).classList.add('active');
+}
+async function coOpenDrawer(palletId) {
+    document.getElementById('co-drawer-backdrop').classList.add('open');
+    document.getElementById('co-drawer').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    coDrawerSetTab('resumen');
+    document.getElementById('co-drawer-title').textContent = palletId;
+    ['resumen','contenido','distribucion','fotos','movimientos','alertas'].forEach(s => {
+        document.getElementById('co-drawer-' + s).innerHTML = '<div class="co-empty"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>';
+    });
+    try {
+        const data = await apiFetch(`${API}/api/centro-operativo/pallets/${encodeURIComponent(palletId)}`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar el pallet');
+        coRenderDrawer(data.data);
+    } catch (e) {
+        document.getElementById('co-drawer-resumen').innerHTML = `<div class="co-empty" style="color:var(--danger);">${(e.message || 'Error').replace(/</g,'&lt;')}</div>`;
+    }
+}
+function coCloseDrawer() {
+    document.getElementById('co-drawer-backdrop').classList.remove('open');
+    document.getElementById('co-drawer').classList.remove('open');
+    document.body.style.overflow = '';
+}
+function coRenderDrawer(d) {
+    const r = d.resumen;
+    const fmtFecha = v => v ? new Date(v).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }) : '-';
+    const infoRow = (label, val) => `<div style="background:var(--inset-bg);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.7rem;"><div style="font-size:0.62rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;">${label}</div><div style="font-size:0.88rem;font-weight:700;margin-top:2px;">${val}</div></div>`;
+    document.getElementById('co-drawer-resumen').innerHTML = `
+        ${d.mixto && d.mixto.isMixed ? `<div class="co-sample-note" style="display:block;margin-bottom:0.75rem;"><i class="fa-solid fa-layer-group"></i> Contenido mixto: ${d.mixto.brandCount} marca(s), ${d.mixto.modeloCount} modelo(s), ${d.mixto.skuCount} SKU(s) distintos.</div>` : ''}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0.5rem;">
+            ${infoRow('Estado', r.estado || '-')}
+            ${infoRow('Cantidad total', r.cantidadTotal ?? '-')}
+            ${infoRow('LPN unicos', r.lpnUnicos ?? '-')}
+            ${infoRow('SKU distintos', r.skuDistintos ?? '-')}
+            ${infoRow('Marcas', (r.marcas && r.marcas.length) ? r.marcas.join(', ') : 'Sin identificar')}
+            ${infoRow('Modelos', (r.modelos && r.modelos.length) ? r.modelos.join(', ') : 'Sin identificar')}
+            ${infoRow('Pulgadas', (r.pulgadas && r.pulgadas.length) ? r.pulgadas.map(p => p + '"').join(', ') : 'Sin identificar')}
+            ${infoRow('Condiciones', r.condiciones || '-')}
+            ${infoRow('Destino', r.destino || '-')}
+            ${infoRow('Workcenter', r.workcenter || '-')}
+            ${infoRow('Escaneadora', r.escaneadora || '-')}
+            ${infoRow('Turno', r.turno || '-')}
+            ${infoRow('Pedido', r.pedido || '-')}
+            ${infoRow('Fecha creacion', fmtFecha(r.fechaCreacion))}
+            ${infoRow('Ultimo movimiento', fmtFecha(r.ultimoMovimiento))}
+        </div>`;
+
+    const contenido = d.contenido || [];
+    document.getElementById('co-drawer-contenido').innerHTML = contenido.length === 0 ? '<div class="co-empty">Sin contenido reportado por SmartControl.</div>' : `
+        <table class="ctrl-table"><thead><tr><th>LPN</th><th>SKU</th><th>Marca</th><th>Modelo</th><th>Pulg.</th><th>Tipo</th><th>Condicion</th><th>Estado</th></tr></thead>
+        <tbody>${contenido.map(p => `<tr ${p.lpn ? `onclick="openScLpnDetail('${String(p.lpn).replace(/'/g,"\\'")}')" style="cursor:pointer;"` : ''}><td style="font-family:monospace;">${p.lpn || '-'}</td><td style="font-family:monospace;">${p.sku || '-'}</td><td>${p.marca || '-'}</td><td>${p.modelo || '-'}</td><td>${p.pulgadas ? p.pulgadas + '"' : '-'}</td><td>${(p.tvTypeTags || []).join(', ') || '-'}</td><td>${p.condicion || '-'}</td><td><span class="badge ${p.marca ? 'badge-green' : 'badge-gray'}">${p.estado}</span></td></tr>`).join('')}</tbody></table>`;
+
+    const distTable = (rows, labelKey) => (!rows || rows.length === 0) ? '<div class="co-empty">Sin datos.</div>' : `<table class="ctrl-table"><thead><tr><th>${labelKey}</th><th>Piezas</th></tr></thead><tbody>${rows.map(g => `<tr><td>${g.key}</td><td>${g.total}</td></tr>`).join('')}</tbody></table>`;
+    document.getElementById('co-drawer-distribucion').innerHTML = `
+        <h4 style="margin:0 0 0.4rem;font-size:0.8rem;">Por marca</h4>${distTable(d.distribucion.porMarca, 'Marca')}
+        <h4 style="margin:0.8rem 0 0.4rem;font-size:0.8rem;">Por modelo</h4>${distTable(d.distribucion.porModelo, 'Modelo')}
+        <h4 style="margin:0.8rem 0 0.4rem;font-size:0.8rem;">Por pulgadas</h4>${distTable(d.distribucion.porPulgadas, 'Pulgadas')}
+        <h4 style="margin:0.8rem 0 0.4rem;font-size:0.8rem;">Por condicion</h4>${distTable(d.distribucion.porCondicion, 'Condicion')}
+    `;
+
+    const fotos = d.fotografias || [];
+    document.getElementById('co-drawer-fotos').innerHTML = fotos.length === 0 ? '<div class="co-empty">Sin fotografias.</div>' : `<div style="display:flex;flex-wrap:wrap;gap:0.5rem;">${fotos.map(f => `<a href="${f.URLFoto}" target="_blank" rel="noopener"><img src="${f.URLFoto}" loading="lazy" style="height:100px;border-radius:8px;border:1px solid var(--border);object-fit:cover;"></a>`).join('')}</div>`;
+
+    const movs = d.movimientos || [];
+    document.getElementById('co-drawer-movimientos').innerHTML = movs.length === 0 ? '<div class="co-empty">Sin movimientos.</div>' : movs.map(m => `
+        <div style="border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:0.5rem 0.7rem;margin-bottom:0.4rem;background:var(--inset-bg);">
+            <div style="display:flex;justify-content:space-between;gap:0.5rem;"><b>${m.TipoMovimiento || '-'}</b><span style="color:var(--text-muted);font-size:0.75rem;">${fmtFecha(m.FechaMovimiento)}</span></div>
+            <div style="font-size:0.78rem;color:var(--text-muted);">${m.MovidoPor ? `por <b>${m.MovidoPor}</b>` : ''}${(m.PalletOrigen || m.PalletDestino) ? ` &middot; ${m.PalletOrigen || '?'} &rarr; ${m.PalletDestino || '?'}` : ''}</div>
+        </div>`).join('');
+
+    const alertas = d.alertas || [];
+    document.getElementById('co-drawer-alertas').innerHTML = alertas.length === 0
+        ? '<div class="co-empty"><i class="fa-solid fa-circle-check" style="color:#22c55e;"></i> Sin alertas para este pallet.</div>'
+        : alertas.map(a => `<div class="card" style="padding:0.6rem 0.8rem;margin-bottom:0.5rem;border-color:#f59e0b;font-size:0.82rem;"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;margin-right:6px;"></i>${String(a).replace(/</g,'&lt;')}</div>`).join('');
+}
+
+// ── Actualizacion automatica (30s, silenciosa, pausa si la pestana esta oculta) ──
+function coStartAuto() {
+    if (coAutoTimer) return;
+    coAutoTimer = setInterval(() => {
+        if (!coAutoEnabled) return;
+        if (document.visibilityState !== 'visible') return;
+        const view = document.getElementById('view-centro-operativo');
+        if (!view || !view.classList.contains('active')) return;
+        coLoadAll(false);
+    }, 30000);
+}
+function coToggleAuto() { coAutoEnabled = document.getElementById('co-auto-toggle').checked; }
+
+// ── Exportacion: CSV/Excel client-side (reusa exportCSV()/ExcelJS ya cargados para el
+// export del Dashboard) + PDF via html2canvas+jsPDF (mismo patron que exportDashboardPDF) ──
+function coToggleExportMenu() {
+    const menu = document.getElementById('co-export-menu');
+    menu.style.display = menu.style.display === 'none' || !menu.style.display ? 'block' : 'none';
+}
+async function coDownloadExcelWorkbook(wb, filename) {
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function coExport(formato) {
+    document.getElementById('co-export-menu').style.display = 'none';
+    if (formato === 'pdf-ejecutivo' || formato === 'pdf-detallado') { await coExportPdf(formato === 'pdf-detallado'); return; }
+
+    showToast('Preparando exportacion...', 'info', 1500);
+    let data;
+    try {
+        data = await apiFetch(`${API}/api/centro-operativo/exportar?${coBuildParams().toString()}`);
+        if (!data.success) throw new Error(data.error || 'Error al exportar');
+    } catch (e) { showToast('Error al exportar: ' + e.message, 'error'); return; }
+
+    if (formato === 'csv') {
+        const headers = ['Fecha','Hora','Pallet ID','Cantidad','Condicion','Destino','Turno','Escaneadora','Pedido'];
+        const rows = data.pallets.map(p => [p.fecha, p.createdAt ? new Date(p.createdAt).toLocaleTimeString('es-MX') : '', p.palletId, p.cantidad, p.condicion, p.destino, p.turno, p.escaneadora, p.pedido]);
+        exportCSV(`centro-operativo-${Date.now()}.csv`, headers, rows);
+    } else if (formato === 'xlsx') {
+        const EJS = window.ExcelJS;
+        if (!EJS) { showToast('ExcelJS no cargado, reintenta.', 'error'); return; }
+        const wb = new EJS.Workbook();
+        wb.creator = 'MI-TECH Paletizado — Centro Operativo API';
+
+        const wsResumen = wb.addWorksheet('Resumen');
+        let r = 1;
+        exTitle(wsResumen, 'Centro Operativo API', r, 1, 4); r += 1;
+        exSubtitle(wsResumen, `Generado: ${new Date().toLocaleString('es-MX')} · Rango: ${data.rango}`, r, 1, 4); r += 2;
+        if (coLastResumen) {
+            exSection(wsResumen, 'KPIs', r, 1, 4); r += 1;
+            Object.entries(coLastResumen.kpis).forEach(([k, v]) => { exRow(wsResumen, [k, v.value], r, 1); r += 1; });
+        }
+
+        const wsPallets = wb.addWorksheet('Pallets');
+        exHeaders(wsPallets, ['Fecha','Hora','Pallet ID','Cantidad','Condicion','Destino','Turno','Escaneadora','Pedido'], 1, 1);
+        data.pallets.forEach((p, i) => exRow(wsPallets, [p.fecha, p.createdAt ? new Date(p.createdAt).toLocaleTimeString('es-MX') : '', p.palletId, p.cantidad, p.condicion, p.destino, p.turno, p.escaneadora, p.pedido], i + 2, 1));
+
+        if (coLastTelevisiones) {
+            const wsMarcas = wb.addWorksheet('Marcas (muestreado)');
+            exHeaders(wsMarcas, ['Marca','Piezas','Pallets','Modelos','%'], 1, 1);
+            coLastTelevisiones.porMarca.forEach((m, i) => exRow(wsMarcas, [m.marca, m.piezas, m.pallets, m.modelos, `${m.porcentaje.toFixed(1)}%`], i + 2, 1));
+
+            const wsModelos = wb.addWorksheet('Modelos (muestreado)');
+            exHeaders(wsModelos, ['Marca','Modelo','Pulgadas','Piezas','%'], 1, 1);
+            coLastTelevisiones.porModelo.forEach((m, i) => exRow(wsModelos, [m.marca, m.modelo, m.pulgadas, m.piezas, `${m.porcentaje.toFixed(1)}%`], i + 2, 1));
+
+            const wsPulgadas = wb.addWorksheet('Pulgadas (muestreado)');
+            exHeaders(wsPulgadas, ['Pulgadas','Piezas','%'], 1, 1);
+            coLastTelevisiones.porPulgadas.forEach((m, i) => exRow(wsPulgadas, [m.label || (m.pulgadas + '"'), m.piezas, `${m.porcentaje.toFixed(1)}%`], i + 2, 1));
+        }
+        if (coLastProduccion) {
+            const wsEsc = wb.addWorksheet('Por Escaneadora');
+            exHeaders(wsEsc, ['Escaneadora','Piezas','Pallets','LPN unicos','Modelos'], 1, 1);
+            coLastProduccion.porEscaneadora.forEach((e, i) => exRow(wsEsc, [e.escaneadora, e.piezas, e.pallets, e.lpnUnicos, e.modelos], i + 2, 1));
+
+            const wsCond = wb.addWorksheet('Condiciones');
+            exHeaders(wsCond, ['Condicion','Piezas','%'], 1, 1);
+            coLastProduccion.porCondicion.forEach((c, i) => exRow(wsCond, [c.condicion, c.piezas, `${c.porcentaje.toFixed(1)}%`], i + 2, 1));
+
+            const wsDest = wb.addWorksheet('Destinos');
+            exHeaders(wsDest, ['Destino','Piezas','%'], 1, 1);
+            coLastProduccion.porDestino.forEach((ds, i) => exRow(wsDest, [ds.destino, ds.piezas, `${ds.porcentaje.toFixed(1)}%`], i + 2, 1));
+        }
+        await coDownloadExcelWorkbook(wb, `centro-operativo-${Date.now()}.xlsx`);
+    }
+    if (data.truncado) showToast(`Se exportaron los ${data.pallets.length} pallets mas recientes de ${data.totalReal.toLocaleString('es-MX')} totales que cumplen el filtro.`, 'info', 4500);
+}
+async function coExportPdf(detallado) {
+    const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+    if (!jsPDFCtor || typeof html2canvas === 'undefined') { showToast('Librerias PDF no cargadas. Reintenta.', 'error'); return; }
+    showToast('Generando PDF...', 'info', 2500);
+    const view = document.getElementById('view-centro-operativo');
+    // "Ejecutivo": encabezado+filtros+KPIs+graficas+resumen de TVs (sin la tabla de pallets).
+    // "Detallado": la vista completa tal como esta en pantalla, incluyendo la tabla de
+    // pallets (la pagina actualmente cargada — es una captura visual, no un reporte
+    // separado con todo el historico).
+    let hiddenEls = [];
+    if (!detallado) {
+        const cards = Array.from(view.querySelectorAll(':scope > .card'));
+        hiddenEls = cards.slice(-2);
+        hiddenEls.forEach(el => { el.style.display = 'none'; });
+    }
+    try {
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        const canvas = await html2canvas(view, { backgroundColor: isLight ? '#F5F7FB' : '#0a0f1e', scale: 2, useCORS: true, logging: false });
+        const pdf = new jsPDFCtor({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        const imgW = pageW;
+        const imgH = (canvas.height * imgW) / canvas.width;
+        const imgData = canvas.toDataURL('image/png');
+        let heightLeft = imgH, position = 0;
+        pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
+        heightLeft -= pageH;
+        while (heightLeft > 0) { position -= pageH; pdf.addPage(); pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH); heightLeft -= pageH; }
+        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+        pdf.save(`centro-operativo-${detallado ? 'detallado' : 'ejecutivo'}-${ts}.pdf`);
+    } catch (e) {
+        showToast('Error al generar PDF: ' + e.message, 'error');
+    } finally {
+        hiddenEls.forEach(el => { el.style.display = ''; });
+    }
 }
 
 function debouncedSearch() {

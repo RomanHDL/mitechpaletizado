@@ -2,6 +2,9 @@
   "name": "mitechpaletizado",
   "version": "3.0.0",
   "private": true,
+  "scripts": {
+    "test": "node --test api/services/*.test.js"
+  },
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",

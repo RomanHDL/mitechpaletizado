@@ -4,6 +4,18 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Pusher = require('pusher');
+const {
+  parseInchesFromDescription,
+  normalizeBrand,
+  normalizeModelo,
+  parseTvTypeTags,
+  dedupeUniqueLpns,
+  groupBy,
+  groupByFoldingCase,
+  detectMixedPallet,
+  safeDivide,
+  computeDelta,
+} = require('./services/centroOperativoHelpers');
 
 const app = express();
 app.use(cors());
@@ -1384,11 +1396,9 @@ const tvStatsCache = new Map();
 const TV_STATS_CACHE_MS = 5 * 60 * 1000;
 const TV_STATS_MAX_PALLETS = 80;
 
-function parseInches(desc) {
-  if (!desc) return null;
-  const m = String(desc).match(/(\d{2,3})\s*("|”|Class|Clase|in\.)/i);
-  return m ? parseInt(m[1], 10) : null;
-}
+// parseInches vive ahora en services/centroOperativoHelpers.js (parseInchesFromDescription) —
+// unificado para que /api/centro-operativo/* lo comparta sin duplicar la logica.
+const parseInches = parseInchesFromDescription;
 
 app.get('/api/dashboard/tv-stats', auth, moduleGuard('dashboard'), async (req, res) => {
   try {
@@ -2403,6 +2413,650 @@ app.get('/api/historial', auth, moduleGuard('dashboard'), async (req, res) => {
     const data = await EscReg.populate(rawData, { path: 'capturadoPor', select: 'nombre' });
     const total = await EscReg.countDocuments(filter);
     res.json({ success: true, data, total });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ══════════════════════════════════════════════
+// CENTRO OPERATIVO API (solo admin 3647) — modulo nuevo, independiente (2026-07-30).
+//
+// Arquitectura: frontend -> estas rutas -> EscReg (Mongo, datos propios de esta app,
+// exactos) + SmartControl (appsc.mitechnologiesinc.com, en vivo, via scFetchJson/
+// fetchScPalletLive ya existentes) + Cubicaje (BinManagerRO, via el proxy
+// /api/sc-pallets/live* ya existente). Nunca se llama a SmartControl ni a Cubicaje
+// directo desde el navegador — todo pasa por aqui, igual que el resto de la app.
+//
+// LIMITACION REAL IMPORTANTE (documentada, no oculta): EscReg (escRegSchema, linea
+// ~155) NO guarda marca, modelo, pulgadas, LPN/numero de serie ni workcenter — esos
+// campos solo existen en vivo dentro de SmartControl, por pallet. Para no golpear
+// SmartControl una vez por cada registro (podrian ser miles), estos 5 valores se
+// calculan sobre una MUESTRA de los pallets mas recientes que cumplen el filtro
+// (ver buildSampledEnrichment), igual que ya hacia /api/dashboard/tv-stats. Todas
+// las respuestas que dependen de esto incluyen un bloque `muestreo` explicito
+// (totalPalletsFiltro/palletsMuestreados/muestreado) para que la UI lo muestre
+// honestamente en vez de presentar un total exacto que no lo es.
+// ══════════════════════════════════════════════
+
+function centroOperativoGuard(req, res, next) {
+  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+  next();
+}
+
+// Filtro Mongo compartido por todos los endpoints de este modulo. `escaneadoras`
+// es una lista separada por comas de nombres EXACTOS (vienen del selector multiple,
+// poblado con /filtros -> nunca texto libre adivinado).
+function buildCentroFilter(query) {
+  const { fecha, escaneadoras, turno, condicion, destino, pedido, q, palletId } = query;
+  const filter = {};
+  if (fecha) filter.fecha = fecha;
+  if (escaneadoras) {
+    const list = String(escaneadoras).split(',').map((s) => s.trim()).filter(Boolean);
+    if (list.length) filter.escaneadora = { $in: list.map((s) => new RegExp(`^${escapeRegex(s)}$`, 'i')) };
+  }
+  if (turno) filter.turno = rx(turno);
+  if (condicion) filter.condicion = rx(condicion);
+  if (destino) filter.destino = rx(destino);
+  if (pedido) filter.pedido = rx(pedido);
+  if (palletId) filter.palletId = rx(palletId);
+  if (q) {
+    filter.$or = [
+      { palletId: rx(q) }, { pedido: rx(q) }, { escaneadora: rx(q) },
+      { condicion: rx(q) }, { destino: rx(q) }, { observaciones: rx(q) },
+    ];
+  }
+  return filter;
+}
+
+// Aplica el rango de fechas (fecha_inicio/fecha_fin) a un pipeline de aggregate ya
+// armado, siguiendo exactamente el patron de /api/historial (fechaDateStages +
+// fechaDateRangeMatch) para no reinventar el manejo de fechas string M/D/YYYY.
+function applyCentroDateRange(pipeline, query) {
+  if (!query.fecha && (query.fecha_inicio || query.fecha_fin)) {
+    pipeline.push(...fechaDateStages());
+    pipeline.push({ $match: fechaDateRangeMatch(query.fecha_inicio, query.fecha_fin) });
+    pipeline.push({ $project: { _fParts: 0, _fY: 0, _fM: 0, _fD: 0, _fechaDate: 0 } });
+  }
+}
+
+function previousDayFecha(fecha) {
+  const d = parseFechaMDY(fecha);
+  if (!d) return null;
+  d.setDate(d.getDate() - 1);
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+}
+
+// ── Estado de conexion de las 2 APIs reales que usa este modulo ──
+app.get('/api/centro-operativo/estado', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  const estado = { smartControl: 'sin_probar', binManagerRO: 'sin_probar' };
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 6000);
+    try {
+      const resp = await fetch('https://appsc.mitechnologiesinc.com/', { signal: controller.signal });
+      estado.smartControl = resp ? 'ok' : 'error';
+    } catch (e) {
+      estado.smartControl = e.name === 'AbortError' ? 'timeout' : 'error';
+    } finally { clearTimeout(t); }
+  } catch { estado.smartControl = 'error'; }
+
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key) {
+    estado.binManagerRO = 'no_configurado';
+  } else {
+    try {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 6000);
+      let resp;
+      try {
+        resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/live-pallets-stats`, {
+          headers: { 'X-Integration-Key': key }, signal: controller.signal,
+        });
+      } finally { clearTimeout(t); }
+      estado.binManagerRO = resp.ok ? 'ok' : (resp.status === 401 ? 'error_autenticacion' : 'error');
+    } catch (e) {
+      estado.binManagerRO = e.name === 'AbortError' ? 'timeout' : 'error';
+    }
+  }
+  res.json({ success: true, ...estado, timestamp: new Date().toISOString() });
+});
+
+// ── Valores reales para poblar los selectores de filtro (nunca texto escrito a mano) ──
+app.get('/api/centro-operativo/filtros', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const [escaneadoras, turnos, condiciones, destinos] = await Promise.all([
+      EscReg.distinct('escaneadora'),
+      EscReg.distinct('turno'),
+      EscReg.distinct('condicion'),
+      EscReg.distinct('destino'),
+    ]);
+    res.json({
+      success: true,
+      escaneadoras: escaneadoras.filter(Boolean).sort(),
+      turnos: turnos.filter(Boolean).sort(),
+      condiciones: condiciones.filter(Boolean).sort(),
+      destinos: destinos.filter(Boolean).sort(),
+      // Workcenter NO se guarda en EscReg (solo vive en vivo en SmartControl por pallet) —
+      // no hay un catalogo real de donde sacar esta lista sin muestrear primero.
+      workcenters: [],
+      workcentersDisponible: false,
+    });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ── Muestreo enriquecido compartido: cruza pallets reales (EscReg) contra SmartControl ──
+// para sacar marca/modelo/pulgadas/tipo/LPN/workcenter. Cacheado 5 min por combinacion de
+// filtros. Usado por /resumen, /produccion y /televisiones para no triplicar las llamadas
+// a SmartControl entre los 3 endpoints (y para que los 3 muestren numeros consistentes).
+const centroCache = new Map();
+const CENTRO_CACHE_MS = 5 * 60 * 1000;
+// 30 (no 80, como tv-stats): con el modulo llamando esto en automatico desde 3 endpoints
+// distintos en cada carga/filtro (no con un boton manual como tv-stats), un muestreo de 80
+// midio 9-13s en vivo contra datos reales — riesgo real de exceder el limite de tiempo de
+// una funcion serverless de Vercel (ya paso hoy mismo con /api/lpn-duplicates/check).
+const CENTRO_MAX_PALLETS = 20;
+// Presupuesto de tiempo de la fase de muestreo: si se excede, se deja de lanzar mas lotes
+// y se regresa lo ya procesado (parcial, marcado explicitamente) en vez de arriesgar un
+// timeout total de la funcion. Medido en pruebas locales: incluso 20-30 pallets pueden
+// tardar 10s+ dependiendo de la latencia de red hacia SmartControl — este limite es la
+// red de seguridad, no la expectativa normal.
+const CENTRO_SAMPLE_DEADLINE_MS = 6000;
+
+async function classifyLpn(lpn) {
+  const raw = await scFetchJson(`https://appsc.mitechnologiesinc.com/Classification/GetDataLicensePlateNumber_ApiAR?LPN=${encodeURIComponent(lpn)}`, 7000);
+  const arr = scTryParse(raw.WorkPlanLicensePlateNumber) || [];
+  return Array.isArray(arr) ? arr[0] : null;
+}
+
+async function buildSampledEnrichment(filter, query) {
+  // Cache-primero ANTES de tocar Mongo/SmartControl: /resumen, /produccion y
+  // /televisiones llaman esto con el mismo filtro en cada carga de pagina — sin esto,
+  // los 3 hacian su propio muestreo completo por separado (9-13s cada uno, medido
+  // contra datos reales). La llave es solo filtro+query (no los palletIds resueltos),
+  // para poder responder desde cache sin siquiera re-consultar EscReg.
+  const cacheKey = JSON.stringify({ f: filter, q: query });
+  const cached = centroCache.get(cacheKey);
+  if (cached && (Date.now() - cached.ts) < CENTRO_CACHE_MS) return cached.data;
+
+  // Conteo real y exacto de pallets distintos que cumplen el filtro (server-side, no
+  // viaja mas que un numero) — se usa para el flag "muestreado: X de Y", separado de la
+  // consulta de abajo que SI trae documentos completos.
+  const countPipeline = [{ $match: filter }];
+  applyCentroDateRange(countPipeline, query);
+  countPipeline.push({ $group: { _id: '$palletId' } }, { $count: 'total' });
+  const [countResult] = await EscReg.aggregate(countPipeline);
+  const totalPalletsFiltro = countResult?.total || 0;
+
+  // Los registros completos SOLO se piden hasta un tope generoso (500, muy por encima del
+  // maximo de pallets distintos que en verdad se van a muestrear) — sin este limite, un
+  // filtro amplio (o sin filtro) traia TODO el historico completo por la red antes de
+  // recortar del lado del cliente, lo cual midio 9-10s solo en transferencia con ~4200
+  // registros reales, aun cuando SmartControl mismo responde en <300ms por pallet.
+  const pipeline = [{ $match: filter }];
+  applyCentroDateRange(pipeline, query);
+  pipeline.push(
+    { $sort: { createdAt: -1 } },
+    { $limit: 500 },
+    { $project: { palletId: 1, cantidad: 1, escaneadora: 1, turno: 1, condicion: 1, destino: 1, pedido: 1, fecha: 1, createdAt: 1 } },
+  );
+  const registros = await EscReg.aggregate(pipeline);
+
+  // Un palletId puede tener mas de un registro (correcciones); nos quedamos con el mas
+  // reciente para los campos descriptivos y sumamos cantidad, igual que ya hacia tv-stats.
+  const porPallet = new Map(); // palletId -> { cantidad, escaneadora, turno, condicion, destino, pedido, fecha }
+  const orden = [];
+  for (const r of registros) {
+    const pid = normalizePalletId(r.palletId);
+    if (!pid) continue;
+    if (!porPallet.has(pid)) { porPallet.set(pid, { ...r, cantidad: 0 }); orden.push(pid); }
+    porPallet.get(pid).cantidad += (r.cantidad || 0);
+  }
+
+  const muestreado = totalPalletsFiltro > CENTRO_MAX_PALLETS;
+  const palletIds = orden.slice(0, CENTRO_MAX_PALLETS);
+
+  const perPallet = []; // enriquecido, uno por pallet muestreado
+  let procesados = 0, errores = 0, agotado = false;
+  const deadline = Date.now() + CENTRO_SAMPLE_DEADLINE_MS;
+  const BATCH = 8;
+  for (let i = 0; i < palletIds.length; i += BATCH) {
+    if (Date.now() > deadline) { agotado = true; break; }
+    const batch = palletIds.slice(i, i + BATCH);
+    await Promise.all(batch.map(async (pid) => {
+      const meta = porPallet.get(pid);
+      try {
+        const live = await fetchScPalletLive(pid);
+        const productos = live.productos || [];
+        const lpns = dedupeUniqueLpns(productos.map((p) => p.NumeroSerie));
+
+        // Igual que tv-stats: preferir candidatos SKU-de-TV (prefijo SNTV visto en datos
+        // reales) antes de aceptar cualquier otro producto del pallet como representativo.
+        const candidatos = [
+          ...productos.filter((p) => p.NumeroSerie && /^SNTV/i.test(p.SKU || '')),
+          ...productos.filter((p) => p.NumeroSerie && !/^SNTV/i.test(p.SKU || '')),
+        ].map((p) => p.NumeroSerie);
+
+        // En paralelo (antes secuencial con corte anticipado): probar 1 candidato a la vez
+        // era el cuello de botella real del muestreo (hasta 4 round-trips seguidos por
+        // pallet x 8 pallets por lote), medido en vivo en ~10-13s incluso con pocos
+        // pallets. Se dispara todo el lote de candidatos a la vez y se toma el primero
+        // (en el orden de prioridad original) que la Classification API confirme como TV.
+        let info = null;
+        const candidatoResults = await Promise.all(
+          candidatos.slice(0, 4).map((lpn) => classifyLpn(lpn).catch(() => null)),
+        );
+        for (const candidateInfo of candidatoResults) {
+          if (candidateInfo && candidateInfo.CategoryName === 'Televisions') { info = candidateInfo; break; }
+        }
+
+        perPallet.push({
+          palletId: pid,
+          cantidad: meta.cantidad,
+          escaneadora: meta.escaneadora,
+          turno: meta.turno,
+          condicion: meta.condicion,
+          destino: meta.destino,
+          pedido: meta.pedido,
+          fecha: meta.fecha,
+          workcenter: live.workcenter || null,
+          lpnCount: lpns.size,
+          lpns: [...lpns],
+          marca: info ? normalizeBrand(info.Brand) : null,
+          modelo: info ? normalizeModelo(info.MFGSKU) : null,
+          sku: info?.SKU || null,
+          pulgadas: info ? parseInches(info.ItemDescription) : null,
+          tvTypeTags: info ? parseTvTypeTags(info.ItemDescription) : [],
+          identificado: !!info,
+        });
+        procesados++;
+      } catch (e) {
+        perPallet.push({ palletId: pid, cantidad: meta.cantidad, escaneadora: meta.escaneadora, turno: meta.turno, condicion: meta.condicion, destino: meta.destino, pedido: meta.pedido, fecha: meta.fecha, workcenter: null, lpnCount: 0, lpns: [], marca: null, modelo: null, sku: null, pulgadas: null, tvTypeTags: [], identificado: false, error: true });
+        errores++;
+      }
+    }));
+  }
+
+  const data = { totalPalletsFiltro, palletsMuestreados: perPallet.length, muestreado: muestreado || agotado, procesados, errores, agotado, perPallet };
+  // Solo se cachea si termino completo — un resultado parcial por deadline no debe
+  // congelarse 5 min como si fuera el muestreo completo del filtro.
+  if (!agotado) centroCache.set(cacheKey, { ts: Date.now(), data });
+  return data;
+}
+
+// ── KPIs principales (2 filas de 6) ──
+app.get('/api/centro-operativo/resumen', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const filter = buildCentroFilter(req.query);
+
+    async function kpisBase(baseFilter, query) {
+      const pipeline = [{ $match: baseFilter }];
+      applyCentroDateRange(pipeline, query);
+      pipeline.push({ $group: {
+        _id: null,
+        pallets: { $addToSet: '$palletId' },
+        piezas: { $sum: '$cantidad' },
+        escaneadoras: { $addToSet: '$escaneadora' },
+        pedidos: { $addToSet: { $cond: [{ $and: [{ $ne: ['$pedido', ''] }, { $ne: ['$pedido', null] }] }, '$pedido', '$$REMOVE'] } },
+        registrosIncompletos: { $sum: { $cond: [{ $or: [{ $eq: ['$condicion', ''] }, { $lte: ['$cantidad', 0] }] }, 1, 0] } },
+        primeraFecha: { $min: '$createdAt' },
+        ultimaFecha: { $max: '$createdAt' },
+        totalRegistros: { $sum: 1 },
+      } });
+      const [r] = await EscReg.aggregate(pipeline);
+      if (!r) return { totalPallets: 0, totalPiezas: 0, escaneadorasActivas: 0, pedidosTrabajados: 0, registrosIncompletos: 0, promedioPorPallet: 0, produccionPorHora: 0 };
+      const totalPallets = r.pallets.filter(Boolean).length;
+      const totalPiezas = r.piezas || 0;
+      const horas = r.primeraFecha && r.ultimaFecha
+        ? Math.max(1, (new Date(r.ultimaFecha) - new Date(r.primeraFecha)) / (1000 * 60 * 60))
+        : 1;
+      return {
+        totalPallets,
+        totalPiezas,
+        escaneadorasActivas: r.escaneadoras.filter(Boolean).length,
+        pedidosTrabajados: r.pedidos.length,
+        registrosIncompletos: r.registrosIncompletos || 0,
+        promedioPorPallet: Number(safeDivide(totalPiezas, totalPallets).toFixed(2)),
+        produccionPorHora: Number(safeDivide(totalPiezas, horas).toFixed(1)),
+      };
+    }
+
+    const actual = await kpisBase(filter, req.query);
+    const enrichment = await buildSampledEnrichment(filter, req.query);
+    const marcas = new Set(), modelos = new Set(), pulgadas = new Set(), workcenters = new Set(), lpns = new Set();
+    for (const p of enrichment.perPallet) {
+      if (p.marca) marcas.add(p.marca);
+      if (p.modelo) modelos.add(p.modelo);
+      if (p.pulgadas) pulgadas.add(p.pulgadas);
+      if (p.workcenter) workcenters.add(p.workcenter);
+      for (const l of p.lpns) lpns.add(l);
+    }
+
+    // Comparacion "vs dia anterior": solo cuando el filtro es UN dia exacto (no rango, no
+    // multi-dia) — con un rango no hay un "dia anterior" unico y correcto que comparar.
+    let anterior = null;
+    if (req.query.fecha) {
+      const fechaPrev = previousDayFecha(req.query.fecha);
+      if (fechaPrev) {
+        const filtroPrev = buildCentroFilter({ ...req.query, fecha: fechaPrev });
+        anterior = await kpisBase(filtroPrev, { ...req.query, fecha: fechaPrev });
+      }
+    }
+    const delta = (key) => anterior ? computeDelta(actual[key], anterior[key]) : null;
+
+    res.json({
+      success: true,
+      kpis: {
+        totalPallets: { value: actual.totalPallets, deltaPct: delta('totalPallets') },
+        totalPiezas: { value: actual.totalPiezas, deltaPct: delta('totalPiezas') },
+        lpnUnicos: { value: lpns.size, deltaPct: null, muestreado: enrichment.muestreado },
+        escaneadorasActivas: { value: actual.escaneadorasActivas, deltaPct: delta('escaneadorasActivas') },
+        marcasProcesadas: { value: marcas.size, deltaPct: null, muestreado: enrichment.muestreado },
+        modelosProcesados: { value: modelos.size, deltaPct: null, muestreado: enrichment.muestreado },
+        pulgadasDiferentes: { value: pulgadas.size, deltaPct: null, muestreado: enrichment.muestreado },
+        pedidosTrabajados: { value: actual.pedidosTrabajados, deltaPct: delta('pedidosTrabajados') },
+        promedioPorPallet: { value: actual.promedioPorPallet, deltaPct: delta('promedioPorPallet') },
+        produccionPorHora: { value: actual.produccionPorHora, deltaPct: delta('produccionPorHora') },
+        workcentersActivos: { value: workcenters.size, deltaPct: null, muestreado: enrichment.muestreado },
+        registrosIncompletos: { value: actual.registrosIncompletos, deltaPct: delta('registrosIncompletos') },
+      },
+      muestreo: { totalPalletsFiltro: enrichment.totalPalletsFiltro, palletsMuestreados: enrichment.palletsMuestreados, muestreado: enrichment.muestreado, procesados: enrichment.procesados, errores: enrichment.errores, agotado: enrichment.agotado },
+      deltaDisponible: !!anterior,
+    });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ── Graficas operativas: por escaneadora, por hora, por condicion, por destino ──
+app.get('/api/centro-operativo/produccion', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const filter = buildCentroFilter(req.query);
+
+    const porCondicionPipeline = [{ $match: filter }];
+    applyCentroDateRange(porCondicionPipeline, req.query);
+    porCondicionPipeline.push({ $group: { _id: { $ifNull: ['$condicion', 'Sin condicion'] }, piezas: { $sum: '$cantidad' } } }, { $sort: { piezas: -1 } });
+
+    const porDestinoPipeline = [{ $match: filter }];
+    applyCentroDateRange(porDestinoPipeline, req.query);
+    porDestinoPipeline.push({ $group: { _id: { $ifNull: ['$destino', 'Sin destino'] }, piezas: { $sum: '$cantidad' } } }, { $sort: { piezas: -1 } });
+
+    // Piezas por hora del dia (0-23, tz Mexico), separado dia/noche usando las mismas
+    // franjas reales ya establecidas en el resto de la app (calcTurnoFromHour): Dia+Extra
+    // (7:00-22:00) se muestran como "Dia", el resto (22:00-7:00) como "Noche" — 2 series,
+    // como pide el modulo, en vez de las 3 franjas internas de negocio.
+    const porHoraPipeline = [{ $match: filter }];
+    applyCentroDateRange(porHoraPipeline, req.query);
+    porHoraPipeline.push(
+      { $addFields: { hora: { $hour: { date: '$createdAt', timezone: 'America/Mexico_City' } } } },
+      { $group: {
+          _id: '$hora',
+          dia: { $sum: { $cond: [{ $and: [{ $gte: ['$hora', 7] }, { $lt: ['$hora', 22] }] }, '$cantidad', 0] } },
+          noche: { $sum: { $cond: [{ $or: [{ $gte: ['$hora', 22] }, { $lt: ['$hora', 7] }] }, '$cantidad', 0] } },
+      } },
+      { $sort: { _id: 1 } },
+    );
+
+    const [porCondicion, porDestino, porHoraRaw] = await Promise.all([
+      EscReg.aggregate(porCondicionPipeline),
+      EscReg.aggregate(porDestinoPipeline),
+      EscReg.aggregate(porHoraPipeline),
+    ]);
+    const totalCond = porCondicion.reduce((s, c) => s + c.piezas, 0);
+    const totalDest = porDestino.reduce((s, c) => s + c.piezas, 0);
+    const porHora = Array.from({ length: 24 }, (_, h) => {
+      const row = porHoraRaw.find((r) => r._id === h);
+      return { hora: h, dia: row?.dia || 0, noche: row?.noche || 0 };
+    });
+
+    // Produccion por escaneadora (piezas/pallets exactos de Mongo; LPN unicos/modelos
+    // vienen del muestreo enriquecido compartido — se marcan aparte como estimados).
+    const porEscPipeline = [{ $match: filter }];
+    applyCentroDateRange(porEscPipeline, req.query);
+    porEscPipeline.push({ $group: { _id: '$escaneadora', piezas: { $sum: '$cantidad' }, pallets: { $addToSet: '$palletId' } } });
+    const porEscRaw = await EscReg.aggregate(porEscPipeline);
+
+    const enrichment = await buildSampledEnrichment(filter, req.query);
+    const lpnPorEsc = new Map(), modelosPorEsc = new Map();
+    for (const p of enrichment.perPallet) {
+      if (!p.escaneadora) continue;
+      if (!lpnPorEsc.has(p.escaneadora)) { lpnPorEsc.set(p.escaneadora, new Set()); modelosPorEsc.set(p.escaneadora, new Set()); }
+      for (const l of p.lpns) lpnPorEsc.get(p.escaneadora).add(l);
+      if (p.modelo) modelosPorEsc.get(p.escaneadora).add(p.modelo);
+    }
+
+    const porEscaneadora = porEscRaw
+      .map((r) => ({
+        escaneadora: r._id || 'Sin asignar',
+        piezas: r.piezas,
+        pallets: r.pallets.filter(Boolean).length,
+        lpnUnicos: lpnPorEsc.get(r._id)?.size ?? 0,
+        modelos: modelosPorEsc.get(r._id)?.size ?? 0,
+      }))
+      .sort((a, b) => b.piezas - a.piezas);
+
+    res.json({
+      success: true,
+      porEscaneadora,
+      porHora,
+      porCondicion: porCondicion.map((c) => ({ condicion: c._id, piezas: c.piezas, porcentaje: totalCond > 0 ? (c.piezas / totalCond) * 100 : 0 })),
+      porDestino: porDestino.map((d) => ({ destino: d._id, piezas: d.piezas, porcentaje: totalDest > 0 ? (d.piezas / totalDest) * 100 : 0 })),
+      muestreo: { totalPalletsFiltro: enrichment.totalPalletsFiltro, palletsMuestreados: enrichment.palletsMuestreados, muestreado: enrichment.muestreado, agotado: enrichment.agotado },
+    });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ── Resumen de televisiones: por marca, por modelo, por pulgadas ── (todo muestreado, ver arriba)
+app.get('/api/centro-operativo/televisiones', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const filter = buildCentroFilter(req.query);
+    const enrichment = await buildSampledEnrichment(filter, req.query);
+    const identificados = enrichment.perPallet.filter((p) => p.identificado);
+
+    const porMarcaGrupos = groupByFoldingCase(identificados, (p) => p.marca, (p) => p.cantidad);
+    const porMarca = porMarcaGrupos.map((g) => ({
+      marca: g.key,
+      piezas: g.total,
+      pallets: g.items.length,
+      modelos: new Set(g.items.map((i) => i.modelo)).size,
+      pulgadas: [...new Set(g.items.map((i) => i.pulgadas).filter(Boolean))].sort((a, b) => a - b),
+      porcentaje: g.porcentaje,
+    }));
+
+    const porModeloGrupos = groupByFoldingCase(identificados, (p) => `${p.marca}|${p.modelo}`, (p) => p.cantidad);
+    const porModelo = porModeloGrupos.map((g) => {
+      const [marca, modelo] = g.key.split('|');
+      return {
+        marca, modelo,
+        pulgadas: g.items[0]?.pulgadas ?? null,
+        sku: g.items[0]?.sku ?? null,
+        piezas: g.total,
+        pallets: g.items.length,
+        porcentaje: g.porcentaje,
+      };
+    });
+
+    const porPulgadasGrupos = groupBy(identificados.filter((p) => p.pulgadas), (p) => p.pulgadas, (p) => p.cantidad);
+    const sinPulgadas = identificados.filter((p) => !p.pulgadas).reduce((s, p) => s + p.cantidad, 0);
+    const totalPulgadasPiezas = porPulgadasGrupos.reduce((s, g) => s + g.total, 0) + sinPulgadas;
+    const porPulgadas = porPulgadasGrupos
+      .sort((a, b) => a.key - b.key)
+      .map((g) => ({ pulgadas: g.key, piezas: g.total, porcentaje: totalPulgadasPiezas > 0 ? (g.total / totalPulgadasPiezas) * 100 : 0 }));
+    if (sinPulgadas > 0) porPulgadas.push({ pulgadas: null, label: 'Sin identificar', piezas: sinPulgadas, porcentaje: totalPulgadasPiezas > 0 ? (sinPulgadas / totalPulgadasPiezas) * 100 : 0 });
+
+    // Tipo de panel/resolucion: parseado de la descripcion real, nunca inventado — cada
+    // pallet puede aportar varios tags (ej. '4K' y 'LED' a la vez).
+    const tipoCount = new Map();
+    for (const p of identificados) for (const tag of p.tvTypeTags) tipoCount.set(tag, (tipoCount.get(tag) || 0) + p.cantidad);
+    const porTipo = [...tipoCount.entries()].sort((a, b) => b[1] - a[1]).map(([tipo, piezas]) => ({ tipo, piezas }));
+
+    res.json({
+      success: true,
+      porMarca, porModelo, porPulgadas, porTipo,
+      muestreo: { totalPalletsFiltro: enrichment.totalPalletsFiltro, palletsMuestreados: enrichment.palletsMuestreados, muestreado: enrichment.muestreado, procesados: enrichment.procesados, errores: enrichment.errores, agotado: enrichment.agotado },
+    });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ── Pallets recientes: paginado server-side (mismo patron que /api/historial) ──
+app.get('/api/centro-operativo/pallets', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const filter = buildCentroFilter(req.query);
+    const pageNum = Math.max(1, parseInt(req.query.page) || 1);
+    const size = Math.min(200, Math.max(1, parseInt(req.query.pageSize) || 25));
+    const orden = req.query.orden;
+    let sortStage = { createdAt: -1 };
+    if (orden === 'fecha_asc') sortStage = { createdAt: 1 };
+    else if (orden === 'cantidad_desc') sortStage = { cantidad: -1, createdAt: -1 };
+    else if (orden === 'cantidad_asc') sortStage = { cantidad: 1, createdAt: -1 };
+
+    const pipeline = [{ $match: filter }];
+    applyCentroDateRange(pipeline, req.query);
+    pipeline.push({
+      $facet: {
+        data: [{ $sort: sortStage }, { $skip: (pageNum - 1) * size }, { $limit: size }],
+        totalCount: [{ $count: 'count' }],
+      },
+    });
+    const [result] = await EscReg.aggregate(pipeline);
+    const totalRecords = result.totalCount[0]?.count || 0;
+    const totalPages = Math.max(1, Math.ceil(totalRecords / size));
+
+    // Enriquecer SOLO la pagina visible (25-200 filas), nunca el filtro completo —
+    // evita el problema N+1 de golpear SmartControl por cada registro del historico.
+    const enriquecidos = await Promise.all(result.data.map(async (r) => {
+      const base = {
+        palletId: r.palletId, fecha: r.fecha, hora: r.createdAt, cantidad: r.cantidad,
+        condicion: r.condicion, destino: r.destino, workcenter: null, escaneadora: r.escaneadora,
+        pedido: r.pedido, estado: r.incidencias ? 'Con incidencia' : 'Completado',
+        ultimoMovimiento: null, lpnUnicos: null, marcas: [], modelos: [], pulgadas: [], mixto: null,
+      };
+      try {
+        const live = await fetchScPalletLive(r.palletId);
+        const productos = live.productos || [];
+        const lpns = dedupeUniqueLpns(productos.map((p) => p.NumeroSerie));
+        base.workcenter = live.workcenter || null;
+        base.ultimoMovimiento = live.movimientos?.[0]?.FechaMovimiento || null;
+        base.lpnUnicos = lpns.size;
+        // Solo se intenta identificar marca/modelo del PRIMER candidato (una llamada, no
+        // todo el pallet) — suficiente para la fila de tabla; el detalle completo (drawer)
+        // si busca en todos los candidatos.
+        const candidato = productos.find((p) => p.NumeroSerie && /^SNTV/i.test(p.SKU || '')) || productos.find((p) => p.NumeroSerie);
+        if (candidato) {
+          const info = await classifyLpn(candidato.NumeroSerie);
+          if (info && info.CategoryName === 'Televisions') {
+            base.marcas = [normalizeBrand(info.Brand)];
+            base.modelos = [normalizeModelo(info.MFGSKU)];
+            const inches = parseInches(info.ItemDescription);
+            if (inches) base.pulgadas = [inches];
+          }
+        }
+        const skusDistintos = new Set(productos.map((p) => p.SKU).filter(Boolean));
+        base.mixto = skusDistintos.size > 1;
+        base.skuCount = skusDistintos.size;
+      } catch { /* fila se muestra igual con lo que si hay de Mongo */ }
+      return base;
+    }));
+
+    res.json({
+      success: true,
+      data: enriquecidos,
+      total: totalRecords,
+      meta: { totalRecords, currentPage: pageNum, pageSize: size, totalPages, hasNextPage: pageNum < totalPages, hasPrevPage: pageNum > 1 },
+    });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ── Detalle completo de un pallet (para el drawer) — reusa fetchScPalletLive, no duplica ──
+app.get('/api/centro-operativo/pallets/:palletId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const palletId = normalizePalletId(req.params.palletId);
+    if (!palletId) return res.status(400).json({ success: false, error: 'palletId requerido' });
+
+    const registro = await EscReg.findOne({ palletId: rx(palletId) }).sort({ createdAt: -1 });
+    const live = await fetchScPalletLive(palletId);
+    const productos = live.productos || [];
+
+    const enriquecidos = await Promise.all(productos.map(async (p) => {
+      let marca = null, modelo = null, pulgadas = null, tvTypeTags = [];
+      if (p.NumeroSerie) {
+        try {
+          const info = await classifyLpn(p.NumeroSerie);
+          if (info) { marca = normalizeBrand(info.Brand); modelo = normalizeModelo(info.MFGSKU); pulgadas = parseInches(info.ItemDescription); tvTypeTags = parseTvTypeTags(info.ItemDescription); }
+        } catch { /* se muestra el producto igual sin marca/modelo identificado */ }
+      }
+      return { lpn: p.NumeroSerie || null, sku: p.SKU || null, marca, modelo, pulgadas, tvTypeTags, condicion: p.Condicion || null, cantidad: 1, estado: marca ? 'Identificado' : 'Sin identificar' };
+    }));
+
+    const mixed = detectMixedPallet(enriquecidos.map((e) => ({ brand: e.marca, modelo: e.modelo, sku: e.sku })));
+    const lpns = dedupeUniqueLpns(productos.map((p) => p.NumeroSerie));
+
+    const alertas = [];
+    if (!productos.length) alertas.push('Pallet sin contenido reportado por SmartControl.');
+    const sinIdentificar = enriquecidos.filter((e) => !e.marca).length;
+    if (sinIdentificar > 0) alertas.push(`${sinIdentificar} pieza(s) sin marca/modelo identificado.`);
+    const sinPulgadas = enriquecidos.filter((e) => e.marca && !e.pulgadas).length;
+    if (sinPulgadas > 0) alertas.push(`${sinPulgadas} pieza(s) identificadas sin pulgadas detectadas en la descripcion.`);
+    if (registro && live.cantidadTotal != null && Number(live.cantidadTotal) !== registro.cantidad) {
+      alertas.push(`Cantidad registrada en la app (${registro.cantidad}) distinta a SmartControl (${live.cantidadTotal}).`);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        resumen: {
+          palletId,
+          estado: registro?.incidencias ? 'Con incidencia' : (registro ? 'Completado' : 'No escaneado en la app'),
+          cantidadTotal: live.cantidadTotal ?? registro?.cantidad ?? null,
+          lpnUnicos: lpns.size,
+          skuDistintos: new Set(productos.map((p) => p.SKU).filter(Boolean)).size,
+          marcas: [...new Set(enriquecidos.map((e) => e.marca).filter(Boolean))],
+          modelos: [...new Set(enriquecidos.map((e) => e.modelo).filter(Boolean))],
+          pulgadas: [...new Set(enriquecidos.map((e) => e.pulgadas).filter(Boolean))],
+          condiciones: live.condiciones || registro?.condicion || null,
+          destino: registro?.destino || null,
+          workcenter: live.workcenter || null,
+          escaneadora: registro?.escaneadora || null,
+          turno: registro?.turno || null,
+          pedido: registro?.pedido || null,
+          fechaCreacion: registro?.createdAt || null,
+          ultimoMovimiento: live.movimientos?.[0]?.FechaMovimiento || null,
+        },
+        contenido: enriquecidos,
+        distribucion: {
+          porMarca: groupBy(enriquecidos.filter((e) => e.marca), (e) => e.marca, () => 1),
+          porModelo: groupBy(enriquecidos.filter((e) => e.modelo), (e) => e.modelo, () => 1),
+          porPulgadas: groupBy(enriquecidos.filter((e) => e.pulgadas), (e) => e.pulgadas, () => 1),
+          porCondicion: groupBy(enriquecidos.filter((e) => e.condicion), (e) => e.condicion, () => 1),
+        },
+        fotografias: live.fotos || [],
+        movimientos: live.movimientos || [],
+        alertas,
+        mixto: mixed,
+      },
+    });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ── Datos para exportacion (respeta los mismos filtros que /resumen y /pallets) ──
+// Regresa JSON crudo, no un archivo — CSV/Excel/PDF se generan del lado del CLIENTE
+// reutilizando exportCSV()/ExcelJS/jsPDF+html2canvas, que YA estaban cargados en
+// index.html para el export del Dashboard (ver exportDashboardExcel/exportDashboardPDF).
+// Asi no se agrega ninguna dependencia nueva ni se duplica la logica de generar el
+// archivo; este endpoint solo trae el set COMPLETO de pallets que cumple el filtro
+// (hasta un tope), ya que la tabla en pantalla solo tiene la pagina visible.
+app.get('/api/centro-operativo/exportar', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const filter = buildCentroFilter(req.query);
+    const pipeline = [{ $match: filter }];
+    applyCentroDateRange(pipeline, req.query);
+    pipeline.push({ $limit: 5000 }, { $project: { palletId: 1, fecha: 1, cantidad: 1, condicion: 1, destino: 1, turno: 1, escaneadora: 1, pedido: 1, createdAt: 1 } });
+    const pallets = await EscReg.aggregate(pipeline);
+    const totalCount = await EscReg.countDocuments(filter);
+    res.json({
+      success: true,
+      pallets,
+      truncado: totalCount > pallets.length,
+      totalReal: totalCount,
+      generado: new Date().toISOString(),
+      rango: req.query.fecha || `${req.query.fecha_inicio || '(sin inicio)'} a ${req.query.fecha_fin || '(sin fin)'}`,
+    });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
