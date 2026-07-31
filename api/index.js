@@ -2685,38 +2685,46 @@ async function enrichOnePallet(palletId) {
   }
 }
 
-// Cuantos pallets NUEVOS se enriquecen "de paso" en cada request de /resumen,
-// /produccion o /televisiones. Acotado para no arriesgar el timeout de la funcion
-// (mismo principio que ya causo el incidente de /api/lpn-duplicates/check) — pero a
-// diferencia del muestreo viejo, este trabajo es INCREMENTAL Y PERMANENTE: cada
-// visita al modulo deja mas pallets resueltos para siempre, la cobertura solo sube.
-const CENTRO_ENRICH_BATCH = 15;
-const CENTRO_ENRICH_DEADLINE_MS = 6000;
+// Cuantos pallets NUEVOS se enriquecen "de paso" por request. Acotado para no
+// arriesgar el timeout de la funcion (mismo principio que ya causo el incidente de
+// /api/lpn-duplicates/check) — pero a diferencia del muestreo viejo, este trabajo es
+// INCREMENTAL Y PERMANENTE: cada visita al modulo deja mas pallets resueltos para
+// siempre, la cobertura solo sube. Medido contra produccion: con BATCH=15 cada
+// llamada tardaba ~13s (aceptable una vez, pero /resumen+/produccion+/televisiones
+// lo hacian los 3 por separado en la MISMA carga de pagina = ~40s combinados). Por
+// eso SOLO /resumen enriquece pallets nuevos (una vez por carga); /produccion y
+// /televisiones leen nada mas lo que ya esta en cache (instantaneo).
+const CENTRO_ENRICH_BATCH = 8;
+const CENTRO_ENRICH_DEADLINE_MS = 4000;
 
 // Dado un arreglo de palletId (puede ser TODO el filtro, miles de ids — son solo
-// strings, barato), regresa el enriquecimiento ya conocido + enriquece un lote nuevo
-// de los que faltan. `cobertura` refleja el estado real, nunca se disfraza de exacto.
-async function getEnrichmentForPallets(palletIds) {
+// strings, barato), regresa el enriquecimiento ya conocido y, si `allowNew` es true,
+// enriquece un lote nuevo de los que faltan. `cobertura` refleja el estado real,
+// nunca se disfraza de exacto.
+async function getEnrichmentForPallets(palletIds, allowNew = true) {
   if (palletIds.length === 0) return { map: new Map(), total: 0, enriquecidos: 0, nuevos: 0, agotado: false, cobertura: 100 };
   const existentes = await PalletEnrichment.find({ palletId: { $in: palletIds } }).lean();
   const map = new Map(existentes.map((e) => [e.palletId, e]));
   const faltantes = palletIds.filter((pid) => !map.has(pid));
-  const aEnriquecerAhora = faltantes.slice(0, CENTRO_ENRICH_BATCH);
 
   let nuevos = 0, agotado = false;
-  const deadline = Date.now() + CENTRO_ENRICH_DEADLINE_MS;
-  const BATCH = 8;
-  for (let i = 0; i < aEnriquecerAhora.length; i += BATCH) {
-    if (Date.now() > deadline) { agotado = faltantes.length > aEnriquecerAhora.slice(0, i).length; break; }
-    const lote = aEnriquecerAhora.slice(i, i + BATCH);
-    const resultados = await Promise.all(lote.map((pid) => enrichOnePallet(pid)));
-    resultados.forEach((doc, idx) => { if (doc) { map.set(lote[idx], doc); nuevos++; } });
+  if (allowNew) {
+    const aEnriquecerAhora = faltantes.slice(0, CENTRO_ENRICH_BATCH);
+    const deadline = Date.now() + CENTRO_ENRICH_DEADLINE_MS;
+    const BATCH = 8;
+    for (let i = 0; i < aEnriquecerAhora.length; i += BATCH) {
+      if (Date.now() > deadline) { agotado = true; break; }
+      const lote = aEnriquecerAhora.slice(i, i + BATCH);
+      const resultados = await Promise.all(lote.map((pid) => enrichOnePallet(pid)));
+      resultados.forEach((doc, idx) => { if (doc) { map.set(lote[idx], doc); nuevos++; } });
+    }
+    if (faltantes.length > aEnriquecerAhora.length) agotado = true;
   }
 
   const enriquecidos = [...palletIds].filter((pid) => map.has(pid) && map.get(pid).foundInSmartControl).length;
   return {
     map, total: palletIds.length, enriquecidos, nuevos,
-    agotado: agotado || faltantes.length > aEnriquecerAhora.length,
+    agotado,
     cobertura: palletIds.length > 0 ? Number(((enriquecidos / palletIds.length) * 100).toFixed(1)) : 100,
   };
 }
@@ -2761,9 +2769,9 @@ async function getFilteredPalletsMeta(filter, query) {
 // Combina metadatos de EscReg (exactos) + enriquecimiento SmartControl (persistente,
 // cobertura creciente) en una sola lista por pallet — usado por /resumen, /produccion
 // y /televisiones para no repetir esta fusion 3 veces.
-async function buildEnrichedPalletList(filter, query) {
+async function buildEnrichedPalletList(filter, query, allowNew = true) {
   const { orden, porPallet } = await getFilteredPalletsMeta(filter, query);
-  const enrichment = await getEnrichmentForPallets(orden);
+  const enrichment = await getEnrichmentForPallets(orden, allowNew);
   const perPallet = orden.map((pid) => {
     const meta = porPallet.get(pid);
     const enr = enrichment.map.get(pid);
@@ -2986,7 +2994,10 @@ app.get('/api/centro-operativo/produccion', auth, roleGuard('admin'), centroOper
     porEscPipeline.push({ $group: { _id: '$escaneadora', piezas: { $sum: '$cantidad' }, pallets: { $addToSet: '$palletId' } } });
     const porEscRaw = await EscReg.aggregate(porEscPipeline);
 
-    const { perPallet, cobertura } = await buildEnrichedPalletList(filter, req.query);
+    // allowNew=false: solo /resumen enriquece pallets nuevos (una vez por carga de
+    // pagina) — este endpoint solo lee lo que ya esta en cache, para no repetir el
+    // costo de SmartControl 3 veces en la misma carga.
+    const { perPallet, cobertura } = await buildEnrichedPalletList(filter, req.query, false);
     const lpnPorEsc = new Map(), modelosPorEsc = new Map();
     for (const p of perPallet) {
       if (!p.escaneadora) continue;
@@ -3022,7 +3033,9 @@ app.get('/api/centro-operativo/produccion', auth, roleGuard('admin'), centroOper
 app.get('/api/centro-operativo/televisiones', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
   try {
     const filter = buildCentroFilter(req.query);
-    const { perPallet, cobertura } = await buildEnrichedPalletList(filter, req.query);
+    // allowNew=false: mismo motivo que /produccion — solo /resumen paga el costo de
+    // enriquecer pallets nuevos por carga de pagina.
+    const { perPallet, cobertura } = await buildEnrichedPalletList(filter, req.query, false);
     // Aplana: cada producto identificado de cada pallet enriquecido = 1 pieza real.
     const productosIdentificados = [];
     for (const p of perPallet) {
