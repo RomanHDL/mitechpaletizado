@@ -935,13 +935,61 @@
            afectar otras vistas que ya usan ese modal compartido) */
         .co-drawer-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2400;display:none;}
         .co-drawer-backdrop.open{display:block;}
+
+        /* ── Modal de detalle de pallet: unica ventana flotante centrada con scroll
+           continuo (reemplaza el drawer lateral con pestañas). Clases propias, NO
+           reutiliza .co-drawer/.co-drawer-backdrop para no afectar los drawers de
+           Escaneadora/TV que siguen siendo paneles laterales. ── */
+        .co-pallet-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:2450;display:none;}
+        .co-pallet-modal-backdrop.open{display:block;}
+        .co-pallet-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.97);opacity:0;pointer-events:none;background:var(--bg-card);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.35);width:min(1220px,96vw);max-height:90vh;overflow-y:auto;z-index:2451;transition:transform 0.18s ease,opacity 0.18s ease;}
+        .co-pallet-modal.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1);}
+        .co-pallet-modal-header{padding:1.5rem 1.75rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;}
+        .co-pallet-modal-body{padding:1.5rem 1.75rem 2rem;display:flex;flex-direction:column;gap:1.5rem;}
+        .co-pallet-section-title{font-size:0.95rem;font-weight:700;margin:0 0 0.9rem;display:flex;align-items:center;gap:8px;}
+        .co-pallet-summary-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:0.9rem;}
+        @media (max-width:1300px){.co-pallet-summary-grid{grid-template-columns:repeat(4,1fr);}}
+        @media (max-width:640px){.co-pallet-summary-grid{grid-template-columns:repeat(2,1fr);}}
+        .co-pallet-summary-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.85rem 0.9rem;min-height:92px;}
+        .co-pallet-summary-card i{width:22px;height:22px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent-glow);color:var(--accent);font-size:0.72rem;}
+        .co-pallet-triple-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:1.25rem;align-items:start;}
+        @media (max-width:1000px){.co-pallet-triple-grid{grid-template-columns:1fr;}}
+        .co-pallet-info-row{display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem;padding:0.45rem 0;border-bottom:1px dashed var(--border);font-size:0.85rem;}
+        .co-pallet-info-row:last-child{border-bottom:none;}
+        .co-pallet-info-row span:first-child{color:var(--text-muted);flex-shrink:0;}
+        .co-pallet-info-row span:last-child{font-weight:600;text-align:right;}
+        .co-pallet-timeline{list-style:none;margin:0;padding:0;}
+        .co-pallet-timeline li{position:relative;padding-left:1.75rem;padding-bottom:1.1rem;}
+        .co-pallet-timeline li:last-child{padding-bottom:0;}
+        .co-pallet-timeline li::before{content:'';position:absolute;left:5px;top:16px;bottom:-4px;width:2px;background:var(--border);}
+        .co-pallet-timeline li:last-child::before{display:none;}
+        .co-pt-dot{position:absolute;left:0;top:2px;width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
+        .co-pt-dot.done{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,0.18);}
+        .co-pt-dot.warn{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,0.18);}
+        .co-pallet-dist-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.1rem;}
+        @media (max-width:1200px){.co-pallet-dist-grid{grid-template-columns:repeat(2,1fr);}}
+        @media (max-width:640px){.co-pallet-dist-grid{grid-template-columns:1fr;}}
+        .co-pallet-dist-panel{min-height:190px;}
+        .co-pallet-content-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:1.25rem;align-items:start;}
+        @media (max-width:1000px){.co-pallet-content-grid{grid-template-columns:1fr;}}
+        .co-pallet-photo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0.6rem;}
+        .co-pallet-photo-grid img{width:100%;height:112px;object-fit:cover;border-radius:10px;border:1px solid var(--border);display:block;}
+        @media print{
+            body.co-printing-pallet *{visibility:hidden;}
+            body.co-printing-pallet .co-pallet-modal-backdrop,
+            body.co-printing-pallet .co-pallet-modal-backdrop *{visibility:visible;}
+            body.co-printing-pallet .co-pallet-modal-backdrop{position:absolute;inset:0;background:#fff;}
+            body.co-printing-pallet .co-pallet-modal{position:static;transform:none;box-shadow:none;width:100%;max-height:none;overflow:visible;border-radius:0;}
+            body.co-printing-pallet .co-pallet-modal-actions{display:none !important;}
+        }
+        @media (max-width:760px){
+            .co-pallet-modal{width:100%;max-height:100vh;height:100%;border-radius:0;top:0;left:0;transform:none;}
+            .co-pallet-modal.open{transform:none;}
+        }
         .co-drawer{position:fixed;top:0;right:0;bottom:0;width:min(680px,95vw);background:var(--bg-card);border-left:1px solid var(--border);z-index:2401;display:flex;flex-direction:column;transform:translateX(100%);transition:transform 0.25s ease;box-shadow:-10px 0 40px rgba(0,0,0,0.4);}
         .co-drawer.open{transform:translateX(0);}
         .co-drawer-header{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
-        .co-drawer-tabs{display:flex;gap:0.3rem;padding:0 1.25rem;border-bottom:1px solid var(--border);flex-wrap:wrap;}
         .co-drawer-body{flex:1;overflow-y:auto;padding:1rem 1.25rem;}
-        .co-drawer-section{display:none;}
-        .co-drawer-section.active{display:block;animation:fadeIn 0.15s ease;}
     </style>
 </head>
 <body>
@@ -2651,32 +2699,81 @@
              desde Monitor en Vivo mientras el markup vivia dentro de
              view-dashboard). Deben poder abrirse desde cualquier vista. -->
 
-        <!-- Drawer de detalle de pallet — Centro Operativo API. Independiente de
+        <!-- Modal de detalle de pallet — Centro Operativo API. Una sola ventana
+             flotante con scroll continuo (sin pestañas internas). Independiente de
              sc-pallet-modal (no se reutiliza ese modal aqui para no arriesgar romper
              las otras vistas que ya lo usan). -->
-        <div class="co-drawer-backdrop" id="co-drawer-backdrop" onclick="coCloseDrawer()"></div>
-        <div class="co-drawer" id="co-drawer">
-            <div class="co-drawer-header">
-                <div><b>Detalle de Pallet</b> <span id="co-drawer-title" style="font-family:monospace;color:var(--text-muted);"></span></div>
-                <button onclick="coCloseDrawer()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;color:var(--text-muted);cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+        <div class="co-pallet-modal-backdrop" id="co-drawer-backdrop" onclick="coCloseDrawer()"></div>
+        <div class="co-pallet-modal" id="co-drawer" role="dialog" aria-modal="true" aria-labelledby="co-drawer-title-heading">
+            <div class="co-pallet-modal-header">
+                <div>
+                    <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
+                        <h2 id="co-drawer-title-heading" style="margin:0;font-size:1.35rem;">Detalle de Pallet <span id="co-drawer-title" style="font-family:monospace;"></span></h2>
+                        <span class="badge badge-gray" id="co-drawer-estado-badge">--</span>
+                    </div>
+                    <p id="co-drawer-subtitle" style="margin:0.45rem 0 0;font-size:0.82rem;color:var(--text-muted);">Cargando...</p>
+                    <p id="co-drawer-lastupdate" style="margin:0.2rem 0 0;font-size:0.78rem;color:var(--text-muted);"></p>
+                </div>
+                <div class="co-pallet-modal-actions" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+                    <button class="btn btn-secondary btn-sm" onclick="coExportPalletDetail()"><i class="fa-solid fa-download"></i> Exportar</button>
+                    <button class="btn btn-secondary btn-sm" onclick="coPrintDrawer()"><i class="fa-solid fa-print"></i> Imprimir</button>
+                    <button class="btn btn-primary btn-sm" onclick="coCloseDrawer()"><i class="fa-solid fa-xmark"></i> Cerrar</button>
+                    <button onclick="coCloseDrawer()" title="Cerrar" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.6rem;color:var(--text-muted);cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
             </div>
-            <div class="co-drawer-tabs" id="co-drawer-tabs">
-                <button class="ctrl-tab active" data-tab="resumen" onclick="coDrawerSetTab('resumen')">Resumen</button>
-                <button class="ctrl-tab" data-tab="contenido" onclick="coDrawerSetTab('contenido')">Contenido</button>
-                <button class="ctrl-tab" data-tab="distribucion" onclick="coDrawerSetTab('distribucion')">Distribucion</button>
-                <button class="ctrl-tab" data-tab="fotos" onclick="coDrawerSetTab('fotos')">Fotografias</button>
-                <button class="ctrl-tab" data-tab="movimientos" onclick="coDrawerSetTab('movimientos')">Movimientos</button>
-                <button class="ctrl-tab" data-tab="alertas" onclick="coDrawerSetTab('alertas')">Alertas</button>
-                <button class="ctrl-tab" data-tab="fuentes" onclick="coDrawerSetTab('fuentes')">Fuentes</button>
-            </div>
-            <div class="co-drawer-body" id="co-drawer-body">
-                <div class="co-drawer-section active" id="co-drawer-resumen"></div>
-                <div class="co-drawer-section" id="co-drawer-contenido"></div>
-                <div class="co-drawer-section" id="co-drawer-distribucion"></div>
-                <div class="co-drawer-section" id="co-drawer-fotos"></div>
-                <div class="co-drawer-section" id="co-drawer-movimientos"></div>
-                <div class="co-drawer-section" id="co-drawer-alertas"></div>
-                <div class="co-drawer-section" id="co-drawer-fuentes"></div>
+            <div class="co-pallet-modal-body" id="co-drawer-body">
+                <div class="co-pallet-summary-grid" id="co-drawer-summary"></div>
+
+                <div class="co-pallet-triple-grid">
+                    <div class="card" style="padding:1.1rem 1.3rem;">
+                        <h3 class="co-pallet-section-title"><i class="fa-solid fa-circle-info" style="color:var(--accent);"></i>Información general</h3>
+                        <div id="co-drawer-infogeneral"></div>
+                    </div>
+                    <div class="card" style="padding:1.1rem 1.3rem;">
+                        <h3 class="co-pallet-section-title"><i class="fa-solid fa-timeline" style="color:var(--accent);"></i>Línea de tiempo</h3>
+                        <ul class="co-pallet-timeline" id="co-drawer-timeline"></ul>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:1.25rem;">
+                        <div class="card" style="padding:1.1rem 1.3rem;">
+                            <h3 class="co-pallet-section-title"><i class="fa-solid fa-plug" style="color:var(--accent);"></i>Fuentes de información</h3>
+                            <div id="co-drawer-fuentes"></div>
+                        </div>
+                        <div class="card" style="padding:1.1rem 1.3rem;">
+                            <h3 class="co-pallet-section-title"><i class="fa-solid fa-comment-dots" style="color:var(--accent);"></i>Observaciones</h3>
+                            <div id="co-drawer-observaciones" style="font-size:0.85rem;color:var(--text-main);">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="padding:1.1rem 1.3rem;">
+                    <h3 class="co-pallet-section-title"><i class="fa-solid fa-chart-pie" style="color:var(--accent);"></i>Distribuciones</h3>
+                    <div class="co-pallet-dist-grid" id="co-drawer-distribucion"></div>
+                </div>
+
+                <div class="co-pallet-content-grid">
+                    <div class="card" style="padding:1.1rem 1.3rem;">
+                        <h3 class="co-pallet-section-title"><i class="fa-solid fa-boxes-stacked" style="color:var(--accent);"></i>Contenido del pallet</h3>
+                        <div id="co-drawer-contenido" style="overflow-x:auto;"></div>
+                    </div>
+                    <div class="card" style="padding:1.1rem 1.3rem;">
+                        <h3 class="co-pallet-section-title"><i class="fa-solid fa-images" style="color:var(--accent);"></i>Fotografías del pallet</h3>
+                        <div id="co-drawer-fotos"></div>
+                    </div>
+                </div>
+
+                <div class="card" style="padding:1.1rem 1.3rem;">
+                    <h3 class="co-pallet-section-title"><i class="fa-solid fa-truck-fast" style="color:var(--accent);"></i>Movimientos</h3>
+                    <div id="co-drawer-movimientos"></div>
+                </div>
+
+                <div class="card" style="padding:1.1rem 1.3rem;">
+                    <h3 class="co-pallet-section-title"><i class="fa-solid fa-triangle-exclamation" style="color:var(--accent);"></i>Alertas</h3>
+                    <div id="co-drawer-alertas"></div>
+                </div>
+
+                <div style="text-align:center;padding-top:0.25rem;">
+                    <button class="btn btn-secondary" onclick="coCloseDrawer()" style="padding:0.7rem 2.2rem;">Cerrar</button>
+                </div>
             </div>
         </div>
 
@@ -6080,27 +6177,31 @@ async function coLoadPalletsPreview() {
     }
 }
 
-// ── Drawer de detalle de pallet ──
-function coDrawerSetTab(tab) {
-    document.querySelectorAll('#co-drawer-tabs .ctrl-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-    document.querySelectorAll('.co-drawer-section').forEach(s => s.classList.remove('active'));
-    document.getElementById('co-drawer-' + tab).classList.add('active');
-}
+// ── Modal de detalle de pallet: una sola ventana con scroll continuo (sin tabs).
+// Reutiliza exactamente los mismos datos que antes (resumen/contenido/distribucion/
+// fotografias/movimientos/alertas/fuentes de /api/centro-operativo/pallets/:id),
+// solo cambia como se presentan — de 7 pestañas a secciones apiladas. ──
 async function coOpenDrawer(palletId) {
     document.getElementById('co-drawer-backdrop').classList.add('open');
     document.getElementById('co-drawer').classList.add('open');
     document.body.style.overflow = 'hidden';
-    coDrawerSetTab('resumen');
+    document.getElementById('co-drawer').scrollTop = 0;
     document.getElementById('co-drawer-title').textContent = palletId;
-    ['resumen','contenido','distribucion','fotos','movimientos','alertas','fuentes'].forEach(s => {
-        document.getElementById('co-drawer-' + s).innerHTML = '<div class="co-empty"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>';
+    document.getElementById('co-drawer-estado-badge').textContent = '--';
+    document.getElementById('co-drawer-estado-badge').className = 'badge badge-gray';
+    document.getElementById('co-drawer-subtitle').textContent = 'Cargando...';
+    document.getElementById('co-drawer-lastupdate').textContent = '';
+    ['summary','infogeneral','timeline','fuentes','observaciones','distribucion','contenido','fotos','movimientos','alertas'].forEach(s => {
+        const el = document.getElementById('co-drawer-' + s);
+        if (el) el.innerHTML = '<div class="co-empty"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>';
     });
     try {
         const data = await apiFetch(`${API}/api/centro-operativo/pallets/${encodeURIComponent(palletId)}`);
         if (!data.success) throw new Error(data.error || 'Error al cargar el pallet');
         coRenderDrawer(data.data);
     } catch (e) {
-        document.getElementById('co-drawer-resumen').innerHTML = `<div class="co-empty" style="color:var(--danger);">${(e.message || 'Error').replace(/</g,'&lt;')}</div>`;
+        document.getElementById('co-drawer-infogeneral').innerHTML = `<div class="co-empty" style="color:var(--danger);">${(e.message || 'Error').replace(/</g,'&lt;')}</div>`;
+        document.getElementById('co-drawer-subtitle').textContent = 'Error al cargar el detalle';
     }
 }
 function coCloseDrawer() {
@@ -6111,77 +6212,196 @@ function coCloseDrawer() {
 function coRenderDrawer(d) {
     const r = d.resumen;
     const fmtFecha = v => v ? new Date(v).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }) : '-';
-    const infoRow = (label, val) => `<div style="background:var(--inset-bg);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.7rem;"><div style="font-size:0.62rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;">${label}</div><div style="font-size:0.88rem;font-weight:700;margin-top:2px;">${val}</div></div>`;
-    document.getElementById('co-drawer-resumen').innerHTML = `
+
+    // Encabezado
+    document.getElementById('co-drawer-estado-badge').textContent = r.estado || '-';
+    document.getElementById('co-drawer-estado-badge').className = 'badge ' + (r.estado === 'Completado' ? 'badge-green' : r.estado === 'Con incidencia' ? 'badge-amber' : 'badge-gray');
+    document.getElementById('co-drawer-subtitle').innerHTML = `Creado el ${fmtFecha(r.fechaCreacion)}${r.escaneadora ? ` por <b>${r.escaneadora}</b>` : ''}`;
+    document.getElementById('co-drawer-lastupdate').textContent = `Última actualización: ${new Date().toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}`;
+
+    // "Tiempo total en proceso": derivado de fechas reales (creacion -> ultimo
+    // movimiento, o hasta ahora si sigue sin cerrar) — no es un campo que exista tal
+    // cual en ninguna fuente, se calcula aqui igual que "promedioPorPallet" en KPIs.
+    let tiempoProceso = '-';
+    if (r.fechaCreacion) {
+        const inicio = new Date(r.fechaCreacion).getTime();
+        const fin = r.ultimoMovimiento ? new Date(r.ultimoMovimiento).getTime() : Date.now();
+        const mins = Math.max(0, Math.round((fin - inicio) / 60000));
+        tiempoProceso = mins < 60 ? `${mins} minutos` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
+    }
+
+    // Tarjetas resumen
+    const summaryCard = (icon, label, val, iconStyle) => `<div class="co-pallet-summary-card"><div style="display:flex;align-items:center;gap:6px;"><i class="fa-solid ${icon}" ${iconStyle ? `style="${iconStyle}"` : ''}></i><span style="font-size:0.66rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;">${label}</span></div><div style="font-size:1.1rem;font-weight:800;margin-top:6px;">${val}</div></div>`;
+    const estadoIconStyle = r.estado === 'Completado' ? 'background:rgba(34,197,94,0.15);color:#22c55e;' : r.estado === 'Con incidencia' ? 'background:rgba(245,158,11,0.15);color:#f59e0b;' : '';
+    document.getElementById('co-drawer-summary').innerHTML = [
+        summaryCard('fa-circle-check', 'Estado', r.estado || '-', estadoIconStyle),
+        summaryCard('fa-cubes', 'Cantidad total', r.cantidadTotal ?? '-'),
+        summaryCard('fa-barcode', 'LPN únicos', r.lpnUnicos ?? '-'),
+        summaryCard('fa-tag', 'SKU distintos', r.skuDistintos ?? '-'),
+        summaryCard('fa-tv', 'Pulgadas', (r.pulgadas && r.pulgadas.length) ? r.pulgadas.map(p => p + '"').join(', ') : '-'),
+        summaryCard('fa-shield-halved', 'Condiciones', r.condiciones || '-'),
+        summaryCard('fa-truck', 'Destino', r.destino || '-'),
+        summaryCard('fa-sun', 'Turno', r.turno || '-'),
+    ].join('');
+
+    // Información general
+    const infoRow = (label, val) => `<div class="co-pallet-info-row"><span>${label}</span><span>${val}</span></div>`;
+    document.getElementById('co-drawer-infogeneral').innerHTML = `
         ${d.mixto && d.mixto.isMixed ? `<div class="co-sample-note" style="display:block;margin-bottom:0.75rem;"><i class="fa-solid fa-layer-group"></i> Contenido mixto: ${d.mixto.brandCount} marca(s), ${d.mixto.modeloCount} modelo(s), ${d.mixto.skuCount} SKU(s) distintos.</div>` : ''}
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0.5rem;">
-            ${infoRow('Estado', r.estado || '-')}
-            ${infoRow('Cantidad total', r.cantidadTotal ?? '-')}
-            ${infoRow('LPN unicos', r.lpnUnicos ?? '-')}
-            ${infoRow('SKU distintos', r.skuDistintos ?? '-')}
-            ${infoRow('Marcas', (r.marcas && r.marcas.length) ? r.marcas.join(', ') : 'Sin identificar')}
-            ${infoRow('Modelos', (r.modelos && r.modelos.length) ? r.modelos.join(', ') : 'Sin identificar')}
-            ${infoRow('Pulgadas', (r.pulgadas && r.pulgadas.length) ? r.pulgadas.map(p => p + '"').join(', ') : 'Sin identificar')}
-            ${infoRow('Condiciones', r.condiciones || '-')}
-            ${infoRow('Destino', r.destino || '-')}
-            ${infoRow('Workcenter', r.workcenter || '-')}
-            ${infoRow('Escaneadora', r.escaneadora || '-')}
-            ${infoRow('Turno', r.turno || '-')}
-            ${infoRow('Pedido', r.pedido || '-')}
-            ${infoRow('Fecha creacion', fmtFecha(r.fechaCreacion))}
-            ${infoRow('Ultimo movimiento', fmtFecha(r.ultimoMovimiento))}
-        </div>`;
-
-    const contenido = d.contenido || [];
-    document.getElementById('co-drawer-contenido').innerHTML = contenido.length === 0 ? '<div class="co-empty">Sin contenido reportado por SmartControl.</div>' : `
-        <table class="ctrl-table"><thead><tr><th>LPN</th><th>SKU</th><th>Marca</th><th>Modelo</th><th>Pulg.</th><th>Tipo</th><th>Condicion</th><th>Estado</th></tr></thead>
-        <tbody>${contenido.map(p => `<tr ${p.lpn ? `onclick="openScLpnDetail('${String(p.lpn).replace(/'/g,"\\'")}')" style="cursor:pointer;"` : ''}><td style="font-family:monospace;">${p.lpn || '-'}</td><td style="font-family:monospace;">${p.sku || '-'}</td><td>${p.marca || '-'}</td><td>${p.modelo || '-'}</td><td>${p.pulgadas ? p.pulgadas + '"' : '-'}</td><td>${(p.tvTypeTags || []).join(', ') || '-'}</td><td>${p.condicion || '-'}</td><td><span class="badge ${p.marca ? 'badge-green' : 'badge-gray'}">${p.estado}</span></td></tr>`).join('')}</tbody></table>`;
-
-    const distTable = (rows, labelKey) => (!rows || rows.length === 0) ? '<div class="co-empty">Sin datos.</div>' : `<table class="ctrl-table"><thead><tr><th>${labelKey}</th><th>Piezas</th></tr></thead><tbody>${rows.map(g => `<tr><td>${g.key}</td><td>${g.total}</td></tr>`).join('')}</tbody></table>`;
-    document.getElementById('co-drawer-distribucion').innerHTML = `
-        <h4 style="margin:0 0 0.4rem;font-size:0.8rem;">Por marca</h4>${distTable(d.distribucion.porMarca, 'Marca')}
-        <h4 style="margin:0.8rem 0 0.4rem;font-size:0.8rem;">Por modelo</h4>${distTable(d.distribucion.porModelo, 'Modelo')}
-        <h4 style="margin:0.8rem 0 0.4rem;font-size:0.8rem;">Por pulgadas</h4>${distTable(d.distribucion.porPulgadas, 'Pulgadas')}
-        <h4 style="margin:0.8rem 0 0.4rem;font-size:0.8rem;">Por condicion</h4>${distTable(d.distribucion.porCondicion, 'Condicion')}
+        ${infoRow('Marcas', (r.marcas && r.marcas.length) ? r.marcas.join(', ') : 'Sin identificar')}
+        ${infoRow('Modelos', (r.modelos && r.modelos.length) ? r.modelos.join(', ') : 'Sin identificar')}
+        ${infoRow('Workcenter', r.workcenter || '-')}
+        ${infoRow('Escaneadora', r.escaneadora || '-')}
+        ${infoRow('Pedido', r.pedido || '-')}
+        ${infoRow('Fecha creación', fmtFecha(r.fechaCreacion))}
+        ${infoRow('Último movimiento', fmtFecha(r.ultimoMovimiento))}
+        ${infoRow('Tiempo total en proceso', tiempoProceso)}
+        ${infoRow('Condiciones', r.condiciones || '-')}
+        ${infoRow('Pulgadas', (r.pulgadas && r.pulgadas.length) ? r.pulgadas.map(p => p + '"').join(', ') : '-')}
+        ${infoRow('Destino', r.destino || '-')}
+        ${infoRow('Turno', r.turno || '-')}
     `;
 
-    const fotos = d.fotografias || [];
-    document.getElementById('co-drawer-fotos').innerHTML = fotos.length === 0 ? '<div class="co-empty">Sin fotografias.</div>' : `<div style="display:flex;flex-wrap:wrap;gap:0.5rem;">${fotos.map(f => `<a href="${f.URLFoto}" target="_blank" rel="noopener"><img src="${f.URLFoto}" loading="lazy" style="height:100px;border-radius:8px;border:1px solid var(--border);object-fit:cover;"></a>`).join('')}</div>`;
+    // Línea de tiempo — construida SOLO con eventos reales (creacion + movimientos
+    // reales reportados por SmartControl + estado final), sin inventar etapas de
+    // flujo (ej. "validacion completada") que no existen como dato en ninguna fuente.
+    const movs = (d.movimientos || []).slice().sort((a, b) => new Date(a.FechaMovimiento || 0) - new Date(b.FechaMovimiento || 0));
+    const eventos = [];
+    if (r.fechaCreacion) eventos.push({ titulo: 'Pallet creado', fecha: r.fechaCreacion, quien: r.escaneadora });
+    movs.forEach(m => eventos.push({ titulo: m.TipoMovimiento || 'Movimiento', fecha: m.FechaMovimiento, quien: m.MovidoPor }));
+    if (r.estado === 'Completado') eventos.push({ titulo: 'Pallet completado', fecha: r.ultimoMovimiento || r.fechaCreacion, quien: r.escaneadora, done: true });
+    else if (r.estado === 'Con incidencia') eventos.push({ titulo: 'Incidencia reportada', fecha: r.ultimoMovimiento || r.fechaCreacion, quien: r.escaneadora, warn: true });
+    eventos.reverse();
+    document.getElementById('co-drawer-timeline').innerHTML = eventos.length === 0 ? '<div class="co-empty">Sin eventos registrados.</div>' : eventos.map((ev, i) => `
+        <li><span class="co-pt-dot ${ev.warn ? 'warn' : (i === 0 ? 'done' : '')}"></span>
+            <div style="font-weight:700;font-size:0.85rem;">${ev.titulo}</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);">${fmtFecha(ev.fecha)}${ev.quien ? ` · ${ev.quien}` : ''}</div>
+        </li>`).join('');
 
-    const movs = d.movimientos || [];
-    document.getElementById('co-drawer-movimientos').innerHTML = movs.length === 0 ? '<div class="co-empty">Sin movimientos.</div>' : movs.map(m => `
-        <div style="border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:0.5rem 0.7rem;margin-bottom:0.4rem;background:var(--inset-bg);">
-            <div style="display:flex;justify-content:space-between;gap:0.5rem;"><b>${m.TipoMovimiento || '-'}</b><span style="color:var(--text-muted);font-size:0.75rem;">${fmtFecha(m.FechaMovimiento)}</span></div>
-            <div style="font-size:0.78rem;color:var(--text-muted);">${m.MovidoPor ? `por <b>${m.MovidoPor}</b>` : ''}${(m.PalletOrigen || m.PalletDestino) ? ` &middot; ${m.PalletOrigen || '?'} &rarr; ${m.PalletDestino || '?'}` : ''}</div>
-        </div>`).join('');
-
-    const alertas = d.alertas || [];
-    document.getElementById('co-drawer-alertas').innerHTML = alertas.length === 0
-        ? '<div class="co-empty"><i class="fa-solid fa-circle-check" style="color:#22c55e;"></i> Sin alertas para este pallet.</div>'
-        : alertas.map(a => `<div class="card" style="padding:0.6rem 0.8rem;margin-bottom:0.5rem;border-color:#f59e0b;font-size:0.82rem;"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;margin-right:6px;"></i>${String(a).replace(/</g,'&lt;')}</div>`).join('');
-
-    // "Fuentes": el endpoint ya devuelve fuentes/comparacion (reconciliacion contra
-    // SmartControl y BinManagerRO por pallet) — antes no se pintaba en ningun lado.
-    const f = d.fuentes || {}, comp = d.comparacion || [];
-    const fuenteCard = (label, info) => {
-        if (!info || info.presente === false) return `<div class="card" style="padding:0.7rem 0.9rem;"><div style="font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;">${label}</div><div style="margin-top:4px;color:var(--text-muted);font-size:0.82rem;">${info && info.noConfigurado ? 'No configurado' : 'Sin datos de esta fuente'}</div></div>`;
-        const rows = Object.entries(info).filter(([k]) => k !== 'presente' && k !== 'noConfigurado');
-        return `<div class="card" style="padding:0.7rem 0.9rem;">
-            <div style="font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;margin-bottom:4px;">${label} <span class="badge badge-green" style="margin-left:4px;">Presente</span></div>
-            ${rows.map(([k, v]) => `<div style="font-size:0.82rem;display:flex;justify-content:space-between;gap:0.5rem;"><span style="color:var(--text-muted);text-transform:capitalize;">${k}</span><b>${v ?? '-'}</b></div>`).join('')}
+    // Fuentes de información (mismos datos de d.fuentes que antes vivian en su propia
+    // pestaña, ahora como bloque compacto con badge de sincronizacion).
+    const f = d.fuentes || {};
+    const ahora = fmtFecha(new Date());
+    const fuenteRow = (label, icon, info) => {
+        const presente = info && info.presente;
+        const badge = presente ? '<span class="badge badge-green">Sincronizado</span>' : (info && info.noConfigurado ? '<span class="badge badge-gray">No configurado</span>' : '<span class="badge badge-amber">Pendiente</span>');
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px dashed var(--border);">
+            <div style="display:flex;align-items:center;gap:8px;"><i class="fa-solid ${icon}" style="color:var(--accent);"></i><b style="font-size:0.85rem;">${label}</b></div>
+            <div style="text-align:right;">${badge}<div style="font-size:0.66rem;color:var(--text-muted);margin-top:2px;">${presente ? ahora : '-'}</div></div>
         </div>`;
     };
-    document.getElementById('co-drawer-fuentes').innerHTML = `
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.6rem;margin-bottom:1rem;">
-            ${fuenteCard('Aplicación (esta app)', f.aplicacion)}
-            ${fuenteCard('SmartControl', f.smartControl)}
-            ${fuenteCard('BinManagerRO', f.binManagerRO)}
-        </div>
-        <h4 style="margin:0 0 0.5rem;font-size:0.8rem;">Estado de sincronización por campo</h4>
-        ${comp.length === 0 ? '<div class="co-empty">Sin suficientes fuentes para comparar.</div>' : `
-        <table class="ctrl-table"><thead><tr><th>Campo</th><th>Aplicación</th><th>SmartControl</th><th>BinManagerRO</th><th>Estado</th></tr></thead>
-        <tbody>${comp.map(c => `<tr><td>${c.campo}</td><td>${c.aplicacion}</td><td>${c.smartControl}</td><td>${c.binManagerRO}</td><td><span class="badge ${c.estado === 'Coincide' ? 'badge-green' : c.estado === 'Diferencia' ? 'badge-amber' : 'badge-gray'}">${c.estado}</span></td></tr>`).join('')}</tbody></table>`}
-    `;
+    document.getElementById('co-drawer-fuentes').innerHTML =
+        fuenteRow('SmartControl', 'fa-satellite-dish', f.smartControl) +
+        fuenteRow('BinManagerRO', 'fa-warehouse', f.binManagerRO) +
+        fuenteRow('Aplicación (esta app)', 'fa-database', f.aplicacion);
+
+    // Observaciones (campo real de EscReg, antes no se exponia en el detalle)
+    document.getElementById('co-drawer-observaciones').textContent = (r.observaciones && r.observaciones.trim()) ? r.observaciones : 'Sin observaciones';
+
+    // Distribuciones: donut/barra (mismo Chart.js + CHART_THEME que el resto del
+    // modulo). El modal siempre esta visible al renderizar, asi que no hay riesgo de
+    // canvases con tamaño 0 (a diferencia de las pestañas ocultas de antes).
+    coRenderPalletDistCharts(d.distribucion || {});
+
+    // Contenido del pallet
+    const contenido = d.contenido || [];
+    document.getElementById('co-drawer-contenido').innerHTML = contenido.length === 0 ? '<div class="co-empty">Sin contenido reportado por SmartControl.</div>' : `
+        <table class="ctrl-table"><thead><tr><th>#</th><th>LPN</th><th>Marca</th><th>Modelo</th><th>Pulg.</th><th>Condición</th><th>Destino</th><th>SKU</th><th>Estado</th></tr></thead>
+        <tbody>${contenido.map((p, i) => `<tr ${p.lpn ? `onclick="openScLpnDetail('${String(p.lpn).replace(/'/g,"\\'")}')" style="cursor:pointer;"` : ''}><td>${i + 1}</td><td style="font-family:monospace;">${p.lpn || '-'}</td><td>${p.marca || '-'}</td><td>${p.modelo || '-'}</td><td>${p.pulgadas ? p.pulgadas + '"' : '-'}</td><td>${p.condicion || '-'}</td><td>${r.destino || '-'}</td><td style="font-family:monospace;">${p.sku || '-'}</td><td><span class="badge ${p.marca ? 'badge-green' : 'badge-gray'}">${p.estado}</span></td></tr>`).join('')}</tbody></table>`;
+
+    // Fotografías
+    const fotos = d.fotografias || [];
+    document.getElementById('co-drawer-fotos').innerHTML = fotos.length === 0
+        ? '<div class="co-empty"><i class="fa-solid fa-image" style="font-size:1.4rem;display:block;margin-bottom:0.4rem;"></i>Sin fotografías para este pallet.</div>'
+        : `<div class="co-pallet-photo-grid">${fotos.map(fo => `<a href="${fo.URLFoto}" target="_blank" rel="noopener"><img src="${fo.URLFoto}" loading="lazy" alt="Foto de pallet"></a>`).join('')}</div>`;
+
+    // Movimientos
+    document.getElementById('co-drawer-movimientos').innerHTML = movs.length === 0 ? '<div class="co-empty">Sin movimientos.</div>' : `
+        <table class="ctrl-table"><thead><tr><th>Fecha</th><th>Movimiento</th><th>Origen</th><th>Destino</th><th>Usuario</th></tr></thead>
+        <tbody>${movs.slice().reverse().map(m => `<tr><td>${fmtFecha(m.FechaMovimiento)}</td><td>${m.TipoMovimiento || '-'}</td><td>${m.PalletOrigen || '-'}</td><td>${m.PalletDestino || '-'}</td><td>${m.MovidoPor || '-'}</td></tr>`).join('')}</tbody></table>`;
+
+    // Alertas
+    const alertas = d.alertas || [];
+    document.getElementById('co-drawer-alertas').innerHTML = alertas.length === 0
+        ? '<div class="co-empty"><i class="fa-solid fa-circle-check" style="color:#22c55e;"></i> No se detectaron alertas.</div>'
+        : alertas.map(a => `<div class="card" style="padding:0.6rem 0.8rem;margin-bottom:0.5rem;border-color:#f59e0b;font-size:0.82rem;"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;margin-right:6px;"></i>${String(a).replace(/</g,'&lt;')}</div>`).join('');
+}
+
+// ── Distribuciones del modal de pallet — condicion/pulgadas/modelo como donut,
+// marca como barra horizontal (para leer nombres completos sin leyenda gigante).
+// "Destino" no se incluye como distribucion: un pallet tiene UN solo destino, no una
+// mezcla — mostrarlo como donut hubiera sido inventar variedad que no existe; el
+// valor real de destino ya se muestra en las tarjetas resumen e informacion general. ──
+function coRenderPalletDistCharts(dist) {
+    const panel = (title, canvasId) => `<div class="co-pallet-dist-panel"><div style="font-size:0.8rem;font-weight:700;margin-bottom:0.5rem;text-align:center;">${title}</div><div style="position:relative;height:150px;"><canvas id="${canvasId}"></canvas></div></div>`;
+    document.getElementById('co-drawer-distribucion').innerHTML =
+        panel('Por condición', 'co-pmodal-chart-condicion') +
+        panel('Por marca', 'co-pmodal-chart-marca') +
+        panel('Por pulgadas', 'co-pmodal-chart-pulgadas') +
+        panel('Por modelo', 'co-pmodal-chart-modelo');
+
+    const emptyPanel = (canvasId) => { const c = document.getElementById(canvasId); if (c) c.closest('.co-pallet-dist-panel').innerHTML = '<div class="co-empty">Sin datos.</div>'; };
+    const donut = (canvasId, rows) => {
+        if (!rows || rows.length === 0) { emptyPanel(canvasId); return; }
+        coUpdateOrCreateChart(canvasId, canvasId, {
+            type: 'doughnut',
+            data: { labels: rows.map(r => r.key), datasets: [{ data: rows.map(r => r.total), backgroundColor: CO_DONUT_COLORS, borderColor: CHART_THEME.donutBorder, borderWidth: 2 }] },
+            options: { responsive: true, maintainAspectRatio: false, animation: false,
+                plugins: { legend: { position: 'right', labels: { color: CHART_THEME.muted, boxWidth: 8, font: { size: 9 } } },
+                    tooltip: { callbacks: { label: (ctx) => { const r = rows[ctx.dataIndex]; return ` ${r.key}: ${r.total} (${r.porcentaje.toFixed(1)}%)`; } } } } },
+        });
+    };
+    donut('co-pmodal-chart-condicion', dist.porCondicion);
+    donut('co-pmodal-chart-pulgadas', (dist.porPulgadas || []).map(rr => ({ ...rr, key: rr.key + '"' })));
+    donut('co-pmodal-chart-modelo', dist.porModelo);
+
+    const marcaRows = dist.porMarca || [];
+    if (marcaRows.length === 0) { emptyPanel('co-pmodal-chart-marca'); return; }
+    coUpdateOrCreateChart('co-pmodal-chart-marca', 'co-pmodal-chart-marca', {
+        type: 'bar',
+        data: { labels: marcaRows.map(r => r.key), datasets: [{ data: marcaRows.map(r => r.total), backgroundColor: '#4f7cffcc', hoverBackgroundColor: '#4f7cff', borderRadius: 4, barPercentage: 0.7 }] },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: { legend: { display: false }, tooltip: { backgroundColor: CHART_THEME.tooltipBg, titleColor: CHART_THEME.text, bodyColor: CHART_THEME.tooltipBody, borderColor: CHART_THEME.tooltipBorder, borderWidth: 1 } },
+            scales: { x: { beginAtZero: true, ticks: { color: CHART_THEME.muted, font: { size: 9 } }, grid: { color: CHART_THEME.gridLight } }, y: { ticks: { color: CHART_THEME.muted, font: { size: 9 } }, grid: { display: false } } } },
+    });
+}
+
+// ── Exportar / imprimir el detalle del pallet (independiente del Exportar general
+// del modulo) — PDF via html2canvas+jsPDF (mismo patron que coExportPdf) e impresion
+// via @media print, ambos reutilizando las mismas librerias ya cargadas. ──
+async function coExportPalletDetail() {
+    const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+    if (!jsPDFCtor || typeof html2canvas === 'undefined') { showToast('Librerias PDF no cargadas. Reintenta.', 'error'); return; }
+    const modal = document.getElementById('co-drawer');
+    const palletId = (document.getElementById('co-drawer-title').textContent || 'pallet').trim();
+    showToast('Generando PDF...', 'info', 2000);
+    const prevMaxHeight = modal.style.maxHeight, prevOverflow = modal.style.overflowY;
+    modal.style.maxHeight = 'none';
+    modal.style.overflowY = 'visible';
+    try {
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        const canvas = await html2canvas(modal, { backgroundColor: isLight ? '#FFFFFF' : '#141b2d', scale: 2, useCORS: true, logging: false });
+        const pdf = new jsPDFCtor({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageW = pdf.internal.pageSize.getWidth(), pageH = pdf.internal.pageSize.getHeight();
+        const imgW = pageW, imgH = (canvas.height * imgW) / canvas.width;
+        const imgData = canvas.toDataURL('image/png');
+        let heightLeft = imgH, position = 0;
+        pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
+        heightLeft -= pageH;
+        while (heightLeft > 0) { position -= pageH; pdf.addPage(); pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH); heightLeft -= pageH; }
+        pdf.save(`detalle-pallet-${palletId}-${Date.now()}.pdf`);
+    } catch (e) {
+        showToast('Error al exportar: ' + e.message, 'error');
+    } finally {
+        modal.style.maxHeight = prevMaxHeight;
+        modal.style.overflowY = prevOverflow;
+    }
+}
+function coPrintDrawer() {
+    document.body.classList.add('co-printing-pallet');
+    const cleanup = () => { document.body.classList.remove('co-printing-pallet'); window.removeEventListener('afterprint', cleanup); };
+    window.addEventListener('afterprint', cleanup);
+    setTimeout(() => window.print(), 50);
 }
 
 // ── Actualizacion automatica (30s, silenciosa, pausa si la pestana esta oculta) ──

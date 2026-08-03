@@ -3239,6 +3239,7 @@ app.get('/api/centro-operativo/pallets/:palletId', auth, roleGuard('admin'), cen
           pedido: registro?.pedido || null,
           fechaCreacion: registro?.createdAt || null,
           ultimoMovimiento: live?.movimientos?.[0]?.FechaMovimiento || null,
+          observaciones: registro?.observaciones || '',
         },
         contenido: enriquecidos,
         distribucion: {
