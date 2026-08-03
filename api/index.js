@@ -2998,12 +2998,27 @@ app.get('/api/centro-operativo/produccion', auth, roleGuard('admin'), centroOper
     // pagina) — este endpoint solo lee lo que ya esta en cache, para no repetir el
     // costo de SmartControl 3 veces en la misma carga.
     const { perPallet, cobertura } = await buildEnrichedPalletList(filter, req.query, false);
-    const lpnPorEsc = new Map(), modelosPorEsc = new Map();
+    const lpnPorEsc = new Map(), modelosPorEsc = new Map(), pedidosPorEsc = new Map();
+    // porDia/porWorkcenter: derivados del MISMO perPallet ya cargado arriba (cero
+    // consultas nuevas a Mongo/SmartControl) — alimentan la pestaña "Produccion"
+    // (tendencia diaria/semanal, produccion por workcenter) sin tocar los campos
+    // existentes de esta respuesta.
+    const porDiaMap = new Map(), porWorkcenterMap = new Map();
     for (const p of perPallet) {
-      if (!p.escaneadora) continue;
-      if (!lpnPorEsc.has(p.escaneadora)) { lpnPorEsc.set(p.escaneadora, new Set()); modelosPorEsc.set(p.escaneadora, new Set()); }
-      for (const l of p.lpns) lpnPorEsc.get(p.escaneadora).add(l);
-      for (const m of p.modelos) modelosPorEsc.get(p.escaneadora).add(m);
+      if (p.escaneadora) {
+        if (!lpnPorEsc.has(p.escaneadora)) { lpnPorEsc.set(p.escaneadora, new Set()); modelosPorEsc.set(p.escaneadora, new Set()); pedidosPorEsc.set(p.escaneadora, new Set()); }
+        for (const l of p.lpns) lpnPorEsc.get(p.escaneadora).add(l);
+        for (const m of p.modelos) modelosPorEsc.get(p.escaneadora).add(m);
+        if (p.pedido) pedidosPorEsc.get(p.escaneadora).add(p.pedido);
+      }
+      if (p.fecha) {
+        const d = porDiaMap.get(p.fecha) || { piezas: 0, pallets: 0 };
+        d.piezas += p.cantidad || 0; d.pallets += 1;
+        porDiaMap.set(p.fecha, d);
+      }
+      if (p.workcenter) {
+        porWorkcenterMap.set(p.workcenter, (porWorkcenterMap.get(p.workcenter) || 0) + (p.cantidad || 0));
+      }
     }
 
     const porEscaneadora = porEscRaw
@@ -3013,7 +3028,17 @@ app.get('/api/centro-operativo/produccion', auth, roleGuard('admin'), centroOper
         pallets: r.pallets.filter(Boolean).length,
         lpnUnicos: lpnPorEsc.get(r._id)?.size ?? 0,
         modelos: modelosPorEsc.get(r._id)?.size ?? 0,
+        pedidos: pedidosPorEsc.get(r._id)?.size ?? 0,
       }))
+      .sort((a, b) => b.piezas - a.piezas);
+
+    // Solo se envia porDia cuando el filtro cubre mas de un dia — con un solo dia
+    // no hay "tendencia" que mostrar y se evita mandar un arreglo de 1 elemento.
+    const porDia = porDiaMap.size > 1
+      ? [...porDiaMap.entries()].map(([fecha, v]) => ({ fecha, ...v })).sort((a, b) => parseFechaMDY(a.fecha) - parseFechaMDY(b.fecha))
+      : [];
+    const porWorkcenter = [...porWorkcenterMap.entries()]
+      .map(([workcenter, piezas]) => ({ workcenter, piezas }))
       .sort((a, b) => b.piezas - a.piezas);
 
     res.json({
@@ -3022,6 +3047,8 @@ app.get('/api/centro-operativo/produccion', auth, roleGuard('admin'), centroOper
       porHora,
       porCondicion: porCondicion.map((c) => ({ condicion: c._id, piezas: c.piezas, porcentaje: totalCond > 0 ? (c.piezas / totalCond) * 100 : 0 })),
       porDestino: porDestino.map((d) => ({ destino: d._id, piezas: d.piezas, porcentaje: totalDest > 0 ? (d.piezas / totalDest) * 100 : 0 })),
+      porDia,
+      porWorkcenter,
       cobertura,
     });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
@@ -3127,7 +3154,7 @@ app.get('/api/centro-operativo/pallets', auth, roleGuard('admin'), centroOperati
       return {
         palletId: r.palletId, fecha: r.fecha, hora: r.createdAt, cantidad: r.cantidad,
         condicion: r.condicion, destino: r.destino, workcenter: enr?.workcenter || null, escaneadora: r.escaneadora,
-        pedido: r.pedido, estado: r.incidencias ? 'Con incidencia' : 'Completado',
+        turno: r.turno || null, pedido: r.pedido, estado: r.incidencias ? 'Con incidencia' : 'Completado',
         ultimoMovimiento: null, lpnUnicos: enr?.lpns?.length ?? null,
         marcas: enr?.marcas || [], modelos: enr?.modelos || [], pulgadas: enr?.pulgadas || [],
         mixto: skuCount != null ? skuCount > 1 : null, skuCount,
