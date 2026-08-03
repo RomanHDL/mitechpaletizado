@@ -942,22 +942,40 @@
            Escaneadora/TV que siguen siendo paneles laterales. ── */
         .co-pallet-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:2450;display:none;}
         .co-pallet-modal-backdrop.open{display:block;}
-        .co-pallet-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.97);opacity:0;pointer-events:none;background:var(--bg-card);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.35);width:min(1220px,96vw);max-height:90vh;overflow-y:auto;z-index:2451;transition:transform 0.18s ease,opacity 0.18s ease;}
+        .co-pallet-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.97);opacity:0;pointer-events:none;background:var(--bg-card);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,0.35);width:min(96vw,1500px);max-height:94vh;z-index:2451;transition:transform 0.18s ease,opacity 0.18s ease;display:flex;flex-direction:column;overflow:hidden;}
         .co-pallet-modal.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1);}
-        .co-pallet-modal-header{padding:1.5rem 1.75rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;}
-        .co-pallet-modal-body{padding:1.5rem 1.75rem 2rem;display:flex;flex-direction:column;gap:1.5rem;}
+        /* Header fijo (flex-shrink:0) + body con su propio scroll — mismo patron ya
+           usado en .co-drawer-header/.co-drawer-body para los drawers de Escaneadora/TV. */
+        .co-pallet-modal-header{flex-shrink:0;padding:1.1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg-card);}
+        .co-pallet-modal-header-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:nowrap;min-width:0;}
+        .co-pallet-modal-header-row > div:first-child{display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;min-width:0;}
+        .co-pallet-modal-actions{display:flex;gap:0.6rem;align-items:center;flex-shrink:0;}
+        .co-pallet-modal-actions .btn{white-space:nowrap;height:36px;box-sizing:border-box;display:inline-flex;align-items:center;}
+        .co-pallet-modal-close-x{background:none;border:1px solid var(--border);border-radius:8px;width:36px;height:36px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;color:var(--text-muted);cursor:pointer;}
+        .co-pallet-modal-meta{margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.25rem 1rem;font-size:0.8rem;color:var(--text-muted);}
+        .co-pallet-modal-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:1.5rem;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:1.5rem;}
         .co-pallet-section-title{font-size:0.95rem;font-weight:700;margin:0 0 0.9rem;display:flex;align-items:center;gap:8px;}
-        .co-pallet-summary-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:0.9rem;}
-        @media (max-width:1300px){.co-pallet-summary-grid{grid-template-columns:repeat(4,1fr);}}
-        @media (max-width:640px){.co-pallet-summary-grid{grid-template-columns:repeat(2,1fr);}}
-        .co-pallet-summary-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.85rem 0.9rem;min-height:92px;}
-        .co-pallet-summary-card i{width:22px;height:22px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent-glow);color:var(--accent);font-size:0.72rem;}
-        .co-pallet-triple-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:1.25rem;align-items:start;}
-        @media (max-width:1000px){.co-pallet-triple-grid{grid-template-columns:1fr;}}
+        .co-pallet-summary-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:0.9rem;}
+        @media (max-width:1300px){.co-pallet-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr));}}
+        @media (max-width:900px){.co-pallet-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+        @media (max-width:520px){.co-pallet-summary-grid{grid-template-columns:minmax(0,1fr);}}
+        .co-pallet-summary-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.85rem 0.9rem;min-height:92px;min-width:0;overflow:hidden;box-sizing:border-box;}
+        .co-pallet-summary-card i{width:22px;height:22px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent-glow);color:var(--accent);font-size:0.72rem;flex-shrink:0;}
+        .co-pallet-summary-card > div:last-child{overflow-wrap:anywhere;}
+        .co-pallet-triple-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(280px,0.9fr) minmax(280px,0.9fr);gap:1.25rem;align-items:start;}
+        .co-pallet-triple-grid > *{min-width:0;}
+        @media (max-width:1100px){
+            .co-pallet-triple-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+            .co-pallet-triple-grid > *:first-child{grid-column:1/-1;}
+        }
+        @media (max-width:700px){
+            .co-pallet-triple-grid{grid-template-columns:minmax(0,1fr);}
+            .co-pallet-triple-grid > *:first-child{grid-column:auto;}
+        }
         .co-pallet-info-row{display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem;padding:0.45rem 0;border-bottom:1px dashed var(--border);font-size:0.85rem;}
         .co-pallet-info-row:last-child{border-bottom:none;}
         .co-pallet-info-row span:first-child{color:var(--text-muted);flex-shrink:0;}
-        .co-pallet-info-row span:last-child{font-weight:600;text-align:right;}
+        .co-pallet-info-row span:last-child{font-weight:600;text-align:right;overflow-wrap:anywhere;min-width:0;}
         .co-pallet-timeline{list-style:none;margin:0;padding:0;}
         .co-pallet-timeline li{position:relative;padding-left:1.75rem;padding-bottom:1.1rem;}
         .co-pallet-timeline li:last-child{padding-bottom:0;}
@@ -966,13 +984,16 @@
         .co-pt-dot{position:absolute;left:0;top:2px;width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
         .co-pt-dot.done{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,0.18);}
         .co-pt-dot.warn{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,0.18);}
-        .co-pallet-dist-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.1rem;}
-        @media (max-width:1200px){.co-pallet-dist-grid{grid-template-columns:repeat(2,1fr);}}
-        @media (max-width:640px){.co-pallet-dist-grid{grid-template-columns:1fr;}}
-        .co-pallet-dist-panel{min-height:190px;}
-        .co-pallet-content-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:1.25rem;align-items:start;}
-        @media (max-width:1000px){.co-pallet-content-grid{grid-template-columns:1fr;}}
-        .co-pallet-photo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0.6rem;}
+        .co-pallet-dist-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.1rem;}
+        @media (max-width:700px){.co-pallet-dist-grid{grid-template-columns:minmax(0,1fr);}}
+        .co-pallet-dist-panel{min-height:280px;min-width:0;display:flex;flex-direction:column;}
+        .co-pallet-content-grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(320px,1fr);gap:1.25rem;align-items:start;}
+        .co-pallet-content-grid > *{min-width:0;}
+        @media (max-width:1000px){.co-pallet-content-grid{grid-template-columns:minmax(0,1fr);}}
+        .co-pallet-content-scroll{max-height:360px;overflow-y:auto;overflow-x:auto;border:1px solid var(--border);border-radius:8px;}
+        .co-pallet-content-scroll table{width:100%;}
+        .co-pallet-content-scroll thead th{position:sticky;top:0;background:var(--bg-sidebar);z-index:1;}
+        .co-pallet-photo-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.6rem;}
         .co-pallet-photo-grid img{width:100%;height:112px;object-fit:cover;border-radius:10px;border:1px solid var(--border);display:block;}
         @media print{
             body.co-printing-pallet *{visibility:hidden;}
@@ -980,11 +1001,16 @@
             body.co-printing-pallet .co-pallet-modal-backdrop *{visibility:visible;}
             body.co-printing-pallet .co-pallet-modal-backdrop{position:absolute;inset:0;background:#fff;}
             body.co-printing-pallet .co-pallet-modal{position:static;transform:none;box-shadow:none;width:100%;max-height:none;overflow:visible;border-radius:0;}
+            body.co-printing-pallet .co-pallet-modal-body{overflow:visible !important;max-height:none !important;}
             body.co-printing-pallet .co-pallet-modal-actions{display:none !important;}
         }
         @media (max-width:760px){
             .co-pallet-modal{width:100%;max-height:100vh;height:100%;border-radius:0;top:0;left:0;transform:none;}
             .co-pallet-modal.open{transform:none;}
+            /* Titulo+badge+4 botones no caben en una sola fila en un telefono real —
+               se permite apilar aqui unicamente (desktop/tablet se mantienen en una fila). */
+            .co-pallet-modal-header-row{flex-wrap:wrap;}
+            .co-pallet-modal-actions{width:100%;justify-content:flex-end;}
         }
         .co-drawer{position:fixed;top:0;right:0;bottom:0;width:min(680px,95vw);background:var(--bg-card);border-left:1px solid var(--border);z-index:2401;display:flex;flex-direction:column;transform:translateX(100%);transition:transform 0.25s ease;box-shadow:-10px 0 40px rgba(0,0,0,0.4);}
         .co-drawer.open{transform:translateX(0);}
@@ -2706,19 +2732,21 @@
         <div class="co-pallet-modal-backdrop" id="co-drawer-backdrop" onclick="coCloseDrawer()"></div>
         <div class="co-pallet-modal" id="co-drawer" role="dialog" aria-modal="true" aria-labelledby="co-drawer-title-heading">
             <div class="co-pallet-modal-header">
-                <div>
-                    <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
-                        <h2 id="co-drawer-title-heading" style="margin:0;font-size:1.35rem;">Detalle de Pallet <span id="co-drawer-title" style="font-family:monospace;"></span></h2>
+                <div class="co-pallet-modal-header-row">
+                    <div>
+                        <h2 id="co-drawer-title-heading" style="margin:0;font-size:1.25rem;white-space:nowrap;">Detalle de Pallet <span id="co-drawer-title" style="font-family:monospace;"></span></h2>
                         <span class="badge badge-gray" id="co-drawer-estado-badge">--</span>
                     </div>
-                    <p id="co-drawer-subtitle" style="margin:0.45rem 0 0;font-size:0.82rem;color:var(--text-muted);">Cargando...</p>
-                    <p id="co-drawer-lastupdate" style="margin:0.2rem 0 0;font-size:0.78rem;color:var(--text-muted);"></p>
+                    <div class="co-pallet-modal-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="coExportPalletDetail()"><i class="fa-solid fa-download"></i> Exportar</button>
+                        <button class="btn btn-secondary btn-sm" onclick="coPrintDrawer()"><i class="fa-solid fa-print"></i> Imprimir</button>
+                        <button class="btn btn-primary btn-sm" onclick="coCloseDrawer()">Cerrar</button>
+                        <button class="co-pallet-modal-close-x" onclick="coCloseDrawer()" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
                 </div>
-                <div class="co-pallet-modal-actions" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
-                    <button class="btn btn-secondary btn-sm" onclick="coExportPalletDetail()"><i class="fa-solid fa-download"></i> Exportar</button>
-                    <button class="btn btn-secondary btn-sm" onclick="coPrintDrawer()"><i class="fa-solid fa-print"></i> Imprimir</button>
-                    <button class="btn btn-primary btn-sm" onclick="coCloseDrawer()"><i class="fa-solid fa-xmark"></i> Cerrar</button>
-                    <button onclick="coCloseDrawer()" title="Cerrar" style="background:none;border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.6rem;color:var(--text-muted);cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+                <div class="co-pallet-modal-meta">
+                    <span id="co-drawer-subtitle">Cargando...</span>
+                    <span id="co-drawer-lastupdate"></span>
                 </div>
             </div>
             <div class="co-pallet-modal-body" id="co-drawer-body">
@@ -2753,7 +2781,7 @@
                 <div class="co-pallet-content-grid">
                     <div class="card" style="padding:1.1rem 1.3rem;">
                         <h3 class="co-pallet-section-title"><i class="fa-solid fa-boxes-stacked" style="color:var(--accent);"></i>Contenido del pallet</h3>
-                        <div id="co-drawer-contenido" style="overflow-x:auto;"></div>
+                        <div id="co-drawer-contenido"></div>
                     </div>
                     <div class="card" style="padding:1.1rem 1.3rem;">
                         <h3 class="co-pallet-section-title"><i class="fa-solid fa-images" style="color:var(--accent);"></i>Fotografías del pallet</h3>
@@ -6185,7 +6213,7 @@ async function coOpenDrawer(palletId) {
     document.getElementById('co-drawer-backdrop').classList.add('open');
     document.getElementById('co-drawer').classList.add('open');
     document.body.style.overflow = 'hidden';
-    document.getElementById('co-drawer').scrollTop = 0;
+    document.getElementById('co-drawer-body').scrollTop = 0;
     document.getElementById('co-drawer-title').textContent = palletId;
     document.getElementById('co-drawer-estado-badge').textContent = '--';
     document.getElementById('co-drawer-estado-badge').className = 'badge badge-gray';
@@ -6303,11 +6331,15 @@ function coRenderDrawer(d) {
     // canvases con tamaño 0 (a diferencia de las pestañas ocultas de antes).
     coRenderPalletDistCharts(d.distribucion || {});
 
-    // Contenido del pallet
+    // Contenido del pallet — scroll vertical propio (max-height) con thead sticky,
+    // no afecta el scroll general del modal; scroll horizontal solo dentro de este
+    // contenedor si la tabla no cabe en pantallas angostas.
     const contenido = d.contenido || [];
     document.getElementById('co-drawer-contenido').innerHTML = contenido.length === 0 ? '<div class="co-empty">Sin contenido reportado por SmartControl.</div>' : `
+        <div class="co-pallet-content-scroll">
         <table class="ctrl-table"><thead><tr><th>#</th><th>LPN</th><th>Marca</th><th>Modelo</th><th>Pulg.</th><th>Condición</th><th>Destino</th><th>SKU</th><th>Estado</th></tr></thead>
-        <tbody>${contenido.map((p, i) => `<tr ${p.lpn ? `onclick="openScLpnDetail('${String(p.lpn).replace(/'/g,"\\'")}')" style="cursor:pointer;"` : ''}><td>${i + 1}</td><td style="font-family:monospace;">${p.lpn || '-'}</td><td>${p.marca || '-'}</td><td>${p.modelo || '-'}</td><td>${p.pulgadas ? p.pulgadas + '"' : '-'}</td><td>${p.condicion || '-'}</td><td>${r.destino || '-'}</td><td style="font-family:monospace;">${p.sku || '-'}</td><td><span class="badge ${p.marca ? 'badge-green' : 'badge-gray'}">${p.estado}</span></td></tr>`).join('')}</tbody></table>`;
+        <tbody>${contenido.map((p, i) => `<tr ${p.lpn ? `onclick="openScLpnDetail('${String(p.lpn).replace(/'/g,"\\'")}')" style="cursor:pointer;"` : ''}><td>${i + 1}</td><td style="font-family:monospace;">${p.lpn || '-'}</td><td>${p.marca || '-'}</td><td>${p.modelo || '-'}</td><td>${p.pulgadas ? p.pulgadas + '"' : '-'}</td><td>${p.condicion || '-'}</td><td>${r.destino || '-'}</td><td style="font-family:monospace;">${p.sku || '-'}</td><td><span class="badge ${p.marca ? 'badge-green' : 'badge-gray'}">${p.estado}</span></td></tr>`).join('')}</tbody></table>
+        </div>`;
 
     // Fotografías
     const fotos = d.fotografias || [];
@@ -6332,8 +6364,19 @@ function coRenderDrawer(d) {
 // "Destino" no se incluye como distribucion: un pallet tiene UN solo destino, no una
 // mezcla — mostrarlo como donut hubiera sido inventar variedad que no existe; el
 // valor real de destino ya se muestra en las tarjetas resumen e informacion general. ──
+// Agrupa filas mas alla de las N principales en un solo bucket "Otros" (mismo
+// patron ya usado en "Piezas por Condicion" del Resumen) — evita leyendas gigantes
+// y que "Por modelo" se vea comprimido cuando hay muchos modelos distintos.
+function coCapTopNWithOthers(rows, n) {
+    if (!rows || rows.length <= n) return rows || [];
+    const top = rows.slice(0, n);
+    const rest = rows.slice(n);
+    const restTotal = rest.reduce((s, r) => s + (r.total || 0), 0);
+    const restPct = rest.reduce((s, r) => s + (r.porcentaje || 0), 0);
+    return [...top, { key: 'Otros', total: restTotal, porcentaje: restPct, _grouped: rest.length }];
+}
 function coRenderPalletDistCharts(dist) {
-    const panel = (title, canvasId) => `<div class="co-pallet-dist-panel"><div style="font-size:0.8rem;font-weight:700;margin-bottom:0.5rem;text-align:center;">${title}</div><div style="position:relative;height:150px;"><canvas id="${canvasId}"></canvas></div></div>`;
+    const panel = (title, canvasId) => `<div class="co-pallet-dist-panel"><div style="font-size:0.8rem;font-weight:700;margin-bottom:0.5rem;text-align:center;">${title}</div><div style="position:relative;flex:1;min-height:220px;"><canvas id="${canvasId}"></canvas></div></div>`;
     document.getElementById('co-drawer-distribucion').innerHTML =
         panel('Por condición', 'co-pmodal-chart-condicion') +
         panel('Por marca', 'co-pmodal-chart-marca') +
@@ -6341,27 +6384,28 @@ function coRenderPalletDistCharts(dist) {
         panel('Por modelo', 'co-pmodal-chart-modelo');
 
     const emptyPanel = (canvasId) => { const c = document.getElementById(canvasId); if (c) c.closest('.co-pallet-dist-panel').innerHTML = '<div class="co-empty">Sin datos.</div>'; };
+    const labelFor = (r) => r.key + (r._grouped ? ` (+${r._grouped})` : '');
     const donut = (canvasId, rows) => {
         if (!rows || rows.length === 0) { emptyPanel(canvasId); return; }
         coUpdateOrCreateChart(canvasId, canvasId, {
             type: 'doughnut',
-            data: { labels: rows.map(r => r.key), datasets: [{ data: rows.map(r => r.total), backgroundColor: CO_DONUT_COLORS, borderColor: CHART_THEME.donutBorder, borderWidth: 2 }] },
+            data: { labels: rows.map(labelFor), datasets: [{ data: rows.map(r => r.total), backgroundColor: CO_DONUT_COLORS, borderColor: CHART_THEME.donutBorder, borderWidth: 2 }] },
             options: { responsive: true, maintainAspectRatio: false, animation: false,
                 plugins: { legend: { position: 'right', labels: { color: CHART_THEME.muted, boxWidth: 8, font: { size: 9 } } },
-                    tooltip: { callbacks: { label: (ctx) => { const r = rows[ctx.dataIndex]; return ` ${r.key}: ${r.total} (${r.porcentaje.toFixed(1)}%)`; } } } } },
+                    tooltip: { callbacks: { label: (ctx) => { const r = rows[ctx.dataIndex]; const extra = r._grouped ? ` agrupando ${r._grouped} mas` : ''; return ` ${r.key}${extra}: ${r.total} (${r.porcentaje.toFixed(1)}%)`; } } } } },
         });
     };
-    donut('co-pmodal-chart-condicion', dist.porCondicion);
-    donut('co-pmodal-chart-pulgadas', (dist.porPulgadas || []).map(rr => ({ ...rr, key: rr.key + '"' })));
-    donut('co-pmodal-chart-modelo', dist.porModelo);
+    donut('co-pmodal-chart-condicion', coCapTopNWithOthers(dist.porCondicion, 6));
+    donut('co-pmodal-chart-pulgadas', coCapTopNWithOthers((dist.porPulgadas || []).map(rr => ({ ...rr, key: rr.key + '"' })), 6));
+    donut('co-pmodal-chart-modelo', coCapTopNWithOthers(dist.porModelo, 6));
 
-    const marcaRows = dist.porMarca || [];
+    const marcaRows = coCapTopNWithOthers(dist.porMarca, 6);
     if (marcaRows.length === 0) { emptyPanel('co-pmodal-chart-marca'); return; }
     coUpdateOrCreateChart('co-pmodal-chart-marca', 'co-pmodal-chart-marca', {
         type: 'bar',
-        data: { labels: marcaRows.map(r => r.key), datasets: [{ data: marcaRows.map(r => r.total), backgroundColor: '#4f7cffcc', hoverBackgroundColor: '#4f7cff', borderRadius: 4, barPercentage: 0.7 }] },
+        data: { labels: marcaRows.map(labelFor), datasets: [{ data: marcaRows.map(r => r.total), backgroundColor: '#4f7cffcc', hoverBackgroundColor: '#4f7cff', borderRadius: 4, barPercentage: 0.7 }] },
         options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false,
-            plugins: { legend: { display: false }, tooltip: { backgroundColor: CHART_THEME.tooltipBg, titleColor: CHART_THEME.text, bodyColor: CHART_THEME.tooltipBody, borderColor: CHART_THEME.tooltipBorder, borderWidth: 1 } },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => { const r = marcaRows[ctx.dataIndex]; const extra = r._grouped ? ` agrupando ${r._grouped} mas` : ''; return ` ${r.key}${extra}: ${r.total} (${r.porcentaje.toFixed(1)}%)`; } }, backgroundColor: CHART_THEME.tooltipBg, titleColor: CHART_THEME.text, bodyColor: CHART_THEME.tooltipBody, borderColor: CHART_THEME.tooltipBorder, borderWidth: 1 } },
             scales: { x: { beginAtZero: true, ticks: { color: CHART_THEME.muted, font: { size: 9 } }, grid: { color: CHART_THEME.gridLight } }, y: { ticks: { color: CHART_THEME.muted, font: { size: 9 } }, grid: { display: false } } } },
     });
 }
@@ -6373,11 +6417,18 @@ async function coExportPalletDetail() {
     const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
     if (!jsPDFCtor || typeof html2canvas === 'undefined') { showToast('Librerias PDF no cargadas. Reintenta.', 'error'); return; }
     const modal = document.getElementById('co-drawer');
+    const body = document.getElementById('co-drawer-body');
     const palletId = (document.getElementById('co-drawer-title').textContent || 'pallet').trim();
     showToast('Generando PDF...', 'info', 2000);
-    const prevMaxHeight = modal.style.maxHeight, prevOverflow = modal.style.overflowY;
+    // El modal ahora es header fijo + body con su propio scroll (flex:1;overflow-y:auto)
+    // — para capturar TODO el contenido (no solo lo visible en los 94vh) hay que
+    // liberar ambos, no solo el contenedor exterior.
+    const prevModalMaxHeight = modal.style.maxHeight, prevModalOverflow = modal.style.overflow;
+    const prevBodyOverflow = body.style.overflowY, prevBodyMaxHeight = body.style.maxHeight;
     modal.style.maxHeight = 'none';
-    modal.style.overflowY = 'visible';
+    modal.style.overflow = 'visible';
+    body.style.overflowY = 'visible';
+    body.style.maxHeight = 'none';
     try {
         const isLight = document.documentElement.getAttribute('data-theme') === 'light';
         const canvas = await html2canvas(modal, { backgroundColor: isLight ? '#FFFFFF' : '#141b2d', scale: 2, useCORS: true, logging: false });
@@ -6393,8 +6444,10 @@ async function coExportPalletDetail() {
     } catch (e) {
         showToast('Error al exportar: ' + e.message, 'error');
     } finally {
-        modal.style.maxHeight = prevMaxHeight;
-        modal.style.overflowY = prevOverflow;
+        modal.style.maxHeight = prevModalMaxHeight;
+        modal.style.overflow = prevModalOverflow;
+        body.style.overflowY = prevBodyOverflow;
+        body.style.maxHeight = prevBodyMaxHeight;
     }
 }
 function coPrintDrawer() {
