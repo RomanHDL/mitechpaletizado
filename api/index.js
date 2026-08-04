@@ -1879,6 +1879,28 @@ app.delete('/api/clasificaciones/:id', auth, roleGuard('admin'), async (req, res
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// ── Conteo de registros por clasificacion (columna "Registros" del panel
+// Gestionar Pedidos). UNA sola pasada sobre EscReg via $facet (no N consultas
+// por fila) — replica exactamente el mismo regex que usa el rename-cascade de
+// arriba (PUT /api/clasificaciones/:id) para que el conteo mostrado sea
+// consistente con lo que esa operacion realmente actualizaria. ──
+app.get('/api/clasificaciones/counts', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+    const clasifs = await Clasif.find({}, { nombre: 1 });
+    if (clasifs.length === 0) return res.json({ success: true, counts: {} });
+    const facet = {};
+    clasifs.forEach((c, i) => {
+      const re = new RegExp('^' + escapeRegex(c.nombre) + '(\\s*\\||\\s*$)');
+      facet['c' + i] = [{ $match: { observaciones: re } }, { $count: 'n' }];
+    });
+    const [result] = await EscReg.aggregate([{ $facet: facet }]);
+    const counts = {};
+    clasifs.forEach((c, i) => { counts[String(c._id)] = (result['c' + i][0] || {}).n || 0; });
+    res.json({ success: true, counts });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // ═══════════ METAS DE PRODUCCION (admin 3647 only) ═══════════
 const targetSchema = new mongoose.Schema({
   turno: { type: String, required: true, enum: ['Día', 'Tiempo Extra', 'Noche', 'Global'], unique: true },

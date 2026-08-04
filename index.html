@@ -1016,6 +1016,59 @@
         .co-drawer.open{transform:translateX(0);}
         .co-drawer-header{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
         .co-drawer-body{flex:1;overflow-y:auto;padding:1rem 1.25rem;}
+
+        /* ── Gestionar Pedidos: lista administrativa (reemplaza las barras azules
+           grandes). Reutiliza variables CSS globales, .badge*, .btn*, .form-input
+           y la animacion coSkeleton ya definidas — sin dependencias nuevas. ── */
+        .pedidos-toolbar{display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.9rem;}
+        .pedidos-search-box{position:relative;width:260px;max-width:100%;}
+        .pedidos-search-box i.fa-magnifying-glass{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.78rem;pointer-events:none;}
+        .pedidos-search-box input{width:100%;padding:0.45rem 1.9rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text-main);font-size:0.85rem;box-sizing:border-box;}
+        .pedidos-search-clear{position:absolute;right:5px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px 6px;font-size:0.75rem;}
+        .pedidos-toolbar-right{display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;}
+        .pedidos-count-label{font-size:0.78rem;color:var(--text-muted);white-space:nowrap;}
+        .pedidos-row{display:grid;grid-template-columns:7% 45% 18% 12% 18%;grid-template-areas:"color nombre tipo registros acciones";gap:0.5rem;align-items:center;padding:0 0.9rem;box-sizing:border-box;}
+        .pedidos-row-head{font-size:0.66rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:0.02em;padding-bottom:0.55rem;border-bottom:1px solid var(--border);margin-bottom:0.5rem;}
+        .pedidos-list{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin;}
+        .pedidos-row:not(.pedidos-row-head){background:var(--bg-card);border:1px solid var(--border);border-radius:10px;min-height:58px;box-shadow:0 1px 2px rgba(0,0,0,0.05);transition:box-shadow 0.15s ease,border-color 0.15s ease;}
+        .pedidos-row:not(.pedidos-row-head):hover{box-shadow:0 3px 10px rgba(0,0,0,0.08);border-color:var(--accent);}
+        .pc-color{grid-area:color;min-width:0;}
+        .pc-nombre{grid-area:nombre;min-width:0;overflow:hidden;}
+        .pc-tipo{grid-area:tipo;min-width:0;}
+        .pc-registros{grid-area:registros;min-width:0;}
+        .pc-acciones{grid-area:acciones;min-width:0;display:flex;gap:6px;}
+        .pedido-color-swatch{display:inline-block;width:28px;height:28px;border-radius:7px;border:1px solid var(--border);flex-shrink:0;}
+        .pedido-color-input{width:32px;height:32px;padding:1px;border-radius:7px;cursor:pointer;border:1px solid var(--border);flex-shrink:0;}
+        .pedido-nombre-text{font-size:0.9rem;font-weight:600;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+        .pedido-edit-input{width:100%;padding:0.35rem 0.55rem;font-size:0.85rem;box-sizing:border-box;}
+        .pedido-tipo-badge{display:inline-flex;align-items:center;gap:4px;font-size:0.66rem;font-weight:700;padding:3px 8px;border-radius:8px;white-space:nowrap;}
+        .pedido-tipo-base{background:rgba(245,158,11,0.15);color:#f59e0b;}
+        .pedido-tipo-custom{background:rgba(79,124,255,0.12);color:#4f7cff;}
+        .pedido-registros-value{font-size:0.85rem;font-weight:600;color:var(--text-main);}
+        .pedido-count-skeleton{width:44px;height:14px;background:var(--inset-bg);border-radius:4px;display:inline-block;animation:coSkeleton 1.2s ease-in-out infinite;}
+        .pedido-action-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:0.76rem;flex-shrink:0;transition:background 0.15s ease,color 0.15s ease;}
+        .pedido-action-btn:hover:not(:disabled){background:var(--inset-bg-hover);color:var(--text-main);}
+        .pedido-action-btn:disabled{opacity:0.4;cursor:not-allowed;}
+        .pedido-action-danger{background:rgba(239,68,68,0.08);color:var(--danger);border-color:rgba(239,68,68,0.25);}
+        .pedido-action-danger:hover:not(:disabled){background:rgba(239,68,68,0.18);}
+        .pedido-action-primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+        .pedido-action-primary:hover:not(:disabled){background:var(--accent-hover);}
+        .pedidos-new-form{margin-top:1rem;padding-top:0.9rem;border-top:1px solid var(--border);}
+        .pedidos-new-form-title{font-size:0.8rem;font-weight:600;color:var(--success);margin-bottom:0.6rem;display:flex;align-items:center;gap:6px;}
+        .pedidos-new-form-row{display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;}
+        @media (max-width:900px){
+            .pedidos-row{grid-template-columns:34px 1fr 92px 62px 76px;}
+        }
+        @media (max-width:640px){
+            .pedidos-row-head{display:none;}
+            .pedidos-row:not(.pedidos-row-head){
+                grid-template-columns:auto 1fr;
+                grid-template-areas:"color nombre" "tipo tipo" "registros registros" "acciones acciones";
+                row-gap:8px;
+                padding:0.7rem 0.85rem;
+            }
+            .pc-acciones{justify-content:flex-end;}
+        }
     </style>
 </head>
 <body>
@@ -2365,15 +2418,41 @@
                 <div class="card" id="pedidos-mgmt-panel">
                     <div class="card-title" style="font-size:0.9rem;"><i class="fa-solid fa-tags" style="color:#0d9488;"></i> Gestionar Pedidos</div>
                     <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">Crea o renombra los pedidos que aparecen en la clasificacion del formulario. Renombrar actualiza todos los registros existentes.</p>
-                    <div id="pedidos-mgmt-list" style="max-height:320px;overflow-y:auto;margin-bottom:1rem;"></div>
-                    <div style="border-top:1px solid var(--border);padding-top:0.9rem;">
-                        <div style="font-size:0.8rem;font-weight:600;color:var(--success);margin-bottom:0.5rem;"><i class="fa-solid fa-plus" style="margin-right:4px;"></i>Agregar nuevo pedido</div>
-                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
-                            <input type="text" class="form-input" id="new-pedido-nombre" placeholder="Nombre del pedido" style="flex:1;min-width:160px;" maxlength="40">
-                            <input type="color" class="form-input" id="new-pedido-color" value="#0d9488" title="Color de identificacion" style="width:48px;height:36px;padding:2px;cursor:pointer;">
-                            <button class="btn btn-primary btn-sm" onclick="createPedido()"><i class="fa-solid fa-plus" style="margin-right:4px;"></i>Crear</button>
+
+                    <!-- Barra de herramientas: buscador + contador + nuevo pedido -->
+                    <div class="pedidos-toolbar">
+                        <div class="pedidos-search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="pedidos-search" placeholder="Buscar pedido..." oninput="filterPedidosAdmin()">
+                            <button type="button" class="pedidos-search-clear" id="pedidos-search-clear" onclick="clearPedidosSearch()" title="Limpiar busqueda" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
                         </div>
-                        <p id="pedidos-mgmt-msg" style="font-size:0.78rem;margin-top:0.4rem;min-height:1em;"></p>
+                        <div class="pedidos-toolbar-right">
+                            <span class="pedidos-count-label" id="pedidos-count-label">0 pedidos registrados</span>
+                            <button class="btn btn-primary btn-sm" onclick="toggleNuevoPedidoForm()"><i class="fa-solid fa-plus"></i> Nuevo pedido</button>
+                        </div>
+                    </div>
+
+                    <!-- Encabezado de columnas (fuera del area de scroll) -->
+                    <div class="pedidos-row pedidos-row-head">
+                        <div class="pc-color">Color</div>
+                        <div class="pc-nombre">Nombre del pedido</div>
+                        <div class="pc-tipo">Tipo</div>
+                        <div class="pc-registros">Registros</div>
+                        <div class="pc-acciones">Acciones</div>
+                    </div>
+
+                    <!-- Lista de pedidos, scroll interno unicamente aqui -->
+                    <div id="pedidos-mgmt-list" class="pedidos-list"></div>
+
+                    <!-- Formulario de creacion, oculto hasta presionar "+ Nuevo pedido" -->
+                    <div id="pedidos-new-form" class="pedidos-new-form" style="display:none;">
+                        <div class="pedidos-new-form-title"><i class="fa-solid fa-plus"></i>Crear nuevo pedido</div>
+                        <div class="pedidos-new-form-row">
+                            <input type="text" class="form-input" id="new-pedido-nombre" placeholder="Nombre del pedido" style="flex:1;min-width:160px;" maxlength="40" oninput="updateCrearPedidoBtnState()">
+                            <input type="color" class="form-input" id="new-pedido-color" value="#0d9488" title="Color de identificacion" style="width:48px;height:36px;padding:2px;cursor:pointer;">
+                            <button class="btn btn-secondary btn-sm" onclick="toggleNuevoPedidoForm(false)">Cancelar</button>
+                            <button class="btn btn-primary btn-sm" id="crear-pedido-btn" onclick="createPedido()" disabled><i class="fa-solid fa-plus" style="margin-right:4px;"></i>Crear pedido</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3776,100 +3855,226 @@ function escapeHtml(s) {
         .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// ── Gestionar Pedidos: estado del panel (busqueda, fila en edicion, cache de
+// conteos). clasificacionesData (global, cargado por loadClasificaciones) sigue
+// siendo la unica fuente de verdad de los pedidos — este panel solo la presenta. ──
+let pedidosSearchQuery = '';
+let pedidosEditingId = null;
+let pedidosCounts = {};
+let pedidosCountsLoaded = false;
+let pedidosCountsLoading = false;
+
 function renderPedidosAdminPanel() {
     const list = document.getElementById('pedidos-mgmt-list');
     if (!list || !currentUser || currentUser.usuario !== '3647') return;
-    if (!clasificacionesData || !clasificacionesData.length) {
-        list.innerHTML = '<p style="font-size:0.78rem;color:var(--text-muted);">Sin pedidos. Agrega uno abajo.</p>';
+    const all = clasificacionesData || [];
+    const q = pedidosSearchQuery.trim().toLowerCase();
+    const filtered = q ? all.filter(c => (c.nombre || '').toLowerCase().includes(q)) : all;
+
+    const countLabel = document.getElementById('pedidos-count-label');
+    if (countLabel) {
+        const n = filtered.length;
+        countLabel.textContent = `${n.toLocaleString('es-MX')} pedido${n === 1 ? '' : 's'} registrado${n === 1 ? '' : 's'}`;
+    }
+
+    if (all.length === 0) {
+        list.innerHTML = '<p style="font-size:0.78rem;color:var(--text-muted);padding:0.75rem 0.9rem;">Sin pedidos. Crea el primero con "+ Nuevo pedido".</p>';
         return;
     }
-    list.innerHTML = clasificacionesData.map(c => {
+    if (filtered.length === 0) {
+        list.innerHTML = '<p style="font-size:0.78rem;color:var(--text-muted);padding:0.75rem 0.9rem;">Sin resultados para tu busqueda.</p>';
+        return;
+    }
+    list.innerHTML = filtered.map(c => {
         const id = String(c._id);
-        const safeName = escapeHtml(c.nombre);
-        const lockBadge = c.isLocked
-            ? `<span title="Pedido base — solo se puede cambiar el color" style="font-size:0.62rem;background:rgba(245,158,11,0.15);color:#f59e0b;padding:1px 6px;border-radius:8px;margin-left:6px;"><i class="fa-solid fa-lock" style="margin-right:3px;"></i>base</span>`
-            : '';
+        const safeName = escapeHtml((c.nombre || '').trim());
+        const displayName = safeName || 'Pedido sin nombre';
+        const tipoBadge = c.isLocked
+            ? `<span class="pedido-tipo-badge pedido-tipo-base" title="Pedido base — protegido por compatibilidad, no se puede eliminar ni renombrar"><i class="fa-solid fa-lock"></i>Base</span>`
+            : `<span class="pedido-tipo-badge pedido-tipo-custom">Personalizado</span>`;
+        const registrosHtml = pedidosCountsLoaded
+            ? `<span class="pedido-registros-value">${(pedidosCounts[id] ?? 0).toLocaleString('es-MX')}</span>`
+            : `<span class="pedido-count-skeleton"></span>`;
+
+        if (pedidosEditingId === id) {
+            return `
+            <div class="pedidos-row" data-id="${id}">
+                <div class="pc-color"><input type="color" class="pedido-color-input" data-role="color" value="${c.color}" title="Color"></div>
+                <div class="pc-nombre">${c.isLocked
+                    ? `<span class="pedido-nombre-text" title="Los pedidos base no pueden renombrarse">${displayName}</span>`
+                    : `<input type="text" class="form-input pedido-edit-input" data-role="nombre" value="${safeName}" maxlength="40">`}</div>
+                <div class="pc-tipo">${tipoBadge}</div>
+                <div class="pc-registros">${registrosHtml}</div>
+                <div class="pc-acciones">
+                    <button class="pedido-action-btn pedido-action-primary" id="save-pedido-btn-${id}" onclick="saveEditPedido('${id}')" title="Guardar cambios"><i class="fa-solid fa-floppy-disk"></i></button>
+                    <button class="pedido-action-btn" onclick="cancelEditPedido()" title="Cancelar"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>`;
+        }
         return `
-        <div class="pedido-row" data-id="${id}" style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--border);">
-            <input type="color" value="${c.color}" data-role="color" style="width:34px;height:30px;padding:1px;cursor:pointer;flex-shrink:0;" title="Color">
-            <input type="text" class="form-input" value="${safeName}" data-role="nombre" maxlength="40" ${c.isLocked ? 'readonly' : ''} style="flex:1;padding:0.35rem 0.55rem;font-size:0.83rem;${c.isLocked ? 'opacity:0.7;' : ''}">
-            ${lockBadge}
-            <button class="btn btn-primary btn-sm" onclick="savePedido('${id}')" title="Guardar cambios" style="padding:0.3rem 0.55rem;font-size:0.72rem;"><i class="fa-solid fa-floppy-disk"></i></button>
-            ${c.isLocked ? '' : `<button class="btn btn-secondary btn-sm" onclick="deletePedido('${id}','${safeName.replace(/'/g, "\\'")}')" title="Desactivar pedido" style="padding:0.3rem 0.55rem;font-size:0.72rem;color:var(--danger);"><i class="fa-solid fa-trash"></i></button>`}
+        <div class="pedidos-row" data-id="${id}">
+            <div class="pc-color"><span class="pedido-color-swatch" style="background:${c.color};" title="${c.color}"></span></div>
+            <div class="pc-nombre"><span class="pedido-nombre-text" title="${displayName}">${displayName}</span></div>
+            <div class="pc-tipo">${tipoBadge}</div>
+            <div class="pc-registros">${registrosHtml}</div>
+            <div class="pc-acciones">
+                <button class="pedido-action-btn" onclick="startEditPedido('${id}')" title="Editar pedido"><i class="fa-solid fa-pen"></i></button>
+                ${c.isLocked
+                    ? `<button class="pedido-action-btn pedido-action-danger" disabled title="Los pedidos base no pueden eliminarse"><i class="fa-solid fa-trash"></i></button>`
+                    : `<button class="pedido-action-btn pedido-action-danger" onclick="confirmDeletePedido('${id}')" title="Eliminar pedido"><i class="fa-solid fa-trash"></i></button>`}
+            </div>
         </div>`;
     }).join('');
 }
 
-async function createPedido() {
-    const msg = document.getElementById('pedidos-mgmt-msg');
-    const nombreEl = document.getElementById('new-pedido-nombre');
-    const colorEl = document.getElementById('new-pedido-color');
-    const nombre = (nombreEl.value || '').trim();
-    const color = (colorEl.value || '').toLowerCase();
-    if (!nombre) { msg.textContent = 'Escribe un nombre'; msg.style.color = 'var(--danger)'; return; }
-    if (!/^#[0-9a-f]{6}$/.test(color)) { msg.textContent = 'Color invalido'; msg.style.color = 'var(--danger)'; return; }
-    // Pre-validar color repetido en cliente
-    const taken = (clasificacionesData || []).find(c => c.isActive !== false && c.color.toLowerCase() === color);
-    if (taken) { msg.textContent = `Ese color ya lo usa: ${taken.nombre}`; msg.style.color = 'var(--danger)'; return; }
-    const dup = (clasificacionesData || []).find(c => c.nombre.toLowerCase() === nombre.toLowerCase());
-    if (dup) { msg.textContent = 'Ya existe un pedido con ese nombre'; msg.style.color = 'var(--danger)'; return; }
-    try {
-        const data = await apiFetch(`${API}/api/clasificaciones`, { method: 'POST', body: JSON.stringify({ nombre, color }) });
-        if (!data.success) { msg.textContent = data.error; msg.style.color = 'var(--danger)'; return; }
-        msg.textContent = `Pedido "${nombre}" creado`; msg.style.color = 'var(--success)';
-        nombreEl.value = '';
-        // Sugerir un nuevo color aleatorio que no repita
-        colorEl.value = pickFreeColor();
-        await loadClasificaciones();
-        setTimeout(() => { msg.textContent = ''; }, 4000);
-    } catch(e) { msg.textContent = e.message; msg.style.color = 'var(--danger)'; }
+// ── Busqueda (filtra clasificacionesData ya cargado en memoria — sin recargar
+// la pagina ni volver a pedir datos al servidor) ──
+function filterPedidosAdmin() {
+    const input = document.getElementById('pedidos-search');
+    pedidosSearchQuery = input ? input.value : '';
+    const clearBtn = document.getElementById('pedidos-search-clear');
+    if (clearBtn) clearBtn.style.display = pedidosSearchQuery ? '' : 'none';
+    renderPedidosAdminPanel();
+}
+function clearPedidosSearch() {
+    const input = document.getElementById('pedidos-search');
+    if (input) input.value = '';
+    pedidosSearchQuery = '';
+    const clearBtn = document.getElementById('pedidos-search-clear');
+    if (clearBtn) clearBtn.style.display = 'none';
+    renderPedidosAdminPanel();
+    if (input) input.focus();
 }
 
-async function savePedido(id) {
-    const msg = document.getElementById('pedidos-mgmt-msg');
-    const row = document.querySelector(`.pedido-row[data-id="${id}"]`);
+// ── Formulario de creacion: colapsado por defecto, se despliega bajo demanda ──
+function toggleNuevoPedidoForm(show) {
+    const form = document.getElementById('pedidos-new-form');
+    if (!form) return;
+    const shouldShow = show === undefined ? form.style.display === 'none' : show;
+    form.style.display = shouldShow ? 'block' : 'none';
+    document.getElementById('new-pedido-nombre').value = '';
+    document.getElementById('new-pedido-color').value = pickFreeColor();
+    updateCrearPedidoBtnState();
+    if (shouldShow) document.getElementById('new-pedido-nombre').focus();
+}
+function updateCrearPedidoBtnState() {
+    const btn = document.getElementById('crear-pedido-btn');
+    const nombreEl = document.getElementById('new-pedido-nombre');
+    if (!btn || !nombreEl) return;
+    btn.disabled = !(nombreEl.value || '').trim();
+}
+
+async function createPedido() {
+    const nombreEl = document.getElementById('new-pedido-nombre');
+    const colorEl = document.getElementById('new-pedido-color');
+    const btn = document.getElementById('crear-pedido-btn');
+    const nombre = (nombreEl.value || '').trim();
+    const color = (colorEl.value || '').toLowerCase();
+    if (!nombre) { showToast('Escribe un nombre para el pedido', 'error'); return; }
+    if (!/^#[0-9a-f]{6}$/.test(color)) { showToast('Color invalido', 'error'); return; }
+    // Pre-validar color/nombre repetido en cliente (ignorando mayus/minus/espacios)
+    const taken = (clasificacionesData || []).find(c => c.isActive !== false && c.color.toLowerCase() === color);
+    if (taken) { showToast(`Ese color ya lo usa: ${taken.nombre}`, 'error'); return; }
+    const dup = (clasificacionesData || []).find(c => c.nombre.trim().toLowerCase() === nombre.toLowerCase());
+    if (dup) { showToast('Ya existe un pedido con ese nombre', 'error'); return; }
+    btn.disabled = true;
+    const prevHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creando...';
+    try {
+        const data = await apiFetch(`${API}/api/clasificaciones`, { method: 'POST', body: JSON.stringify({ nombre, color }) });
+        if (!data.success) { showToast(data.error, 'error'); return; }
+        showToast(`Pedido "${nombre}" creado`, 'success');
+        if (data.data && data.data._id) pedidosCounts[String(data.data._id)] = 0; // pedido nuevo, 0 registros reales
+        toggleNuevoPedidoForm(false);
+        await loadClasificaciones();
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = prevHtml; updateCrearPedidoBtnState(); }
+}
+
+// ── Edicion dentro de la misma fila: solo una fila editandose a la vez ──
+function startEditPedido(id) {
+    pedidosEditingId = String(id);
+    renderPedidosAdminPanel();
+}
+function cancelEditPedido() {
+    pedidosEditingId = null;
+    renderPedidosAdminPanel(); // vuelve a leer de clasificacionesData: restaura nombre/color previos
+}
+async function saveEditPedido(id) {
+    const row = document.querySelector(`.pedidos-row[data-id="${id}"]`);
     if (!row) return;
     const orig = (clasificacionesData || []).find(c => String(c._id) === String(id));
     if (!orig) return;
     const nombreInput = row.querySelector('input[data-role="nombre"]');
     const colorInput = row.querySelector('input[data-role="color"]');
-    const nombre = (nombreInput.value || '').trim();
+    const nombre = nombreInput ? (nombreInput.value || '').trim() : orig.nombre;
     const color = (colorInput.value || '').toLowerCase();
-    if (!nombre) { msg.textContent = 'El nombre no puede estar vacio'; msg.style.color = 'var(--danger)'; return; }
-    if (!/^#[0-9a-f]{6}$/.test(color)) { msg.textContent = 'Color invalido'; msg.style.color = 'var(--danger)'; return; }
-    // Validacion local: color repetido por OTRO pedido activo
+    if (!nombre) { showToast('El nombre no puede estar vacio', 'error'); return; }
+    if (!/^#[0-9a-f]{6}$/.test(color)) { showToast('Color invalido', 'error'); return; }
     const colorClash = (clasificacionesData || []).find(c => c.isActive !== false && String(c._id) !== String(id) && c.color.toLowerCase() === color);
-    if (colorClash) { msg.textContent = `Ese color ya lo usa: ${colorClash.nombre}`; msg.style.color = 'var(--danger)'; return; }
-    if (nombre === orig.nombre && color === orig.color.toLowerCase()) {
-        msg.textContent = 'Sin cambios'; msg.style.color = 'var(--text-muted)';
-        setTimeout(() => { msg.textContent = ''; }, 2500);
-        return;
+    if (colorClash) { showToast(`Ese color ya lo usa: ${colorClash.nombre}`, 'error'); return; }
+    const nombreCambio = nombre.toLowerCase() !== (orig.nombre || '').trim().toLowerCase();
+    if (nombreCambio) {
+        const dupe = (clasificacionesData || []).find(c => String(c._id) !== String(id) && c.nombre.trim().toLowerCase() === nombre.toLowerCase());
+        if (dupe) { showToast('Ya existe un pedido con ese nombre', 'error'); return; }
     }
-    if (nombre !== orig.nombre && !confirm(`Renombrar "${orig.nombre}" a "${nombre}"?\n\nTodos los registros existentes con este pedido se actualizaran. No se elimina ningun registro.`)) return;
+    if (!nombreCambio && color === orig.color.toLowerCase()) { cancelEditPedido(); return; }
+    if (nombreCambio && !confirm(`Renombrar "${orig.nombre}" a "${nombre}"?\n\nTodos los registros existentes con este pedido se actualizaran. No se elimina ningun registro.`)) return;
+    const saveBtn = document.getElementById(`save-pedido-btn-${id}`);
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
     try {
         const data = await apiFetch(`${API}/api/clasificaciones/${id}`, { method: 'PUT', body: JSON.stringify({ nombre, color }) });
-        if (!data.success) { msg.textContent = data.error; msg.style.color = 'var(--danger)'; return; }
-        let txt = `Pedido actualizado`;
+        if (!data.success) { showToast(data.error, 'error'); return; }
+        let txt = 'Pedido actualizado';
         if (typeof data.registrosActualizados === 'number' && data.registrosActualizados > 0) {
             txt += ` — ${data.registrosActualizados} registro(s) renombrado(s)`;
         }
-        msg.textContent = txt; msg.style.color = 'var(--success)';
+        showToast(txt, 'success');
+        pedidosEditingId = null;
         await loadClasificaciones();
-        setTimeout(() => { msg.textContent = ''; }, 5000);
-    } catch(e) { msg.textContent = e.message; msg.style.color = 'var(--danger)'; }
+        if (nombreCambio) loadPedidosCounts(); // el nombre cambio: refresca conteos por si el regex ya no matchea igual
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i>'; } }
 }
 
-async function deletePedido(id, nombre) {
-    if (!confirm(`Desactivar pedido "${nombre}"?\n\nDejara de aparecer en la clasificacion del formulario. Los registros existentes que lo usan NO se modifican.`)) return;
-    const msg = document.getElementById('pedidos-mgmt-msg');
+// ── Eliminar (desactivar, soft-delete): confirmacion mostrando nombre real y
+// cantidad de registros relacionados — nunca elimina/reasigna esos registros. ──
+function confirmDeletePedido(id) {
+    const c = (clasificacionesData || []).find(x => String(x._id) === String(id));
+    if (!c || c.isLocked) return;
+    const count = pedidosCountsLoaded ? (pedidosCounts[String(id)] || 0) : null;
+    let msg = `¿Eliminar este pedido?\n\n"${c.nombre}"\n\nEsta accion no se puede deshacer.`;
+    if (count) {
+        msg += `\n\nEste pedido tiene ${count.toLocaleString('es-MX')} registro(s) relacionado(s). Se desactivara y dejara de aparecer en la clasificacion del formulario — esos registros conservan su clasificacion actual, no se modifican ni se eliminan.`;
+    }
+    if (!confirm(msg)) return;
+    deletePedidoConfirmed(id, c.nombre);
+}
+async function deletePedidoConfirmed(id, nombre) {
     try {
         const data = await apiFetch(`${API}/api/clasificaciones/${id}`, { method: 'DELETE' });
-        if (!data.success) { msg.textContent = data.error; msg.style.color = 'var(--danger)'; return; }
-        msg.textContent = data.message || `Pedido "${nombre}" desactivado`;
-        msg.style.color = 'var(--success)';
+        if (!data.success) { showToast(data.error, 'error'); return; }
+        showToast(data.message || `Pedido "${nombre}" desactivado`, 'success');
+        if (pedidosEditingId === String(id)) pedidosEditingId = null;
         await loadClasificaciones();
-        setTimeout(() => { msg.textContent = ''; }, 4000);
-    } catch(e) { msg.textContent = e.message; msg.style.color = 'var(--danger)'; }
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ── Conteo real de registros por pedido: UNA sola llamada a
+// /api/clasificaciones/counts (no una consulta por fila), cacheada hasta que un
+// renombre la invalide. Mientras carga, cada fila muestra un skeleton. ──
+async function loadPedidosCounts() {
+    if (pedidosCountsLoading) return;
+    pedidosCountsLoading = true;
+    try {
+        const data = await apiFetch(`${API}/api/clasificaciones/counts`);
+        if (data.success) {
+            pedidosCounts = data.counts || {};
+            pedidosCountsLoaded = true;
+            renderPedidosAdminPanel();
+        }
+    } catch (e) { console.warn('[PEDIDOS] No se pudo cargar el conteo de registros:', e.message); }
+    finally { pedidosCountsLoading = false; }
 }
 
 // Sugerir un color hex que no este en uso por pedidos activos
@@ -5061,6 +5266,9 @@ function setOperacionesTab(tab) {
     document.querySelectorAll('.ops-panel').forEach(p => p.classList.remove('active'));
     const panel = document.getElementById('ops-panel-' + tab);
     if (panel) panel.classList.add('active');
+    // Conteo de registros por pedido: solo se pide una vez (no en cada cambio de
+    // pestaña) — se refresca aparte cuando un renombre podria haberlo invalidado.
+    if (tab === 'pedidos' && !pedidosCountsLoaded) loadPedidosCounts();
 }
 
 // ── Escaneadoras: menu -> ruta directa (no-admin) o hub modal (admin) ──
