@@ -52,10 +52,11 @@ export const CONDITIONS = [
 // Default: GRB es la condición más frecuente en el Sheet
 export const DEFAULT_CONDITION = 'GRB';
 
-// ── Destinations (solo TRG y Almacen, igual que web) ──
+// ── Destinations (TRG, Almacen y FBA — igual que web) ──
 export const DESTINATIONS = [
   { value: 'TRG',     label: 'TRG',     icon: 'arrow-forward-circle' },
   { value: 'Almacen', label: 'Almacen', icon: 'cube' },
+  { value: 'FBA',     label: 'FBA',     icon: 'airplane' },
 ];
 
 export const DEFAULT_DESTINO = 'Almacen';

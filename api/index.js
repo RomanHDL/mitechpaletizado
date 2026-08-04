@@ -69,9 +69,14 @@ async function audit(action, data) {
 }
 
 // ── Validation helpers ──
-const VALID_DESTINOS = ['TRG', 'ALMACEN'];
+// Catalogo central de destinos oficiales (documental — el schema de EscReg NO usa
+// enum a proposito, para no romper valores historicos como "Sin clasificar" que
+// vienen de SmartControl; el catalogo editable en vivo es /api/settings 'destinos',
+// ver SETTING_DEFAULTS mas abajo). normalizeDestino() es el unico lugar que aplica
+// este catalogo para normalizar mayusculas/acentos de forma consistente.
+const VALID_DESTINOS = ['TRG', 'Almacen', 'FBA'];
 const VALID_CLASIFICACIONES = ['', 'BOX', 'BULKY', 'HV', 'HV TELEVISIONES', '9X7251Z'];
-function normalizeDestino(d) { const u = (d||'').trim(); const up = u.toUpperCase(); if (up === 'ALMACEN' || up === 'ALMACÉN') return 'Almacen'; if (up === 'TRG') return 'TRG'; return u; }
+function normalizeDestino(d) { const u = (d||'').trim(); const up = u.toUpperCase(); if (up === 'ALMACEN' || up === 'ALMACÉN') return 'Almacen'; if (up === 'TRG') return 'TRG'; if (up === 'FBA') return 'FBA'; return u; }
 function normalizePalletId(id) { return (id||'').trim().toUpperCase(); }
 
 // ── Search / date helpers ──
@@ -1698,6 +1703,10 @@ const resumenSchema = new mongoose.Schema({
   palletsTotales: { type: Number, required: true, min: 0 },
   palletsTRG: { type: Number, required: true, min: 0 },
   palletsAlmacen: { type: Number, required: true, min: 0 },
+  // Agregado junto con el destino FBA — required:true solo aplica a documentos
+  // NUEVOS; los resumenes historicos ya guardados no tienen este campo y se leen
+  // igual (el frontend usa `r.palletsFBA || 0` al mostrarlos/exportarlos).
+  palletsFBA: { type: Number, required: true, min: 0 },
   palletsEnProceso: { type: Number, required: true, min: 0 },
   asistencia: { type: Number, required: true, min: 0 },
   absentismo: { type: Number, required: true, min: 0 },
@@ -1712,13 +1721,14 @@ const Resumen = mongoose.models.ResumenPaletizado || mongoose.model('ResumenPale
 
 app.post('/api/resumen', auth, moduleGuard('escaneadoras'), async (req, res) => {
   try {
-    const { turno, palletsTotales, palletsTRG, palletsAlmacen, palletsEnProceso, asistencia, absentismo, tareasPendientes, fecha } = req.body;
-    if (!turno || !fecha || palletsTotales===undefined || palletsTotales==='' || palletsTRG===undefined || palletsTRG==='' || palletsAlmacen===undefined || palletsAlmacen==='' || palletsEnProceso===undefined || palletsEnProceso==='' || asistencia===undefined || asistencia==='' || absentismo===undefined || absentismo==='' || !tareasPendientes) {
+    const { turno, palletsTotales, palletsTRG, palletsAlmacen, palletsFBA, palletsEnProceso, asistencia, absentismo, tareasPendientes, fecha } = req.body;
+    if (!turno || !fecha || palletsTotales===undefined || palletsTotales==='' || palletsTRG===undefined || palletsTRG==='' || palletsAlmacen===undefined || palletsAlmacen==='' || palletsFBA===undefined || palletsFBA==='' || palletsEnProceso===undefined || palletsEnProceso==='' || asistencia===undefined || asistencia==='' || absentismo===undefined || absentismo==='' || !tareasPendientes) {
       return res.status(400).json({ success: false, error: 'Todos los campos son obligatorios' });
     }
     const nums = {
       palletsTotales: parseInt(palletsTotales, 10), palletsTRG: parseInt(palletsTRG, 10),
-      palletsAlmacen: parseInt(palletsAlmacen, 10), palletsEnProceso: parseInt(palletsEnProceso, 10),
+      palletsAlmacen: parseInt(palletsAlmacen, 10), palletsFBA: parseInt(palletsFBA, 10),
+      palletsEnProceso: parseInt(palletsEnProceso, 10),
       asistencia: parseInt(asistencia, 10), absentismo: parseInt(absentismo, 10),
     };
     const bad = Object.entries(nums).find(([, v]) => Number.isNaN(v) || v < 0);
@@ -1996,7 +2006,7 @@ const LpnDuplicate = mongoose.models.LpnDuplicate || mongoose.model('LpnDuplicat
 
 // Defaults para catalogos (basados en los valores hardcodeados actuales)
 const SETTING_DEFAULTS = {
-  destinos: ['TRG', 'Almacen'],
+  destinos: ['TRG', 'Almacen', 'FBA'],
   condiciones: ['GRA', 'GRB', 'GRC', 'ICB', 'ICC', 'ICD', 'ICX', 'BOX', 'DNP', 'DMT', 'DMA'],
 };
 const SETTING_KEYS = Object.keys(SETTING_DEFAULTS);

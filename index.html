@@ -1447,6 +1447,7 @@
                                     <option value="" disabled selected>Seleccionar...</option>
                                     <option value="TRG">TRG</option>
                                     <option value="Almacen">Almacen</option>
+                                    <option value="FBA">FBA</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -1563,6 +1564,13 @@
                             <div class="form-group">
                                 <label><i class="fa-solid fa-truck-loading" style="margin-right:5px;color:#22c55e;font-size:0.8rem;"></i>Pallets TRG <span style="color:var(--danger);">*</span></label>
                                 <input type="number" class="form-input" id="res-pallets-trg" placeholder="Ej: 30" min="0" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><i class="fa-solid fa-plane-departure" style="margin-right:5px;color:#a78bfa;font-size:0.8rem;"></i>Pallets FBA <span style="color:var(--danger);">*</span></label>
+                                <input type="number" class="form-input" id="res-pallets-fba" placeholder="Ej: 10" min="0" required>
                             </div>
                         </div>
 
@@ -5958,6 +5966,20 @@ function coRenderHoraChart(porHora, canvasId) {
     });
 }
 const CO_DONUT_COLORS = ['#4f7cff','#22c55e','#f59e0b','#a78bfa','#ef4444','#06b6d4','#f97316','#84cc16'];
+
+// ── Catalogo central de colores por destino oficial (TRG/Almacen/FBA) — un solo
+// lugar para que el mismo destino siempre tenga el mismo color en dashboard,
+// graficas, drill-down, historial comparativo y resumenes por escaneadora.
+// Cualquier otro valor de destino (ej. "Sin clasificar", datos historicos raros)
+// usa el color de respaldo (fallback) que decida cada llamador — nunca se inventa
+// un color fijo para valores que no son destinos oficiales. ──
+const DESTINO_COLORS = { 'TRG': '#22c55e', 'Almacen': '#4f7cff', 'FBA': '#a78bfa' };
+function getDestinoColor(destino, fallback) {
+    const raw = String(destino || '').trim();
+    const up = raw.toUpperCase();
+    const key = (up === 'ALMACEN' || up === 'ALMACÉN') ? 'Almacen' : (up === 'TRG' ? 'TRG' : (up === 'FBA' ? 'FBA' : raw));
+    return DESTINO_COLORS[key] || fallback || '#f59e0b';
+}
 function coRenderCondicionChart(rows, canvasId) {
     canvasId = canvasId || 'co-chart-condicion';
     coUpdateOrCreateChart(canvasId === 'co-chart-condicion' ? 'condicion' : canvasId, canvasId, {
@@ -5970,7 +5992,7 @@ function coRenderDestinoChart(rows, canvasId) {
     canvasId = canvasId || 'co-chart-destino';
     coUpdateOrCreateChart(canvasId === 'co-chart-destino' ? 'destino' : canvasId, canvasId, {
         type: 'doughnut',
-        data: { labels: rows.map(r => r.destino), datasets: [{ data: rows.map(r => r.piezas), backgroundColor: CO_DONUT_COLORS, borderColor: CHART_THEME.donutBorder, borderWidth: 2 }] },
+        data: { labels: rows.map(r => r.destino), datasets: [{ data: rows.map(r => r.piezas), backgroundColor: rows.map((r, i) => getDestinoColor(r.destino, CO_DONUT_COLORS[i % CO_DONUT_COLORS.length])), borderColor: CHART_THEME.donutBorder, borderWidth: 2 }] },
         options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { position: 'right', labels: { color: CHART_THEME.muted, boxWidth: 10, font: { size: 10 } } }, tooltip: { callbacks: { label: (ctx) => { const r = rows[ctx.dataIndex]; return ` ${r.destino}: ${r.piezas.toLocaleString('es-MX')} (${r.porcentaje.toFixed(1)}%)`; } } } } },
     });
 }
@@ -7274,14 +7296,16 @@ async function loadResumen() {
         const tooltipStyle = { backgroundColor:CHART_THEME.tooltipBg, titleColor:CHART_THEME.text, bodyColor:CHART_THEME.tooltipBody, borderColor:CHART_THEME.tooltipBorder, borderWidth:1, cornerRadius:8, padding:10 };
         const datalabelWhite = { display: true, color: '#fff', font: { weight: 'bold', size: 11 }, formatter: (v) => v > 0 ? v : '' };
 
-        // Sort destinos: TRG first, then Almacen, then rest
-        const sortedDest = [...data.porDestino].sort((a,b) => {
-            if (a.destino === 'TRG') return -1; if (b.destino === 'TRG') return 1;
-            if (a.destino === 'Almacen') return -1; if (b.destino === 'Almacen') return 1;
-            return 0;
+        // Sort destinos: TRG first, luego Almacen, luego FBA, luego cualquier otro
+        // valor (ej. "Sin clasificar") al final — orden fijo para los 3 destinos
+        // oficiales, dinamico para cualquier valor adicional que aparezca despues.
+        const DESTINO_SORT_ORDER = { 'TRG': 0, 'Almacen': 1, 'FBA': 2 };
+        const sortedDest = [...data.porDestino].sort((a, b) => {
+            const oa = DESTINO_SORT_ORDER[a.destino] ?? 99, ob = DESTINO_SORT_ORDER[b.destino] ?? 99;
+            return oa - ob;
         });
         const destLabels = sortedDest.map(d => d.destino);
-        const destColors = destLabels.map(d => d === 'TRG' ? '#22c55e' : d === 'Almacen' ? '#4f7cff' : '#f59e0b');
+        const destColors = destLabels.map(d => getDestinoColor(d));
         const dlOpts = { display:true, color:'#fff', font:{weight:'bold',size:14}, textStrokeColor:'rgba(0,0,0,0.18)', textStrokeWidth:2, backgroundColor:'rgba(0,0,0,0.10)', borderRadius:6, padding:{top:3,bottom:3,left:6,right:6}, borderColor:'rgba(255,255,255,0.06)', borderWidth:1, textAlign:'center' };
 
         // ── PIE: Total Real de Pallets (by destino) ──
@@ -7428,14 +7452,19 @@ function renderEscaneadoraDetail() {
     const byEsc = {};
     lastTableData.forEach(r => {
         const esc = r.escaneadora || 'Otro';
-        if (!byEsc[esc]) byEsc[esc] = { trg:0, alm:0, clasTRG:{}, clasAlm:{}, totalPed:0 };
+        if (!byEsc[esc]) byEsc[esc] = { trg:0, alm:0, fba:0, clasTRG:{}, clasAlm:{}, clasFba:{}, totalPed:0 };
         const d = byEsc[esc];
         const dest = (r.destino||'').toUpperCase();
-        if (dest === 'TRG') d.trg++; else d.alm++;
+        // Comparacion explicita de los 3 destinos oficiales — ya NO se asume que
+        // "todo lo que no es TRG" es Almacen (ese supuesto contaba los FBA como
+        // Almacen por error).
+        const isTRG = dest === 'TRG', isFBA = dest === 'FBA';
+        if (isTRG) d.trg++; else if (isFBA) d.fba++; else d.alm++;
         if (r.pedido && r.pedido.trim()) {
             d.totalPed++;
             const cls = getClas(r) || 'OTRO';
-            if (dest === 'TRG') { d.clasTRG[cls] = (d.clasTRG[cls]||0)+1; }
+            if (isTRG) { d.clasTRG[cls] = (d.clasTRG[cls]||0)+1; }
+            else if (isFBA) { d.clasFba[cls] = (d.clasFba[cls]||0)+1; }
             else { d.clasAlm[cls] = (d.clasAlm[cls]||0)+1; }
         }
     });
@@ -7448,21 +7477,22 @@ function renderEscaneadoraDetail() {
             return `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:12px;font-size:0.68rem;font-weight:600;background:${col}22;color:${col};border:1px solid ${col}44;">${c}: ${n}</span>`;
         }).join(' ');
     }
+    function destBlock(label, count, map, color) {
+        return `<div style="padding:0.3rem 0.4rem;background:${color}0f;border-radius:4px;min-width:0;">
+            <div style="font-size:0.72rem;font-weight:600;color:${color};margin-bottom:0.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${label}: ${count} plt</div>
+            <div style="display:flex;flex-wrap:wrap;gap:0.2rem;">${clasBadges(map)}</div>
+        </div>`;
+    }
 
-    const sorted = Object.entries(byEsc).sort((a,b) => (b[1].trg+b[1].alm) - (a[1].trg+a[1].alm));
+    const sorted = Object.entries(byEsc).sort((a,b) => (b[1].trg+b[1].alm+b[1].fba) - (a[1].trg+a[1].alm+a[1].fba));
 
     el.innerHTML = sorted.map(([nombre, d]) => {
         return `<div style="margin-bottom:0.5rem;padding:0.5rem 0.6rem;background:var(--inset-bg);border:1px solid var(--border);border-radius:6px;">
             <div style="font-weight:600;color:var(--text-main);font-size:0.8rem;margin-bottom:0.35rem;">${nombre} <span style="font-weight:400;color:var(--text-muted);font-size:0.72rem;">(${d.totalPed} pedidos)</span></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;">
-                <div style="padding:0.3rem 0.4rem;background:rgba(34,197,94,0.06);border-radius:4px;">
-                    <div style="font-size:0.72rem;font-weight:600;color:#22c55e;margin-bottom:0.2rem;">TRG: ${d.trg} plt</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:0.2rem;">${clasBadges(d.clasTRG)}</div>
-                </div>
-                <div style="padding:0.3rem 0.4rem;background:rgba(79,124,255,0.06);border-radius:4px;">
-                    <div style="font-size:0.72rem;font-weight:600;color:#4f7cff;margin-bottom:0.2rem;">Almacen: ${d.alm} plt</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:0.2rem;">${clasBadges(d.clasAlm)}</div>
-                </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.4rem;">
+                ${destBlock('TRG', d.trg, d.clasTRG, getDestinoColor('TRG'))}
+                ${destBlock('Almacen', d.alm, d.clasAlm, getDestinoColor('Almacen'))}
+                ${destBlock('FBA', d.fba, d.clasFba, getDestinoColor('FBA'))}
             </div>
         </div>`;
     }).join('');
@@ -8883,11 +8913,21 @@ function renderRegistrosHistorial(body, fechaQuery, textoQuery, sourceData) {
             h += `<div style="padding:0.5rem;">`;
             escSorted.forEach(([escName, escRecs]) => {
                 const escQty = escRecs.reduce((s,r) => s+(r.cantidad||0), 0);
+                // 3 buckets explicitos (TRG/Almacen/FBA) — Almacen sigue siendo el
+                // catch-all de "cualquier otro valor" (ej. datos historicos raros),
+                // igual que antes, pero FBA ya no cae ahi por error.
                 const trgRecs = escRecs.filter(r => (r.destino||'').toUpperCase() === 'TRG');
-                const almRecs = escRecs.filter(r => (r.destino||'').toUpperCase() !== 'TRG');
+                const fbaRecs = escRecs.filter(r => (r.destino||'').toUpperCase() === 'FBA');
+                const almRecs = escRecs.filter(r => { const u=(r.destino||'').toUpperCase(); return u !== 'TRG' && u !== 'FBA'; });
                 const trgQty = trgRecs.reduce((s,r) => s+(r.cantidad||0), 0);
                 const almQty = almRecs.reduce((s,r) => s+(r.cantidad||0), 0);
-                const maxRows = Math.max(trgRecs.length, almRecs.length);
+                const fbaQty = fbaRecs.reduce((s,r) => s+(r.cantidad||0), 0);
+                const maxRows = Math.max(trgRecs.length, almRecs.length, fbaRecs.length);
+                const destCols = [
+                    { recs: trgRecs, qty: trgQty, label: 'TRG', icon: 'arrow-right', color: getDestinoColor('TRG') },
+                    { recs: almRecs, qty: almQty, label: 'Almacen', icon: 'warehouse', color: getDestinoColor('Almacen') },
+                    { recs: fbaRecs, qty: fbaQty, label: 'FBA', icon: 'plane-departure', color: getDestinoColor('FBA') },
+                ];
 
                 h += `<div style="margin-bottom:0.75rem;border:1px solid var(--border);border-radius:8px;overflow:hidden;">`;
                 // Escaneadora header
@@ -8895,32 +8935,25 @@ function renderRegistrosHistorial(body, fechaQuery, textoQuery, sourceData) {
                 h += `<span style="font-size:0.85rem;font-weight:700;color:var(--accent);"><i class="fa-solid fa-user" style="margin-right:4px;font-size:0.7rem;"></i>${escName}</span>`;
                 h += `<span style="font-size:0.75rem;color:var(--text-muted);margin-left:0.5rem;">${escRecs.length} pallets &middot; ${escQty} pz</span>`;
                 h += `</div>`;
-                // Column headers
-                h += `<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border);">`;
-                h += `<div style="padding:0.3rem 0.5rem;text-align:center;font-size:0.75rem;font-weight:700;color:#22c55e;border-right:1px solid var(--border);background:rgba(34,197,94,0.05);"><i class="fa-solid fa-arrow-right" style="margin-right:3px;font-size:0.65rem;"></i>TRG <span style="font-weight:400;color:var(--text-muted);">(${trgRecs.length} plt, ${trgQty} pz)</span></div>`;
-                h += `<div style="padding:0.3rem 0.5rem;text-align:center;font-size:0.75rem;font-weight:700;color:#4f7cff;background:rgba(79,124,255,0.05);"><i class="fa-solid fa-warehouse" style="margin-right:3px;font-size:0.65rem;"></i>Almacen <span style="font-weight:400;color:var(--text-muted);">(${almRecs.length} plt, ${almQty} pz)</span></div>`;
+                // Column headers (3: TRG / Almacen / FBA)
+                h += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--border);">`;
+                destCols.forEach((c, i) => {
+                    h += `<div style="padding:0.3rem 0.4rem;text-align:center;font-size:0.72rem;font-weight:700;color:${c.color};${i<destCols.length-1?'border-right:1px solid var(--border);':''}background:${c.color}0d;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><i class="fa-solid fa-${c.icon}" style="margin-right:3px;font-size:0.62rem;"></i>${c.label} <span style="font-weight:400;color:var(--text-muted);">(${c.recs.length} plt, ${c.qty} pz)</span></div>`;
+                });
                 h += `</div>`;
                 // Comparative rows
                 for (let i = 0; i < maxRows; i++) {
-                    const tR = trgRecs[i];
-                    const aR = almRecs[i];
-                    h += `<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.78rem;">`;
-                    // TRG cell
-                    h += `<div style="padding:0.3rem 0.5rem;border-right:1px solid var(--border);">`;
-                    if (tR) {
-                        h += `<strong style="color:var(--text-main);">${scPalletLink(tR.palletId)}</strong> <span style="color:var(--text-muted);">${tR.cantidad}pz</span>`;
-                        if (tR.condicion) h += ` <span class="badge badge-blue" style="font-size:0.6rem;">${tR.condicion}</span>`;
-                        if (tR.pedido) h += ` <span style="color:var(--text-muted);font-size:0.7rem;">P:${tR.pedido}</span>`;
-                    }
-                    h += `</div>`;
-                    // Almacen cell
-                    h += `<div style="padding:0.3rem 0.5rem;">`;
-                    if (aR) {
-                        h += `<strong style="color:var(--text-main);">${scPalletLink(aR.palletId)}</strong> <span style="color:var(--text-muted);">${aR.cantidad}pz</span>`;
-                        if (aR.condicion) h += ` <span class="badge badge-blue" style="font-size:0.6rem;">${aR.condicion}</span>`;
-                        if (aR.pedido) h += ` <span style="color:var(--text-muted);font-size:0.7rem;">P:${aR.pedido}</span>`;
-                    }
-                    h += `</div>`;
+                    h += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.76rem;">`;
+                    destCols.forEach((c, ci) => {
+                        const rec = c.recs[i];
+                        h += `<div style="padding:0.3rem 0.4rem;min-width:0;overflow:hidden;${ci<destCols.length-1?'border-right:1px solid var(--border);':''}">`;
+                        if (rec) {
+                            h += `<strong style="color:var(--text-main);">${scPalletLink(rec.palletId)}</strong> <span style="color:var(--text-muted);">${rec.cantidad}pz</span>`;
+                            if (rec.condicion) h += ` <span class="badge badge-blue" style="font-size:0.6rem;">${rec.condicion}</span>`;
+                            if (rec.pedido) h += ` <span style="color:var(--text-muted);font-size:0.7rem;">P:${rec.pedido}</span>`;
+                        }
+                        h += `</div>`;
+                    });
                     h += `</div>`;
                 }
                 h += `</div>`;
@@ -9457,11 +9490,12 @@ function renderDrillDown() {
         h += `<div style="display:grid;grid-template-columns:${destEntries.map(()=>'1fr').join(' ')};gap:0;">`;
         destEntries.forEach(([dest, recs]) => {
             const destPz = recs.reduce((s,r) => s+(r.cantidad||0), 0);
-            const destColor = dest === 'TRG' ? '#22c55e' : '#4f7cff';
+            const destColor = getDestinoColor(dest, '#4f7cff');
+            const destIcon = dest === 'TRG' ? 'arrow-right-from-bracket' : dest === 'FBA' ? 'plane-departure' : 'warehouse';
             h += `<div style="border-right:1px solid var(--border);">`;
             // Dest header
             h += `<div style="padding:0.4rem 0.65rem;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.04);display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-weight:600;font-size:0.78rem;color:${destColor};"><i class="fa-solid fa-${dest==='TRG'?'arrow-right-from-bracket':'warehouse'}" style="margin-right:4px;font-size:0.65rem;"></i>${dest}</span>
+                <span style="font-weight:600;font-size:0.78rem;color:${destColor};"><i class="fa-solid fa-${destIcon}" style="margin-right:4px;font-size:0.65rem;"></i>${dest}</span>
                 <span style="font-size:0.7rem;color:var(--text-muted);"><strong style="color:var(--text-main);">${recs.length}</strong> plt &middot; ${destPz} pz</span>
             </div>`;
             // Pallet rows
@@ -9828,12 +9862,13 @@ async function handleResumenSubmit(e) {
     const palletsTotales = document.getElementById('res-pallets-total').value;
     const palletsTRG = document.getElementById('res-pallets-trg').value;
     const palletsAlmacen = document.getElementById('res-pallets-almacen').value;
+    const palletsFBA = document.getElementById('res-pallets-fba').value;
     const palletsEnProceso = document.getElementById('res-pallets-proceso').value;
     const asistencia = document.getElementById('res-asistencia').value;
     const absentismo = document.getElementById('res-absentismo').value;
     const tareasPendientes = document.getElementById('res-tareas').value.trim();
 
-    if (!turno || !fechaRaw || palletsTotales==='' || palletsTRG==='' || palletsAlmacen==='' || palletsEnProceso==='' || asistencia==='' || absentismo==='' || !tareasPendientes) {
+    if (!turno || !fechaRaw || palletsTotales==='' || palletsTRG==='' || palletsAlmacen==='' || palletsFBA==='' || palletsEnProceso==='' || asistencia==='' || absentismo==='' || !tareasPendientes) {
         errEl.textContent = 'Todos los campos son obligatorios. Completa el formulario.';
         errEl.style.display = 'block';
         return;
@@ -9849,7 +9884,7 @@ async function handleResumenSubmit(e) {
     try {
         const data = await apiFetch(`${API}/api/resumen`, {
             method: 'POST',
-            body: JSON.stringify({ turno, palletsTotales, palletsTRG, palletsAlmacen, palletsEnProceso, asistencia, absentismo, tareasPendientes, fecha })
+            body: JSON.stringify({ turno, palletsTotales, palletsTRG, palletsAlmacen, palletsFBA, palletsEnProceso, asistencia, absentismo, tareasPendientes, fecha })
         });
         if (!data.success) throw new Error(data.error);
         okEl.textContent = 'Resumen guardado correctamente.';
@@ -9884,6 +9919,7 @@ function renderResumenCard(r) {
         <div class="resumen-stat"><span class="resumen-stat-label">Pallets Totales</span><span class="resumen-stat-value" style="color:#f59e0b;font-size:1.15rem;">${r.palletsTotales}</span></div>
         <div class="resumen-stat"><span class="resumen-stat-label">Pallets TRG</span><span class="resumen-stat-value">${r.palletsTRG||0}</span></div>
         <div class="resumen-stat"><span class="resumen-stat-label">Pallets Almacen</span><span class="resumen-stat-value">${r.palletsAlmacen||0}</span></div>
+        <div class="resumen-stat"><span class="resumen-stat-label">Pallets FBA</span><span class="resumen-stat-value" style="color:#a78bfa;">${r.palletsFBA||0}</span></div>
         <div class="resumen-stat"><span class="resumen-stat-label">En Proceso</span><span class="resumen-stat-value">${r.palletsEnProceso||0}</span></div>
         <div class="resumen-stat"><span class="resumen-stat-label">Asistencia</span><span class="resumen-stat-value" style="color:var(--success);">${r.asistencia||0}</span></div>
         <div class="resumen-stat"><span class="resumen-stat-label">Absentismo</span><span class="resumen-stat-value" style="color:var(--danger);">${r.absentismo||0}</span></div>
@@ -9937,8 +9973,8 @@ function exportResumenFecha(fecha) {
     const recs = lastResumenData.filter(r => r.fecha === fecha);
     if (recs.length === 0) return;
     const wb = XLSX.utils.book_new();
-    const headers = ['Fecha','Turno','Pallets Totales','Pallets TRG','Pallets Almacen','En Proceso','Asistencia','Absentismo','Tareas Pendientes','Registrado Por'];
-    const rows = recs.map(r => [r.fecha, r.turno, r.palletsTotales, r.palletsTRG||0, r.palletsAlmacen||0, r.palletsEnProceso||0, r.asistencia||0, r.absentismo||0, r.tareasPendientes||'', r.nombreCaptura||'']);
+    const headers = ['Fecha','Turno','Pallets Totales','Pallets TRG','Pallets Almacen','Pallets FBA','En Proceso','Asistencia','Absentismo','Tareas Pendientes','Registrado Por'];
+    const rows = recs.map(r => [r.fecha, r.turno, r.palletsTotales, r.palletsTRG||0, r.palletsAlmacen||0, r.palletsFBA||0, r.palletsEnProceso||0, r.asistencia||0, r.absentismo||0, r.tareasPendientes||'', r.nombreCaptura||'']);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     ws['!cols'] = headers.map(() => ({ wch: 16 }));
     XLSX.utils.book_append_sheet(wb, ws, fecha.replace(/\//g, '-'));
