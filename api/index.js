@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const Pusher = require('pusher');
 const {
   parseInchesFromDescription,
@@ -139,6 +140,7 @@ function fechaDateRangeMatch(fechaInicio, fechaFin) {
   return { $or: [{ _fechaDate: null }, { _fechaDate: range }] };
 }
 const MESES_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const DIAS_ES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 // ── DB Connection (reuse across invocations) ──
 let isConnected = false;
@@ -1909,6 +1911,212 @@ app.get('/api/clasificaciones/counts', auth, roleGuard('admin'), async (req, res
     clasifs.forEach((c, i) => { counts[String(c._id)] = (result['c' + i][0] || {}).n || 0; });
     res.json({ success: true, counts });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ═══════════ REPORTES: Excel Produccion Bulky/Fierro separados (admin 3647 only) ═══════════
+// Endpoint dedicado para el Excel "Reporte_Produccion_Bulky_Fierro_Separados.xlsx" — se
+// conecta via Power Query (sin sesion de navegador), por eso admite un token de servicio
+// ademas de la sesion JWT normal de admin 3647. Nunca requiere ninguna de las dos vacias:
+// si REPORTES_EXCEL_TOKEN no esta configurada, solo queda disponible por sesion admin 3647.
+const REPORTES_EXCEL_TOKEN = process.env.REPORTES_EXCEL_TOKEN || '';
+async function reportesExcelGuard(req, res, next) {
+  const provided = req.get('X-Report-Token') || req.query.token || '';
+  if (REPORTES_EXCEL_TOKEN && provided) {
+    const a = Buffer.from(String(provided));
+    const b = Buffer.from(REPORTES_EXCEL_TOKEN);
+    // Comparacion en tiempo constante para no filtrar el token por timing; el
+    // largo se compara primero porque timingSafeEqual exige buffers del mismo tamaño.
+    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return next();
+  }
+  const h = req.headers.authorization;
+  if (h && h.startsWith('Bearer ')) {
+    try {
+      const decoded = jwt.verify(h.split(' ')[1], JWT_SECRET);
+      const user = await User.findById(decoded.id).select('-passwordHash');
+      if (user && user.isActive && String(user.usuario) === '3647') { req.user = user; return next(); }
+    } catch { /* token de sesion invalido o expirado, cae al 403 de abajo */ }
+  }
+  return res.status(403).json({ success: false, error: 'No autorizado. Se requiere token de reporte (header X-Report-Token o ?token=) o sesion de admin 3647.' });
+}
+
+// Normaliza el parametro ?categoria= de la API (tolerante a mayusculas/acentos) a uno
+// de los 5 nombres finales exactos. Regresa 'INVALIDA' si no coincide con ninguno,
+// para que el endpoint pueda responder 400 en vez de devolver un filtro silenciosamente
+// vacio (que se veria como "cero registros" y confundiria mas que un error claro).
+function normalizeCategoriaInput(v) {
+  const up = String(v || '').trim().toUpperCase();
+  if (!up) return null;
+  if (up === 'ALMACEN' || up === 'ALMACÉN') return 'Almacén';
+  if (up === 'TRG') return 'TRG';
+  if (up === 'FBA') return 'FBA';
+  if (up === 'BULKY') return 'Bulky';
+  if (up === 'FIERRO') return 'Fierro';
+  return 'INVALIDA';
+}
+
+// Tope de seguridad — evita descargar toda la coleccion si no se manda rango de
+// fechas. Con rango de fechas normal (dia/semana/mes) nunca se acerca a este limite.
+const REPORTES_EXCEL_SAFETY_CAP = 20000;
+
+app.get('/api/reportes/produccion-excel', reportesExcelGuard, async (req, res) => {
+  try {
+    const { fechaInicio, fechaFin, turno, destino, categoria } = req.query;
+
+    let categoriaFiltro = null;
+    if (categoria) {
+      categoriaFiltro = normalizeCategoriaInput(categoria);
+      if (categoriaFiltro === 'INVALIDA') {
+        return res.status(400).json({ success: false, error: `categoria invalida: "${categoria}". Usa Almacen, TRG, FBA, Bulky o Fierro.` });
+      }
+    }
+    let destinoFiltro = null;
+    if (destino) {
+      destinoFiltro = normalizeDestino(destino);
+      if (!['TRG', 'Almacen', 'FBA'].includes(destinoFiltro)) {
+        return res.status(400).json({ success: false, error: `destino invalido: "${destino}". Usa TRG, Almacen o FBA.` });
+      }
+    }
+    if (fechaInicio && !/^\d{4}-\d{2}-\d{2}$/.test(fechaInicio)) {
+      return res.status(400).json({ success: false, error: 'fechaInicio debe tener formato YYYY-MM-DD' });
+    }
+    if (fechaFin && !/^\d{4}-\d{2}-\d{2}$/.test(fechaFin)) {
+      return res.status(400).json({ success: false, error: 'fechaFin debe tener formato YYYY-MM-DD' });
+    }
+
+    const match = {};
+    if (turno) match.turno = rx(turno);
+
+    const pipeline = [{ $match: match }];
+    // fechaDateStages() SIEMPRE corre (a diferencia de otros endpoints de este archivo
+    // que solo la corren si hay rango) porque aqui _fechaDate tambien se usa para
+    // ordenar correctamente por fecha real — "fecha" es texto M/D/YYYY y ordenar como
+    // texto rompe el orden cronologico (ej. "12/1/2026" antes que "6/6/2026").
+    pipeline.push(...fechaDateStages());
+    if (fechaInicio || fechaFin) pipeline.push({ $match: fechaDateRangeMatch(fechaInicio, fechaFin) });
+    pipeline.push(
+      { $addFields: {
+          _obsToken: { $trim: { input: { $toUpper: { $ifNull: [{ $arrayElemAt: [{ $split: ['$observaciones', '|'] }, 0] }, ''] } } } },
+          _pedToken: { $trim: { input: { $toUpper: { $ifNull: ['$pedido', ''] } } } },
+          _destUp: { $toUpper: { $ifNull: ['$destino', ''] } },
+      } },
+      { $addFields: {
+          // Bulky/Fierro se detectan igual que getClasificacion() en el frontend: primer
+          // token de observaciones, o el campo pedido completo, comparados sin distinguir
+          // mayusculas/minusculas.
+          _isBulky: { $or: [{ $eq: ['$_obsToken', 'BULKY'] }, { $eq: ['$_pedToken', 'BULKY'] }] },
+          _isFierro: { $or: [{ $eq: ['$_obsToken', 'FIERRO'] }, { $eq: ['$_pedToken', 'FIERRO'] }] },
+          _destNorm: { $switch: { branches: [
+              { case: { $eq: ['$_destUp', 'TRG'] }, then: 'TRG' },
+              { case: { $eq: ['$_destUp', 'FBA'] }, then: 'FBA' },
+              { case: { $in: ['$_destUp', ['ALMACEN', 'ALMACÉN']] }, then: 'Almacen' },
+          ], default: '$destino' } },
+      } },
+      { $addFields: {
+          // Categoria final — cada registro cae en EXACTAMENTE una de las 5. TRG/FBA
+          // tienen prioridad sobre Bulky/Fierro (un pallet exportado a Amazon no se
+          // reclasifica por texto de pedido); dentro de lo que seria Almacen, Bulky y
+          // Fierro se separan ANTES de caer en el default 'Almacén' — asi nunca se
+          // cuenta un registro en dos categorias (ver seccion de clasificacion del pedido).
+          categoria: { $switch: { branches: [
+              { case: { $eq: ['$_destNorm', 'TRG'] }, then: 'TRG' },
+              { case: { $eq: ['$_destNorm', 'FBA'] }, then: 'FBA' },
+              { case: '$_isBulky', then: 'Bulky' },
+              { case: '$_isFierro', then: 'Fierro' },
+          ], default: 'Almacén' } },
+      } },
+    );
+    if (destinoFiltro) pipeline.push({ $match: { _destNorm: destinoFiltro } });
+    if (categoriaFiltro) pipeline.push({ $match: { categoria: categoriaFiltro } });
+    pipeline.push(
+      { $sort: { _fechaDate: 1, createdAt: 1 } },
+      { $facet: {
+          rows: [{ $limit: REPORTES_EXCEL_SAFETY_CAP }],
+          totalCount: [{ $count: 'n' }],
+      } },
+    );
+
+    const [result] = await EscReg.aggregate(pipeline);
+    const rows = (result && result.rows) || [];
+    const total = (result && result.totalCount && result.totalCount[0] && result.totalCount[0].n) || 0;
+    const truncado = total > rows.length;
+
+    const data = rows.map((r) => {
+      const fd = parseFechaMDY(r.fecha);
+      return {
+        id: String(r._id),
+        fecha: r.fecha || '',
+        diaSemana: fd ? DIAS_ES[fd.getDay()] : '',
+        turno: r.turno || '',
+        categoria: r.categoria,
+        destinoOriginal: r.destino || '',
+        palletId: r.palletId || '',
+        pallets: 1,
+        piezas: r.cantidad || 0,
+        pedido: r.pedido || '',
+        tipoPedido: r._isBulky ? 'BULKY' : (r._isFierro ? 'FIERRO' : ''),
+        condicion: r.condicion || '',
+        escaneadora: r.escaneadora || '',
+        observaciones: r.observaciones || '',
+        fechaCreacion: r.createdAt ? new Date(r.createdAt).toISOString() : null,
+      };
+    });
+
+    // Resumen diario — se calcula sobre el MISMO arreglo `data` ya filtrado y
+    // clasificado (nunca con una consulta aparte), para que sea imposible que se
+    // desalinee de la hoja "Datos Dashboard". Bulky/Fierro nunca se vuelven a sumar
+    // dentro de Almacen: cada registro ya trae una sola `categoria`.
+    const porDia = new Map();
+    for (const r of data) {
+      const key = r.fecha || 'Sin fecha';
+      if (!porDia.has(key)) {
+        porDia.set(key, {
+          fecha: key, diaSemana: r.diaSemana,
+          almacenPallets: 0, almacenPiezas: 0,
+          trgPallets: 0, trgPiezas: 0,
+          fbaPallets: 0, fbaPiezas: 0,
+          bulkyPallets: 0, bulkyPiezas: 0,
+          fierroPallets: 0, fierroPiezas: 0,
+        });
+      }
+      const d = porDia.get(key);
+      const pz = r.piezas || 0;
+      if (r.categoria === 'Almacén') { d.almacenPallets += 1; d.almacenPiezas += pz; }
+      else if (r.categoria === 'TRG') { d.trgPallets += 1; d.trgPiezas += pz; }
+      else if (r.categoria === 'FBA') { d.fbaPallets += 1; d.fbaPiezas += pz; }
+      else if (r.categoria === 'Bulky') { d.bulkyPallets += 1; d.bulkyPiezas += pz; }
+      else if (r.categoria === 'Fierro') { d.fierroPallets += 1; d.fierroPiezas += pz; }
+    }
+    const resumenDiario = [...porDia.values()]
+      .sort((a, b) => (parseFechaMDY(a.fecha)?.getTime() || 0) - (parseFechaMDY(b.fecha)?.getTime() || 0))
+      .map((d) => ({
+        ...d,
+        // Bulky+Fierro combinado: SOLO informativo, no se vuelve a sumar en totalPallets/piezas.
+        bulkyFierroPallets: d.bulkyPallets + d.fierroPallets,
+        bulkyFierroPiezas: d.bulkyPiezas + d.fierroPiezas,
+        totalPallets: d.almacenPallets + d.trgPallets + d.fbaPallets + d.bulkyPallets + d.fierroPallets,
+        totalPiezas: d.almacenPiezas + d.trgPiezas + d.fbaPiezas + d.bulkyPiezas + d.fierroPiezas,
+      }));
+
+    res.json({
+      success: true,
+      meta: {
+        fechaInicio: fechaInicio || null,
+        fechaFin: fechaFin || null,
+        turno: turno || null,
+        destino: destinoFiltro,
+        categoria: categoriaFiltro,
+        total,
+        devueltos: data.length,
+        truncado,
+        timezone: 'America/Mexico_City',
+        generadoEn: new Date().toISOString(),
+      },
+      data,
+      resumenDiario,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // ═══════════ METAS DE PRODUCCION (admin 3647 only) ═══════════
