@@ -1069,6 +1069,63 @@
             }
             .pc-acciones{justify-content:flex-end;}
         }
+
+        /* ── Reporte Semanal de Produccion (admin 3647 only). Reutiliza variables
+           CSS globales, .card/.btn*/.badge*, .co-pallet-modal-* (detalle de
+           registros) y la animacion coSkeleton — sin paleta ni componentes nuevos
+           salvo los colores suaves por dia, que son un requerimiento explicito. ── */
+        .rs-week-bar{display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;justify-content:space-between;}
+        .rs-week-nav{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;}
+        .rs-week-label{font-size:1rem;font-weight:700;color:var(--text-main);}
+        .rs-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.9rem;margin:1rem 0;}
+        .rs-summary-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.9rem 1rem;min-height:88px;box-sizing:border-box;}
+        .rs-summary-card .rs-sc-label{font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.02em;font-weight:600;}
+        .rs-summary-card .rs-sc-value{font-size:1.35rem;font-weight:800;color:var(--text-main);margin-top:0.3rem;}
+        .rs-summary-card.skeleton .rs-sc-value{background:var(--inset-bg);color:transparent;border-radius:4px;animation:coSkeleton 1.2s ease-in-out infinite;}
+        .rs-day-section{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:1.1rem;}
+        .rs-day-header{padding:0.7rem 1.1rem;font-weight:700;font-size:0.95rem;display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;}
+        .rs-day-header .rs-day-total{font-size:0.78rem;font-weight:600;opacity:0.85;}
+        .rs-day-lunes{background:#DCEBFF;color:#0f2a5c;}
+        .rs-day-martes{background:#E0F5E9;color:#0f4a2a;}
+        .rs-day-miercoles{background:#FFF3D6;color:#5c4008;}
+        .rs-day-jueves{background:#F3E0FF;color:#421f5c;}
+        .rs-day-viernes{background:#FFE0E6;color:#5c0f22;}
+        .rs-day-sabado{background:#E0F7FA;color:#0f4a52;}
+        .rs-day-domingo{background:#EEF0F4;color:#33394a;}
+        :root[data-theme='light'] .rs-day-lunes,:root[data-theme='light'] .rs-day-martes,:root[data-theme='light'] .rs-day-miercoles,:root[data-theme='light'] .rs-day-jueves,:root[data-theme='light'] .rs-day-viernes,:root[data-theme='light'] .rs-day-sabado,:root[data-theme='light'] .rs-day-domingo{filter:none;}
+        .rs-day-empty{padding:1rem 1.1rem;color:var(--text-muted);font-style:italic;font-size:0.85rem;}
+        .rs-table{width:100%;border-collapse:collapse;}
+        .rs-table th{text-align:center;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.02em;color:var(--text-muted);padding:0.55rem 0.75rem;border-bottom:1px solid var(--border);}
+        .rs-table th:first-child,.rs-table td:first-child{text-align:left;}
+        .rs-table td{padding:0.6rem 0.75rem;text-align:center;font-size:0.85rem;border-bottom:1px solid var(--border);}
+        .rs-table tr:last-child td{border-bottom:none;}
+        .rs-table tr.rs-row-clickable{cursor:pointer;transition:background 0.12s ease;}
+        .rs-table tr.rs-row-clickable:hover{background:var(--inset-bg);}
+        .rs-table tr.rs-row-total td{font-weight:800;background:var(--inset-bg);}
+        .rs-table td.rs-qty{font-weight:700;}
+        .rs-table td.rs-detalle{color:var(--text-muted);font-size:0.8rem;text-align:left;}
+        .rs-empty-banner{padding:0.9rem 1.1rem;border:1px dashed var(--border);border-radius:10px;color:var(--text-muted);font-size:0.85rem;text-align:center;margin-bottom:1rem;}
+        .rs-error-banner{padding:1rem 1.1rem;border:1px solid var(--danger,#ef4444);border-radius:10px;color:var(--danger,#ef4444);font-size:0.85rem;display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;}
+        @media (max-width:760px){
+            .rs-table thead{display:none;}
+            .rs-table, .rs-table tbody, .rs-table tr, .rs-table td{display:block;width:100%;}
+            .rs-table tr{border-bottom:1px solid var(--border);padding:0.6rem 0.9rem;}
+            .rs-table tr.rs-row-total{border-bottom:none;}
+            .rs-table td{text-align:right !important;padding:0.2rem 0;border-bottom:none;font-size:0.82rem;}
+            .rs-table td::before{content:attr(data-label);float:left;font-weight:600;color:var(--text-muted);font-size:0.72rem;text-transform:uppercase;}
+            .rs-table td.rs-detalle{text-align:right !important;}
+        }
+        @media print{
+            body.rs-printing-report *{visibility:hidden;}
+            body.rs-printing-report #view-reporte-semanal,
+            body.rs-printing-report #view-reporte-semanal *{visibility:visible;}
+            body.rs-printing-report #view-reporte-semanal{position:absolute;top:0;left:0;width:100%;margin:0;padding:0.5cm;}
+            body.rs-printing-report .back-btn,
+            body.rs-printing-report .rs-actions,
+            body.rs-printing-report .rs-filters-card,
+            body.rs-printing-report .topbar{display:none !important;}
+            @page{size:landscape;}
+        }
     </style>
 </head>
 <body>
@@ -1379,6 +1436,27 @@
                             <div class="hero-title">Centro Operativo API</div>
                             <div class="hero-desc">Produccion real desde SmartControl y BinManagerRO: marcas, modelos, pulgadas y pallets</div>
                             <div class="hero-cta">Abrir centro <i class="fa-solid fa-arrow-right"></i></div>
+                        </div>
+                    </button>
+
+                    <!-- H: Reporte Semanal de Produccion (exclusivo 3647) -->
+                    <button type="button" class="hero-card hero-teal card-3647-only" onclick="switchView('reporte-semanal')" style="position:relative;">
+                        <div class="hero-illustration">
+                            <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <rect x="20" y="16" width="160" height="88" rx="8" fill="#0f1830" stroke="#2dd4bf" stroke-width="2"/>
+                                <rect x="32" y="28" width="136" height="14" rx="3" fill="#134e4a"/>
+                                <rect x="32" y="48" width="136" height="12" rx="2" fill="#1a2540"/>
+                                <rect x="32" y="64" width="136" height="12" rx="2" fill="#16213a"/>
+                                <rect x="32" y="80" width="136" height="12" rx="2" fill="#1a2540"/>
+                                <rect x="36" y="51" width="60" height="6" fill="#2dd4bf"/>
+                                <rect x="36" y="67" width="40" height="6" fill="#4f7cff"/>
+                                <rect x="36" y="83" width="24" height="6" fill="#a78bfa"/>
+                            </svg>
+                        </div>
+                        <div class="hero-body">
+                            <div class="hero-title">Reporte Semanal de Producción</div>
+                            <div class="hero-desc">Almacén, TRG, FBA, Bulky y Fierro por día — sin Power Query, directo de MongoDB</div>
+                            <div class="hero-cta">Abrir reporte <i class="fa-solid fa-arrow-right"></i></div>
                         </div>
                     </button>
 
@@ -2806,6 +2884,127 @@
             </div>
         </div><!-- /view-centro-operativo -->
 
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: REPORTE SEMANAL DE PRODUCCION    -->
+        <!-- (exclusivo admin 3647 — ver switchView y centroOperativoGuard) -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-reporte-semanal">
+            <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
+            <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem;text-align:left;">
+                <div>
+                    <h1 style="font-size:1.5rem;margin:0;"><i class="fa-solid fa-calendar-week" style="color:var(--accent);margin-right:8px;"></i>Reporte Semanal de Producción</h1>
+                    <p style="margin:0.35rem 0 0;font-size:0.88rem;color:var(--text-muted);">Almacén, TRG, FBA, Bulky y Fierro por día — calculado en vivo desde MongoDB, sin doble conteo</p>
+                </div>
+                <div class="rs-actions" style="display:flex;flex-direction:column;gap:0.5rem;align-items:flex-end;">
+                    <span style="font-size:0.75rem;color:var(--text-muted);">Última actualización: <b id="rs-last-update" style="color:var(--text-main);">--</b></span>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:flex-end;">
+                        <button class="btn btn-secondary btn-sm" onclick="rsLoad()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                        <button class="btn btn-secondary btn-sm" onclick="rsImprimir()"><i class="fa-solid fa-print"></i> Imprimir reporte</button>
+                        <button class="btn btn-primary btn-sm" onclick="rsDescargarExcel()" id="rs-btn-excel"><i class="fa-solid fa-file-excel"></i> Descargar Excel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Selector de semana -->
+            <div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem;">
+                <div class="rs-week-bar">
+                    <div class="rs-week-nav">
+                        <button class="btn btn-secondary btn-sm" onclick="rsNavSemana(-1)"><i class="fa-solid fa-chevron-left"></i> Semana anterior</button>
+                        <button class="btn btn-secondary btn-sm" onclick="rsNavSemana(0)">Semana actual</button>
+                        <button class="btn btn-secondary btn-sm" onclick="rsNavSemana(1)">Semana siguiente <i class="fa-solid fa-chevron-right"></i></button>
+                        <input type="date" class="form-input" id="rs-date-picker" onchange="rsIrAFecha(this.value)" style="padding:0.4rem 0.6rem;font-size:0.85rem;" title="Ir a la semana que contiene esta fecha">
+                    </div>
+                    <div class="rs-week-label" id="rs-week-label">Semana del -- al --</div>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="card rs-filters-card" style="padding:1.1rem 1.25rem;margin-bottom:1rem;">
+                <div class="co-filter-bar">
+                    <div class="co-filter-field"><label>Turno</label>
+                        <select class="form-input" id="rs-f-turno" style="padding:0.4rem 0.6rem;font-size:0.85rem;">
+                            <option value="">Todos</option>
+                            <option value="Día">Día</option>
+                            <option value="Tiempo Extra">Tiempo Extra</option>
+                            <option value="Noche">Noche</option>
+                        </select>
+                    </div>
+                    <div class="co-filter-field"><label>Categoría</label>
+                        <select class="form-input" id="rs-f-categoria" style="padding:0.4rem 0.6rem;font-size:0.85rem;">
+                            <option value="">Todas</option>
+                            <option value="Almacén">Almacén</option>
+                            <option value="TRG">TRG</option>
+                            <option value="FBA">FBA</option>
+                            <option value="Bulky">Bulky</option>
+                            <option value="Fierro">Fierro</option>
+                        </select>
+                    </div>
+                    <div class="co-filter-field"><label>Destino original</label>
+                        <select class="form-input" id="rs-f-destino" style="padding:0.4rem 0.6rem;font-size:0.85rem;">
+                            <option value="">Todos</option>
+                            <option value="TRG">TRG</option>
+                            <option value="Almacen">Almacén</option>
+                            <option value="FBA">FBA</option>
+                        </select>
+                    </div>
+                    <div class="co-filter-field"><label>Escaneadora</label><input type="text" class="form-input" id="rs-f-escaneadora" placeholder="Nombre..." style="padding:0.4rem 0.6rem;font-size:0.85rem;"></div>
+                    <div class="co-filter-field"><label>Pedido</label><input type="text" class="form-input" id="rs-f-pedido" placeholder="Numero..." style="padding:0.4rem 0.6rem;font-size:0.85rem;"></div>
+                    <div class="co-filter-field"><label>Pallet ID</label><input type="text" class="form-input" id="rs-f-palletid" placeholder="ID..." style="padding:0.4rem 0.6rem;font-size:0.85rem;"></div>
+                    <div style="display:flex;gap:0.5rem;align-self:flex-end;">
+                        <button class="btn btn-primary btn-sm" onclick="rsLoad()"><i class="fa-solid fa-check"></i> Aplicar</button>
+                        <button class="btn btn-secondary btn-sm" onclick="rsClearFilters()"><i class="fa-solid fa-xmark"></i> Limpiar filtros</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen (9 tarjetas) -->
+            <div class="rs-summary-grid" id="rs-summary-grid"></div>
+
+            <!-- Estado: error -->
+            <div id="rs-error-banner" class="rs-error-banner" style="display:none;margin-bottom:1rem;">
+                <span id="rs-error-text"></span>
+                <button class="btn btn-secondary btn-sm" onclick="rsLoad()"><i class="fa-solid fa-rotate"></i> Reintentar</button>
+            </div>
+
+            <!-- Estado: sin produccion en toda la semana -->
+            <div id="rs-empty-banner" class="rs-empty-banner" style="display:none;">No hay producción registrada para esta semana con los filtros actuales.</div>
+
+            <!-- Dias -->
+            <div id="rs-dias-container"></div>
+        </div><!-- /view-reporte-semanal -->
+
+        <!-- Modal de detalle de registros — Reporte Semanal de Produccion.
+             Reutiliza .co-pallet-modal-* (mismo patron visual/print que el
+             detalle de pallet de Centro Operativo) para no crear un componente
+             de modal nuevo. -->
+        <div class="co-pallet-modal-backdrop" id="rs-detalle-backdrop" onclick="rsCerrarDetalle()"></div>
+        <div class="co-pallet-modal" id="rs-detalle-modal" role="dialog" aria-modal="true">
+            <div class="co-pallet-modal-header">
+                <div class="co-pallet-modal-header-row">
+                    <div>
+                        <span style="font-size:1.05rem;font-weight:700;" id="rs-detalle-titulo">Detalle</span>
+                    </div>
+                    <div class="co-pallet-modal-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="rsImprimirDetalle()"><i class="fa-solid fa-print"></i> Imprimir</button>
+                        <button class="co-pallet-modal-close-x" onclick="rsCerrarDetalle()"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+                <div class="co-pallet-modal-meta" id="rs-detalle-meta"></div>
+            </div>
+            <div class="co-pallet-modal-body">
+                <div style="overflow-x:auto;">
+                    <table class="rs-table" id="rs-detalle-tabla" style="min-width:900px;">
+                        <thead>
+                            <tr>
+                                <th>Fecha / Hora</th><th>Pallet ID</th><th>Piezas</th><th>Destino original</th><th>Categoría</th><th>Pedido</th><th>Tipo</th><th>Condición</th><th>Turno</th><th>Escaneadora</th><th>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rs-detalle-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <!-- Modales globales de SmartControl — a proposito FUERA de cualquier
              .view (.view{display:none} ocultaria estos modales por herencia
              si vivieran dentro de una vista que no esta activa, ej. abrirlos
@@ -4172,7 +4371,7 @@ function switchView(viewName) {
     // Los administradores (y siempre 3647) quedan exentos: nunca deben perder acceso a "inicio" o al Centro de Control.
     if (currentUser && currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras') && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
     // Centro de Control, Monitor en Vivo y LPN Duplicados: exclusivos del administrador 3647
-    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn' || viewName === 'centro-operativo') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
+    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn' || viewName === 'centro-operativo' || viewName === 'reporte-semanal') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
     // Operaciones y Pedidos (Retrabajo + Gestionar Pedidos): cualquier admin.
     // La pestaña "Gestionar Pedidos" adentro sigue siendo exclusiva de 3647.
     if (viewName === 'operaciones' && (!currentUser || currentUser.role !== 'admin')) { switchView('home'); return; }
@@ -4215,6 +4414,7 @@ function switchView(viewName) {
     if (viewName === 'lpn') loadLpnDuplicates();
     if (viewName === 'operaciones') { setOperacionesTab('retrabajo'); if (typeof renderPedidosAdminPanel === 'function') renderPedidosAdminPanel(); }
     if (viewName === 'centro-operativo') initCentroOperativo();
+    if (viewName === 'reporte-semanal') initReporteSemanal();
 }
 
 // ══════════════════════════════════════════════
@@ -10721,6 +10921,293 @@ document.addEventListener('click', function(e) {
         document.getElementById('cond-trigger').classList.remove('open');
     }
 });
+
+// ══════════════════════════════════════════════
+// REPORTE SEMANAL DE PRODUCCION (admin 3647 only)
+// Consume /api/reportes/produccion-semanal y /api/reportes/produccion-semanal/excel.
+// Toda la clasificacion (Almacen/TRG/FBA/Bulky/Fierro, anti-doble-conteo) ya viene
+// resuelta del backend (api/services/reporteProduccionHelpers.js) — este bloque
+// solo pinta lo que el servidor calculo, nunca reclasifica nada en el cliente.
+// ══════════════════════════════════════════════
+let rsFechaRef = null;       // YYYY-MM-DD de referencia (cualquier dia de la semana visible); null = semana actual
+let rsUltimoReporte = null;  // ultima respuesta completa del endpoint (para el modal de detalle y el excel)
+let rsCargando = false;
+let rsRequestSeq = 0;        // evita que una respuesta vieja (semana anterior) pise a una mas nueva
+
+const RS_DIA_CLASS = { 'Lunes':'rs-day-lunes', 'Martes':'rs-day-martes', 'Miércoles':'rs-day-miercoles', 'Jueves':'rs-day-jueves', 'Viernes':'rs-day-viernes', 'Sábado':'rs-day-sabado', 'Domingo':'rs-day-domingo' };
+
+function initReporteSemanal() {
+    rsFechaRef = null;
+    document.getElementById('rs-date-picker').value = '';
+    rsLoad();
+}
+
+function rsBuildParams() {
+    const p = new URLSearchParams();
+    if (rsFechaRef) p.set('fecha', rsFechaRef);
+    const turno = document.getElementById('rs-f-turno').value;
+    const categoria = document.getElementById('rs-f-categoria').value;
+    const destino = document.getElementById('rs-f-destino').value;
+    const escaneadora = document.getElementById('rs-f-escaneadora').value.trim();
+    const pedido = document.getElementById('rs-f-pedido').value.trim();
+    const palletId = document.getElementById('rs-f-palletid').value.trim();
+    if (turno) p.set('turno', turno);
+    if (categoria) p.set('categoria', categoria);
+    if (destino) p.set('destino', destino);
+    if (escaneadora) p.set('escaneadora', escaneadora);
+    if (pedido) p.set('pedido', pedido);
+    if (palletId) p.set('palletId', palletId);
+    return p;
+}
+
+function rsClearFilters() {
+    document.getElementById('rs-f-turno').value = '';
+    document.getElementById('rs-f-categoria').value = '';
+    document.getElementById('rs-f-destino').value = '';
+    document.getElementById('rs-f-escaneadora').value = '';
+    document.getElementById('rs-f-pedido').value = '';
+    document.getElementById('rs-f-palletid').value = '';
+    rsLoad();
+}
+
+// Semana actual (delta=0), semana anterior/siguiente (delta=-1/1) relativas a la
+// semana YA visible (rsUltimoReporte.semana.isoInicio), no a "hoy" — asi navegar
+// varias veces seguidas avanza semana por semana de forma predecible.
+function rsNavSemana(delta) {
+    if (delta === 0) { rsFechaRef = null; document.getElementById('rs-date-picker').value = ''; rsLoad(); return; }
+    const base = rsUltimoReporte ? rsUltimoReporte.semana.isoInicio : rsFechaRef;
+    if (!base) { rsLoad(); return; }
+    const [y, m, d] = base.split('-').map(n => parseInt(n, 10));
+    const dt = new Date(y, m - 1, d + (delta * 7));
+    const pad2 = n => String(n).padStart(2, '0');
+    rsFechaRef = `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+    document.getElementById('rs-date-picker').value = rsFechaRef;
+    rsLoad();
+}
+
+function rsIrAFecha(valor) {
+    if (!valor) return;
+    rsFechaRef = valor;
+    rsLoad();
+}
+
+function rsSetSkeleton() {
+    const grid = document.getElementById('rs-summary-grid');
+    const labels = ['Total pallets','Total piezas','Pallets Almacén','Pallets TRG','Pallets FBA','Pallets Bulky','Pallets Fierro','Promedio diario','Día con mayor producción'];
+    grid.innerHTML = labels.map(l => `<div class="rs-summary-card skeleton"><div class="rs-sc-label">${l}</div><div class="rs-sc-value">000</div></div>`).join('');
+    document.getElementById('rs-dias-container').innerHTML = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'].map(d => `
+        <div class="rs-day-section">
+            <div class="rs-day-header ${RS_DIA_CLASS[d]}"><span>${d}</span></div>
+            <div class="rs-day-empty"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>
+        </div>`).join('');
+}
+
+async function rsLoad() {
+    if (rsCargando) return;
+    rsCargando = true;
+    const mySeq = ++rsRequestSeq;
+    document.getElementById('rs-error-banner').style.display = 'none';
+    document.getElementById('rs-empty-banner').style.display = 'none';
+    // No se muestran numeros de otra semana mientras carga la nueva.
+    rsSetSkeleton();
+    try {
+        const params = rsBuildParams();
+        const data = await apiFetch(`${API}/api/reportes/produccion-semanal?${params.toString()}`);
+        if (mySeq !== rsRequestSeq) return; // llego tarde, ya hay una peticion mas nueva en curso
+        if (!data.success) throw new Error(data.error || 'Error al cargar el reporte');
+        rsUltimoReporte = data;
+        rsRender(data);
+        document.getElementById('rs-last-update').textContent = new Date().toLocaleTimeString('es-MX');
+    } catch (e) {
+        if (mySeq !== rsRequestSeq) return;
+        document.getElementById('rs-error-text').textContent = 'No se pudo cargar el reporte: ' + e.message;
+        document.getElementById('rs-error-banner').style.display = 'flex';
+        document.getElementById('rs-dias-container').innerHTML = '';
+        document.getElementById('rs-summary-grid').innerHTML = '';
+    } finally {
+        if (mySeq === rsRequestSeq) rsCargando = false;
+    }
+}
+
+function rsFormatLabelSemana(semana) {
+    const [y1, m1, d1] = semana.isoInicio.split('-').map(n => parseInt(n, 10));
+    const [y2, m2, d2] = semana.isoFin.split('-').map(n => parseInt(n, 10));
+    const f1 = new Date(y1, m1 - 1, d1), f2 = new Date(y2, m2 - 1, d2);
+    const optsSinAno = { day: 'numeric', month: 'long' };
+    const optsConAno = { day: 'numeric', month: 'long', year: 'numeric' };
+    const txt1 = f1.toLocaleDateString('es-MX', optsSinAno);
+    const txt2 = f2.toLocaleDateString('es-MX', optsConAno);
+    return `Semana del ${txt1} al ${txt2}`;
+}
+
+function rsRender(data) {
+    document.getElementById('rs-week-label').textContent = rsFormatLabelSemana(data.semana);
+
+    const r = data.resumen;
+    const cards = [
+        ['Total pallets', r.totalPallets],
+        ['Total piezas', r.totalPiezas],
+        ['Pallets Almacén', r.almacenPallets],
+        ['Pallets TRG', r.trgPallets],
+        ['Pallets FBA', r.fbaPallets],
+        ['Pallets Bulky', r.bulkyPallets],
+        ['Pallets Fierro', r.fierroPallets],
+        ['Promedio diario', r.promedioDiarioPallets.toFixed(1)],
+        ['Día con mayor producción', r.diaMayorProduccion || 'N/A'],
+    ];
+    document.getElementById('rs-summary-grid').innerHTML = cards.map(([label, valor]) => `
+        <div class="rs-summary-card">
+            <div class="rs-sc-label">${label}</div>
+            <div class="rs-sc-value">${valor}</div>
+        </div>`).join('');
+
+    document.getElementById('rs-empty-banner').style.display = (r.totalPallets === 0) ? 'block' : 'none';
+
+    document.getElementById('rs-dias-container').innerHTML = data.dias.map((dia, idx) => rsRenderDia(dia, idx)).join('');
+}
+
+function rsFilaHtml(idx, key, fila, opts) {
+    const mostrarBF = !!opts.mostrarBulkyFierro;
+    const clickable = fila.pallets > 0;
+    const onclick = clickable ? `onclick="rsAbrirDetalle(${idx}, '${key}')"` : '';
+    return `
+        <tr class="${clickable ? 'rs-row-clickable' : ''}" ${onclick}>
+            <td data-label="Categoría / Destino">${fila.categoria}</td>
+            <td data-label="Pallets" class="rs-qty">${fila.pallets}</td>
+            <td data-label="Piezas">${fila.piezas}</td>
+            <td data-label="Bulky">${mostrarBF ? fila.bulky : '—'}</td>
+            <td data-label="Fierro">${mostrarBF ? fila.fierro : '—'}</td>
+            <td data-label="Detalle" class="rs-detalle">${fila.detalle || ''}</td>
+        </tr>`;
+}
+
+function rsRenderDia(dia, idx) {
+    const claseColor = RS_DIA_CLASS[dia.dia] || '';
+    if (dia.sinProduccion) {
+        return `
+        <div class="rs-day-section">
+            <div class="rs-day-header ${claseColor}"><span>${dia.dia} — ${dia.fecha}</span><span class="rs-day-total">Sin producción</span></div>
+            <div class="rs-day-empty">Sin producción</div>
+        </div>`;
+    }
+    const filasHtml = [
+        rsFilaHtml(idx, 'almacen', dia.filas.almacen, { mostrarBulkyFierro: false }),
+        rsFilaHtml(idx, 'bulkyFierro', dia.filas.bulkyFierro, { mostrarBulkyFierro: true }),
+        rsFilaHtml(idx, 'trg', dia.filas.trg, { mostrarBulkyFierro: false }),
+        rsFilaHtml(idx, 'fba', dia.filas.fba, { mostrarBulkyFierro: false }),
+    ].join('');
+    return `
+        <div class="rs-day-section">
+            <div class="rs-day-header ${claseColor}"><span>${dia.dia} — ${dia.fecha}</span><span class="rs-day-total">Total: ${dia.totalPallets} pallets · ${dia.totalPiezas} piezas</span></div>
+            <div style="overflow-x:auto;">
+                <table class="rs-table">
+                    <thead><tr><th>Categoría / Destino</th><th>Pallets</th><th>Piezas</th><th>Bulky</th><th>Fierro</th><th>Detalle</th></tr></thead>
+                    <tbody>
+                        ${filasHtml}
+                        <tr class="rs-row-total rs-row-clickable" onclick="rsAbrirDetalle(${idx}, 'total')">
+                            <td data-label="Categoría / Destino">Total del día</td>
+                            <td data-label="Pallets" class="rs-qty">${dia.totalPallets}</td>
+                            <td data-label="Piezas">${dia.totalPiezas}</td>
+                            <td data-label="Bulky">—</td>
+                            <td data-label="Fierro">—</td>
+                            <td data-label="Detalle" class="rs-detalle"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+}
+
+// Categorias reales que forma cada fila clickeable, para filtrar `registros`
+// (lista plana ya clasificada por el backend) sin recalcular nada en el cliente.
+const RS_FILA_CATEGORIAS = { almacen: ['Almacén'], bulkyFierro: ['Bulky', 'Fierro'], trg: ['TRG'], fba: ['FBA'], total: ['Almacén', 'TRG', 'FBA', 'Bulky', 'Fierro'] };
+
+function rsAbrirDetalle(idxDia, key) {
+    if (!rsUltimoReporte) return;
+    const dia = rsUltimoReporte.dias[idxDia];
+    const categorias = RS_FILA_CATEGORIAS[key] || [];
+    const registros = rsUltimoReporte.registros.filter(r => r.fecha === dia.fecha && categorias.includes(r.categoria));
+
+    const nombreFila = key === 'total' ? 'Total del día' : key === 'bulkyFierro' ? 'Bulky + Fierro' : dia.filas[key].categoria;
+    document.getElementById('rs-detalle-titulo').textContent = `${dia.dia} ${dia.fecha} — ${nombreFila}`;
+    document.getElementById('rs-detalle-meta').innerHTML = `<span>${registros.length} registro(s)</span>`;
+
+    document.getElementById('rs-detalle-tbody').innerHTML = registros.map(r => {
+        const hora = r.fechaCreacion ? new Date(r.fechaCreacion).toLocaleTimeString('es-MX', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit' }) : '--';
+        return `<tr>
+            <td data-label="Fecha / Hora">${r.fecha} ${hora}</td>
+            <td data-label="Pallet ID">${r.palletId || '-'}</td>
+            <td data-label="Piezas">${r.piezas}</td>
+            <td data-label="Destino original">${r.destinoOriginal || '-'}</td>
+            <td data-label="Categoría">${r.categoria}</td>
+            <td data-label="Pedido">${r.pedido || '-'}</td>
+            <td data-label="Tipo">${r.tipoPedido || '-'}</td>
+            <td data-label="Condición">${r.condicion || '-'}</td>
+            <td data-label="Turno">${r.turno || '-'}</td>
+            <td data-label="Escaneadora">${r.escaneadora || '-'}</td>
+            <td data-label="Observaciones">${r.observaciones || '-'}</td>
+        </tr>`;
+    }).join('') || '<tr><td colspan="11" style="text-align:center;color:var(--text-muted);">Sin registros</td></tr>';
+
+    document.getElementById('rs-detalle-backdrop').classList.add('open');
+    document.getElementById('rs-detalle-modal').classList.add('open');
+}
+
+function rsCerrarDetalle() {
+    document.getElementById('rs-detalle-backdrop').classList.remove('open');
+    document.getElementById('rs-detalle-modal').classList.remove('open');
+}
+
+function rsImprimirDetalle() {
+    document.body.classList.add('co-printing-pallet');
+    const cleanup = () => { document.body.classList.remove('co-printing-pallet'); window.removeEventListener('afterprint', cleanup); };
+    window.addEventListener('afterprint', cleanup);
+    setTimeout(() => window.print(), 50);
+}
+
+function rsImprimir() {
+    document.body.classList.add('rs-printing-report');
+    const cleanup = () => { document.body.classList.remove('rs-printing-report'); window.removeEventListener('afterprint', cleanup); };
+    window.addEventListener('afterprint', cleanup);
+    setTimeout(() => window.print(), 50);
+}
+
+// Descarga el .xlsx REAL generado en el servidor (ExcelJS, api/services/reporteProduccionExcel.js)
+// a partir de los mismos datos que esta vista — no usa apiFetch porque esta
+// espera JSON; aqui la respuesta es binaria (blob).
+async function rsDescargarExcel() {
+    const btn = document.getElementById('rs-btn-excel');
+    const prevHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generando...';
+    try {
+        const params = rsBuildParams();
+        const headers = { 'X-Device-Id': DEVICE_ID };
+        if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+        const resp = await fetch(`${API}/api/reportes/produccion-semanal/excel?${params.toString()}`, { headers });
+        if (resp.status === 401) { handleLogout(); throw new Error('Sesion expirada'); }
+        if (!resp.ok) {
+            let msg = 'Error al generar el Excel';
+            try { const j = await resp.json(); msg = j.error || msg; } catch (e) {}
+            throw new Error(msg);
+        }
+        const blob = await resp.blob();
+        const disposition = resp.headers.get('Content-Disposition') || '';
+        const match = /filename="([^"]+)"/.exec(disposition);
+        const filename = match ? match[1] : `Reporte_Produccion_Semanal_${Date.now()}.xlsx`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        showToast('Excel descargado', 'success', 2500);
+    } catch (e) {
+        showToast('Error al descargar Excel: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = prevHtml;
+    }
+}
 
 // ══════════════════════════════════════════════
 // INIT

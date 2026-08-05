@@ -17,6 +17,13 @@ const {
   safeDivide,
   computeDelta,
 } = require('./services/centroOperativoHelpers');
+const {
+  formatFechaMDY,
+  inicioDeSemana,
+  prepararRegistro,
+  buildReporteSemanal,
+} = require('./services/reporteProduccionHelpers');
+const { construirWorkbookReporteSemanal } = require('./services/reporteProduccionExcel');
 
 const app = express();
 app.use(cors());
@@ -1994,40 +2001,6 @@ app.get('/api/reportes/produccion-excel', reportesExcelGuard, async (req, res) =
     pipeline.push(...fechaDateStages());
     if (fechaInicio || fechaFin) pipeline.push({ $match: fechaDateRangeMatch(fechaInicio, fechaFin) });
     pipeline.push(
-      { $addFields: {
-          _obsToken: { $trim: { input: { $toUpper: { $ifNull: [{ $arrayElemAt: [{ $split: ['$observaciones', '|'] }, 0] }, ''] } } } },
-          _pedToken: { $trim: { input: { $toUpper: { $ifNull: ['$pedido', ''] } } } },
-          _destUp: { $toUpper: { $ifNull: ['$destino', ''] } },
-      } },
-      { $addFields: {
-          // Bulky/Fierro se detectan igual que getClasificacion() en el frontend: primer
-          // token de observaciones, o el campo pedido completo, comparados sin distinguir
-          // mayusculas/minusculas.
-          _isBulky: { $or: [{ $eq: ['$_obsToken', 'BULKY'] }, { $eq: ['$_pedToken', 'BULKY'] }] },
-          _isFierro: { $or: [{ $eq: ['$_obsToken', 'FIERRO'] }, { $eq: ['$_pedToken', 'FIERRO'] }] },
-          _destNorm: { $switch: { branches: [
-              { case: { $eq: ['$_destUp', 'TRG'] }, then: 'TRG' },
-              { case: { $eq: ['$_destUp', 'FBA'] }, then: 'FBA' },
-              { case: { $in: ['$_destUp', ['ALMACEN', 'ALMACÉN']] }, then: 'Almacen' },
-          ], default: '$destino' } },
-      } },
-      { $addFields: {
-          // Categoria final — cada registro cae en EXACTAMENTE una de las 5. TRG/FBA
-          // tienen prioridad sobre Bulky/Fierro (un pallet exportado a Amazon no se
-          // reclasifica por texto de pedido); dentro de lo que seria Almacen, Bulky y
-          // Fierro se separan ANTES de caer en el default 'Almacén' — asi nunca se
-          // cuenta un registro en dos categorias (ver seccion de clasificacion del pedido).
-          categoria: { $switch: { branches: [
-              { case: { $eq: ['$_destNorm', 'TRG'] }, then: 'TRG' },
-              { case: { $eq: ['$_destNorm', 'FBA'] }, then: 'FBA' },
-              { case: '$_isBulky', then: 'Bulky' },
-              { case: '$_isFierro', then: 'Fierro' },
-          ], default: 'Almacén' } },
-      } },
-    );
-    if (destinoFiltro) pipeline.push({ $match: { _destNorm: destinoFiltro } });
-    if (categoriaFiltro) pipeline.push({ $match: { categoria: categoriaFiltro } });
-    pipeline.push(
       { $sort: { _fechaDate: 1, createdAt: 1 } },
       { $facet: {
           rows: [{ $limit: REPORTES_EXCEL_SAFETY_CAP }],
@@ -2036,30 +2009,17 @@ app.get('/api/reportes/produccion-excel', reportesExcelGuard, async (req, res) =
     );
 
     const [result] = await EscReg.aggregate(pipeline);
-    const rows = (result && result.rows) || [];
+    const rawRows = (result && result.rows) || [];
     const total = (result && result.totalCount && result.totalCount[0] && result.totalCount[0].n) || 0;
-    const truncado = total > rows.length;
 
-    const data = rows.map((r) => {
-      const fd = parseFechaMDY(r.fecha);
-      return {
-        id: String(r._id),
-        fecha: r.fecha || '',
-        diaSemana: fd ? DIAS_ES[fd.getDay()] : '',
-        turno: r.turno || '',
-        categoria: r.categoria,
-        destinoOriginal: r.destino || '',
-        palletId: r.palletId || '',
-        pallets: 1,
-        piezas: r.cantidad || 0,
-        pedido: r.pedido || '',
-        tipoPedido: r._isBulky ? 'BULKY' : (r._isFierro ? 'FIERRO' : ''),
-        condicion: r.condicion || '',
-        escaneadora: r.escaneadora || '',
-        observaciones: r.observaciones || '',
-        fechaCreacion: r.createdAt ? new Date(r.createdAt).toISOString() : null,
-      };
-    });
+    // Clasificacion (normalizeDestino/clasificarRegistro/prepararRegistro) viene del
+    // servicio central api/services/reporteProduccionHelpers.js — LA MISMA que usa
+    // /api/reportes/produccion-semanal y el export a Excel, para no duplicar la logica
+    // de "que cuenta como Almacen/TRG/FBA/Bulky/Fierro" en dos lugares distintos.
+    let data = rawRows.map(prepararRegistro);
+    if (destinoFiltro) data = data.filter((r) => normalizeDestino(r.destinoOriginal) === destinoFiltro);
+    if (categoriaFiltro) data = data.filter((r) => r.categoria === categoriaFiltro);
+    const truncado = total > rawRows.length;
 
     // Resumen diario — se calcula sobre el MISMO arreglo `data` ya filtrado y
     // clasificado (nunca con una consulta aparte), para que sea imposible que se
@@ -2116,6 +2076,139 @@ app.get('/api/reportes/produccion-excel', reportesExcelGuard, async (req, res) =
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ═══════════ REPORTE SEMANAL DE PRODUCCION — modulo web (admin 3647 only) ═══════════
+// Reemplaza el flujo de Excel + Power Query: consulta MongoDB directo y regresa
+// la semana (Lunes-Domingo) ya armada exactamente como el archivo
+// Reporte_Produccion_Bulky_Fierro_Separados.xlsx (Almacen/Bulky+Fierro/TRG/FBA/Total
+// por dia + resumen semanal). Usa el MISMO servicio central de clasificacion que
+// /api/reportes/produccion-excel (api/services/reporteProduccionHelpers.js) — no hay
+// una segunda copia de la logica de Bulky/Fierro/doble-conteo en este archivo.
+// Unica funcion que arma la semana completa (query params -> filtros validados ->
+// Mongo -> clasificacion -> buildReporteSemanal). La usan TANTO el endpoint JSON
+// (vista web) COMO el endpoint de descarga de Excel — para no tener 2 copias de
+// "como se arma la semana" en este archivo. Lanza un Error con `.status` (400)
+// si algun filtro es invalido; el caller lo captura y responde el status correcto.
+async function computeReporteSemanal(query) {
+  const { fecha, turno, categoria, destino, escaneadora, pedido, palletId } = query || {};
+
+  let categoriaFiltro = null;
+  if (categoria) {
+    categoriaFiltro = normalizeCategoriaInput(categoria);
+    if (categoriaFiltro === 'INVALIDA') {
+      const err = new Error(`categoria invalida: "${categoria}". Usa Almacen, TRG, FBA, Bulky o Fierro.`);
+      err.status = 400;
+      throw err;
+    }
+  }
+  let destinoFiltro = null;
+  if (destino) {
+    destinoFiltro = normalizeDestino(destino);
+    if (!['TRG', 'Almacen', 'FBA'].includes(destinoFiltro)) {
+      const err = new Error(`destino invalido: "${destino}". Usa TRG, Almacen o FBA.`);
+      err.status = 400;
+      throw err;
+    }
+  }
+  if (fecha && !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+    const err = new Error('fecha debe tener formato YYYY-MM-DD');
+    err.status = 400;
+    throw err;
+  }
+
+  // `fecha` es CUALQUIER dia dentro de la semana deseada; el backend calcula el
+  // Lunes de esa semana. Sin `fecha`, se usa "hoy" en America/Mexico_City (mismo
+  // criterio de zona horaria que el resto del sistema — America/Monterrey no es
+  // un identificador IANA valido, comparte el mismo huso que America/Mexico_City).
+  let refDate;
+  if (fecha) {
+    const [y, m, d] = fecha.split('-').map((n) => parseInt(n, 10));
+    refDate = new Date(y, m - 1, d);
+  } else {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Mexico_City', year: 'numeric', month: 'numeric', day: 'numeric' })
+      .formatToParts(new Date()).reduce((o, p) => (o[p.type] = p.value, o), {});
+    refDate = new Date(parseInt(parts.year, 10), parseInt(parts.month, 10) - 1, parseInt(parts.day, 10));
+  }
+  const semanaInicio = inicioDeSemana(refDate);
+  const semanaFin = new Date(semanaInicio.getFullYear(), semanaInicio.getMonth(), semanaInicio.getDate() + 6);
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const isoInicio = `${semanaInicio.getFullYear()}-${pad2(semanaInicio.getMonth() + 1)}-${pad2(semanaInicio.getDate())}`;
+  const isoFin = `${semanaFin.getFullYear()}-${pad2(semanaFin.getMonth() + 1)}-${pad2(semanaFin.getDate())}`;
+
+  const match = {};
+  if (turno) match.turno = rx(turno);
+  if (escaneadora) match.escaneadora = rx(escaneadora);
+  if (pedido) match.pedido = rx(pedido);
+  if (palletId) match.palletId = rx(palletId);
+
+  const pipeline = [{ $match: match }];
+  pipeline.push(...fechaDateStages());
+  pipeline.push({ $match: fechaDateRangeMatch(isoInicio, isoFin) });
+  pipeline.push({ $sort: { _fechaDate: 1, createdAt: 1 } });
+
+  const rawRows = await EscReg.aggregate(pipeline);
+  // Semana acotada a 7 dias — no necesita el tope de seguridad del export general.
+  let registros = rawRows.map(prepararRegistro);
+  if (destinoFiltro) registros = registros.filter((r) => normalizeDestino(r.destinoOriginal) === destinoFiltro);
+  if (categoriaFiltro) registros = registros.filter((r) => r.categoria === categoriaFiltro);
+
+  const reporte = buildReporteSemanal(registros, semanaInicio);
+  const semana = { isoInicio, isoFin, fechaInicio: formatFechaMDY(semanaInicio), fechaFin: formatFechaMDY(semanaFin) };
+
+  return {
+    semana,
+    dias: reporte.dias,
+    resumen: reporte.resumen,
+    registros,
+    filtros: {
+      turno: turno || null,
+      destino: destinoFiltro,
+      categoria: categoriaFiltro,
+      escaneadora: escaneadora || null,
+      pedido: pedido || null,
+      palletId: palletId || null,
+    },
+  };
+}
+
+app.get('/api/reportes/produccion-semanal', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const r = await computeReporteSemanal(req.query);
+    res.json({
+      success: true,
+      semana: r.semana,
+      dias: r.dias,
+      resumen: r.resumen,
+      registros: r.registros,
+      meta: {
+        ...r.filtros,
+        totalRegistros: r.registros.length,
+        timezone: 'America/Mexico_City',
+        generadoEn: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, error: error.message });
+  }
+});
+
+// Descarga del mismo reporte semanal como .xlsx real, generado en el servidor
+// con ExcelJS (api/services/reporteProduccionExcel.js) a partir de los MISMOS
+// datos que /api/reportes/produccion-semanal — nunca un archivo aparte ni datos
+// distintos. Mismo guard de admin 3647 que el resto del modulo.
+app.get('/api/reportes/produccion-semanal/excel', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const r = await computeReporteSemanal(req.query);
+    const wb = construirWorkbookReporteSemanal({ dias: r.dias, resumen: r.resumen }, r.semana);
+    const buffer = await wb.xlsx.writeBuffer();
+    const nombreArchivo = `Reporte_Produccion_Semanal_${r.semana.isoInicio}_a_${r.semana.isoFin}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, error: error.message });
   }
 });
 
