@@ -26,13 +26,19 @@ function normalizeDestino(d) {
 // segmento de `observaciones` (antes de '|'), si no coincide se revisa el
 // campo `pedido` completo — mismo criterio que getClasificacion() del
 // frontend (index.html), comparado sin distinguir mayusculas/minusculas.
+// 'LPN' es un alias legado de 'BULKY': el formulario de escaneo (index.html,
+// guardarEscaneo) guarda literalmente el tag 'LPN | BULKY' en observaciones
+// cuando el usuario elige la clasificacion BULKY (nunca guarda 'BULKY' solo),
+// y getClasificacion() ya revierte ese alias en el resto de la app — este
+// helper debe reconocer el mismo alias o los pallets BULKY reales caen en
+// Almacen por error (bug real detectado: Bulky salia siempre en 0).
 // Regresa 'BULKY' | 'FIERRO' | '' (nunca inventa un tipo que no esta en el texto).
 function extraerTipoPedido(registro) {
   const obsToken = String((registro && registro.observaciones) || '').split('|')[0].trim().toUpperCase();
-  if (obsToken === 'BULKY') return 'BULKY';
+  if (obsToken === 'BULKY' || obsToken === 'LPN') return 'BULKY';
   if (obsToken === 'FIERRO') return 'FIERRO';
   const pedToken = String((registro && registro.pedido) || '').trim().toUpperCase();
-  if (pedToken === 'BULKY') return 'BULKY';
+  if (pedToken === 'BULKY' || pedToken === 'LPN') return 'BULKY';
   if (pedToken === 'FIERRO') return 'FIERRO';
   return '';
 }

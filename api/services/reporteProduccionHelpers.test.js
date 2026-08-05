@@ -31,6 +31,21 @@ test('extraerTipoPedido detecta Bulky/Fierro en observaciones o pedido, sin dist
   assert.equal(extraerTipoPedido({}), '');
 });
 
+// Caso real detectado en produccion (pedido 391931, 8/5/2026): el formulario de
+// escaneo guarda 'LPN | BULKY' en observaciones cuando el usuario elige la
+// clasificacion BULKY (index.html, guardarEscaneo) — nunca guarda 'BULKY' solo.
+// getClasificacion() en el frontend ya revierte ese alias; este helper debe
+// hacer lo mismo o estos pallets se pierden como Bulky=0 (bug real, ya corregido).
+test('extraerTipoPedido reconoce el alias legado LPN -> BULKY', () => {
+  assert.equal(extraerTipoPedido({ observaciones: 'LPN | BULKY', pedido: '391931' }), 'BULKY');
+  assert.equal(extraerTipoPedido({ observaciones: 'lpn | bulky | nota', pedido: '' }), 'BULKY');
+  assert.equal(extraerTipoPedido({ observaciones: '', pedido: 'LPN' }), 'BULKY');
+});
+
+test('clasificarRegistro: pallet real con clasificacion BULKY (alias LPN) y destino Almacen se clasifica como Bulky', () => {
+  assert.equal(clasificarRegistro({ destino: 'Almacen', observaciones: 'LPN | BULKY', pedido: '391931' }), 'Bulky');
+});
+
 test('clasificarRegistro: TRG y FBA tienen prioridad sobre Bulky/Fierro', () => {
   assert.equal(clasificarRegistro({ destino: 'TRG', pedido: 'BULKY' }), 'TRG');
   assert.equal(clasificarRegistro({ destino: 'FBA', pedido: 'FIERRO' }), 'FBA');
