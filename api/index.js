@@ -24,7 +24,12 @@ const {
   buildReporteSemanal,
 } = require('./services/reporteProduccionHelpers');
 const { construirWorkbookReporteSemanal } = require('./services/reporteProduccionExcel');
-const { prepararRegistroFft, normalizeDestination: fftNormalizeDestino } = require('./services/destinoTipoHelpers');
+const {
+  prepararRegistroFft,
+  normalizeDestination: fftNormalizeDestino,
+  normalizeOrderType: fftNormalizeOrderType,
+} = require('./services/destinoTipoHelpers');
+const { normalizeBin: fftNormalizeBin, agruparPalletsPorBin } = require('./services/binHelpers');
 
 const app = express();
 app.use(cors());
@@ -878,39 +883,74 @@ app.post('/api/sc-pallet/sync-import', auth, roleGuard('admin'), async (req, res
 // de Vercel de ESTE proyecto (la llave, coordinada con Roman/IT, NO la
 // contrasena real de la DB). Sin esas variables responde 503 claro.
 // ══════════════════════════════════════════════
-app.get('/api/sc-pallets/live', auth, roleGuard('admin'), async (req, res) => {
-  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+// Una sola pagina de "todos los pallets reales" contra Cubicaje — extraida para
+// que tanto /api/sc-pallets/live COMO el agregado por bin de Dashboard Destinos
+// FFT (mas abajo) llamen a la MISMA logica, en vez de reimplementar 2 veces el
+// fetch/timeout/mapeo de campos hacia Cubicaje.
+async function fetchCubicajeLivePalletsPage(limit, offset, search) {
   const base = process.env.CUBICAJE_API_BASE_URL;
   const key = process.env.CUBICAJE_INTEGRATION_KEY;
-  if (!base || !key) return res.status(503).json({ success: false, error: 'CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto' });
+  if (!base || !key) { const e = new Error('CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto'); e.status = 503; throw e; }
+  const params = new URLSearchParams({ limit, offset });
+  if (search) params.set('search', search);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  let resp;
+  try {
+    resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/live-pallets?${params.toString()}`, {
+      headers: { 'X-Integration-Key': key },
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : e.message;
+    const err = new Error('No se pudo consultar Cubicaje: ' + msg);
+    err.status = 502;
+    throw err;
+  } finally { clearTimeout(timeout); }
+  const data = await resp.json();
+  if (!resp.ok || !data.success) {
+    const err = new Error(data.error || `Cubicaje respondio ${resp.status}`);
+    err.status = resp.status === 401 ? 502 : resp.status;
+    throw err;
+  }
+  return {
+    data: (data.data || []).map((r) => ({ palletId: r.palletId, BinTypeID: r.binTypeId, binTypeName: r.binTypeName, cantidadTotal: r.cantidadTotal, skuCount: r.skuCount, locationName: r.locationName ?? null })),
+    total: data.total || 0,
+  };
+}
+
+app.get('/api/sc-pallets/live', auth, roleGuard('admin'), async (req, res) => {
+  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
   try {
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 100));
     const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
     const search = (req.query.search || '').trim();
-    const params = new URLSearchParams({ limit, offset });
-    if (search) params.set('search', search);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
-    let resp;
-    try {
-      resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/live-pallets?${params.toString()}`, {
-        headers: { 'X-Integration-Key': key },
-        signal: controller.signal,
-      });
-    } finally { clearTimeout(timeout); }
-    const data = await resp.json();
-    if (!resp.ok || !data.success) return res.status(resp.status === 401 ? 502 : resp.status).json({ success: false, error: data.error || `Cubicaje respondio ${resp.status}` });
-    res.json({
-      success: true,
-      data: (data.data || []).map(r => ({ palletId: r.palletId, BinTypeID: r.binTypeId, binTypeName: r.binTypeName, cantidadTotal: r.cantidadTotal, skuCount: r.skuCount, locationName: r.locationName ?? null })),
-      total: data.total || 0,
-      limit, offset,
-    });
+    const { data, total } = await fetchCubicajeLivePalletsPage(limit, offset, search);
+    res.json({ success: true, data, total, limit, offset });
   } catch (error) {
-    const msg = error.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : error.message;
-    res.status(502).json({ success: false, error: 'No se pudo consultar Cubicaje: ' + msg });
+    res.status(error.status || 502).json({ success: false, error: error.message });
   }
 });
+
+// Trae hasta `maxPallets` pallets reales desde Cubicaje, paginando internamente
+// (200 por llamada, el maximo que acepta Cubicaje). Acotado (no todo el
+// inventario) para no arriesgar el timeout de la funcion serverless — se marca
+// `agotado:true` si el inventario real es mas grande que la muestra, mismo
+// principio de "muestreo honesto" que ya usa Centro Operativo con SmartControl.
+async function fetchCubicajeLivePalletsSample(maxPallets = 2000) {
+  const pageSize = 200;
+  let offset = 0;
+  let total = Infinity;
+  const acumulado = [];
+  while (offset < total && acumulado.length < maxPallets) {
+    const { data, total: totalReal } = await fetchCubicajeLivePalletsPage(pageSize, offset);
+    total = totalReal;
+    acumulado.push(...data);
+    if (!data.length) break;
+    offset += pageSize;
+  }
+  return { pallets: acumulado.slice(0, maxPallets), total, agotado: total > acumulado.length };
+}
 
 // ══════════════════════════════════════════════
 // KPIs de "Todos los pallets reales": conteo por categoria (BinTypeID) sobre
@@ -2377,6 +2417,85 @@ app.get('/api/dashboard-destinos-fft/data', auth, roleGuard('admin'), centroOper
       },
     });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ── Modulo "Bines" (Etapa 2) — Dashboard Destinos FFT ──
+// BinManagerRO (via Cubicaje) solo expone una FOTO del inventario ACTUAL por
+// bin (locationName), no un historial permanente por pallet — por eso cada bin
+// individual muestra "que hay ahi ahorita", cruzado con nuestros propios
+// registros de escaneo (EscReg) por palletId cuando existen, en vez de
+// graficas de tendencia por bin (que requeririan un historial que no existe).
+app.get('/api/dashboard-destinos-fft/bines', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const { pallets, total, agotado } = await fetchCubicajeLivePalletsSample();
+    const bines = agruparPalletsPorBin(pallets);
+    res.json({
+      success: true,
+      bines,
+      meta: { totalMuestra: pallets.length, totalReal: total, agotado, generadoEn: new Date().toISOString() },
+    });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
+app.get('/api/dashboard-destinos-fft/bines/:binId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    let binId;
+    try { binId = decodeURIComponent(req.params.binId || '').trim(); } catch (e) { return res.status(400).json({ success: false, error: 'binId invalido' }); }
+    if (!binId) return res.status(400).json({ success: false, error: 'binId invalido' });
+
+    const { pallets, agotado } = await fetchCubicajeLivePalletsSample();
+    const delBin = pallets.filter((p) => fftNormalizeBin(p.locationName).valor === binId);
+    if (!delBin.length) {
+      return res.json({ success: true, bin: binId, encontrado: false, pallets: [], kpis: null, meta: { agotado, muestraSinCoincidencia: true } });
+    }
+
+    const escRegDocs = await EscReg.find({ palletId: { $in: delBin.map((p) => p.palletId).filter(Boolean) } }).sort({ createdAt: -1 });
+    const escRegPorPallet = new Map();
+    for (const doc of escRegDocs) {
+      const pid = normalizePalletId(doc.palletId);
+      if (!escRegPorPallet.has(pid)) escRegPorPallet.set(pid, doc); // ya viene ordenado desc: el primero es el mas reciente
+    }
+    const catalogo = (await Clasif.find({ isActive: true })).map((c) => c.nombre);
+
+    const detalle = delBin.map((p) => {
+      const escReg = escRegPorPallet.get(normalizePalletId(p.palletId));
+      return {
+        palletId: p.palletId,
+        piezas: p.cantidadTotal,
+        skuCount: p.skuCount,
+        categoriaBin: p.binTypeName,
+        destino: escReg ? fftNormalizeDestino(escReg.destino).valor : 'Sin datos de escaneo',
+        tipoPedido: escReg ? fftNormalizeOrderType(escReg, catalogo).valor : 'Sin datos de escaneo',
+        pedido: escReg ? (escReg.pedido || '') : '',
+        escaneadora: escReg ? (escReg.escaneadora || '') : '',
+        condicion: escReg ? (escReg.condicion || '') : '',
+        fecha: escReg ? escReg.fecha : '',
+        tieneDatosEscaneo: !!escReg,
+      };
+    });
+
+    const pedidosDistintos = new Set(detalle.map((d) => d.pedido).filter(Boolean)).size;
+    const escaneadorasDistintas = new Set(detalle.map((d) => d.escaneadora).filter(Boolean)).size;
+    const ultimoMovimiento = escRegDocs.length
+      ? new Date(Math.max(...escRegDocs.map((d) => new Date(d.createdAt).getTime()))).toISOString()
+      : null;
+
+    res.json({
+      success: true,
+      bin: binId,
+      encontrado: true,
+      destinoPrincipal: delBin[0].binTypeName || null,
+      kpis: {
+        pallets: delBin.length,
+        piezas: delBin.reduce((s, p) => s + (Number(p.cantidadTotal) || 0), 0),
+        pedidosDistintos,
+        escaneadorasDistintas,
+        ultimoMovimiento,
+      },
+      pallets: detalle,
+      meta: { agotado, generadoEn: new Date().toISOString() },
+    });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 
 // ═══════════ METAS DE PRODUCCION (admin 3647 only) ═══════════

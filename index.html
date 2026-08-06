@@ -3198,8 +3198,40 @@
                 </div>
             </div>
 
-            <p style="margin-top:1rem;font-size:0.72rem;color:var(--fft-text-muted);text-align:center;">Etapa 1: Destino y Tipo de pedido (datos históricos completos). El módulo por Bines llega en la Etapa 2.</p>
+            <!-- Resumen por Bines (Etapa 2) — inventario ACTUAL desde BinManagerRO
+                 (via Cubicaje); no hay historial permanente por bin, por eso no
+                 tiene columna de tendencia, solo el estado de ahorita. -->
+            <div class="fft-card" style="padding:1.1rem 1.25rem;margin-top:1.25rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;margin-bottom:0.75rem;">
+                    <div class="fft-chart-title" style="margin-bottom:0;">Resumen por Bines <span style="font-weight:400;color:var(--fft-text-muted);font-size:0.75rem;">(inventario actual, BinManagerRO)</span></div>
+                    <input type="text" class="fft-date-input" id="fft-bin-buscador" placeholder="Buscar bin..." oninput="fftFiltrarTablaBines()" style="width:200px;">
+                </div>
+                <div class="fft-table-wrap" id="fft-bines-wrap">
+                    <table class="fft-table" id="fft-tabla-bines">
+                        <thead><tr><th>Bin</th><th>Destino</th><th>Pallets</th><th>Piezas</th><th>% Pallets</th><th>% Piezas</th><th>Acción</th></tr></thead>
+                        <tbody id="fft-tabla-bines-body"><tr><td colspan="7" class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando bines...</td></tr></tbody>
+                    </table>
+                </div>
+                <p id="fft-bines-nota" style="margin-top:0.6rem;font-size:0.72rem;color:var(--fft-text-muted);"></p>
+            </div>
+
+            <p style="margin-top:1rem;font-size:0.72rem;color:var(--fft-text-muted);text-align:center;">Etapa 2: Bines usa la foto de inventario ACTUAL de BinManagerRO (no un historial permanente por pallet).</p>
         </div><!-- /view-dashboard-destinos-fft -->
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: BIN INDIVIDUAL (Dashboard Destinos FFT, Etapa 2) -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-fft-bin-detalle">
+            <button class="back-btn" onclick="switchView('dashboard-destinos-fft')"><i class="fa-solid fa-arrow-left"></i> Volver a todos los bines</button>
+            <div id="view-fft-bin-detalle-inner" style="--fft-bg:#F4F6FB;--fft-card:#FFFFFF;--fft-border:#E2E8F0;--fft-text:#0F172A;--fft-text-muted:#64748B;--fft-shadow:0 1px 3px rgba(15,23,42,0.07),0 1px 2px rgba(15,23,42,0.04);background:var(--fft-bg);color:var(--fft-text);border-radius:16px;padding:1.25rem 1.5rem 2rem;">
+                <h1 style="font-size:1.35rem;margin:0;" id="fft-bin-titulo"><i class="fa-solid fa-warehouse" style="color:#8B5CF6;margin-right:8px;"></i>BIN: --</h1>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin:0.6rem 0 1.25rem;" id="fft-bin-chips"></div>
+
+                <div id="fft-bin-body">
+                    <div class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando bin...</div>
+                </div>
+            </div>
+        </div><!-- /view-fft-bin-detalle -->
 
         <!-- Panel de filtros flotante — Dashboard Destinos FFT -->
         <div class="fft-filters-panel" id="fft-filters-panel" onclick="if(event.target===this) fftCerrarFiltros()">
@@ -4593,7 +4625,7 @@ function switchView(viewName) {
     // Los administradores (y siempre 3647) quedan exentos: nunca deben perder acceso a "inicio" o al Centro de Control.
     if (currentUser && currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras') && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
     // Centro de Control, Monitor en Vivo y LPN Duplicados: exclusivos del administrador 3647
-    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn' || viewName === 'centro-operativo' || viewName === 'reporte-semanal' || viewName === 'dashboard-destinos-fft') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
+    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn' || viewName === 'centro-operativo' || viewName === 'reporte-semanal' || viewName === 'dashboard-destinos-fft' || viewName === 'fft-bin-detalle') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
     // Operaciones y Pedidos (Retrabajo + Gestionar Pedidos): cualquier admin.
     // La pestaña "Gestionar Pedidos" adentro sigue siendo exclusiva de 3647.
     if (viewName === 'operaciones' && (!currentUser || currentUser.role !== 'admin')) { switchView('home'); return; }
@@ -4638,6 +4670,7 @@ function switchView(viewName) {
     if (viewName === 'centro-operativo') initCentroOperativo();
     if (viewName === 'reporte-semanal') initReporteSemanal();
     if (viewName === 'dashboard-destinos-fft') initDashboardDestinosFft();
+    if (viewName === 'fft-bin-detalle') initFftBinDetalle();
 }
 
 // ══════════════════════════════════════════════
@@ -11465,6 +11498,7 @@ function initDashboardDestinosFft() {
     }
     fftCargarFiltrosDisponibles();
     fftLoad();
+    fftCargarTablaBines();
     if (fftAutoTimer) clearInterval(fftAutoTimer);
     fftAutoTimer = setInterval(() => {
         if (document.getElementById('view-dashboard-destinos-fft')?.classList.contains('active')) fftLoad(true);
@@ -11732,6 +11766,130 @@ function fftLimpiarFiltros() {
     ['fft-f-destino', 'fft-f-tipo', 'fft-f-escaneadora', 'fft-f-condicion', 'fft-f-pedido', 'fft-f-palletid'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     fftCerrarFiltros();
     fftLoad();
+}
+
+// ══════════════════════════════════════════════
+// DASHBOARD DESTINOS FFT — BINES (Etapa 2)
+// BinManagerRO (via Cubicaje) solo expone el inventario ACTUAL por bin — no un
+// historial permanente por pallet — por eso esta seccion muestra "que hay
+// ahorita" en vez de tendencias por bin. El backend ya cruza cada pallet del
+// bin contra nuestros propios registros de escaneo (EscReg) cuando existen.
+// ══════════════════════════════════════════════
+let fftUltimosBines = [];
+let fftBinActual = null;
+
+async function fftCargarTablaBines() {
+    const tbody = document.getElementById('fft-tabla-bines-body');
+    const nota = document.getElementById('fft-bines-nota');
+    try {
+        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/bines`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar bines');
+        fftUltimosBines = data.bines || [];
+        fftFiltrarTablaBines();
+        nota.textContent = data.meta.agotado
+            ? `Muestra de ${data.meta.totalMuestra.toLocaleString('es-MX')} de ${data.meta.totalReal.toLocaleString('es-MX')} pallets reales (muestreo parcial, los mas recientes).`
+            : `${data.meta.totalMuestra.toLocaleString('es-MX')} pallets reales analizados.`;
+        // Actualiza el KPI "Bines activos" del dashboard principal con el dato ya real
+        const kpiEls = document.querySelectorAll('#fft-kpi-grid .fft-kpi');
+        if (kpiEls[3]) {
+            const valueEl = kpiEls[3].querySelector('.fft-kpi-value');
+            const deltaEl = kpiEls[3].querySelector('.fft-kpi-delta');
+            if (valueEl) valueEl.textContent = fftUltimosBines.length;
+            if (deltaEl) deltaEl.remove();
+        }
+    } catch (e) {
+        const isNotConfigured = /CUBICAJE_API_BASE_URL|CUBICAJE_INTEGRATION_KEY/.test(e.message || '');
+        tbody.innerHTML = `<tr><td colspan="7" class="fft-empty-note">${isNotConfigured ? 'Bines no disponibles: falta configurar la conexión con Cubicaje.' : 'No se pudieron cargar los bines: ' + e.message}</td></tr>`;
+        nota.textContent = '';
+    }
+}
+
+function fftFiltrarTablaBines() {
+    const q = (document.getElementById('fft-bin-buscador').value || '').trim().toLowerCase();
+    const filas = q ? fftUltimosBines.filter((b) => b.bin.toLowerCase().includes(q)) : fftUltimosBines;
+    const tbody = document.getElementById('fft-tabla-bines-body');
+    if (!filas.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="fft-empty-note">Sin bines para mostrar.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = filas.map((b) => {
+        const color = fftColorDestino(b.destino, 0);
+        return `<tr>
+            <td data-label="Bin"><a href="#" onclick="fftAbrirBin('${encodeURIComponent(b.bin)}');return false;" style="color:#3B82F6;font-weight:700;text-decoration:none;">${b.bin}</a></td>
+            <td data-label="Destino"><span class="fft-chip" style="background:${color}22;color:${color};">${b.destino}</span></td>
+            <td data-label="Pallets">${b.pallets.toLocaleString('es-MX')}</td>
+            <td data-label="Piezas">${b.piezas.toLocaleString('es-MX')}</td>
+            <td data-label="% Pallets">${b.pctPallets}%</td>
+            <td data-label="% Piezas">${b.pctPiezas}%</td>
+            <td data-label="Acción"><button class="fft-btn" style="padding:0.3rem 0.6rem;" onclick="fftAbrirBin('${encodeURIComponent(b.bin)}')"><i class="fa-solid fa-chart-simple"></i></button></td>
+        </tr>`;
+    }).join('');
+}
+
+function fftAbrirBin(binIdEncoded) {
+    fftBinActual = binIdEncoded;
+    switchView('fft-bin-detalle');
+}
+
+async function initFftBinDetalle() {
+    const body = document.getElementById('fft-bin-body');
+    const titulo = document.getElementById('fft-bin-titulo');
+    const chips = document.getElementById('fft-bin-chips');
+    if (!fftBinActual) { switchView('dashboard-destinos-fft'); return; }
+    const binNombre = decodeURIComponent(fftBinActual);
+    titulo.innerHTML = `<i class="fa-solid fa-warehouse" style="color:#8B5CF6;margin-right:8px;"></i>BIN: ${binNombre}`;
+    chips.innerHTML = '';
+    body.innerHTML = '<div class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando bin...</div>';
+    try {
+        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/bines/${fftBinActual}`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar el bin');
+        if (!data.encontrado) {
+            body.innerHTML = `<div class="fft-empty-note">Este bin no tiene pallets en la muestra actual del inventario${data.meta && data.meta.agotado ? ' (la muestra es parcial — puede existir fuera de ella)' : ''}.</div>`;
+            return;
+        }
+        const color = fftColorDestino(data.destinoPrincipal || '', 0);
+        chips.innerHTML = `
+            <span class="fft-chip" style="background:${color}22;color:${color};">${data.destinoPrincipal || 'Sin categoría'}</span>
+            <span class="fft-chip" style="background:#22c55e22;color:#16A34A;">Con inventario</span>`;
+
+        const k = data.kpis;
+        const ultimo = k.ultimoMovimiento ? new Date(k.ultimoMovimiento).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : 'No disponible';
+        const kpisHtml = `
+            <div class="fft-kpi-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:1.25rem;">
+                ${fftKpiCard('Pallets del bin', 'fa-pallet', '#3B82F6', k.pallets.toLocaleString('es-MX'), null)}
+                ${fftKpiCard('Piezas del bin', 'fa-cubes', '#22c55e', k.piezas.toLocaleString('es-MX'), null)}
+                ${fftKpiCard('Pedidos diferentes', 'fa-tags', '#F59E0B', k.pedidosDistintos, null)}
+                ${fftKpiCard('Escaneadoras activas', 'fa-barcode', '#EC4899', k.escaneadorasDistintas, null)}
+                ${fftKpiCard('Último movimiento', 'fa-clock', '#8B5CF6', ultimo, null, 'Según nuestros registros de escaneo')}
+            </div>`;
+
+        const filasHtml = data.pallets.map((p) => `
+            <tr>
+                <td data-label="Pallet ID" style="font-weight:700;">${p.palletId}</td>
+                <td data-label="Piezas">${p.piezas ?? '-'}</td>
+                <td data-label="Categoría bin">${p.categoriaBin || '-'}</td>
+                <td data-label="Destino">${p.destino}</td>
+                <td data-label="Tipo">${p.tipoPedido}</td>
+                <td data-label="Pedido">${p.pedido || '-'}</td>
+                <td data-label="Escaneadora">${p.escaneadora || '-'}</td>
+                <td data-label="Condición">${p.condicion || '-'}</td>
+                <td data-label="Fecha">${p.fecha || '-'}</td>
+            </tr>`).join('');
+
+        body.innerHTML = kpisHtml + `
+            <div class="fft-card" style="padding:1.1rem 1.25rem;">
+                <div class="fft-chart-title">Pallets dentro del bin ${binNombre}</div>
+                <div class="fft-table-wrap">
+                    <table class="fft-table">
+                        <thead><tr><th>Pallet ID</th><th>Piezas</th><th>Categoría bin</th><th>Destino</th><th>Tipo</th><th>Pedido</th><th>Escaneadora</th><th>Condición</th><th>Fecha</th></tr></thead>
+                        <tbody>${filasHtml}</tbody>
+                    </table>
+                </div>
+                <p style="margin-top:0.6rem;font-size:0.72rem;color:var(--fft-text-muted);">"Sin datos de escaneo" significa que ese Pallet ID esta en BinManagerRO pero no tiene un registro propio en esta app.</p>
+            </div>`;
+    } catch (e) {
+        body.innerHTML = `<div class="fft-empty-note">No se pudo cargar el bin: ${e.message}</div>`;
+    }
 }
 
 // ══════════════════════════════════════════════
