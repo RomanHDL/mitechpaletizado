@@ -1200,6 +1200,40 @@
             .fft-table td::before{content:attr(data-label);float:left;font-weight:600;color:var(--fft-text-muted);font-size:0.72rem;text-transform:uppercase;}
             .fft-filters-card{width:100%;}
         }
+
+        /* ── Reestructuracion Areas -> Bines -> Pallets (Dashboard Destinos FFT).
+           Reutiliza las variables --fft-* ya definidas arriba. ── */
+        .fft-tabs{display:flex;gap:0.4rem;overflow-x:auto;border-bottom:1px solid var(--fft-border);margin-bottom:1.1rem;padding-bottom:0;}
+        .fft-tab{background:none;border:none;border-bottom:2px solid transparent;padding:0.65rem 0.9rem;font-size:0.85rem;font-weight:600;color:var(--fft-text-muted);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;}
+        .fft-tab.active{color:#3B82F6;border-bottom-color:#3B82F6;}
+        .fft-tabpanel{display:none;}
+        .fft-tabpanel.active{display:block;}
+        .fft-breadcrumb{font-size:0.78rem;color:var(--fft-text-muted);margin-bottom:0.75rem;display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+        .fft-breadcrumb a{color:#3B82F6;cursor:pointer;text-decoration:none;}
+        .fft-breadcrumb a:hover{text-decoration:underline;}
+        .fft-section-title{font-size:1.02rem;font-weight:800;color:var(--fft-text);margin:0 0 0.2rem;}
+        .fft-section-sub{font-size:0.8rem;color:var(--fft-text-muted);margin:0 0 0.9rem;}
+        .fft-destino-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1rem;margin-bottom:1.25rem;}
+        .fft-destino-card{padding:1.1rem 1.2rem;border-top:4px solid #94A3B8;}
+        .fft-destino-card .fft-dc-nombre{font-size:1.05rem;font-weight:800;}
+        .fft-destino-card .fft-dc-metric{display:flex;justify-content:space-between;font-size:0.8rem;color:var(--fft-text-muted);margin-top:0.5rem;}
+        .fft-destino-card .fft-dc-metric b{color:var(--fft-text);font-weight:700;}
+        .fft-destino-card .fft-dc-tipos{display:flex;flex-wrap:wrap;gap:4px;margin-top:0.6rem;}
+        .fft-area-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin-bottom:1.25rem;}
+        .fft-area-card{padding:1.1rem 1.2rem;}
+        .fft-area-card .fft-ac-header{display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;}
+        .fft-area-card .fft-ac-nombre{font-size:1rem;font-weight:800;}
+        .fft-area-card .fft-ac-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin:0.7rem 0;font-size:0.72rem;color:var(--fft-text-muted);}
+        .fft-area-card .fft-ac-kpis b{display:block;font-size:1rem;color:var(--fft-text);font-weight:800;}
+        .fft-bin-preview-row{display:flex;justify-content:space-between;font-size:0.76rem;padding:0.3rem 0;border-bottom:1px dashed var(--fft-border);}
+        .fft-bin-preview-row:last-child{border-bottom:none;}
+        .fft-diag-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.9rem;}
+        .fft-diag-card{padding:0.9rem 1rem;text-align:center;}
+        .fft-diag-card .fft-diag-value{font-size:1.6rem;font-weight:800;}
+        .fft-diag-card .fft-diag-label{font-size:0.72rem;color:var(--fft-text-muted);margin-top:0.3rem;}
+        .fft-match-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:0.68rem;font-weight:700;}
+        .fft-pallet-link{color:#3B82F6;font-weight:700;cursor:pointer;text-decoration:none;}
+        .fft-pallet-link:hover{text-decoration:underline;}
     </style>
 </head>
 <body>
@@ -3106,7 +3140,7 @@
         </div>
 
         <!-- ══════════════════════════════════════ -->
-        <!-- VIEW: DASHBOARD DESTINOS FFT (Etapa 1)  -->
+        <!-- VIEW: DASHBOARD DESTINOS FFT             -->
         <!-- (exclusivo admin 3647 — ver switchView y centroOperativoGuard) -->
         <!-- ══════════════════════════════════════ -->
         <div class="view" id="view-dashboard-destinos-fft">
@@ -3115,7 +3149,7 @@
             <div class="fft-header-bar">
                 <div>
                     <h1 style="font-size:1.4rem;margin:0;"><i class="fa-solid fa-chart-pie" style="color:#F59E0B;margin-right:8px;"></i>Dashboard Destinos FFT</h1>
-                    <p style="margin:0.3rem 0 0;font-size:0.85rem;color:var(--fft-text-muted);">Visión completa por bines y destinos</p>
+                    <p style="margin:0.3rem 0 0;font-size:0.85rem;color:var(--fft-text-muted);">Control general de áreas, bines, pallets y destinos de FFT</p>
                 </div>
                 <div class="fft-header-right">
                     <div class="fft-status-row">
@@ -3136,95 +3170,196 @@
 
             <div class="fft-active-chips" id="fft-active-chips"></div>
 
-            <!-- KPIs -->
-            <div class="fft-kpi-grid" id="fft-kpi-grid"></div>
-
-            <!-- Bloque 1: 4 graficas (dona destino, dona piezas destino, dona tipo, heatmap) -->
-            <div class="fft-charts-grid-4">
-                <div class="fft-card fft-chart-panel">
-                    <div class="fft-chart-title">Pallets por destino</div>
-                    <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-pallets-destino"></canvas></div>
-                </div>
-                <div class="fft-card fft-chart-panel">
-                    <div class="fft-chart-title">Piezas por destino</div>
-                    <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-piezas-destino"></canvas></div>
-                </div>
-                <div class="fft-card fft-chart-panel">
-                    <div class="fft-chart-title">Pallets por tipo de pedido</div>
-                    <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-tipo"></canvas></div>
-                </div>
-                <div class="fft-card fft-chart-panel">
-                    <div class="fft-chart-title">Destino × Tipo de pedido</div>
-                    <div class="fft-chart-canvas-wrap" id="fft-heatmap-wrap" style="overflow:auto;"></div>
-                </div>
+            <div class="fft-tabs" id="fft-tabs">
+                <button class="fft-tab active" data-fttab="resumen" onclick="fftSetTab('resumen')"><i class="fa-solid fa-gauge-high"></i> Resumen</button>
+                <button class="fft-tab" data-fttab="areas" onclick="fftSetTab('areas')"><i class="fa-solid fa-warehouse"></i> Áreas y Bines</button>
+                <button class="fft-tab" data-fttab="destinos" onclick="fftSetTab('destinos')"><i class="fa-solid fa-location-dot"></i> Destinos FFT</button>
+                <button class="fft-tab" data-fttab="actividad" onclick="fftSetTab('actividad')"><i class="fa-solid fa-clock-rotate-left"></i> Actividad</button>
+                <button class="fft-tab" data-fttab="diagnostico" onclick="fftSetTab('diagnostico')"><i class="fa-solid fa-stethoscope"></i> Diagnóstico</button>
             </div>
 
-            <!-- Bloque 2: tendencia diaria (graficas por bin quedan para la Etapa 2) -->
-            <div class="fft-card fft-chart-panel" style="margin-bottom:1.25rem;min-height:280px;">
-                <div class="fft-chart-title">Pallets y piezas por día</div>
-                <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-por-dia"></canvas></div>
-            </div>
+            <!-- ══ TAB: RESUMEN ══ -->
+            <div class="fft-tabpanel active" id="fft-tabpanel-resumen">
+                <div class="fft-kpi-grid" id="fft-kpi-grid"></div>
 
-            <!-- Tabla resumen Destino/Tipo + graficas laterales -->
-            <div class="fft-main-content-grid">
-                <div class="fft-card" style="padding:1.1rem 1.25rem;">
-                    <div class="fft-chart-title">Resumen por Destino y Tipo</div>
+                <div class="fft-section-title">¿A qué áreas o destinos van los pallets de FFT?</div>
+                <div class="fft-section-sub">Destino real de cada escaneo (EscReg) — nunca la categoría de inventario de BinManagerRO</div>
+                <div class="fft-destino-grid" id="fft-destinos-preview"></div>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+                    <div>
+                        <div class="fft-section-title" style="margin-bottom:0.15rem;">Áreas y Bines</div>
+                        <div class="fft-section-sub" style="margin-bottom:0.6rem;">Inventario actual real (BinManagerRO)</div>
+                    </div>
+                    <button class="fft-btn" onclick="fftSetTab('areas')">Ver todas <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+                <div class="fft-area-grid" id="fft-areas-preview"></div>
+
+                <div class="fft-charts-grid-4">
+                    <div class="fft-card fft-chart-panel">
+                        <div class="fft-chart-title">Pallets por destino</div>
+                        <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-pallets-destino"></canvas></div>
+                    </div>
+                    <div class="fft-card fft-chart-panel">
+                        <div class="fft-chart-title">Piezas por destino</div>
+                        <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-piezas-destino"></canvas></div>
+                    </div>
+                    <div class="fft-card fft-chart-panel">
+                        <div class="fft-chart-title">Pallets por tipo de pedido</div>
+                        <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-tipo"></canvas></div>
+                    </div>
+                    <div class="fft-card fft-chart-panel">
+                        <div class="fft-chart-title">Destino × Tipo de pedido</div>
+                        <div class="fft-chart-canvas-wrap" id="fft-heatmap-wrap" style="overflow:auto;"></div>
+                    </div>
+                </div>
+
+                <div class="fft-card fft-chart-panel" style="margin-bottom:1.25rem;min-height:280px;">
+                    <div class="fft-chart-title">Pallets y piezas por día</div>
+                    <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-por-dia"></canvas></div>
+                </div>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div class="fft-section-title" style="margin-bottom:0;">Actividad reciente</div>
+                    <button class="fft-btn" onclick="fftSetTab('actividad')">Ver todo <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+                <div class="fft-card" style="padding:1.1rem 1.25rem;margin-top:0.75rem;">
                     <div class="fft-table-wrap">
-                        <table class="fft-table" id="fft-tabla-resumen">
-                            <thead>
-                                <tr>
-                                    <th onclick="fftOrdenarTabla('destino')">Destino</th>
-                                    <th onclick="fftOrdenarTabla('tipoPedido')">Tipo</th>
-                                    <th onclick="fftOrdenarTabla('pallets')">Pallets</th>
-                                    <th onclick="fftOrdenarTabla('piezas')">Piezas</th>
-                                    <th onclick="fftOrdenarTabla('pctPallets')">% Pallets</th>
-                                    <th onclick="fftOrdenarTabla('pctPiezas')">% Piezas</th>
-                                    <th onclick="fftOrdenarTabla('ultimoRegistro')">Último movimiento</th>
-                                </tr>
-                            </thead>
-                            <tbody id="fft-tabla-resumen-body"></tbody>
+                        <table class="fft-table">
+                            <thead><tr><th>Hora</th><th>Pallet ID</th><th>Área</th><th>Bin</th><th>Destino</th><th>Tipo</th><th>Piezas</th><th>Escaneadora</th><th>Acción</th></tr></thead>
+                            <tbody id="fft-actividad-preview-body"></tbody>
                         </table>
                     </div>
                 </div>
-                <div class="fft-side-charts">
-                    <div class="fft-card fft-chart-panel" style="min-height:240px;">
-                        <div class="fft-chart-title">Tipos de pedido</div>
-                        <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-tipo-lateral"></canvas></div>
+            </div>
+
+            <!-- ══ TAB: AREAS Y BINES ══ -->
+            <div class="fft-tabpanel" id="fft-tabpanel-areas">
+                <div class="fft-section-title">Áreas y Bines</div>
+                <div class="fft-section-sub">Cada card de área agrupa sus bines; abre un área para ver el detalle completo</div>
+                <div class="fft-area-grid" id="fft-areas-full"></div>
+
+                <div class="fft-card" style="padding:1.1rem 1.25rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;margin-bottom:0.75rem;">
+                        <div class="fft-chart-title" style="margin-bottom:0;">Resumen por Bines</div>
+                        <input type="text" class="fft-date-input" id="fft-bin-buscador" placeholder="Buscar bin..." oninput="fftFiltrarTablaBines()" style="width:200px;">
                     </div>
-                    <div class="fft-card fft-chart-panel" style="min-height:240px;">
-                        <div class="fft-chart-title">Piezas por escaneadora</div>
-                        <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-escaneadora"></canvas></div>
+                    <div class="fft-table-wrap" id="fft-bines-wrap">
+                        <table class="fft-table" id="fft-tabla-bines">
+                            <thead><tr><th>Bin</th><th>Área</th><th>Categoría</th><th>Pallets</th><th>Piezas</th><th>% Pallets</th><th>Acción</th></tr></thead>
+                            <tbody id="fft-tabla-bines-body"><tr><td colspan="7" class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando bines...</td></tr></tbody>
+                        </table>
+                    </div>
+                    <p id="fft-bines-nota" style="margin-top:0.6rem;font-size:0.72rem;color:var(--fft-text-muted);"></p>
+                </div>
+            </div>
+
+            <!-- ══ TAB: DESTINOS FFT ══ -->
+            <div class="fft-tabpanel" id="fft-tabpanel-destinos">
+                <div class="fft-section-title">Destinos de salida de FFT</div>
+                <div class="fft-section-sub">Campo real: <code>destino</code> de cada registro EscReg — nunca la categoría de inventario</div>
+                <div class="fft-destino-grid" id="fft-destinos-full"></div>
+
+                <div class="fft-card fft-chart-panel" style="min-height:320px;margin-bottom:1.25rem;">
+                    <div class="fft-chart-title">FFT → Destinos</div>
+                    <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-flujo"></canvas></div>
+                </div>
+
+                <div class="fft-main-content-grid">
+                    <div class="fft-card" style="padding:1.1rem 1.25rem;">
+                        <div class="fft-chart-title">Resumen por Destino y Tipo</div>
+                        <div class="fft-table-wrap">
+                            <table class="fft-table" id="fft-tabla-resumen">
+                                <thead>
+                                    <tr>
+                                        <th onclick="fftOrdenarTabla('destino')">Destino</th>
+                                        <th onclick="fftOrdenarTabla('tipoPedido')">Tipo</th>
+                                        <th onclick="fftOrdenarTabla('pallets')">Pallets</th>
+                                        <th onclick="fftOrdenarTabla('piezas')">Piezas</th>
+                                        <th onclick="fftOrdenarTabla('pctPallets')">% Pallets</th>
+                                        <th onclick="fftOrdenarTabla('pctPiezas')">% Piezas</th>
+                                        <th onclick="fftOrdenarTabla('ultimoRegistro')">Último movimiento</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fft-tabla-resumen-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="fft-side-charts">
+                        <div class="fft-card fft-chart-panel" style="min-height:240px;">
+                            <div class="fft-chart-title">Tipos de pedido</div>
+                            <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-tipo-lateral"></canvas></div>
+                        </div>
+                        <div class="fft-card fft-chart-panel" style="min-height:240px;">
+                            <div class="fft-chart-title">Piezas por escaneadora</div>
+                            <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-escaneadora"></canvas></div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Resumen por Bines (Etapa 2) — inventario ACTUAL desde BinManagerRO
-                 (via Cubicaje); no hay historial permanente por bin, por eso no
-                 tiene columna de tendencia, solo el estado de ahorita. -->
-            <div class="fft-card" style="padding:1.1rem 1.25rem;margin-top:1.25rem;">
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;margin-bottom:0.75rem;">
-                    <div class="fft-chart-title" style="margin-bottom:0;">Resumen por Bines <span style="font-weight:400;color:var(--fft-text-muted);font-size:0.75rem;">(inventario actual, BinManagerRO)</span></div>
-                    <input type="text" class="fft-date-input" id="fft-bin-buscador" placeholder="Buscar bin..." oninput="fftFiltrarTablaBines()" style="width:200px;">
+            <!-- ══ TAB: ACTIVIDAD ══ -->
+            <div class="fft-tabpanel" id="fft-tabpanel-actividad">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;margin-bottom:0.9rem;">
+                    <div>
+                        <div class="fft-section-title" style="margin-bottom:0.15rem;">Actividad de pallets</div>
+                        <div class="fft-section-sub" style="margin-bottom:0;">Cruce completo inventario × FFT — buscador, filtros y paginación en servidor</div>
+                    </div>
+                    <div style="display:flex;gap:0.5rem;">
+                        <input type="text" class="fft-date-input" id="fft-actividad-buscador" placeholder="Buscar Pallet ID o Pedido..." style="width:220px;" oninput="fftActividadBuscar()">
+                        <button class="fft-btn" onclick="fftExportarActividadCSV()"><i class="fa-solid fa-file-csv"></i> Exportar CSV</button>
+                    </div>
                 </div>
-                <div class="fft-table-wrap" id="fft-bines-wrap">
-                    <table class="fft-table" id="fft-tabla-bines">
-                        <thead><tr><th>Bin</th><th>Destino</th><th>Pallets</th><th>Piezas</th><th>% Pallets</th><th>% Piezas</th><th>Acción</th></tr></thead>
-                        <tbody id="fft-tabla-bines-body"><tr><td colspan="7" class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando bines...</td></tr></tbody>
-                    </table>
+                <div class="fft-card" style="padding:1.1rem 1.25rem;">
+                    <div class="fft-table-wrap" style="max-height:520px;">
+                        <table class="fft-table">
+                            <thead><tr><th>Hora</th><th>Pallet ID</th><th>Área</th><th>Bin</th><th>Destino</th><th>Tipo</th><th>Pedido</th><th>Piezas</th><th>Escaneadora</th><th>Cruce</th><th>Acción</th></tr></thead>
+                            <tbody id="fft-actividad-body"></tbody>
+                        </table>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.75rem;flex-wrap:wrap;gap:0.5rem;">
+                        <span id="fft-actividad-conteo" style="font-size:0.78rem;color:var(--fft-text-muted);"></span>
+                        <div style="display:flex;gap:0.5rem;align-items:center;">
+                            <button class="fft-btn" onclick="fftActividadPagina(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                            <span id="fft-actividad-pagina-label" style="font-size:0.8rem;"></span>
+                            <button class="fft-btn" onclick="fftActividadPagina(1)"><i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+                    </div>
                 </div>
-                <p id="fft-bines-nota" style="margin-top:0.6rem;font-size:0.72rem;color:var(--fft-text-muted);"></p>
             </div>
 
-            <p style="margin-top:1rem;font-size:0.72rem;color:var(--fft-text-muted);text-align:center;">Etapa 2: Bines usa la foto de inventario ACTUAL de BinManagerRO (no un historial permanente por pallet).</p>
+            <!-- ══ TAB: DIAGNOSTICO ══ -->
+            <div class="fft-tabpanel" id="fft-tabpanel-diagnostico">
+                <div class="fft-section-title">Diagnóstico del cruce Inventario × FFT</div>
+                <div class="fft-section-sub">Para confirmar por qué un pallet aparece o no aparece cruzado — sin exponer datos sensibles</div>
+                <div class="fft-card" style="padding:1.1rem 1.25rem;">
+                    <div class="fft-diag-grid" id="fft-diag-grid"></div>
+                </div>
+            </div>
         </div><!-- /view-dashboard-destinos-fft -->
 
         <!-- ══════════════════════════════════════ -->
-        <!-- VIEW: BIN INDIVIDUAL (Dashboard Destinos FFT, Etapa 2) -->
+        <!-- VIEW: AREA INDIVIDUAL (Dashboard Destinos FFT) -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-fft-area-detalle">
+            <button class="back-btn" onclick="switchView('dashboard-destinos-fft')"><i class="fa-solid fa-arrow-left"></i> Volver al dashboard</button>
+            <div id="view-fft-area-detalle-inner" style="--fft-bg:#F4F6FB;--fft-card:#FFFFFF;--fft-border:#E2E8F0;--fft-text:#0F172A;--fft-text-muted:#64748B;--fft-shadow:0 1px 3px rgba(15,23,42,0.07),0 1px 2px rgba(15,23,42,0.04);background:var(--fft-bg);color:var(--fft-text);border-radius:16px;padding:1.25rem 1.5rem 2rem;">
+                <div class="fft-breadcrumb"><a onclick="switchView('dashboard-destinos-fft')">Dashboard</a> <i class="fa-solid fa-chevron-right" style="font-size:0.65rem;"></i> <a onclick="fftSetTab('areas');switchView('dashboard-destinos-fft')">Áreas</a> <i class="fa-solid fa-chevron-right" style="font-size:0.65rem;"></i> <span id="fft-area-breadcrumb-nombre">--</span></div>
+                <h1 style="font-size:1.35rem;margin:0;" id="fft-area-titulo"><i class="fa-solid fa-warehouse" style="color:#F59E0B;margin-right:8px;"></i>ÁREA: --</h1>
+                <div id="fft-area-body" style="margin-top:1.1rem;">
+                    <div class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando área...</div>
+                </div>
+            </div>
+        </div><!-- /view-fft-area-detalle -->
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: BIN INDIVIDUAL (Dashboard Destinos FFT) -->
         <!-- ══════════════════════════════════════ -->
         <div class="view" id="view-fft-bin-detalle">
-            <button class="back-btn" onclick="switchView('dashboard-destinos-fft')"><i class="fa-solid fa-arrow-left"></i> Volver a todos los bines</button>
+            <button class="back-btn" onclick="fftVolverAArea()"><i class="fa-solid fa-arrow-left"></i> Volver al área</button>
             <div id="view-fft-bin-detalle-inner" style="--fft-bg:#F4F6FB;--fft-card:#FFFFFF;--fft-border:#E2E8F0;--fft-text:#0F172A;--fft-text-muted:#64748B;--fft-shadow:0 1px 3px rgba(15,23,42,0.07),0 1px 2px rgba(15,23,42,0.04);background:var(--fft-bg);color:var(--fft-text);border-radius:16px;padding:1.25rem 1.5rem 2rem;">
-                <h1 style="font-size:1.35rem;margin:0;" id="fft-bin-titulo"><i class="fa-solid fa-warehouse" style="color:#8B5CF6;margin-right:8px;"></i>BIN: --</h1>
+                <div class="fft-breadcrumb"><a onclick="switchView('dashboard-destinos-fft')">Dashboard</a> <i class="fa-solid fa-chevron-right" style="font-size:0.65rem;"></i> <a onclick="fftSetTab('areas');switchView('dashboard-destinos-fft')">Áreas</a> <i class="fa-solid fa-chevron-right" style="font-size:0.65rem;"></i> <a onclick="fftVolverAArea()" id="fft-bin-breadcrumb-area">--</a> <i class="fa-solid fa-chevron-right" style="font-size:0.65rem;"></i> <span id="fft-bin-breadcrumb-nombre">--</span></div>
+                <h1 style="font-size:1.35rem;margin:0;" id="fft-bin-titulo"><i class="fa-solid fa-box-archive" style="color:#8B5CF6;margin-right:8px;"></i>BIN: --</h1>
                 <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin:0.6rem 0 1.25rem;" id="fft-bin-chips"></div>
 
                 <div id="fft-bin-body">
@@ -3233,6 +3368,42 @@
             </div>
         </div><!-- /view-fft-bin-detalle -->
 
+        <!-- Modal de detalle completo de pallet — Dashboard Destinos FFT.
+             Reutiliza .co-pallet-modal-* (mismo patron visual/print que los
+             demas modulos) — 6 pestañas: Resumen/Inventario/Registro FFT/
+             Productos/Trazabilidad/Datos originales. -->
+        <div class="co-pallet-modal-backdrop" id="fft-pallet-backdrop" onclick="fftCerrarPalletDetalle()"></div>
+        <div class="co-pallet-modal" id="fft-pallet-modal" role="dialog" aria-modal="true">
+            <div class="co-pallet-modal-header">
+                <div class="co-pallet-modal-header-row">
+                    <div>
+                        <span style="font-size:1.05rem;font-weight:700;" id="fft-pallet-titulo">Pallet</span>
+                        <span class="fft-match-badge" id="fft-pallet-matchbadge"></span>
+                    </div>
+                    <div class="co-pallet-modal-actions">
+                        <button class="co-pallet-modal-close-x" onclick="fftCerrarPalletDetalle()"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+                <div class="co-pallet-modal-meta" id="fft-pallet-meta"></div>
+                <div class="fft-tabs" style="margin:0.75rem 0 -1px;border-bottom:none;">
+                    <button class="fft-tab active" data-fpt="resumen" onclick="fftSetPalletTab('resumen')">Resumen</button>
+                    <button class="fft-tab" data-fpt="inventario" onclick="fftSetPalletTab('inventario')">Inventario actual</button>
+                    <button class="fft-tab" data-fpt="fftreg" onclick="fftSetPalletTab('fftreg')">Registro FFT</button>
+                    <button class="fft-tab" data-fpt="productos" onclick="fftSetPalletTab('productos')">Productos / SKU</button>
+                    <button class="fft-tab" data-fpt="trazabilidad" onclick="fftSetPalletTab('trazabilidad')">Trazabilidad</button>
+                    <button class="fft-tab" data-fpt="original" onclick="fftSetPalletTab('original')">Datos originales</button>
+                </div>
+            </div>
+            <div class="co-pallet-modal-body">
+                <div class="fft-tabpanel active" id="fpt-resumen"></div>
+                <div class="fft-tabpanel" id="fpt-inventario"></div>
+                <div class="fft-tabpanel" id="fpt-fftreg"></div>
+                <div class="fft-tabpanel" id="fpt-productos"></div>
+                <div class="fft-tabpanel" id="fpt-trazabilidad"></div>
+                <div class="fft-tabpanel" id="fpt-original"></div>
+            </div>
+        </div>
+
         <!-- Panel de filtros flotante — Dashboard Destinos FFT -->
         <div class="fft-filters-panel" id="fft-filters-panel" onclick="if(event.target===this) fftCerrarFiltros()">
             <div class="fft-filters-card">
@@ -3240,14 +3411,28 @@
                     <span style="font-weight:700;font-size:1rem;">Filtros</span>
                     <button class="fft-btn" onclick="fftCerrarFiltros()"><i class="fa-solid fa-xmark"></i></button>
                 </div>
-                <label>Destino</label>
+                <label>Área</label>
+                <select id="fft-f-area"><option value="">Todas</option></select>
+                <label>Bin</label>
+                <select id="fft-f-bin"><option value="">Todos</option></select>
+                <label>Destino FFT</label>
                 <select id="fft-f-destino"><option value="">Todos</option></select>
+                <label>Categoría de inventario</label>
+                <select id="fft-f-categoria"><option value="">Todas</option></select>
                 <label>Tipo de pedido</label>
                 <select id="fft-f-tipo"><option value="">Todos</option></select>
                 <label>Escaneadora</label>
                 <select id="fft-f-escaneadora"><option value="">Todas</option></select>
                 <label>Condición</label>
                 <select id="fft-f-condicion"><option value="">Todas</option></select>
+                <label>Estado del cruce</label>
+                <select id="fft-f-matchstatus">
+                    <option value="">Todos</option>
+                    <option value="matched">Con cruce completo</option>
+                    <option value="conflict">Cruce con datos inconsistentes</option>
+                    <option value="inventory-only">Solo inventario</option>
+                    <option value="fft-only">Solo registro FFT</option>
+                </select>
                 <label>Número de pedido</label>
                 <input type="text" id="fft-f-pedido" placeholder="Ej: 391931">
                 <label>Pallet ID</label>
@@ -4625,7 +4810,7 @@ function switchView(viewName) {
     // Los administradores (y siempre 3647) quedan exentos: nunca deben perder acceso a "inicio" o al Centro de Control.
     if (currentUser && currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras') && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
     // Centro de Control, Monitor en Vivo y LPN Duplicados: exclusivos del administrador 3647
-    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn' || viewName === 'centro-operativo' || viewName === 'reporte-semanal' || viewName === 'dashboard-destinos-fft' || viewName === 'fft-bin-detalle') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
+    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn' || viewName === 'centro-operativo' || viewName === 'reporte-semanal' || viewName === 'dashboard-destinos-fft' || viewName === 'fft-area-detalle' || viewName === 'fft-bin-detalle') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
     // Operaciones y Pedidos (Retrabajo + Gestionar Pedidos): cualquier admin.
     // La pestaña "Gestionar Pedidos" adentro sigue siendo exclusiva de 3647.
     if (viewName === 'operaciones' && (!currentUser || currentUser.role !== 'admin')) { switchView('home'); return; }
@@ -4670,6 +4855,7 @@ function switchView(viewName) {
     if (viewName === 'centro-operativo') initCentroOperativo();
     if (viewName === 'reporte-semanal') initReporteSemanal();
     if (viewName === 'dashboard-destinos-fft') initDashboardDestinosFft();
+    if (viewName === 'fft-area-detalle') initFftAreaDetalle();
     if (viewName === 'fft-bin-detalle') initFftBinDetalle();
 }
 
@@ -11466,18 +11652,26 @@ async function rsDescargarExcel() {
 }
 
 // ══════════════════════════════════════════════
-// DASHBOARD DESTINOS FFT (admin 3647 only) — Etapa 1
-// Consume /api/dashboard-destinos-fft/filtros y /data. Destino y Tipo de pedido
-// ya vienen normalizados y clasificados por el backend (api/services/
-// destinoTipoHelpers.js) — este bloque solo pinta, nunca reclasifica nada aqui.
-// El modulo de Bines (Etapa 2) se agrega aparte, sin tocar este bloque.
+// DASHBOARD DESTINOS FFT (admin 3647 only)
+// Jerarquia: Dashboard -> Areas -> Bines -> Pallets -> Detalle del pallet.
+// Destino FFT, tipo de pedido, area, bin y categoria de inventario ya vienen
+// separados y clasificados por el backend (api/services/destinoTipoHelpers.js,
+// binHelpers.js, unifiedPalletHelpers.js) — este bloque solo pinta, nunca
+// reclasifica ni mezcla esos conceptos aqui.
 // ══════════════════════════════════════════════
 let fftUltimoDato = null;
+let fftUltimoDestinos = null;
+let fftUltimoAreas = null;
 let fftCharts = {};
 let fftAutoTimer = null;
 let fftRequestSeq = 0;
 let fftSort = { campo: 'pallets', asc: false };
-let fftFiltros = { destino: '', tipo: '', escaneadora: '', condicion: '', pedido: '', palletId: '' };
+let fftFiltros = { area: '', bin: '', destino: '', categoria: '', tipo: '', escaneadora: '', condicion: '', matchStatus: '', pedido: '', palletId: '' };
+let fftAreaActual = null;
+let fftBinActual = null;
+let fftActividadPage = 1;
+let fftActividadUltimo = null;
+let fftActividadBuscarTimer = null;
 
 const FFT_COLOR_DESTINO = { 'TRG': '#22c55e', 'Almacén': '#3B82F6', 'FBA': '#8B5CF6', 'Sin destino': '#94A3B8' };
 function fftColorDestino(nombre, idx) {
@@ -11488,6 +11682,17 @@ function fftColorDestino(nombre, idx) {
 const FFT_TIPO_PALETTE = ['#F59E0B', '#3B82F6', '#22c55e', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#EF4444', '#94A3B8'];
 function fftColorTipo(idx) { return FFT_TIPO_PALETTE[idx % FFT_TIPO_PALETTE.length]; }
 
+const FFT_MATCH_LABELS = {
+    matched: { label: 'Con cruce completo', color: '#16A34A' },
+    conflict: { label: 'Datos inconsistentes', color: '#F59E0B' },
+    'inventory-only': { label: 'Solo inventario', color: '#8B5CF6' },
+    'fft-only': { label: 'Solo registro FFT', color: '#3B82F6' },
+};
+function fftMatchBadge(status) {
+    const m = FFT_MATCH_LABELS[status] || { label: status || 'N/D', color: '#94A3B8' };
+    return `<span class="fft-match-badge" style="background:${m.color}22;color:${m.color};">${m.label}</span>`;
+}
+
 function initDashboardDestinosFft() {
     if (!document.getElementById('fft-fecha-fin').value) {
         const hoy = new Date();
@@ -11496,13 +11701,26 @@ function initDashboardDestinosFft() {
         document.getElementById('fft-fecha-inicio').value = iso(hace30);
         document.getElementById('fft-fecha-fin').value = iso(hoy);
     }
+    fftActividadUltimo = null;
+    fftSetTab('resumen');
     fftCargarFiltrosDisponibles();
     fftLoad();
-    fftCargarTablaBines();
     if (fftAutoTimer) clearInterval(fftAutoTimer);
     fftAutoTimer = setInterval(() => {
-        if (document.getElementById('view-dashboard-destinos-fft')?.classList.contains('active')) fftLoad(true);
+        if (document.getElementById('view-dashboard-destinos-fft')?.classList.contains('active')) {
+            fftLoad(true);
+            if (fftActividadUltimo) fftCargarActividad(fftActividadPage);
+        }
     }, 30000);
+}
+
+function fftSetTab(nombre) {
+    document.querySelectorAll('#fft-tabs .fft-tab').forEach(t => t.classList.toggle('active', t.dataset.fttab === nombre));
+    ['resumen', 'areas', 'destinos', 'actividad', 'diagnostico'].forEach(n => {
+        const panel = document.getElementById('fft-tabpanel-' + n);
+        if (panel) panel.classList.toggle('active', n === nombre);
+    });
+    if (nombre === 'actividad' && !fftActividadUltimo) fftCargarActividad(1);
 }
 
 async function fftCargarFiltrosDisponibles() {
@@ -11511,11 +11729,15 @@ async function fftCargarFiltrosDisponibles() {
         if (!data.success) return;
         const fill = (id, valores, todosLabel) => {
             const sel = document.getElementById(id);
+            if (!sel) return;
             const actual = sel.value;
             sel.innerHTML = `<option value="">${todosLabel}</option>` + valores.map(v => `<option value="${v}">${v}</option>`).join('');
             if (valores.includes(actual)) sel.value = actual;
         };
+        fill('fft-f-area', data.areas, 'Todas');
+        fill('fft-f-bin', data.bines, 'Todos');
         fill('fft-f-destino', data.destinos, 'Todos');
+        fill('fft-f-categoria', data.categorias, 'Todas');
         fill('fft-f-tipo', data.tipos, 'Todos');
         fill('fft-f-escaneadora', data.escaneadoras, 'Todas');
         fill('fft-f-condicion', data.condiciones, 'Todas');
@@ -11528,10 +11750,14 @@ function fftBuildParams() {
     const ff = document.getElementById('fft-fecha-fin').value;
     if (fi) p.set('fecha_inicio', fi);
     if (ff) p.set('fecha_fin', ff);
+    if (fftFiltros.area) p.set('area', fftFiltros.area);
+    if (fftFiltros.bin) p.set('bin', fftFiltros.bin);
     if (fftFiltros.destino) p.set('destino', fftFiltros.destino);
+    if (fftFiltros.categoria) p.set('categoria', fftFiltros.categoria);
     if (fftFiltros.tipo) p.set('tipo', fftFiltros.tipo);
     if (fftFiltros.escaneadora) p.set('escaneadoras', fftFiltros.escaneadora);
     if (fftFiltros.condicion) p.set('condicion', fftFiltros.condicion);
+    if (fftFiltros.matchStatus) p.set('matchStatus', fftFiltros.matchStatus);
     if (fftFiltros.pedido) p.set('pedido', fftFiltros.pedido);
     if (fftFiltros.palletId) p.set('palletId', fftFiltros.palletId);
     return p;
@@ -11544,14 +11770,32 @@ async function fftLoad(silencioso) {
     if (!silencioso) fftSetSkeleton();
     try {
         const params = fftBuildParams();
-        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/data?${params.toString()}`);
+        const qs = params.toString();
+        const [dataRes, destinosRes, areasRes, actividadRes] = await Promise.all([
+            apiFetch(`${API}/api/dashboard-destinos-fft/data?${qs}`),
+            apiFetch(`${API}/api/dashboard-destinos-fft/destinos?${qs}`),
+            apiFetch(`${API}/api/dashboard-destinos-fft/areas?${qs}`),
+            apiFetch(`${API}/api/dashboard-destinos-fft/pallets?${qs}&page=1&pageSize=8`),
+        ]);
         if (mySeq !== fftRequestSeq) return; // respuesta vieja, ya hay una peticion mas nueva en curso
-        if (!data.success) throw new Error(data.error || 'Error al cargar el dashboard');
-        fftUltimoDato = data;
-        fftRenderKpis(data.kpis);
-        fftRenderCharts(data.graficas);
-        fftRenderTabla(data.tablaResumen);
+        if (!dataRes.success) throw new Error(dataRes.error || 'Error al cargar el dashboard');
+        fftUltimoDato = dataRes;
+        fftUltimoDestinos = destinosRes.success ? destinosRes.destinos : [];
+        fftUltimoAreas = areasRes.success ? areasRes : null;
+
+        fftRenderKpis(dataRes.kpis, fftUltimoAreas ? fftUltimoAreas.resumen : null);
+        fftRenderCharts(dataRes.graficas);
+        fftRenderTabla(dataRes.tablaResumen);
         fftRenderChips();
+        fftRenderDestinos(fftUltimoDestinos);
+        fftRenderFlujoChart(fftUltimoDestinos);
+        if (fftUltimoAreas) {
+            fftRenderAreas(fftUltimoAreas.areas);
+            fftRenderBines(fftUltimoAreas.bines);
+            fftRenderDiagnostico(fftUltimoAreas.diagnostico);
+        }
+        if (actividadRes.success) fftRenderActividadPreview(actividadRes.records);
+
         document.getElementById('fft-last-update').textContent = new Date().toLocaleTimeString('es-MX');
         statusDot.className = 'fft-status-dot ok';
         statusText.textContent = 'Conectado';
@@ -11564,7 +11808,7 @@ async function fftLoad(silencioso) {
 }
 
 function fftSetSkeleton() {
-    const labels = ['Pallets totales','Piezas totales','Registros de hoy','Bines activos','Destinos activos','Tipos de pedido'];
+    const labels = ['Pallets totales','Piezas totales','Registros de hoy','Áreas activas','Bines activos','Destinos activos','Tipos de pedido','Pallets sin cruce FFT'];
     document.getElementById('fft-kpi-grid').innerHTML = labels.map(l => `
         <div class="fft-card fft-kpi skeleton">
             <div class="fft-kpi-top"><span class="fft-kpi-label">${l}</span></div>
@@ -11591,15 +11835,22 @@ function fftKpiCard(label, icon, color, value, deltaPct, nota) {
         </div>`;
 }
 
-function fftRenderKpis(kpis) {
+// "Bin activo"/"Area activa" = tiene inventario ACTUAL (al menos 1 pallet
+// ahorita en BinManagerRO) — no es un conteo historico, es lo que hay ahorita.
+function fftRenderKpis(kpis, resumenInventario) {
     const grid = document.getElementById('fft-kpi-grid');
+    const areasActivas = resumenInventario ? resumenInventario.areasActivas : '—';
+    const binesActivos = resumenInventario ? resumenInventario.binesActivos : '—';
+    const sinCruce = resumenInventario ? resumenInventario.palletsSinCruceFFT : '—';
     grid.innerHTML = [
         fftKpiCard('Pallets totales', 'fa-pallet', '#3B82F6', kpis.totalPallets.value.toLocaleString('es-MX'), kpis.totalPallets.deltaPct),
         fftKpiCard('Piezas totales', 'fa-cubes', '#22c55e', kpis.totalPiezas.value.toLocaleString('es-MX'), kpis.totalPiezas.deltaPct),
         fftKpiCard('Registros de hoy', 'fa-calendar-day', '#F59E0B', kpis.registrosHoy.value.toLocaleString('es-MX'), null),
-        fftKpiCard('Bines activos', 'fa-warehouse', '#8B5CF6', '—', null, 'Disponible en Etapa 2'),
+        fftKpiCard('Áreas activas', 'fa-map-location-dot', '#F97316', areasActivas, null, 'Con inventario actual'),
+        fftKpiCard('Bines activos', 'fa-warehouse', '#8B5CF6', binesActivos, null, 'Con inventario actual'),
         fftKpiCard('Destinos activos', 'fa-location-dot', '#EC4899', kpis.destinosActivos.value, null),
         fftKpiCard('Tipos de pedido', 'fa-tags', '#06B6D4', kpis.tiposActivos.value, null),
+        fftKpiCard('Pallets sin cruce FFT', 'fa-triangle-exclamation', '#EF4444', sinCruce, null, 'En inventario, sin registro FFT'),
     ].join('');
 }
 
@@ -11625,30 +11876,21 @@ function fftDonutBase(labels, data, colors) {
     };
 }
 
-function fftRenderCharts(g) {
-    // Pallets/Piezas por destino
-    const destLabels = g.porDestino.map(d => d.nombre);
-    const destColors = g.porDestino.map((d, i) => fftColorDestino(d.nombre, i));
-    fftMakeChart('palletsDestino', 'fft-chart-pallets-destino', fftDonutBase(destLabels, g.porDestino.map(d => d.pallets), destColors));
-    fftMakeChart('piezasDestino', 'fft-chart-piezas-destino', fftDonutBase(destLabels, g.porDestino.map(d => d.piezas), destColors));
-
-    // Pallets por tipo (principal + lateral, mismos datos)
-    const tipoLabels = g.porTipo.map(t => t.nombre);
-    const tipoColors = g.porTipo.map((t, i) => fftColorTipo(i));
-    fftMakeChart('tipo', 'fft-chart-tipo', fftDonutBase(tipoLabels, g.porTipo.map(t => t.pallets), tipoColors));
-    fftMakeChart('tipoLateral', 'fft-chart-tipo-lateral', fftDonutBase(tipoLabels, g.porTipo.map(t => t.pallets), tipoColors));
-
-    // Heatmap Destino x Tipo (tabla con celdas coloreadas, sin libreria nueva)
-    fftRenderHeatmap(g.matriz);
-
-    // Pallets y piezas por dia (linea)
-    fftMakeChart('porDia', 'fft-chart-por-dia', {
+function fftBarOptionsSimple() {
+    return {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, datalabels: { display: false } },
+        scales: { x: { ticks: { color: '#64748B', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#64748B' }, grid: { color: '#F1F5F9' } } },
+    };
+}
+function fftLineChartConfig(porDia) {
+    return {
         type: 'line',
         data: {
-            labels: g.porDia.map(d => d.fecha),
+            labels: porDia.map(d => d.fecha),
             datasets: [
-                { label: 'Pallets', data: g.porDia.map(d => d.pallets), borderColor: '#3B82F6', backgroundColor: '#3B82F622', tension: 0.3, yAxisID: 'y' },
-                { label: 'Piezas', data: g.porDia.map(d => d.piezas), borderColor: '#22c55e', backgroundColor: '#22c55e22', tension: 0.3, yAxisID: 'y1' },
+                { label: 'Pallets', data: porDia.map(d => d.pallets), borderColor: '#3B82F6', backgroundColor: '#3B82F622', tension: 0.3, yAxisID: 'y' },
+                { label: 'Piezas', data: porDia.map(d => d.piezas), borderColor: '#22c55e', backgroundColor: '#22c55e22', tension: 0.3, yAxisID: 'y1' },
             ],
         },
         options: {
@@ -11661,18 +11903,140 @@ function fftRenderCharts(g) {
                 y1: { position: 'right', ticks: { color: '#64748B' }, grid: { display: false } },
             },
         },
-    });
+    };
+}
 
-    // Piezas por escaneadora (barras horizontales)
+function fftRenderCharts(g) {
+    const destLabels = g.porDestino.map(d => d.nombre);
+    const destColors = g.porDestino.map((d, i) => fftColorDestino(d.nombre, i));
+    fftMakeChart('palletsDestino', 'fft-chart-pallets-destino', fftDonutBase(destLabels, g.porDestino.map(d => d.pallets), destColors));
+    fftMakeChart('piezasDestino', 'fft-chart-piezas-destino', fftDonutBase(destLabels, g.porDestino.map(d => d.piezas), destColors));
+
+    const tipoLabels = g.porTipo.map(t => t.nombre);
+    const tipoColors = g.porTipo.map((t, i) => fftColorTipo(i));
+    fftMakeChart('tipo', 'fft-chart-tipo', fftDonutBase(tipoLabels, g.porTipo.map(t => t.pallets), tipoColors));
+    fftMakeChart('tipoLateral', 'fft-chart-tipo-lateral', fftDonutBase(tipoLabels, g.porTipo.map(t => t.pallets), tipoColors));
+
+    fftRenderHeatmap(g.matriz);
+    fftMakeChart('porDia', 'fft-chart-por-dia', fftLineChartConfig(g.porDia));
+
     fftMakeChart('escaneadora', 'fft-chart-escaneadora', {
         type: 'bar',
         data: { labels: g.porEscaneadora.map(e => e.nombre), datasets: [{ data: g.porEscaneadora.map(e => e.piezas), backgroundColor: '#3B82F6cc', borderRadius: 4 }] },
-        options: {
-            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false }, datalabels: { display: false } },
-            scales: { x: { ticks: { color: '#64748B' }, grid: { color: '#F1F5F9' } }, y: { ticks: { color: '#0F172A', font: { size: 10 } }, grid: { display: false } } },
-        },
+        options: { ...fftBarOptionsSimple(), indexAxis: 'y' },
     });
+}
+
+function fftDestinoCardHtml(d) {
+    const color = fftColorDestino(d.destino, 0);
+    const ultimo = d.ultimoMovimiento ? new Date(d.ultimoMovimiento).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : 'N/D';
+    return `
+        <div class="fft-card fft-destino-card" style="border-top-color:${color};">
+            <div class="fft-dc-nombre" style="color:${color};">${d.destino}</div>
+            <div class="fft-dc-metric"><span>Pallets</span><b>${d.pallets.toLocaleString('es-MX')}</b></div>
+            <div class="fft-dc-metric"><span>Piezas</span><b>${d.piezas.toLocaleString('es-MX')}</b></div>
+            <div class="fft-dc-metric"><span>% del total</span><b>${d.pctPallets}%</b></div>
+            <div class="fft-dc-metric"><span>Bines relacionados</span><b>${d.binesRelacionados}</b></div>
+            <div class="fft-dc-metric"><span>Último movimiento</span><b>${ultimo}</b></div>
+            <div class="fft-dc-tipos">${(d.tiposPedidoPrincipales || []).map(t => `<span class="fft-chip" style="background:#94A3B822;color:#475569;">${t}</span>`).join('') || '<span style="font-size:0.72rem;color:var(--fft-text-muted);">Sin tipo de pedido</span>'}</div>
+        </div>`;
+}
+function fftRenderDestinos(destinos) {
+    const previewEl = document.getElementById('fft-destinos-preview');
+    const fullEl = document.getElementById('fft-destinos-full');
+    if (!destinos || !destinos.length) {
+        const vacio = '<div class="fft-empty-note">No hay registros FFT con destino para este rango/filtros.</div>';
+        if (previewEl) previewEl.innerHTML = vacio;
+        if (fullEl) fullEl.innerHTML = vacio;
+        return;
+    }
+    if (previewEl) previewEl.innerHTML = destinos.slice(0, 4).map(fftDestinoCardHtml).join('');
+    if (fullEl) fullEl.innerHTML = destinos.map(fftDestinoCardHtml).join('');
+}
+function fftRenderFlujoChart(destinos) {
+    if (!destinos || !document.getElementById('fft-chart-flujo')) return;
+    fftMakeChart('flujo', 'fft-chart-flujo', {
+        type: 'bar',
+        data: { labels: destinos.map(d => `FFT → ${d.destino}`), datasets: [{ data: destinos.map(d => d.pallets), backgroundColor: destinos.map((d, i) => fftColorDestino(d.destino, i)), borderRadius: 6 }] },
+        options: fftBarOptionsSimple(),
+    });
+}
+
+function fftAreaCardHtml(a) {
+    const ultimo = a.ultimoMovimiento ? new Date(a.ultimoMovimiento).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : 'N/D';
+    const binesPreviewHtml = (a.binesPreview || []).map(b => `<div class="fft-bin-preview-row"><span>${b.bin}</span><span>${b.pallets} pallets · ${b.piezas} pz</span></div>`).join('') || '<div class="fft-bin-preview-row"><span style="color:var(--fft-text-muted);">Sin bines</span></div>';
+    return `
+        <div class="fft-card fft-area-card">
+            <div class="fft-ac-header">
+                <div class="fft-ac-nombre">${a.area}</div>
+                <span class="fft-chip" style="background:#3B82F622;color:#3B82F6;">${a.estado}</span>
+            </div>
+            <div class="fft-ac-kpis">
+                <div>Bines<b>${a.cantidadBines}</b></div>
+                <div>Pallets<b>${a.pallets.toLocaleString('es-MX')}</b></div>
+                <div>Piezas<b>${a.piezas.toLocaleString('es-MX')}</b></div>
+            </div>
+            <div style="font-size:0.74rem;color:var(--fft-text-muted);margin-bottom:0.4rem;">% inventario: ${a.pctPallets}% · Destinos: ${a.destinosRelacionados.join(', ') || 'N/D'} · Últ. mov: ${ultimo}</div>
+            ${binesPreviewHtml}
+            <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;margin-top:0.75rem;" onclick="fftAbrirArea('${encodeURIComponent(a.area)}')">Abrir área <i class="fa-solid fa-arrow-right"></i></button>
+        </div>`;
+}
+function fftRenderAreas(areas) {
+    const previewEl = document.getElementById('fft-areas-preview');
+    const fullEl = document.getElementById('fft-areas-full');
+    if (!areas || !areas.length) {
+        const vacio = '<div class="fft-empty-note">Sin áreas con inventario actual (revisa la pestaña Diagnóstico y la conexión con Cubicaje).</div>';
+        if (previewEl) previewEl.innerHTML = vacio;
+        if (fullEl) fullEl.innerHTML = vacio;
+        return;
+    }
+    if (previewEl) previewEl.innerHTML = areas.slice(0, 3).map(fftAreaCardHtml).join('');
+    if (fullEl) fullEl.innerHTML = areas.map(fftAreaCardHtml).join('');
+}
+
+let fftUltimosBines = [];
+function fftRenderBines(bines) {
+    fftUltimosBines = bines || [];
+    fftFiltrarTablaBines();
+}
+function fftFiltrarTablaBines() {
+    const qEl = document.getElementById('fft-bin-buscador');
+    const q = qEl ? (qEl.value || '').trim().toLowerCase() : '';
+    const filas = q ? fftUltimosBines.filter((b) => b.bin.toLowerCase().includes(q) || b.area.toLowerCase().includes(q)) : fftUltimosBines;
+    const tbody = document.getElementById('fft-tabla-bines-body');
+    if (!tbody) return;
+    if (!filas.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="fft-empty-note">Sin bines para mostrar.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = filas.map((b) => `
+        <tr>
+            <td data-label="Bin"><a class="fft-pallet-link" onclick="fftAbrirBin('${encodeURIComponent(b.area)}','${encodeURIComponent(b.bin)}');return false;">${b.bin}</a></td>
+            <td data-label="Área">${b.area}</td>
+            <td data-label="Categoría">${b.categoria}</td>
+            <td data-label="Pallets">${b.pallets.toLocaleString('es-MX')}</td>
+            <td data-label="Piezas">${b.piezas.toLocaleString('es-MX')}</td>
+            <td data-label="% Pallets">${b.pctPallets}%</td>
+            <td data-label="Acción"><button class="fft-btn" style="padding:0.3rem 0.6rem;" onclick="fftAbrirBin('${encodeURIComponent(b.area)}','${encodeURIComponent(b.bin)}')"><i class="fa-solid fa-chart-simple"></i></button></td>
+        </tr>`).join('');
+}
+
+function fftDiagCard(label, value, color) {
+    return `<div class="fft-card fft-diag-card"><div class="fft-diag-value" style="color:${color};">${value}</div><div class="fft-diag-label">${label}</div></div>`;
+}
+function fftRenderDiagnostico(d) {
+    const grid = document.getElementById('fft-diag-grid');
+    if (!grid || !d) return;
+    grid.innerHTML = [
+        fftDiagCard('Pallets en inventario consultados', d.inventarioConsultado.toLocaleString('es-MX'), '#3B82F6'),
+        fftDiagCard('Registros FFT consultados', d.registrosFftConsultados.toLocaleString('es-MX'), '#22c55e'),
+        fftDiagCard('Coincidencias (cruce)', d.coincidencias.toLocaleString('es-MX'), '#16A34A'),
+        fftDiagCard('Con datos inconsistentes', d.conflictos.toLocaleString('es-MX'), '#F59E0B'),
+        fftDiagCard('Solo inventario', d.soloInventario.toLocaleString('es-MX'), '#8B5CF6'),
+        fftDiagCard('Solo registro FFT', d.soloFft.toLocaleString('es-MX'), '#3B82F6'),
+        fftDiagCard('Duplicados FFT (mismo PalletID)', d.duplicadosFft.toLocaleString('es-MX'), '#EC4899'),
+        fftDiagCard('PalletID inválidos/ignorados', d.palletIdsInvalidos.toLocaleString('es-MX'), '#EF4444'),
+    ].join('') + `<p style="grid-column:1/-1;font-size:0.75rem;color:var(--fft-text-muted);margin-top:0.5rem;">El cruce se hace por PalletID normalizado (texto, sin distinguir mayúsculas/espacios). "Solo inventario" = pallets reales en BinManagerRO sin registro correspondiente en FFT. "Solo registro FFT" = pallets escaneados en esta app que ya no están en el inventario actual (probablemente ya salieron). "Bin activo"/"Área activa" = tiene inventario actual (al menos 1 pallet ahorita).</p>`;
 }
 
 function fftHeatColor(valor, max) {
@@ -11743,153 +12107,434 @@ function fftRenderChips() {
 
 function fftQuitarFiltro(key) {
     fftFiltros[key] = '';
-    const idMap = { destino: 'fft-f-destino', tipo: 'fft-f-tipo', escaneadora: 'fft-f-escaneadora', condicion: 'fft-f-condicion', pedido: 'fft-f-pedido', palletId: 'fft-f-palletid' };
+    const idMap = { area: 'fft-f-area', bin: 'fft-f-bin', destino: 'fft-f-destino', categoria: 'fft-f-categoria', tipo: 'fft-f-tipo', escaneadora: 'fft-f-escaneadora', condicion: 'fft-f-condicion', matchStatus: 'fft-f-matchstatus', pedido: 'fft-f-pedido', palletId: 'fft-f-palletid' };
     const el = document.getElementById(idMap[key]);
     if (el) el.value = '';
     fftLoad();
+    if (fftActividadUltimo) fftCargarActividad(1);
 }
 
 function fftAbrirFiltros() { document.getElementById('fft-filters-panel').classList.add('open'); }
 function fftCerrarFiltros() { document.getElementById('fft-filters-panel').classList.remove('open'); }
 function fftAplicarFiltros() {
+    fftFiltros.area = document.getElementById('fft-f-area').value;
+    fftFiltros.bin = document.getElementById('fft-f-bin').value;
     fftFiltros.destino = document.getElementById('fft-f-destino').value;
+    fftFiltros.categoria = document.getElementById('fft-f-categoria').value;
     fftFiltros.tipo = document.getElementById('fft-f-tipo').value;
     fftFiltros.escaneadora = document.getElementById('fft-f-escaneadora').value;
     fftFiltros.condicion = document.getElementById('fft-f-condicion').value;
+    fftFiltros.matchStatus = document.getElementById('fft-f-matchstatus').value;
     fftFiltros.pedido = document.getElementById('fft-f-pedido').value.trim();
     fftFiltros.palletId = document.getElementById('fft-f-palletid').value.trim();
     fftCerrarFiltros();
     fftLoad();
+    if (fftActividadUltimo) fftCargarActividad(1);
 }
 function fftLimpiarFiltros() {
-    fftFiltros = { destino: '', tipo: '', escaneadora: '', condicion: '', pedido: '', palletId: '' };
-    ['fft-f-destino', 'fft-f-tipo', 'fft-f-escaneadora', 'fft-f-condicion', 'fft-f-pedido', 'fft-f-palletid'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    fftFiltros = { area: '', bin: '', destino: '', categoria: '', tipo: '', escaneadora: '', condicion: '', matchStatus: '', pedido: '', palletId: '' };
+    ['fft-f-area', 'fft-f-bin', 'fft-f-destino', 'fft-f-categoria', 'fft-f-tipo', 'fft-f-escaneadora', 'fft-f-condicion', 'fft-f-matchstatus', 'fft-f-pedido', 'fft-f-palletid'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     fftCerrarFiltros();
     fftLoad();
+    if (fftActividadUltimo) fftCargarActividad(1);
 }
 
 // ══════════════════════════════════════════════
-// DASHBOARD DESTINOS FFT — BINES (Etapa 2)
-// BinManagerRO (via Cubicaje) solo expone el inventario ACTUAL por bin — no un
-// historial permanente por pallet — por eso esta seccion muestra "que hay
-// ahorita" en vez de tendencias por bin. El backend ya cruza cada pallet del
-// bin contra nuestros propios registros de escaneo (EscReg) cuando existen.
+// AREAS Y BINES — inventario ACTUAL (BinManagerRO/Cubicaje). No hay historial
+// permanente por bin, por eso el detalle de area/bin usa las graficas basadas
+// en los registros FFT cruzados (que si tienen fecha), no una tendencia del
+// propio inventario.
 // ══════════════════════════════════════════════
-let fftUltimosBines = [];
-let fftBinActual = null;
-
-async function fftCargarTablaBines() {
-    const tbody = document.getElementById('fft-tabla-bines-body');
-    const nota = document.getElementById('fft-bines-nota');
-    try {
-        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/bines`);
-        if (!data.success) throw new Error(data.error || 'Error al cargar bines');
-        fftUltimosBines = data.bines || [];
-        fftFiltrarTablaBines();
-        nota.textContent = data.meta.agotado
-            ? `Muestra de ${data.meta.totalMuestra.toLocaleString('es-MX')} de ${data.meta.totalReal.toLocaleString('es-MX')} pallets reales (muestreo parcial, los mas recientes).`
-            : `${data.meta.totalMuestra.toLocaleString('es-MX')} pallets reales analizados.`;
-        // Actualiza el KPI "Bines activos" del dashboard principal con el dato ya real
-        const kpiEls = document.querySelectorAll('#fft-kpi-grid .fft-kpi');
-        if (kpiEls[3]) {
-            const valueEl = kpiEls[3].querySelector('.fft-kpi-value');
-            const deltaEl = kpiEls[3].querySelector('.fft-kpi-delta');
-            if (valueEl) valueEl.textContent = fftUltimosBines.length;
-            if (deltaEl) deltaEl.remove();
-        }
-    } catch (e) {
-        const isNotConfigured = /CUBICAJE_API_BASE_URL|CUBICAJE_INTEGRATION_KEY/.test(e.message || '');
-        tbody.innerHTML = `<tr><td colspan="7" class="fft-empty-note">${isNotConfigured ? 'Bines no disponibles: falta configurar la conexión con Cubicaje.' : 'No se pudieron cargar los bines: ' + e.message}</td></tr>`;
-        nota.textContent = '';
-    }
+function fftAbrirArea(areaIdEncoded) {
+    fftAreaActual = areaIdEncoded;
+    switchView('fft-area-detalle');
 }
-
-function fftFiltrarTablaBines() {
-    const q = (document.getElementById('fft-bin-buscador').value || '').trim().toLowerCase();
-    const filas = q ? fftUltimosBines.filter((b) => b.bin.toLowerCase().includes(q)) : fftUltimosBines;
-    const tbody = document.getElementById('fft-tabla-bines-body');
-    if (!filas.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="fft-empty-note">Sin bines para mostrar.</td></tr>';
-        return;
-    }
-    tbody.innerHTML = filas.map((b) => {
-        const color = fftColorDestino(b.destino, 0);
-        return `<tr>
-            <td data-label="Bin"><a href="#" onclick="fftAbrirBin('${encodeURIComponent(b.bin)}');return false;" style="color:#3B82F6;font-weight:700;text-decoration:none;">${b.bin}</a></td>
-            <td data-label="Destino"><span class="fft-chip" style="background:${color}22;color:${color};">${b.destino}</span></td>
-            <td data-label="Pallets">${b.pallets.toLocaleString('es-MX')}</td>
-            <td data-label="Piezas">${b.piezas.toLocaleString('es-MX')}</td>
-            <td data-label="% Pallets">${b.pctPallets}%</td>
-            <td data-label="% Piezas">${b.pctPiezas}%</td>
-            <td data-label="Acción"><button class="fft-btn" style="padding:0.3rem 0.6rem;" onclick="fftAbrirBin('${encodeURIComponent(b.bin)}')"><i class="fa-solid fa-chart-simple"></i></button></td>
-        </tr>`;
-    }).join('');
+function fftVolverAArea() {
+    if (fftAreaActual) switchView('fft-area-detalle');
+    else switchView('dashboard-destinos-fft');
 }
-
-function fftAbrirBin(binIdEncoded) {
+function fftAbrirBin(areaIdEncoded, binIdEncoded) {
+    fftAreaActual = areaIdEncoded;
     fftBinActual = binIdEncoded;
     switchView('fft-bin-detalle');
+}
+
+async function initFftAreaDetalle() {
+    const body = document.getElementById('fft-area-body');
+    const titulo = document.getElementById('fft-area-titulo');
+    const crumb = document.getElementById('fft-area-breadcrumb-nombre');
+    if (!fftAreaActual) { switchView('dashboard-destinos-fft'); return; }
+    const areaNombre = decodeURIComponent(fftAreaActual);
+    titulo.innerHTML = `<i class="fa-solid fa-warehouse" style="color:#F59E0B;margin-right:8px;"></i>ÁREA: ${areaNombre}`;
+    crumb.textContent = areaNombre;
+    body.innerHTML = '<div class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando área...</div>';
+    try {
+        const params = fftBuildParams();
+        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/areas/${fftAreaActual}?${params.toString()}`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar el área');
+        if (!data.encontrada) {
+            body.innerHTML = '<div class="fft-empty-note">Esta área no tiene inventario actual con los filtros/rango seleccionados.</div>';
+            return;
+        }
+        const k = data.kpis;
+        const ultimo = k.ultimoMovimiento ? new Date(k.ultimoMovimiento).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : 'No disponible';
+        const kpisHtml = `
+            <div class="fft-kpi-grid" style="grid-template-columns:repeat(7,minmax(0,1fr));margin-bottom:1.25rem;">
+                ${fftKpiCard('Bines', 'fa-box-archive', '#8B5CF6', k.bines, null)}
+                ${fftKpiCard('Pallets', 'fa-pallet', '#3B82F6', k.pallets.toLocaleString('es-MX'), null)}
+                ${fftKpiCard('Piezas', 'fa-cubes', '#22c55e', k.piezas.toLocaleString('es-MX'), null)}
+                ${fftKpiCard('Destinos relacionados', 'fa-location-dot', '#EC4899', k.destinosRelacionados, null)}
+                ${fftKpiCard('Pedidos diferentes', 'fa-tags', '#F59E0B', k.pedidosDistintos, null)}
+                ${fftKpiCard('Escaneadoras activas', 'fa-barcode', '#06B6D4', k.escaneadorasActivas, null)}
+                ${fftKpiCard('Último movimiento', 'fa-clock', '#94A3B8', ultimo, null, 'Según registros FFT')}
+            </div>`;
+
+        const g = data.graficas;
+        const chartsHtml = `
+            <div class="fft-charts-grid-4">
+                <div class="fft-card fft-chart-panel"><div class="fft-chart-title">Pallets por bin</div><div class="fft-chart-canvas-wrap"><canvas id="fft-area-chart-bin"></canvas></div></div>
+                <div class="fft-card fft-chart-panel"><div class="fft-chart-title">Destinos de los pallets</div><div class="fft-chart-canvas-wrap"><canvas id="fft-area-chart-destino"></canvas></div></div>
+                <div class="fft-card fft-chart-panel"><div class="fft-chart-title">Tipos de pedido</div><div class="fft-chart-canvas-wrap"><canvas id="fft-area-chart-tipo"></canvas></div></div>
+                <div class="fft-card fft-chart-panel"><div class="fft-chart-title">Condiciones</div><div class="fft-chart-canvas-wrap"><canvas id="fft-area-chart-condicion"></canvas></div></div>
+            </div>
+            <div class="fft-charts-grid-4">
+                <div class="fft-card fft-chart-panel" style="grid-column:span 2;min-height:280px;"><div class="fft-chart-title">Tendencia por día</div><div class="fft-chart-canvas-wrap"><canvas id="fft-area-chart-dia"></canvas></div></div>
+                <div class="fft-card fft-chart-panel" style="grid-column:span 2;min-height:280px;"><div class="fft-chart-title">Producción por escaneadora</div><div class="fft-chart-canvas-wrap"><canvas id="fft-area-chart-escaneadora"></canvas></div></div>
+            </div>`;
+
+        const binesHtml = data.bines.map(b => `
+            <div class="fft-card fft-area-card">
+                <div class="fft-ac-header"><div class="fft-ac-nombre">${b.bin}</div><span class="fft-chip" style="background:#22c55e22;color:#16A34A;">${b.estado}</span></div>
+                <div class="fft-ac-kpis"><div>Pallets<b>${b.pallets}</b></div><div>Piezas<b>${b.piezas}</b></div><div style="font-size:0.66rem;">Categoría<b style="font-size:0.66rem;">${b.categoria}</b></div></div>
+                <div style="font-size:0.72rem;color:var(--fft-text-muted);margin-bottom:0.5rem;">Destinos: ${b.destinosRelacionados.join(', ') || 'N/D'}</div>
+                <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;" onclick="fftAbrirBin('${fftAreaActual}','${encodeURIComponent(b.bin)}')">Abrir bin <i class="fa-solid fa-arrow-right"></i></button>
+            </div>`).join('');
+
+        body.innerHTML = kpisHtml + chartsHtml + `<div class="fft-section-title" style="margin-top:1.25rem;">Bines de esta área</div><div class="fft-area-grid">${binesHtml}</div>`;
+
+        fftMakeChart('areaBin', 'fft-area-chart-bin', { type: 'bar', data: { labels: g.porBinPallets.map(x => x.nombre), datasets: [{ data: g.porBinPallets.map(x => x.pallets), backgroundColor: '#3B82F6cc', borderRadius: 4 }] }, options: fftBarOptionsSimple() });
+        fftMakeChart('areaDestino', 'fft-area-chart-destino', fftDonutBase(g.porDestino.map(x => x.nombre), g.porDestino.map(x => x.pallets), g.porDestino.map((x, i) => fftColorDestino(x.nombre, i))));
+        fftMakeChart('areaTipo', 'fft-area-chart-tipo', fftDonutBase(g.porTipo.map(x => x.nombre), g.porTipo.map(x => x.pallets), g.porTipo.map((x, i) => fftColorTipo(i))));
+        fftMakeChart('areaCondicion', 'fft-area-chart-condicion', fftDonutBase(g.porCondicion.map(x => x.nombre), g.porCondicion.map(x => x.pallets), g.porCondicion.map((x, i) => fftColorTipo(i))));
+        if (g.porDia.length) fftMakeChart('areaDia', 'fft-area-chart-dia', fftLineChartConfig(g.porDia));
+        else document.getElementById('fft-area-chart-dia').parentElement.innerHTML = '<div class="fft-empty-note">No existen registros FFT relacionados para este periodo</div>';
+        fftMakeChart('areaEscaneadora', 'fft-area-chart-escaneadora', { type: 'bar', data: { labels: g.porEscaneadora.map(x => x.nombre), datasets: [{ data: g.porEscaneadora.map(x => x.piezas), backgroundColor: '#22c55ecc', borderRadius: 4 }] }, options: { ...fftBarOptionsSimple(), indexAxis: 'y' } });
+    } catch (e) {
+        body.innerHTML = `<div class="fft-empty-note">No se pudo cargar el área: ${e.message}</div>`;
+    }
 }
 
 async function initFftBinDetalle() {
     const body = document.getElementById('fft-bin-body');
     const titulo = document.getElementById('fft-bin-titulo');
     const chips = document.getElementById('fft-bin-chips');
-    if (!fftBinActual) { switchView('dashboard-destinos-fft'); return; }
+    const crumbArea = document.getElementById('fft-bin-breadcrumb-area');
+    const crumbBin = document.getElementById('fft-bin-breadcrumb-nombre');
+    if (!fftAreaActual || !fftBinActual) { switchView('dashboard-destinos-fft'); return; }
+    const areaNombre = decodeURIComponent(fftAreaActual);
     const binNombre = decodeURIComponent(fftBinActual);
-    titulo.innerHTML = `<i class="fa-solid fa-warehouse" style="color:#8B5CF6;margin-right:8px;"></i>BIN: ${binNombre}`;
+    titulo.innerHTML = `<i class="fa-solid fa-box-archive" style="color:#8B5CF6;margin-right:8px;"></i>BIN: ${binNombre}`;
+    crumbArea.textContent = areaNombre;
+    crumbBin.textContent = binNombre;
     chips.innerHTML = '';
     body.innerHTML = '<div class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando bin...</div>';
     try {
-        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/bines/${fftBinActual}`);
+        const params = fftBuildParams();
+        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/areas/${fftAreaActual}/bines/${fftBinActual}?${params.toString()}`);
         if (!data.success) throw new Error(data.error || 'Error al cargar el bin');
         if (!data.encontrado) {
-            body.innerHTML = `<div class="fft-empty-note">Este bin no tiene pallets en la muestra actual del inventario${data.meta && data.meta.agotado ? ' (la muestra es parcial — puede existir fuera de ella)' : ''}.</div>`;
+            body.innerHTML = '<div class="fft-empty-note">Este bin no tiene inventario actual con los filtros/rango seleccionados.</div>';
             return;
         }
-        const color = fftColorDestino(data.destinoPrincipal || '', 0);
         chips.innerHTML = `
-            <span class="fft-chip" style="background:${color}22;color:${color};">${data.destinoPrincipal || 'Sin categoría'}</span>
+            <span class="fft-chip" style="background:#F59E0B22;color:#B45309;">Área: ${areaNombre}</span>
+            <span class="fft-chip" style="background:#8B5CF622;color:#7C3AED;">Categoría: ${data.categoria}</span>
+            <span class="fft-chip" style="background:#3B82F622;color:#3B82F6;">Destinos: ${data.destinosRelacionados.join(', ') || 'N/D'}</span>
             <span class="fft-chip" style="background:#22c55e22;color:#16A34A;">Con inventario</span>`;
 
         const k = data.kpis;
         const ultimo = k.ultimoMovimiento ? new Date(k.ultimoMovimiento).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : 'No disponible';
         const kpisHtml = `
-            <div class="fft-kpi-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:1.25rem;">
-                ${fftKpiCard('Pallets del bin', 'fa-pallet', '#3B82F6', k.pallets.toLocaleString('es-MX'), null)}
-                ${fftKpiCard('Piezas del bin', 'fa-cubes', '#22c55e', k.piezas.toLocaleString('es-MX'), null)}
+            <div class="fft-kpi-grid" style="grid-template-columns:repeat(7,minmax(0,1fr));margin-bottom:1.25rem;">
+                ${fftKpiCard('Pallets', 'fa-pallet', '#3B82F6', k.pallets.toLocaleString('es-MX'), null)}
+                ${fftKpiCard('Piezas', 'fa-cubes', '#22c55e', k.piezas.toLocaleString('es-MX'), null)}
+                ${fftKpiCard('Con cruce FFT', 'fa-link', '#16A34A', k.palletsConCruce, null)}
+                ${fftKpiCard('Sin cruce FFT', 'fa-link-slash', '#EF4444', k.palletsSinCruce, null)}
                 ${fftKpiCard('Pedidos diferentes', 'fa-tags', '#F59E0B', k.pedidosDistintos, null)}
-                ${fftKpiCard('Escaneadoras activas', 'fa-barcode', '#EC4899', k.escaneadorasDistintas, null)}
-                ${fftKpiCard('Último movimiento', 'fa-clock', '#8B5CF6', ultimo, null, 'Según nuestros registros de escaneo')}
+                ${fftKpiCard('Escaneadoras activas', 'fa-barcode', '#EC4899', k.escaneadorasActivas, null)}
+                ${fftKpiCard('Último movimiento', 'fa-clock', '#94A3B8', ultimo, null, 'Según registros FFT')}
+            </div>`;
+
+        const g = data.graficas;
+        const chartsHtml = `
+            <div class="fft-charts-grid-4">
+                <div class="fft-card fft-chart-panel"><div class="fft-chart-title">Piezas por tipo de pedido</div><div class="fft-chart-canvas-wrap"><canvas id="fft-bin-chart-tipo"></canvas></div></div>
+                <div class="fft-card fft-chart-panel"><div class="fft-chart-title">Pallets por destino</div><div class="fft-chart-canvas-wrap"><canvas id="fft-bin-chart-destino"></canvas></div></div>
+                <div class="fft-card fft-chart-panel"><div class="fft-chart-title">Condiciones</div><div class="fft-chart-canvas-wrap"><canvas id="fft-bin-chart-condicion"></canvas></div></div>
+                <div class="fft-card fft-chart-panel"><div class="fft-chart-title">Con cruce vs. sin cruce</div><div class="fft-chart-canvas-wrap"><canvas id="fft-bin-chart-cruce"></canvas></div></div>
+            </div>
+            <div class="fft-charts-grid-4">
+                <div class="fft-card fft-chart-panel" style="grid-column:span 2;min-height:280px;"><div class="fft-chart-title">Pallets y piezas por día</div><div class="fft-chart-canvas-wrap"><canvas id="fft-bin-chart-dia"></canvas></div></div>
+                <div class="fft-card fft-chart-panel"><div class="fft-chart-title">Producción por escaneadora</div><div class="fft-chart-canvas-wrap"><canvas id="fft-bin-chart-escaneadora"></canvas></div></div>
+                <div class="fft-card fft-chart-panel"><div class="fft-chart-title">Principales pedidos</div><div class="fft-chart-canvas-wrap"><canvas id="fft-bin-chart-pedidos"></canvas></div></div>
             </div>`;
 
         const filasHtml = data.pallets.map((p) => `
             <tr>
-                <td data-label="Pallet ID" style="font-weight:700;">${p.palletId}</td>
-                <td data-label="Piezas">${p.piezas ?? '-'}</td>
-                <td data-label="Categoría bin">${p.categoriaBin || '-'}</td>
-                <td data-label="Destino">${p.destino}</td>
-                <td data-label="Tipo">${p.tipoPedido}</td>
+                <td data-label="Pallet ID"><a class="fft-pallet-link" onclick="fftAbrirPalletDetalle('${encodeURIComponent(p.palletId)}')">${p.palletId}</a></td>
+                <td data-label="Piezas inv.">${p.piezasInventario ?? '-'}</td>
+                <td data-label="Piezas FFT">${p.piezasFft ?? '-'}</td>
+                <td data-label="Categoría">${p.categoria || '-'}</td>
+                <td data-label="Destino">${p.destino ?? 'Sin registro FFT'}</td>
+                <td data-label="Tipo">${p.tipoPedido ?? 'Sin registro FFT'}</td>
                 <td data-label="Pedido">${p.pedido || '-'}</td>
                 <td data-label="Escaneadora">${p.escaneadora || '-'}</td>
                 <td data-label="Condición">${p.condicion || '-'}</td>
                 <td data-label="Fecha">${p.fecha || '-'}</td>
+                <td data-label="Cruce">${fftMatchBadge(p.matchStatus)}</td>
+                <td data-label="Acción"><button class="fft-btn" style="padding:0.25rem 0.55rem;" onclick="fftAbrirPalletDetalle('${encodeURIComponent(p.palletId)}')"><i class="fa-solid fa-eye"></i></button></td>
             </tr>`).join('');
 
-        body.innerHTML = kpisHtml + `
-            <div class="fft-card" style="padding:1.1rem 1.25rem;">
+        body.innerHTML = kpisHtml + chartsHtml + `
+            <div class="fft-card" style="padding:1.1rem 1.25rem;margin-top:1.25rem;">
                 <div class="fft-chart-title">Pallets dentro del bin ${binNombre}</div>
                 <div class="fft-table-wrap">
                     <table class="fft-table">
-                        <thead><tr><th>Pallet ID</th><th>Piezas</th><th>Categoría bin</th><th>Destino</th><th>Tipo</th><th>Pedido</th><th>Escaneadora</th><th>Condición</th><th>Fecha</th></tr></thead>
+                        <thead><tr><th>Pallet ID</th><th>Piezas inv.</th><th>Piezas FFT</th><th>Categoría</th><th>Destino</th><th>Tipo</th><th>Pedido</th><th>Escaneadora</th><th>Condición</th><th>Fecha</th><th>Cruce</th><th>Acción</th></tr></thead>
                         <tbody>${filasHtml}</tbody>
                     </table>
                 </div>
-                <p style="margin-top:0.6rem;font-size:0.72rem;color:var(--fft-text-muted);">"Sin datos de escaneo" significa que ese Pallet ID esta en BinManagerRO pero no tiene un registro propio en esta app.</p>
             </div>`;
+
+        fftMakeChart('binTipo', 'fft-bin-chart-tipo', { type: 'bar', data: { labels: g.porTipo.map(x => x.nombre), datasets: [{ data: g.porTipo.map(x => x.piezas), backgroundColor: '#F59E0Bcc', borderRadius: 4 }] }, options: fftBarOptionsSimple() });
+        fftMakeChart('binDestino', 'fft-bin-chart-destino', fftDonutBase(g.porDestino.map(x => x.nombre), g.porDestino.map(x => x.pallets), g.porDestino.map((x, i) => fftColorDestino(x.nombre, i))));
+        fftMakeChart('binCondicion', 'fft-bin-chart-condicion', { type: 'bar', data: { labels: g.porCondicion.map(x => x.nombre), datasets: [{ data: g.porCondicion.map(x => x.pallets), backgroundColor: '#8B5CF6cc', borderRadius: 4 }] }, options: fftBarOptionsSimple() });
+        fftMakeChart('binCruce', 'fft-bin-chart-cruce', fftDonutBase(g.cruceVsSinCruce.map(x => x.nombre), g.cruceVsSinCruce.map(x => x.pallets), ['#16A34A', '#EF4444']));
+        if (g.porDia.length) fftMakeChart('binDia', 'fft-bin-chart-dia', fftLineChartConfig(g.porDia));
+        else document.getElementById('fft-bin-chart-dia').parentElement.innerHTML = '<div class="fft-empty-note">No existen registros FFT relacionados para este periodo</div>';
+        fftMakeChart('binEscaneadora', 'fft-bin-chart-escaneadora', { type: 'bar', data: { labels: g.porEscaneadora.map(x => x.nombre), datasets: [{ data: g.porEscaneadora.map(x => x.piezas), backgroundColor: '#22c55ecc', borderRadius: 4 }] }, options: { ...fftBarOptionsSimple(), indexAxis: 'y' } });
+        fftMakeChart('binPedidos', 'fft-bin-chart-pedidos', { type: 'bar', data: { labels: g.principalesPedidos.map(x => x.nombre), datasets: [{ data: g.principalesPedidos.map(x => x.pallets), backgroundColor: '#3B82F6cc', borderRadius: 4 }] }, options: { ...fftBarOptionsSimple(), indexAxis: 'y' } });
     } catch (e) {
         body.innerHTML = `<div class="fft-empty-note">No se pudo cargar el bin: ${e.message}</div>`;
     }
+}
+
+// ══════════════════════════════════════════════
+// ACTIVIDAD — tabla paginada/filtrada/ordenada en SERVIDOR sobre el cruce
+// completo (nunca se descarga el dataset entero al navegador).
+// ══════════════════════════════════════════════
+async function fftCargarActividad(page) {
+    fftActividadPage = page || 1;
+    const tbody = document.getElementById('fft-actividad-body');
+    tbody.innerHTML = '<tr><td colspan="11" class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</td></tr>';
+    try {
+        const params = fftBuildParams();
+        params.set('page', fftActividadPage);
+        params.set('pageSize', 25);
+        const q = document.getElementById('fft-actividad-buscador').value.trim();
+        if (q) params.set('q', q);
+        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/pallets?${params.toString()}`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar actividad');
+        fftActividadUltimo = data;
+        fftRenderActividadTabla(data.records);
+        const { page: p, totalPages, totalRecords } = data.pagination;
+        document.getElementById('fft-actividad-conteo').textContent = `${totalRecords.toLocaleString('es-MX')} registro(s)`;
+        document.getElementById('fft-actividad-pagina-label').textContent = `Página ${p} de ${totalPages}`;
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="11" class="fft-empty-note">Error: ${e.message}</td></tr>`;
+    }
+}
+function fftActividadBuscar() {
+    clearTimeout(fftActividadBuscarTimer);
+    fftActividadBuscarTimer = setTimeout(() => fftCargarActividad(1), 400);
+}
+function fftActividadPagina(delta) {
+    const total = fftActividadUltimo ? fftActividadUltimo.pagination.totalPages : 1;
+    const next = Math.min(total, Math.max(1, fftActividadPage + delta));
+    fftCargarActividad(next);
+}
+function fftRenderActividadTabla(records) {
+    const tbody = document.getElementById('fft-actividad-body');
+    if (!records.length) { tbody.innerHTML = '<tr><td colspan="11" class="fft-empty-note">Sin registros.</td></tr>'; return; }
+    tbody.innerHTML = records.map((r) => {
+        const hora = r.hora ? new Date(r.hora).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : '-';
+        return `<tr>
+            <td data-label="Hora">${hora}</td>
+            <td data-label="Pallet ID"><a class="fft-pallet-link" onclick="fftAbrirPalletDetalle('${encodeURIComponent(r.palletId)}')">${r.palletId}</a></td>
+            <td data-label="Área">${r.area || '-'}</td>
+            <td data-label="Bin">${r.bin || '-'}</td>
+            <td data-label="Destino">${r.destino || '-'}</td>
+            <td data-label="Tipo">${r.tipoPedido || '-'}</td>
+            <td data-label="Pedido">${r.pedido || '-'}</td>
+            <td data-label="Piezas">${r.piezasFft ?? r.piezasInventario ?? '-'}</td>
+            <td data-label="Escaneadora">${r.escaneadora || '-'}</td>
+            <td data-label="Cruce">${fftMatchBadge(r.matchStatus)}</td>
+            <td data-label="Acción"><button class="fft-btn" style="padding:0.25rem 0.5rem;" onclick="fftAbrirPalletDetalle('${encodeURIComponent(r.palletId)}')"><i class="fa-solid fa-eye"></i></button></td>
+        </tr>`;
+    }).join('');
+}
+function fftRenderActividadPreview(records) {
+    const tbody = document.getElementById('fft-actividad-preview-body');
+    if (!tbody) return;
+    if (!records || !records.length) { tbody.innerHTML = '<tr><td colspan="9" class="fft-empty-note">Sin actividad reciente.</td></tr>'; return; }
+    tbody.innerHTML = records.map((r) => {
+        const hora = r.hora ? new Date(r.hora).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : '-';
+        return `<tr>
+            <td data-label="Hora">${hora}</td>
+            <td data-label="Pallet ID"><a class="fft-pallet-link" onclick="fftAbrirPalletDetalle('${encodeURIComponent(r.palletId)}')">${r.palletId}</a></td>
+            <td data-label="Área">${r.area || '-'}</td>
+            <td data-label="Bin">${r.bin || '-'}</td>
+            <td data-label="Destino">${r.destino || '-'}</td>
+            <td data-label="Tipo">${r.tipoPedido || '-'}</td>
+            <td data-label="Piezas">${r.piezasFft ?? r.piezasInventario ?? '-'}</td>
+            <td data-label="Escaneadora">${r.escaneadora || '-'}</td>
+            <td data-label="Acción"><button class="fft-btn" style="padding:0.25rem 0.5rem;" onclick="fftAbrirPalletDetalle('${encodeURIComponent(r.palletId)}')"><i class="fa-solid fa-eye"></i></button></td>
+        </tr>`;
+    }).join('');
+}
+function fftExportarActividadCSV() {
+    if (!fftActividadUltimo || !fftActividadUltimo.records.length) { showToast('No hay datos para exportar en esta página.', 'error'); return; }
+    const headers = ['Hora', 'Pallet ID', 'Área', 'Bin', 'Categoría', 'Destino', 'Tipo', 'Pedido', 'Piezas inventario', 'Piezas FFT', 'Escaneadora', 'Condición', 'Fecha', 'Cruce'];
+    // PalletID exportado como texto forzado (="...") para que Excel no lo
+    // convierta a numero y le quite ceros/formato al abrirlo.
+    const rows = fftActividadUltimo.records.map((r) => [r.hora || '', `="${r.palletId}"`, r.area || '', r.bin || '', r.categoria || '', r.destino || '', r.tipoPedido || '', r.pedido || '', r.piezasInventario ?? '', r.piezasFft ?? '', r.escaneadora || '', r.condicion || '', r.fecha || '', r.matchStatus]);
+    exportCSV(`fft-actividad-${Date.now()}.csv`, headers, rows);
+}
+
+// ══════════════════════════════════════════════
+// DETALLE COMPLETO DE PALLET — modal con 6 pestañas, reutiliza .co-pallet-modal-*
+// ══════════════════════════════════════════════
+function fftSetPalletTab(nombre) {
+    document.querySelectorAll('#fft-pallet-modal .fft-tab').forEach(t => t.classList.toggle('active', t.dataset.fpt === nombre));
+    ['resumen', 'inventario', 'fftreg', 'productos', 'trazabilidad', 'original'].forEach(n => {
+        const panel = document.getElementById('fpt-' + n);
+        if (panel) panel.classList.toggle('active', n === nombre);
+    });
+}
+function fftCerrarPalletDetalle() {
+    document.getElementById('fft-pallet-backdrop').classList.remove('open');
+    document.getElementById('fft-pallet-modal').classList.remove('open');
+}
+async function fftAbrirPalletDetalle(palletIdEncoded) {
+    document.getElementById('fft-pallet-backdrop').classList.add('open');
+    document.getElementById('fft-pallet-modal').classList.add('open');
+    fftSetPalletTab('resumen');
+    ['fpt-resumen', 'fpt-inventario', 'fpt-fftreg', 'fpt-productos', 'fpt-trazabilidad', 'fpt-original'].forEach((id) => {
+        document.getElementById(id).innerHTML = '<div class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>';
+    });
+    document.getElementById('fft-pallet-titulo').textContent = decodeURIComponent(palletIdEncoded);
+    document.getElementById('fft-pallet-matchbadge').innerHTML = '';
+    document.getElementById('fft-pallet-meta').innerHTML = '';
+    try {
+        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/pallets/${palletIdEncoded}`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar el pallet');
+        fftRenderPalletDetalle(data);
+    } catch (e) {
+        document.getElementById('fpt-resumen').innerHTML = `<div class="fft-empty-note">No se pudo cargar el pallet: ${e.message}</div>`;
+    }
+}
+function fftInfoRow(label, value) {
+    const v = (value === null || value === undefined || value === '') ? '<span style="color:var(--fft-text-muted);">N/D</span>' : value;
+    return `<div class="co-pallet-info-row"><span>${label}</span><span>${v}</span></div>`;
+}
+function fftRenderPalletDetalle(data) {
+    document.getElementById('fft-pallet-titulo').textContent = `Pallet ${data.palletId}`;
+    document.getElementById('fft-pallet-matchbadge').innerHTML = fftMatchBadge(data.matchStatus);
+    const inv = data.inventory, fft = data.fft;
+    document.getElementById('fft-pallet-meta').innerHTML = `
+        <span>Área: ${inv ? inv.area : 'Sin inventario actual'}</span>
+        <span>Bin: ${inv ? inv.bin : '-'}</span>
+        <span>Destino: ${fft ? fft.destination : 'Sin registro FFT'}</span>`;
+
+    document.getElementById('fpt-resumen').innerHTML = `
+        <div class="co-pallet-triple-grid" style="grid-template-columns:1fr 1fr;">
+            <div>
+                ${fftInfoRow('PalletID', data.palletId)}
+                ${fftInfoRow('Área actual', inv ? inv.area : null)}
+                ${fftInfoRow('Bin actual', inv ? inv.bin : null)}
+                ${fftInfoRow('Categoría de inventario', inv ? inv.category : null)}
+                ${fftInfoRow('Destino FFT', fft ? fft.destination : null)}
+                ${fftInfoRow('Tipo de pedido', fft ? fft.orderType : null)}
+                ${fftInfoRow('Número de pedido', fft ? fft.orderNumber : null)}
+            </div>
+            <div>
+                ${fftInfoRow('Piezas actuales (inventario)', inv ? inv.pieces : null)}
+                ${fftInfoRow('Piezas registradas en FFT', fft ? fft.pieces : null)}
+                ${fftInfoRow('Condición', fft ? fft.condition : null)}
+                ${fftInfoRow('Escaneadora', fft ? fft.scanner : null)}
+                ${fftInfoRow('Turno', fft ? fft.turno : null)}
+                ${fftInfoRow('Fecha', fft ? fft.date : null)}
+                ${fftInfoRow('Estado del cruce', fftMatchBadge(data.matchStatus))}
+            </div>
+        </div>`;
+
+    document.getElementById('fpt-inventario').innerHTML = inv ? `
+        <div class="co-pallet-triple-grid" style="grid-template-columns:1fr 1fr;">
+            <div>
+                ${fftInfoRow('PalletID', data.palletId)}
+                ${fftInfoRow('Bin', inv.bin)}
+                ${fftInfoRow('Área', inv.area)}
+                ${fftInfoRow('Fuente del área', inv.areaFuente)}
+            </div>
+            <div>
+                ${fftInfoRow('Categoría', inv.category)}
+                ${fftInfoRow('Cantidad', inv.pieces)}
+                ${fftInfoRow('SKU distintos (conteo)', inv.skuCount)}
+                ${fftInfoRow('Estado', inv.status)}
+            </div>
+        </div>` : '<div class="fft-empty-note">Este pallet no aparece en el inventario actual de BinManagerRO (ya pudo haber salido del almacén).</div>';
+
+    document.getElementById('fpt-fftreg').innerHTML = fft ? `
+        <div class="co-pallet-triple-grid" style="grid-template-columns:1fr 1fr;">
+            <div>
+                ${fftInfoRow('Destino', fft.destination)}
+                ${fftInfoRow('Tipo de pedido', fft.orderType)}
+                ${fftInfoRow('Número de pedido', fft.orderNumber)}
+                ${fftInfoRow('Piezas', fft.pieces)}
+                ${fftInfoRow('Condición', fft.condition)}
+            </div>
+            <div>
+                ${fftInfoRow('Escaneadora', fft.scanner)}
+                ${fftInfoRow('Turno', fft.turno)}
+                ${fftInfoRow('Observaciones', fft.observaciones)}
+                ${fftInfoRow('Fecha', fft.date)}
+                ${fftInfoRow('Identificador del registro', fft.id)}
+            </div>
+        </div>
+        ${data.fftHistorial && data.fftHistorial.length > 1 ? `<div class="fft-section-title" style="margin-top:1rem;font-size:0.85rem;">Historial de registros FFT de este pallet (${data.fftHistorial.length})</div>
+        <div class="fft-table-wrap"><table class="fft-table"><thead><tr><th>Fecha</th><th>Destino</th><th>Pedido</th><th>Piezas</th><th>Escaneadora</th></tr></thead><tbody>${data.fftHistorial.map(h => `<tr><td data-label="Fecha">${h.fecha}</td><td data-label="Destino">${h.destino}</td><td data-label="Pedido">${h.pedido || '-'}</td><td data-label="Piezas">${h.cantidad}</td><td data-label="Escaneadora">${h.escaneadora}</td></tr>`).join('')}</tbody></table></div>` : ''}
+    ` : '<div class="fft-empty-note">Este PalletID no tiene ningún registro en FFT (esta app).</div>';
+
+    if (data.productos && data.productos.length) {
+        document.getElementById('fpt-productos').innerHTML = `
+            <div class="fft-table-wrap"><table class="fft-table">
+                <thead><tr><th>SKU</th><th>LPN</th><th>Marca</th><th>Modelo</th><th>Pulgadas</th><th>Condición</th></tr></thead>
+                <tbody>${data.productos.map(p => `<tr><td data-label="SKU">${p.sku || '-'}</td><td data-label="LPN">${p.lpn || '-'}</td><td data-label="Marca">${p.marca || '-'}</td><td data-label="Modelo">${p.modelo || '-'}</td><td data-label="Pulgadas">${p.pulgadas || '-'}</td><td data-label="Condición">${p.condicion || '-'}</td></tr>`).join('')}</tbody>
+            </table></div>`;
+    } else {
+        document.getElementById('fpt-productos').innerHTML = '<div class="fft-empty-note">Sin datos de SKU/LPN disponibles para este pallet (SmartControl no respondió o no tiene contenido detallado).</div>';
+    }
+
+    if (data.movimientos && data.movimientos.length) {
+        document.getElementById('fpt-trazabilidad').innerHTML = `<ul class="co-pallet-timeline">${data.movimientos.map((m, i) => `
+            <li><span class="co-pt-dot ${i === data.movimientos.length - 1 ? 'done' : ''}"></span>
+                <div style="font-weight:700;font-size:0.85rem;">${m.evento} <span style="font-weight:400;color:var(--fft-text-muted);font-size:0.72rem;">(${m.fuente})</span></div>
+                <div style="font-size:0.78rem;color:var(--fft-text-muted);">${m.fecha || ''} ${m.hora ? new Date(m.hora).toLocaleTimeString('es-MX') : ''}</div>
+                <div style="font-size:0.8rem;">${m.detalle}</div>
+            </li>`).join('')}</ul>`;
+    } else {
+        document.getElementById('fpt-trazabilidad').innerHTML = '<div class="fft-empty-note">No hay eventos reales disponibles para este pallet.</div>';
+    }
+
+    document.getElementById('fpt-original').innerHTML = `
+        <details style="margin-bottom:0.9rem;" open>
+            <summary style="cursor:pointer;font-weight:700;">Respuesta original — Inventario (BinManagerRO)</summary>
+            <pre style="white-space:pre-wrap;font-size:0.72rem;background:#F8FAFC;border:1px solid var(--fft-border);border-radius:8px;padding:0.75rem;margin-top:0.5rem;max-height:300px;overflow:auto;">${data.datosOriginales.inventario ? JSON.stringify(data.datosOriginales.inventario, null, 2).replace(/</g, '&lt;') : 'Sin datos'}</pre>
+        </details>
+        <details>
+            <summary style="cursor:pointer;font-weight:700;">Respuesta original — Registro FFT</summary>
+            <pre style="white-space:pre-wrap;font-size:0.72rem;background:#F8FAFC;border:1px solid var(--fft-border);border-radius:8px;padding:0.75rem;margin-top:0.5rem;max-height:300px;overflow:auto;">${data.datosOriginales.fft ? JSON.stringify(data.datosOriginales.fft, null, 2).replace(/</g, '&lt;') : 'Sin datos'}</pre>
+        </details>`;
 }
 
 // ══════════════════════════════════════════════

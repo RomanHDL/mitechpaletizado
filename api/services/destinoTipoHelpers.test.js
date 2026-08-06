@@ -7,6 +7,8 @@ const {
   normalizeCondition,
   normalizeDestination,
   normalizeOrderType,
+  normalizeArea,
+  normalizeInventoryCategory,
   prepararRegistroFft,
 } = require('./destinoTipoHelpers');
 
@@ -80,6 +82,13 @@ test('prepararRegistroFft: PalletID es texto, piezas viene de cantidad, destino 
   assert.equal(r.tipoPedido, 'BULKY');
   assert.equal(r.escaneadora, 'Nathalie Lopez');
   assert.equal(r.condicion, 'GRB');
+});
+
+test('normalizeArea y normalizeInventoryCategory tienen textos por defecto propios (nunca null/undefined)', () => {
+  assert.equal(normalizeArea('').valor, 'Sin área');
+  assert.equal(normalizeArea(' Zona Norte ').valor, 'Zona Norte');
+  assert.equal(normalizeInventoryCategory('').valor, 'Sin categoría');
+  assert.equal(normalizeInventoryCategory('PRODUCTO TERMINADO').valor, 'PRODUCTO TERMINADO');
 });
 
 test('prepararRegistroFft: registros sin destino/tipo muestran los textos por defecto, nunca null/undefined', () => {

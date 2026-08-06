@@ -27,9 +27,9 @@ const { construirWorkbookReporteSemanal } = require('./services/reporteProduccio
 const {
   prepararRegistroFft,
   normalizeDestination: fftNormalizeDestino,
-  normalizeOrderType: fftNormalizeOrderType,
 } = require('./services/destinoTipoHelpers');
-const { normalizeBin: fftNormalizeBin, agruparPalletsPorBin } = require('./services/binHelpers');
+const { normalizeBin: fftNormalizeBin } = require('./services/binHelpers');
+const { palletIdMatchKey, buildUnifiedRecord } = require('./services/unifiedPalletHelpers');
 
 const app = express();
 app.use(cors());
@@ -914,7 +914,7 @@ async function fetchCubicajeLivePalletsPage(limit, offset, search) {
     throw err;
   }
   return {
-    data: (data.data || []).map((r) => ({ palletId: r.palletId, BinTypeID: r.binTypeId, binTypeName: r.binTypeName, cantidadTotal: r.cantidadTotal, skuCount: r.skuCount, locationName: r.locationName ?? null })),
+    data: (data.data || []).map((r) => ({ palletId: r.palletId, BinTypeID: r.binTypeId, binTypeName: r.binTypeName, cantidadTotal: r.cantidadTotal, skuCount: r.skuCount, locationName: r.locationName ?? null, ...resolverAreaDesdeInventario(r), raw: r })),
     total: data.total || 0,
   };
 }
@@ -926,30 +926,85 @@ app.get('/api/sc-pallets/live', auth, roleGuard('admin'), async (req, res) => {
     const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
     const search = (req.query.search || '').trim();
     const { data, total } = await fetchCubicajeLivePalletsPage(limit, offset, search);
-    res.json({ success: true, data, total, limit, offset });
+    res.json({ success: true, data: data.map(({ raw, ...rest }) => rest), total, limit, offset });
   } catch (error) {
     res.status(error.status || 502).json({ success: false, error: error.message });
   }
 });
 
-// Trae hasta `maxPallets` pallets reales desde Cubicaje, paginando internamente
-// (200 por llamada, el maximo que acepta Cubicaje). Acotado (no todo el
-// inventario) para no arriesgar el timeout de la funcion serverless — se marca
-// `agotado:true` si el inventario real es mas grande que la muestra, mismo
-// principio de "muestreo honesto" que ya usa Centro Operativo con SmartControl.
-async function fetchCubicajeLivePalletsSample(maxPallets = 2000) {
-  const pageSize = 200;
-  let offset = 0;
-  let total = Infinity;
-  const acumulado = [];
-  while (offset < total && acumulado.length < maxPallets) {
-    const { data, total: totalReal } = await fetchCubicajeLivePalletsPage(pageSize, offset);
-    total = totalReal;
-    acumulado.push(...data);
-    if (!data.length) break;
-    offset += pageSize;
+// ── AREA: BinManagerRO/Cubicaje (ver /api/integrations/live-pallets) no expone
+// hoy un campo explicito de warehouse/zona/sitio superior al bin — solo
+// binTypeId/binTypeName (categoria de inventario) y locationName (el bin). Se
+// busca primero cualquier campo real candidato (por si Cubicaje algun dia
+// empieza a mandarlo); si NINGUNO existe, se documenta la decision explicita
+// permitida por Roman: el bin se muestra como su propia area (fallback, nunca
+// una area inventada). `areaFuente` siempre indica cual de los 2 casos aplico.
+const FFT_AREA_CAMPOS_CANDIDATOS = ['warehouseName', 'siteName', 'zoneName', 'area', 'areaName', 'locationGroupName', 'parentLocationName', 'department', 'facility', 'warehouse', 'site', 'zone'];
+function resolverAreaDesdeInventario(r) {
+  for (const campo of FFT_AREA_CAMPOS_CANDIDATOS) {
+    const v = r[campo];
+    if (v !== undefined && v !== null && String(v).trim()) {
+      return { area: String(v).trim(), areaFuente: `campo real: ${campo}` };
+    }
   }
-  return { pallets: acumulado.slice(0, maxPallets), total, agotado: total > acumulado.length };
+  return {
+    area: r.locationName ? String(r.locationName).trim() : 'Sin área',
+    areaFuente: 'fallback documentado: BinManagerRO/Cubicaje no expone warehouse/zona/sitio en este endpoint — se usa el bin como su propia área',
+  };
+}
+
+// Cache corta en memoria (por instancia serverless tibia) del inventario
+// COMPLETO — varios endpoints de Dashboard Destinos FFT (resumen/areas/bines/
+// pallets/detalle) leen el mismo inventario dentro de la misma ventana de
+// pocos segundos; sin esta cache cada uno repetiria 100+ llamadas a Cubicaje.
+let fftInventarioCache = { data: null, total: 0, agotado: false, timestamp: 0 };
+const FFT_INVENTARIO_CACHE_TTL_MS = 60000;
+
+// Trae el inventario REAL COMPLETO desde Cubicaje (no una muestra) paginando
+// EN PARALELO (pageSize=200, el maximo que acepta Cubicaje) para que 30,000+
+// pallets no tarden minutos. `maxPallets` es un tope de SEGURIDAD muy por
+// encima del inventario real conocido (evita un runaway si crece muchisimo),
+// no un limite de muestreo — en el caso normal se trae TODO. Si el tiempo
+// total excede el presupuesto (proteccion contra timeout serverless), se
+// regresa lo ya obtenido con `agotado:true` en vez de fallar sin datos.
+async function fetchCubicajeLivePalletsAll(maxPallets = 60000, forzar = false) {
+  const ahora = Date.now();
+  if (!forzar && fftInventarioCache.data && (ahora - fftInventarioCache.timestamp) < FFT_INVENTARIO_CACHE_TTL_MS) {
+    return fftInventarioCache;
+  }
+  const pageSize = 200;
+  const CONCURRENCIA = 10;
+  const PRESUPUESTO_MS = 25000;
+  const inicio = Date.now();
+
+  const { data: primera, total } = await fetchCubicajeLivePalletsPage(pageSize, 0);
+  const acumulado = [...primera];
+  const totalAFetch = Math.min(total, maxPallets);
+  const offsets = [];
+  for (let off = pageSize; off < totalAFetch; off += pageSize) offsets.push(off);
+
+  let agotadoPorTiempo = false;
+  let idx = 0;
+  async function worker() {
+    while (idx < offsets.length) {
+      if (Date.now() - inicio > PRESUPUESTO_MS) { agotadoPorTiempo = true; return; }
+      const miOffset = offsets[idx++];
+      try {
+        const { data } = await fetchCubicajeLivePalletsPage(pageSize, miOffset);
+        acumulado.push(...data);
+      } catch (e) { agotadoPorTiempo = true; return; }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCIA, offsets.length) }, worker));
+
+  const resultado = {
+    data: acumulado,
+    total,
+    agotado: agotadoPorTiempo || acumulado.length < totalAFetch || total > maxPallets,
+    timestamp: Date.now(),
+  };
+  fftInventarioCache = resultado;
+  return resultado;
 }
 
 // ══════════════════════════════════════════════
@@ -2253,7 +2308,7 @@ app.get('/api/reportes/produccion-semanal/excel', auth, roleGuard('admin'), cent
   }
 });
 
-// ═══════════ DASHBOARD DESTINOS FFT (admin 3647 only) — Etapa 1 ═══════════
+// ═══════════ DASHBOARD DESTINOS FFT (admin 3647 only) ═══════════
 // Vista Destino x Tipo de pedido sobre los pallets ya capturados en esta app
 // (EscReg). Reutiliza el filtro y el agrupado por pallet ya usado por Centro
 // Operativo (buildCentroFilter, applyCentroDateRange, getFilteredPalletsMeta:
@@ -2261,9 +2316,11 @@ app.get('/api/reportes/produccion-semanal/excel', auth, roleGuard('admin'), cent
 // catalogo REAL y dinamico de Clasificacion (nunca tipos hardcodeados) via
 // prepararRegistroFft (api/services/destinoTipoHelpers.js).
 //
-// El concepto de "bin" (Etapa 2) depende de BinManagerRO/Cubicaje, que solo
-// da una foto del inventario ACTUAL (no un historial permanente por pallet)
-// — vive en su propio bloque de endpoints, separado de este.
+// El modulo de Areas/Bines/Pallets (mas abajo) cruza este mismo origen (EscReg,
+// "destino FFT real") contra el inventario real de BinManagerRO (Cubicaje,
+// "donde esta fisicamente el pallet ahorita") por PalletID normalizado —
+// nunca se confunden destino FFT, categoria de inventario (BinManagerRO),
+// area y bin: son 4 conceptos separados, ver unifiedPalletHelpers.js.
 
 // Rango de fechas por defecto (ultimos 30 dias, America/Mexico_City) cuando el
 // caller no manda fecha_inicio/fecha_fin — evita cargar TODO el historico en
@@ -2290,12 +2347,26 @@ app.get('/api/dashboard-destinos-fft/filtros', auth, roleGuard('admin'), centroO
       Clasif.find({ isActive: true }).sort({ orden: 1, nombre: 1 }),
     ]);
     const destinosNorm = [...new Set(destinos.filter(Boolean).map((d) => fftNormalizeDestino(d).valor))].sort();
+
+    // Areas/bines/categorias vienen del inventario real (Cubicaje) — opcional:
+    // si Cubicaje no esta configurado/disponible, el resto de filtros FFT deben
+    // seguir funcionando (no se bloquea todo el panel por una fuente caida).
+    let areas = [], bines = [], categorias = [];
+    try {
+      const { data: inventario } = await fetchCubicajeLivePalletsAll();
+      areas = [...new Set(inventario.map((p) => p.area).filter(Boolean))].sort();
+      bines = [...new Set(inventario.map((p) => fftNormalizeBin(p.locationName).valor))].sort();
+      categorias = [...new Set(inventario.map((p) => p.binTypeName).filter(Boolean))].sort();
+    } catch (e) { /* Cubicaje no configurado/disponible: filtros de inventario quedan vacios, no rompe el resto */ }
+
     res.json({
       success: true,
       destinos: destinosNorm,
       tipos: clasifs.map((c) => c.nombre),
       escaneadoras: escaneadoras.filter(Boolean).sort(),
       condiciones: condiciones.filter(Boolean).sort(),
+      areas, bines, categorias,
+      matchStatus: ['matched', 'conflict', 'inventory-only', 'fft-only'],
     });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
@@ -2398,7 +2469,6 @@ app.get('/api/dashboard-destinos-fft/data', auth, roleGuard('admin'), centroOper
         totalPallets: { value: totalPallets, deltaPct: delta('totalPallets', totalPallets) },
         totalPiezas: { value: totalPiezas, deltaPct: delta('totalPiezas', totalPiezas) },
         registrosHoy: { value: registrosHoy, deltaPct: null },
-        binesActivos: { value: null, disponibleEn: 'Etapa 2' },
         destinosActivos: { value: destinosActivos, deltaPct: null },
         tiposActivos: { value: tiposActivos, deltaPct: null },
       },
@@ -2419,81 +2489,443 @@ app.get('/api/dashboard-destinos-fft/data', auth, roleGuard('admin'), centroOper
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// ── Modulo "Bines" (Etapa 2) — Dashboard Destinos FFT ──
-// BinManagerRO (via Cubicaje) solo expone una FOTO del inventario ACTUAL por
-// bin (locationName), no un historial permanente por pallet — por eso cada bin
-// individual muestra "que hay ahi ahorita", cruzado con nuestros propios
-// registros de escaneo (EscReg) por palletId cuando existen, en vez de
-// graficas de tendencia por bin (que requeririan un historial que no existe).
-app.get('/api/dashboard-destinos-fft/bines', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+// ── Cruce Inventario (BinManagerRO/Cubicaje) x FFT (EscReg) por PalletID ──
+// UNICA funcion que arma el cruce completo (UnifiedPalletRecord[], ver
+// api/services/unifiedPalletHelpers.js) — cada endpoint de Areas/Bines/
+// Pallets de aqui abajo LEE de esta funcion, nunca recalcula el cruce por su
+// cuenta. El lado de inventario es el snapshot COMPLETO actual (sin cap de
+// muestra, ver fetchCubicajeLivePalletsAll); el lado FFT se acota al rango de
+// fechas pedido (o los ultimos 30 dias por defecto).
+async function construirCruceFft(query) {
+  const rango = fftDefaultRange(query || {});
+  const [{ data: inventario, total: totalInventario, agotado: agotadoInventario }, catalogo] = await Promise.all([
+    fetchCubicajeLivePalletsAll(),
+    Clasif.find({ isActive: true }).then((docs) => docs.map((c) => c.nombre)),
+  ]);
+
+  const filter = buildCentroFilter(query || {});
+  const pipeline = [{ $match: filter }];
+  pipeline.push(...fechaDateStages());
+  pipeline.push({ $match: fechaDateRangeMatch(rango.fecha_inicio, rango.fecha_fin) });
+  pipeline.push({ $sort: { createdAt: -1 } });
+  const fftDocsCrudos = await EscReg.aggregate(pipeline);
+
+  // 1 registro FFT (el mas reciente) por PalletID normalizado — un pallet con
+  // varias filas de escaneo/retrabajo nunca duplica piezas ni aparece 2 veces.
+  let palletIdsInvalidos = 0;
+  let duplicadosFft = 0;
+  const fftPorPallet = new Map();
+  for (const doc of fftDocsCrudos) {
+    const key = palletIdMatchKey(doc.palletId);
+    if (!key) { palletIdsInvalidos++; continue; }
+    if (fftPorPallet.has(key)) duplicadosFft++;
+    else fftPorPallet.set(key, doc);
+  }
+  const invPorPallet = new Map();
+  for (const p of inventario) {
+    const key = palletIdMatchKey(p.palletId);
+    if (!key) { palletIdsInvalidos++; continue; }
+    if (!invPorPallet.has(key)) invPorPallet.set(key, p);
+  }
+
+  const keysUnicas = new Set([...invPorPallet.keys(), ...fftPorPallet.keys()]);
+  const registros = [...keysUnicas].map((key) => buildUnifiedRecord(invPorPallet.get(key) || null, fftPorPallet.get(key) || null, catalogo));
+  const diagnostico = {
+    inventarioConsultado: invPorPallet.size,
+    registrosFftConsultados: fftPorPallet.size,
+    coincidencias: registros.filter((r) => r.matchStatus === 'matched' || r.matchStatus === 'conflict').length,
+    conflictos: registros.filter((r) => r.matchStatus === 'conflict').length,
+    soloInventario: registros.filter((r) => r.matchStatus === 'inventory-only').length,
+    soloFft: registros.filter((r) => r.matchStatus === 'fft-only').length,
+    duplicadosFft,
+    palletIdsInvalidos,
+  };
+
+  return { registros, rango, totalInventario, agotadoInventario, catalogo, diagnostico };
+}
+
+function fftModaCategoria(regs) {
+  const m = new Map();
+  for (const r of regs) { if (!r.inventory) continue; m.set(r.inventory.category, (m.get(r.inventory.category) || 0) + 1); }
+  let top = 'Sin categoría', max = 0;
+  for (const [c, n] of m) if (n > max) { max = n; top = c; }
+  return top;
+}
+function fftUltimoMovimiento(regs) {
+  let max = null;
+  for (const r of regs) { if (r.fft && r.fft.createdAt && (!max || r.fft.createdAt > max)) max = r.fft.createdAt; }
+  return max;
+}
+function fftAgruparPorCampo(regs, extractor) {
+  const m = new Map();
+  for (const r of regs) {
+    const v = extractor(r);
+    if (v === null || v === undefined || v === '') continue;
+    if (!m.has(v)) m.set(v, { pallets: 0, piezas: 0 });
+    const b = m.get(v);
+    b.pallets += 1;
+    b.piezas += r.fft ? r.fft.pieces : (r.inventory ? r.inventory.pieces : 0);
+  }
+  return [...m.entries()].map(([nombre, v]) => ({ nombre, pallets: v.pallets, piezas: v.piezas })).sort((a, b) => b.pallets - a.pallets);
+}
+function fftAgruparPorDia(regs) {
+  const m = new Map();
+  for (const r of regs) {
+    if (!r.fft || !r.fft.date) continue;
+    if (!m.has(r.fft.date)) m.set(r.fft.date, { pallets: 0, piezas: 0 });
+    const b = m.get(r.fft.date);
+    b.pallets += 1;
+    b.piezas += r.fft.pieces;
+  }
+  return [...m.entries()]
+    .map(([fecha, v]) => ({ fecha, fechaDate: parseFechaMDY(fecha), pallets: v.pallets, piezas: v.piezas }))
+    .filter((d) => d.fechaDate)
+    .sort((a, b) => a.fechaDate - b.fechaDate)
+    .map(({ fechaDate, ...rest }) => rest);
+}
+function fftLimpiarDatosSensibles(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const patronSensible = /token|apikey|api[_-]?key|password|secret|authorization|cookie|integrationkey/i;
+  const plano = typeof obj.toObject === 'function' ? obj.toObject() : obj;
+  const limpio = Array.isArray(plano) ? [] : {};
+  for (const [k, v] of Object.entries(plano)) {
+    if (patronSensible.test(k)) continue;
+    if (Array.isArray(limpio)) limpio.push(v && typeof v === 'object' ? fftLimpiarDatosSensibles(v) : v);
+    else limpio[k] = v && typeof v === 'object' ? fftLimpiarDatosSensibles(v) : v;
+  }
+  return limpio;
+}
+
+// "¿A que destinos van los pallets de FFT?" — SIEMPRE desde el campo real
+// destino de EscReg (nunca desde la categoria de inventario de BinManagerRO).
+app.get('/api/dashboard-destinos-fft/destinos', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
   try {
-    const { pallets, total, agotado } = await fetchCubicajeLivePalletsSample();
-    const bines = agruparPalletsPorBin(pallets);
+    const { registros } = await construirCruceFft(req.query);
+    const conFft = registros.filter((r) => r.fft);
+    const totalPallets = conFft.length;
+    const totalPiezas = conFft.reduce((s, r) => s + r.fft.pieces, 0);
+
+    const porDestinoMap = new Map();
+    for (const r of conFft) {
+      const d = r.fft.destination;
+      if (!porDestinoMap.has(d)) porDestinoMap.set(d, []);
+      porDestinoMap.get(d).push(r);
+    }
+    const destinos = [...porDestinoMap.entries()].map(([destino, regs]) => {
+      const piezas = regs.reduce((s, r) => s + r.fft.pieces, 0);
+      const binesRelacionados = new Set(regs.filter((r) => r.inventory).map((r) => r.inventory.bin)).size;
+      return {
+        destino,
+        pallets: regs.length,
+        piezas,
+        pctPallets: totalPallets > 0 ? Number(((regs.length / totalPallets) * 100).toFixed(1)) : 0,
+        binesRelacionados,
+        ultimoMovimiento: fftUltimoMovimiento(regs),
+        tiposPedidoPrincipales: fftAgruparPorCampo(regs, (r) => r.fft.orderType).slice(0, 3).map((t) => t.nombre),
+      };
+    }).sort((a, b) => b.pallets - a.pallets);
+
+    res.json({ success: true, destinos, meta: { totalPallets, totalPiezas, generadoEn: new Date().toISOString() } });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
+// Areas y Bines — SOLO inventario real (BinManagerRO), cruzado con FFT para
+// destinos relacionados/pedidos/escaneadoras/ultimo movimiento por bin/area.
+// "Bines activos" = bines con inventario actual (al menos 1 pallet ahorita).
+app.get('/api/dashboard-destinos-fft/areas', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const { registros, totalInventario, agotadoInventario, diagnostico } = await construirCruceFft(req.query);
+    const conInventario = registros.filter((r) => r.inventory);
+    const totalPalletsInv = conInventario.length;
+    const totalPiezasInv = conInventario.reduce((s, r) => s + r.inventory.pieces, 0);
+
+    const binesMap = new Map();
+    for (const r of conInventario) {
+      const bin = r.inventory.bin;
+      if (!binesMap.has(bin)) binesMap.set(bin, { bin, area: r.inventory.area, regs: [] });
+      binesMap.get(bin).regs.push(r);
+    }
+    const bines = [...binesMap.values()].map((g) => {
+      const piezas = g.regs.reduce((s, r) => s + r.inventory.pieces, 0);
+      return {
+        bin: g.bin,
+        area: g.area,
+        categoria: fftModaCategoria(g.regs),
+        pallets: g.regs.length,
+        piezas,
+        pctPallets: totalPalletsInv > 0 ? Number(((g.regs.length / totalPalletsInv) * 100).toFixed(1)) : 0,
+        pctPiezas: totalPiezasInv > 0 ? Number(((piezas / totalPiezasInv) * 100).toFixed(1)) : 0,
+        destinosRelacionados: [...new Set(g.regs.filter((r) => r.fft).map((r) => r.fft.destination))],
+        ultimoMovimiento: fftUltimoMovimiento(g.regs),
+        estado: 'Con inventario',
+      };
+    }).sort((a, b) => b.pallets - a.pallets);
+
+    const areasMap = new Map();
+    for (const b of bines) {
+      if (!areasMap.has(b.area)) areasMap.set(b.area, { area: b.area, bines: [], pallets: 0, piezas: 0 });
+      const g = areasMap.get(b.area);
+      g.bines.push(b);
+      g.pallets += b.pallets;
+      g.piezas += b.piezas;
+    }
+    const areas = [...areasMap.values()].map((g) => ({
+      area: g.area,
+      cantidadBines: g.bines.length,
+      pallets: g.pallets,
+      piezas: g.piezas,
+      pctPallets: totalPalletsInv > 0 ? Number(((g.pallets / totalPalletsInv) * 100).toFixed(1)) : 0,
+      pctPiezas: totalPiezasInv > 0 ? Number(((g.piezas / totalPiezasInv) * 100).toFixed(1)) : 0,
+      destinosRelacionados: [...new Set(g.bines.flatMap((b) => b.destinosRelacionados))],
+      ultimoMovimiento: g.bines.reduce((max, b) => (b.ultimoMovimiento && (!max || b.ultimoMovimiento > max) ? b.ultimoMovimiento : max), null),
+      estado: 'Activa',
+      binesPreview: g.bines.slice().sort((a, b) => b.pallets - a.pallets).slice(0, 5),
+    })).sort((a, b) => b.pallets - a.pallets);
+
     res.json({
       success: true,
+      areas,
       bines,
-      meta: { totalMuestra: pallets.length, totalReal: total, agotado, generadoEn: new Date().toISOString() },
+      resumen: {
+        areasActivas: areas.length,
+        binesActivos: bines.length,
+        palletsSinCruceFFT: diagnostico.soloInventario,
+      },
+      diagnostico,
+      meta: { totalInventarioReal: totalInventario, agotadoInventario, generadoEn: new Date().toISOString() },
     });
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 
-app.get('/api/dashboard-destinos-fft/bines/:binId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/areas/:areaId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
   try {
-    let binId;
-    try { binId = decodeURIComponent(req.params.binId || '').trim(); } catch (e) { return res.status(400).json({ success: false, error: 'binId invalido' }); }
-    if (!binId) return res.status(400).json({ success: false, error: 'binId invalido' });
+    let areaId;
+    try { areaId = decodeURIComponent(req.params.areaId || '').trim(); } catch (e) { return res.status(400).json({ success: false, error: 'areaId invalido' }); }
+    if (!areaId) return res.status(400).json({ success: false, error: 'areaId invalido' });
 
-    const { pallets, agotado } = await fetchCubicajeLivePalletsSample();
-    const delBin = pallets.filter((p) => fftNormalizeBin(p.locationName).valor === binId);
-    if (!delBin.length) {
-      return res.json({ success: true, bin: binId, encontrado: false, pallets: [], kpis: null, meta: { agotado, muestraSinCoincidencia: true } });
+    const { registros } = await construirCruceFft(req.query);
+    const delArea = registros.filter((r) => r.inventory && r.inventory.area === areaId);
+    if (!delArea.length) return res.json({ success: true, area: areaId, encontrada: false });
+
+    const binesMap = new Map();
+    for (const r of delArea) {
+      const bin = r.inventory.bin;
+      if (!binesMap.has(bin)) binesMap.set(bin, []);
+      binesMap.get(bin).push(r);
     }
-
-    const escRegDocs = await EscReg.find({ palletId: { $in: delBin.map((p) => p.palletId).filter(Boolean) } }).sort({ createdAt: -1 });
-    const escRegPorPallet = new Map();
-    for (const doc of escRegDocs) {
-      const pid = normalizePalletId(doc.palletId);
-      if (!escRegPorPallet.has(pid)) escRegPorPallet.set(pid, doc); // ya viene ordenado desc: el primero es el mas reciente
-    }
-    const catalogo = (await Clasif.find({ isActive: true })).map((c) => c.nombre);
-
-    const detalle = delBin.map((p) => {
-      const escReg = escRegPorPallet.get(normalizePalletId(p.palletId));
-      return {
-        palletId: p.palletId,
-        piezas: p.cantidadTotal,
-        skuCount: p.skuCount,
-        categoriaBin: p.binTypeName,
-        destino: escReg ? fftNormalizeDestino(escReg.destino).valor : 'Sin datos de escaneo',
-        tipoPedido: escReg ? fftNormalizeOrderType(escReg, catalogo).valor : 'Sin datos de escaneo',
-        pedido: escReg ? (escReg.pedido || '') : '',
-        escaneadora: escReg ? (escReg.escaneadora || '') : '',
-        condicion: escReg ? (escReg.condicion || '') : '',
-        fecha: escReg ? escReg.fecha : '',
-        tieneDatosEscaneo: !!escReg,
-      };
-    });
-
-    const pedidosDistintos = new Set(detalle.map((d) => d.pedido).filter(Boolean)).size;
-    const escaneadorasDistintas = new Set(detalle.map((d) => d.escaneadora).filter(Boolean)).size;
-    const ultimoMovimiento = escRegDocs.length
-      ? new Date(Math.max(...escRegDocs.map((d) => new Date(d.createdAt).getTime()))).toISOString()
-      : null;
+    const bines = [...binesMap.entries()].map(([bin, regs]) => ({
+      bin,
+      pallets: regs.length,
+      piezas: regs.reduce((s, r) => s + r.inventory.pieces, 0),
+      categoria: fftModaCategoria(regs),
+      destinosRelacionados: [...new Set(regs.filter((r) => r.fft).map((r) => r.fft.destination))],
+      ultimoMovimiento: fftUltimoMovimiento(regs),
+      estado: 'Con inventario',
+    })).sort((a, b) => b.pallets - a.pallets);
 
     res.json({
       success: true,
+      area: areaId,
+      encontrada: true,
+      kpis: {
+        bines: bines.length,
+        pallets: delArea.length,
+        piezas: delArea.reduce((s, r) => s + r.inventory.pieces, 0),
+        destinosRelacionados: new Set(delArea.filter((r) => r.fft).map((r) => r.fft.destination)).size,
+        pedidosDistintos: new Set(delArea.filter((r) => r.fft).map((r) => r.fft.orderNumber).filter(Boolean)).size,
+        escaneadorasActivas: new Set(delArea.filter((r) => r.fft).map((r) => r.fft.scanner).filter(Boolean)).size,
+        ultimoMovimiento: fftUltimoMovimiento(delArea),
+      },
+      graficas: {
+        porBinPallets: bines.map((b) => ({ nombre: b.bin, pallets: b.pallets, piezas: b.piezas })),
+        porDestino: fftAgruparPorCampo(delArea, (r) => (r.fft ? r.fft.destination : null)),
+        porTipo: fftAgruparPorCampo(delArea, (r) => (r.fft ? r.fft.orderType : null)),
+        porCondicion: fftAgruparPorCampo(delArea, (r) => (r.fft ? r.fft.condition : null)),
+        porDia: fftAgruparPorDia(delArea),
+        porEscaneadora: fftAgruparPorCampo(delArea, (r) => (r.fft ? r.fft.scanner : null)).slice(0, 10),
+      },
+      bines,
+    });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
+app.get('/api/dashboard-destinos-fft/areas/:areaId/bines/:binId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    let areaId, binId;
+    try {
+      areaId = decodeURIComponent(req.params.areaId || '').trim();
+      binId = decodeURIComponent(req.params.binId || '').trim();
+    } catch (e) { return res.status(400).json({ success: false, error: 'parametro invalido' }); }
+    if (!areaId || !binId) return res.status(400).json({ success: false, error: 'parametro invalido' });
+
+    const { registros } = await construirCruceFft(req.query);
+    const delBin = registros.filter((r) => r.inventory && r.inventory.area === areaId && r.inventory.bin === binId);
+    if (!delBin.length) return res.json({ success: true, area: areaId, bin: binId, encontrado: false });
+
+    const conCruce = delBin.filter((r) => r.fft);
+    const sinCruce = delBin.filter((r) => !r.fft);
+
+    res.json({
+      success: true,
+      area: areaId,
       bin: binId,
       encontrado: true,
-      destinoPrincipal: delBin[0].binTypeName || null,
+      categoria: fftModaCategoria(delBin),
+      destinosRelacionados: [...new Set(conCruce.map((r) => r.fft.destination))],
       kpis: {
         pallets: delBin.length,
-        piezas: delBin.reduce((s, p) => s + (Number(p.cantidadTotal) || 0), 0),
-        pedidosDistintos,
-        escaneadorasDistintas,
-        ultimoMovimiento,
+        piezas: delBin.reduce((s, r) => s + r.inventory.pieces, 0),
+        palletsConCruce: conCruce.length,
+        palletsSinCruce: sinCruce.length,
+        pedidosDistintos: new Set(conCruce.map((r) => r.fft.orderNumber).filter(Boolean)).size,
+        escaneadorasActivas: new Set(conCruce.map((r) => r.fft.scanner).filter(Boolean)).size,
+        ultimoMovimiento: fftUltimoMovimiento(delBin),
       },
-      pallets: detalle,
-      meta: { agotado, generadoEn: new Date().toISOString() },
+      graficas: {
+        porTipo: fftAgruparPorCampo(delBin, (r) => (r.fft ? r.fft.orderType : null)),
+        porDestino: fftAgruparPorCampo(delBin, (r) => (r.fft ? r.fft.destination : null)),
+        porCondicion: fftAgruparPorCampo(delBin, (r) => (r.fft ? r.fft.condition : null)),
+        porDia: fftAgruparPorDia(delBin),
+        porEscaneadora: fftAgruparPorCampo(delBin, (r) => (r.fft ? r.fft.scanner : null)),
+        cruceVsSinCruce: [{ nombre: 'Con cruce FFT', pallets: conCruce.length }, { nombre: 'Sin cruce FFT', pallets: sinCruce.length }],
+        principalesPedidos: fftAgruparPorCampo(delBin, (r) => (r.fft ? r.fft.orderNumber : null)).slice(0, 10),
+      },
+      pallets: delBin.map((r) => ({
+        palletId: r.palletId,
+        piezasInventario: r.inventory.pieces,
+        piezasFft: r.fft ? r.fft.pieces : null,
+        area: r.inventory.area,
+        bin: r.inventory.bin,
+        categoria: r.inventory.category,
+        destino: r.fft ? r.fft.destination : null,
+        tipoPedido: r.fft ? r.fft.orderType : null,
+        pedido: r.fft ? r.fft.orderNumber : null,
+        escaneadora: r.fft ? r.fft.scanner : null,
+        condicion: r.fft ? r.fft.condition : null,
+        fecha: r.fft ? r.fft.date : null,
+        matchStatus: r.matchStatus,
+      })),
+    });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
+// Tabla/actividad: paginacion, filtros, orden y busqueda EN SERVIDOR sobre el
+// conjunto completo ya cruzado — el navegador nunca recibe el dataset entero.
+app.get('/api/dashboard-destinos-fft/pallets', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const { registros } = await construirCruceFft(req.query);
+    let filtrados = registros;
+    const { area, bin, destino, categoria, tipo, pedido, palletId, escaneadora, condicion, matchStatus, q } = req.query;
+    if (area) filtrados = filtrados.filter((r) => r.inventory && r.inventory.area === area);
+    if (bin) filtrados = filtrados.filter((r) => r.inventory && r.inventory.bin === bin);
+    if (destino) filtrados = filtrados.filter((r) => r.fft && r.fft.destination === destino);
+    if (categoria) filtrados = filtrados.filter((r) => r.inventory && r.inventory.category === categoria);
+    if (tipo) filtrados = filtrados.filter((r) => r.fft && r.fft.orderType === tipo);
+    if (pedido) filtrados = filtrados.filter((r) => r.fft && r.fft.orderNumber.toLowerCase().includes(String(pedido).toLowerCase()));
+    if (palletId) filtrados = filtrados.filter((r) => r.palletId.toLowerCase().includes(String(palletId).toLowerCase()));
+    if (escaneadora) filtrados = filtrados.filter((r) => r.fft && r.fft.scanner === escaneadora);
+    if (condicion) filtrados = filtrados.filter((r) => r.fft && r.fft.condition === condicion);
+    if (matchStatus) filtrados = filtrados.filter((r) => r.matchStatus === matchStatus);
+    if (q) {
+      const ql = String(q).toLowerCase();
+      filtrados = filtrados.filter((r) => r.palletId.toLowerCase().includes(ql) || (r.fft && r.fft.orderNumber.toLowerCase().includes(ql)));
+    }
+
+    filtrados = filtrados.slice().sort((a, b) => {
+      const ta = a.fft && a.fft.createdAt ? new Date(a.fft.createdAt).getTime() : 0;
+      const tb = b.fft && b.fft.createdAt ? new Date(b.fft.createdAt).getTime() : 0;
+      return tb - ta;
+    });
+
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 25));
+    const totalRecords = filtrados.length;
+    const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+    const pageSlice = filtrados.slice((page - 1) * pageSize, page * pageSize);
+
+    const records = pageSlice.map((r) => ({
+      palletId: r.palletId,
+      area: r.inventory ? r.inventory.area : null,
+      bin: r.inventory ? r.inventory.bin : null,
+      categoria: r.inventory ? r.inventory.category : null,
+      piezasInventario: r.inventory ? r.inventory.pieces : null,
+      destino: r.fft ? r.fft.destination : null,
+      tipoPedido: r.fft ? r.fft.orderType : null,
+      pedido: r.fft ? r.fft.orderNumber : null,
+      piezasFft: r.fft ? r.fft.pieces : null,
+      escaneadora: r.fft ? r.fft.scanner : null,
+      condicion: r.fft ? r.fft.condition : null,
+      fecha: r.fft ? r.fft.date : null,
+      hora: r.fft && r.fft.createdAt ? r.fft.createdAt : null,
+      matchStatus: r.matchStatus,
+    }));
+
+    res.json({ success: true, records, pagination: { page, pageSize, totalRecords, totalPages } });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
+// Detalle unificado completo de UN PalletID (ambas fuentes + historial FFT +
+// productos/SKU via SmartControl si existen + trazabilidad + datos originales
+// sin secretos). El PalletID de la URL se trata siempre como texto.
+app.get('/api/dashboard-destinos-fft/pallets/:palletId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    let palletIdParam;
+    try { palletIdParam = decodeURIComponent(req.params.palletId || '').trim(); } catch (e) { return res.status(400).json({ success: false, error: 'palletId invalido' }); }
+    if (!palletIdParam) return res.status(400).json({ success: false, error: 'palletId invalido' });
+    const key = palletIdMatchKey(palletIdParam);
+
+    const [{ data: inventario }, clasifs] = await Promise.all([
+      fetchCubicajeLivePalletsAll(),
+      Clasif.find({ isActive: true }),
+    ]);
+    const catalogo = clasifs.map((c) => c.nombre);
+    const inv = inventario.find((p) => palletIdMatchKey(p.palletId) === key) || null;
+
+    const fftDocs = await EscReg.find({ palletId: new RegExp(`^${escapeRegex(palletIdParam)}$`, 'i') }).sort({ createdAt: -1 });
+    const fftMasReciente = fftDocs[0] || null;
+    const unificado = buildUnifiedRecord(inv, fftMasReciente, catalogo);
+
+    if (!inv && !fftMasReciente) {
+      return res.status(404).json({ success: false, error: `PalletID "${palletIdParam}" no se encontro ni en inventario ni en registros FFT` });
+    }
+
+    // Productos/SKU/LPN: EscReg no guarda esto — solo existe via el mismo
+    // enriquecimiento de SmartControl que ya usa Centro Operativo. Opcional:
+    // si SmartControl no responde, el detalle sigue mostrando todo lo demas.
+    let productos = [];
+    try {
+      const pidNorm = normalizePalletId(palletIdParam);
+      const enrichment = await getEnrichmentForPallets([pidNorm], false);
+      const enr = enrichment.map.get(pidNorm);
+      if (enr && enr.productos) productos = enr.productos;
+    } catch (e) { /* enriquecimiento opcional */ }
+
+    // Trazabilidad: solo eventos reales, nunca inventados.
+    const movimientos = [];
+    fftDocs.slice().reverse().forEach((d) => {
+      movimientos.push({ evento: 'Registro en FFT', fuente: 'FFT', fecha: d.fecha, hora: d.createdAt ? d.createdAt.toISOString() : null, detalle: `Destino ${d.destino}, turno ${d.turno}` });
+    });
+    if (inv) {
+      movimientos.push({ evento: 'Presente en inventario actual', fuente: 'BinManagerRO', fecha: null, hora: null, detalle: `Bin ${inv.locationName || 'N/D'}, categoria ${inv.binTypeName || 'N/D'}, area ${inv.area || 'N/D'} (${inv.areaFuente})` });
+    }
+
+    res.json({
+      success: true,
+      palletId: unificado.palletId,
+      matchStatus: unificado.matchStatus,
+      inventory: unificado.inventory,
+      fft: unificado.fft,
+      fftHistorial: fftDocs.map((d) => ({
+        id: String(d._id), destino: d.destino, pedido: d.pedido, cantidad: d.cantidad, condicion: d.condicion,
+        escaneadora: d.escaneadora, turno: d.turno, fecha: d.fecha, observaciones: d.observaciones,
+        createdAt: d.createdAt ? d.createdAt.toISOString() : null,
+      })),
+      productos,
+      movimientos,
+      datosOriginales: {
+        inventario: inv ? fftLimpiarDatosSensibles(inv.raw) : null,
+        fft: fftMasReciente ? fftLimpiarDatosSensibles(fftMasReciente) : null,
+      },
     });
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });

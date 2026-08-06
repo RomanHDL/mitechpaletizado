@@ -41,6 +41,25 @@ function normalizeCondition(raw) {
   return { valor: t || 'Sin condición', original };
 }
 
+// AREA (zona/almacen/agrupacion superior al bin) es un concepto DISTINTO del
+// bin y de la categoria de inventario — nunca se mezclan. Quien llama a esta
+// funcion decide de donde sale el valor real (ver resolverAreaDesdeInventario
+// en api/index.js); aqui solo se normaliza el texto ya resuelto.
+function normalizeArea(raw) {
+  const original = raw === null || raw === undefined ? '' : String(raw);
+  const t = original.trim();
+  return { valor: t || 'Sin área', original };
+}
+
+// CATEGORIA DE INVENTARIO (BinManagerRO, ej. "PRODUCTO TERMINADO", "Wholesale")
+// es un concepto DISTINTO de destino FFT (TRG/Almacen/FBA) — nunca se muestra
+// una categoria de inventario en una columna llamada "destino".
+function normalizeInventoryCategory(raw) {
+  const original = raw === null || raw === undefined ? '' : String(raw);
+  const t = original.trim();
+  return { valor: t || 'Sin categoría', original };
+}
+
 // Destinos oficiales conocidos se normalizan a su forma canonica (tolerando
 // mayusculas/minusculas/acentos); cualquier otro destino real encontrado en los
 // datos se conserva TAL CUAL (nunca se inventa ni se fuerza a uno de los 3
@@ -120,5 +139,7 @@ module.exports = {
   normalizeCondition,
   normalizeDestination,
   normalizeOrderType,
+  normalizeArea,
+  normalizeInventoryCategory,
   prepararRegistroFft,
 };
