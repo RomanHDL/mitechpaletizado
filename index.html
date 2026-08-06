@@ -1126,6 +1126,80 @@
             body.rs-printing-report .topbar{display:none !important;}
             @page{size:landscape;}
         }
+
+        /* ── Dashboard Destinos FFT (admin 3647 only). A diferencia del resto de
+           la app (que sigue el toggle claro/oscuro), este modulo usa SIEMPRE
+           fondo claro y tarjetas blancas por requerimiento explicito del diseno
+           aprobado — variables propias (fft-*), no las globales --bg-card/--border. ── */
+        #view-dashboard-destinos-fft{--fft-bg:#F4F6FB;--fft-card:#FFFFFF;--fft-border:#E2E8F0;--fft-text:#0F172A;--fft-text-muted:#64748B;--fft-shadow:0 1px 3px rgba(15,23,42,0.07),0 1px 2px rgba(15,23,42,0.04);background:var(--fft-bg);color:var(--fft-text);border-radius:16px;padding:1.25rem 1.5rem 2rem;}
+        #view-dashboard-destinos-fft .back-btn{color:var(--fft-text-muted);}
+        #view-dashboard-destinos-fft h1{color:var(--fft-text);}
+        .fft-card{background:var(--fft-card);border:1px solid var(--fft-border);border-radius:14px;box-shadow:var(--fft-shadow);}
+        .fft-header-bar{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:1.1rem;}
+        .fft-header-right{display:flex;flex-direction:column;gap:0.5rem;align-items:flex-end;}
+        .fft-status-row{display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;font-size:0.78rem;color:var(--fft-text-muted);}
+        .fft-status-dot{width:8px;height:8px;border-radius:50%;background:#94a3b8;display:inline-block;}
+        .fft-status-dot.ok{background:#22c55e;}
+        .fft-status-dot.error{background:#ef4444;}
+        .fft-actions-row{display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:flex-end;align-items:center;}
+        .fft-btn{background:var(--fft-card);border:1px solid var(--fft-border);color:var(--fft-text);border-radius:8px;padding:0.45rem 0.8rem;font-size:0.82rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:box-shadow 0.15s ease,border-color 0.15s ease;}
+        .fft-btn:hover{box-shadow:var(--fft-shadow);border-color:#CBD5E1;}
+        .fft-btn.fft-btn-primary{background:#3B82F6;border-color:#3B82F6;color:#fff;}
+        .fft-btn.fft-btn-primary:hover{background:#2563EB;}
+        .fft-date-input{border:1px solid var(--fft-border);border-radius:8px;padding:0.42rem 0.6rem;font-size:0.8rem;background:var(--fft-card);color:var(--fft-text);}
+        .fft-kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem;}
+        @media (max-width:1400px){.fft-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+        @media (max-width:760px){.fft-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+        @media (max-width:480px){.fft-kpi-grid{grid-template-columns:minmax(0,1fr);}}
+        .fft-kpi{padding:1.1rem 1.25rem;display:flex;flex-direction:column;gap:0.5rem;min-height:104px;}
+        .fft-kpi-top{display:flex;justify-content:space-between;align-items:flex-start;}
+        .fft-kpi-icon{width:34px;height:34px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;}
+        .fft-kpi-value{font-size:1.7rem;font-weight:800;line-height:1;}
+        .fft-kpi-label{font-size:0.74rem;color:var(--fft-text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.02em;}
+        .fft-kpi-delta{font-size:0.75rem;font-weight:700;}
+        .fft-kpi-delta.up{color:#16A34A;}
+        .fft-kpi-delta.down{color:#DC2626;}
+        .fft-kpi.skeleton .fft-kpi-value{background:var(--fft-border);color:transparent;border-radius:4px;animation:fftSkeleton 1.2s ease-in-out infinite;}
+        @keyframes fftSkeleton{0%,100%{opacity:0.6;}50%{opacity:1;}}
+        .fft-charts-grid-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1.1rem;margin-bottom:1.25rem;}
+        @media (max-width:1400px){.fft-charts-grid-4{grid-template-columns:repeat(2,minmax(0,1fr));}}
+        @media (max-width:640px){.fft-charts-grid-4{grid-template-columns:minmax(0,1fr);}}
+        .fft-chart-panel{padding:1.1rem 1.25rem;min-height:300px;display:flex;flex-direction:column;}
+        .fft-chart-title{font-size:0.85rem;font-weight:700;color:var(--fft-text);margin-bottom:0.75rem;}
+        .fft-chart-canvas-wrap{flex:1;position:relative;min-height:220px;}
+        .fft-charts-grid-3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:1.1rem;margin-bottom:1.25rem;}
+        @media (max-width:1200px){.fft-charts-grid-3{grid-template-columns:repeat(2,minmax(0,1fr));}}
+        @media (max-width:700px){.fft-charts-grid-3{grid-template-columns:minmax(0,1fr);}}
+        .fft-heatmap-table{width:100%;border-collapse:collapse;font-size:0.72rem;}
+        .fft-heatmap-table th{padding:4px 6px;color:var(--fft-text-muted);font-weight:600;text-align:center;}
+        .fft-heatmap-table th:first-child{text-align:left;}
+        .fft-heatmap-table td{text-align:center;padding:0;}
+        .fft-heatmap-cell{display:flex;align-items:center;justify-content:center;height:34px;margin:2px;border-radius:6px;font-weight:700;color:#0F172A;cursor:default;}
+        .fft-heatmap-rowlabel{text-align:left;font-weight:600;padding:4px 8px 4px 0;white-space:nowrap;}
+        .fft-main-content-grid{display:grid;grid-template-columns:2.1fr 1fr;gap:1.1rem;align-items:start;}
+        @media (max-width:1100px){.fft-main-content-grid{grid-template-columns:minmax(0,1fr);}}
+        .fft-side-charts{display:flex;flex-direction:column;gap:1.1rem;}
+        .fft-table-wrap{overflow-x:auto;max-height:420px;}
+        .fft-table{width:100%;border-collapse:collapse;font-size:0.83rem;}
+        .fft-table th{position:sticky;top:0;background:var(--fft-card);text-align:left;padding:0.6rem 0.75rem;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.02em;color:var(--fft-text-muted);border-bottom:1px solid var(--fft-border);cursor:pointer;user-select:none;}
+        .fft-table td{padding:0.55rem 0.75rem;border-bottom:1px solid var(--fft-border);}
+        .fft-table tr:hover td{background:#F8FAFC;}
+        .fft-chip{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;font-size:0.72rem;font-weight:700;}
+        .fft-filters-panel{position:fixed;inset:0;background:rgba(15,23,42,0.35);z-index:2500;display:none;align-items:flex-start;justify-content:flex-end;}
+        .fft-filters-panel.open{display:flex;}
+        .fft-filters-card{background:var(--fft-card,#fff);width:min(380px,100vw);height:100%;padding:1.25rem;box-sizing:border-box;overflow-y:auto;color:var(--fft-text,#0F172A);}
+        .fft-filters-card label{display:block;font-size:0.75rem;font-weight:600;color:var(--fft-text-muted,#64748B);margin:0.75rem 0 0.3rem;}
+        .fft-filters-card select,.fft-filters-card input{width:100%;border:1px solid var(--fft-border,#E2E8F0);border-radius:8px;padding:0.45rem 0.6rem;font-size:0.83rem;box-sizing:border-box;}
+        .fft-active-chips{display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1rem;}
+        .fft-empty-note{padding:2rem;text-align:center;color:var(--fft-text-muted);font-size:0.85rem;}
+        @media (max-width:760px){
+            .fft-table thead{display:none;}
+            .fft-table, .fft-table tbody, .fft-table tr, .fft-table td{display:block;width:100%;}
+            .fft-table tr{border-bottom:1px solid var(--fft-border);padding:0.6rem 0.9rem;}
+            .fft-table td{text-align:right !important;padding:0.2rem 0;border-bottom:none;}
+            .fft-table td::before{content:attr(data-label);float:left;font-weight:600;color:var(--fft-text-muted);font-size:0.72rem;text-transform:uppercase;}
+            .fft-filters-card{width:100%;}
+        }
     </style>
 </head>
 <body>
@@ -1457,6 +1531,32 @@
                             <div class="hero-title">Reporte Semanal de Producción</div>
                             <div class="hero-desc">Almacén, TRG, FBA, Bulky y Fierro por día — sin Power Query, directo de MongoDB</div>
                             <div class="hero-cta">Abrir reporte <i class="fa-solid fa-arrow-right"></i></div>
+                        </div>
+                    </button>
+
+                    <!-- I: Dashboard Destinos FFT (exclusivo 3647) -->
+                    <button type="button" class="hero-card hero-orange card-3647-only" onclick="switchView('dashboard-destinos-fft')" style="position:relative;">
+                        <div class="hero-illustration">
+                            <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <rect x="20" y="16" width="160" height="88" rx="8" fill="#0f1830" stroke="#f59e0b" stroke-width="2"/>
+                                <circle cx="62" cy="60" r="26" fill="none" stroke="#22c55e" stroke-width="8" stroke-dasharray="40 82" stroke-linecap="round"/>
+                                <circle cx="62" cy="60" r="26" fill="none" stroke="#4f7cff" stroke-width="8" stroke-dasharray="30 82" stroke-dashoffset="-40" stroke-linecap="round"/>
+                                <circle cx="62" cy="60" r="26" fill="none" stroke="#a78bfa" stroke-width="8" stroke-dasharray="20 82" stroke-dashoffset="-70" stroke-linecap="round"/>
+                                <rect x="112" y="34" width="14" height="14" fill="#22c55e" opacity="0.9"/>
+                                <rect x="128" y="34" width="14" height="14" fill="#4f7cff" opacity="0.5"/>
+                                <rect x="144" y="34" width="14" height="14" fill="#f59e0b" opacity="0.7"/>
+                                <rect x="112" y="50" width="14" height="14" fill="#4f7cff" opacity="0.6"/>
+                                <rect x="128" y="50" width="14" height="14" fill="#22c55e" opacity="0.4"/>
+                                <rect x="144" y="50" width="14" height="14" fill="#a78bfa" opacity="0.8"/>
+                                <rect x="112" y="66" width="14" height="14" fill="#a78bfa" opacity="0.5"/>
+                                <rect x="128" y="66" width="14" height="14" fill="#f59e0b" opacity="0.9"/>
+                                <rect x="144" y="66" width="14" height="14" fill="#22c55e" opacity="0.6"/>
+                            </svg>
+                        </div>
+                        <div class="hero-body">
+                            <div class="hero-title">Dashboard Destinos FFT</div>
+                            <div class="hero-desc">Visión completa por destinos y tipos de pedido — KPIs, gráficas y matriz cruzada</div>
+                            <div class="hero-cta">Abrir dashboard <i class="fa-solid fa-arrow-right"></i></div>
                         </div>
                     </button>
 
@@ -3005,6 +3105,128 @@
             </div>
         </div>
 
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: DASHBOARD DESTINOS FFT (Etapa 1)  -->
+        <!-- (exclusivo admin 3647 — ver switchView y centroOperativoGuard) -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-dashboard-destinos-fft">
+            <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
+
+            <div class="fft-header-bar">
+                <div>
+                    <h1 style="font-size:1.4rem;margin:0;"><i class="fa-solid fa-chart-pie" style="color:#F59E0B;margin-right:8px;"></i>Dashboard Destinos FFT</h1>
+                    <p style="margin:0.3rem 0 0;font-size:0.85rem;color:var(--fft-text-muted);">Visión completa por bines y destinos</p>
+                </div>
+                <div class="fft-header-right">
+                    <div class="fft-status-row">
+                        <span><span class="fft-status-dot ok" id="fft-status-dot"></span> <span id="fft-status-text">Conectado</span></span>
+                        <span>·</span>
+                        <span>Actualizado: <b id="fft-last-update" style="color:var(--fft-text);">--</b></span>
+                    </div>
+                    <div class="fft-actions-row">
+                        <input type="date" class="fft-date-input" id="fft-fecha-inicio" onchange="fftLoad()">
+                        <span style="color:var(--fft-text-muted);font-size:0.8rem;">a</span>
+                        <input type="date" class="fft-date-input" id="fft-fecha-fin" onchange="fftLoad()">
+                        <button class="fft-btn" onclick="fftLoad()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                        <button class="fft-btn" onclick="fftAbrirFiltros()"><i class="fa-solid fa-sliders"></i> Filtros</button>
+                        <button class="fft-btn" onclick="fftLimpiarFiltros()"><i class="fa-solid fa-xmark"></i> Limpiar</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fft-active-chips" id="fft-active-chips"></div>
+
+            <!-- KPIs -->
+            <div class="fft-kpi-grid" id="fft-kpi-grid"></div>
+
+            <!-- Bloque 1: 4 graficas (dona destino, dona piezas destino, dona tipo, heatmap) -->
+            <div class="fft-charts-grid-4">
+                <div class="fft-card fft-chart-panel">
+                    <div class="fft-chart-title">Pallets por destino</div>
+                    <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-pallets-destino"></canvas></div>
+                </div>
+                <div class="fft-card fft-chart-panel">
+                    <div class="fft-chart-title">Piezas por destino</div>
+                    <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-piezas-destino"></canvas></div>
+                </div>
+                <div class="fft-card fft-chart-panel">
+                    <div class="fft-chart-title">Pallets por tipo de pedido</div>
+                    <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-tipo"></canvas></div>
+                </div>
+                <div class="fft-card fft-chart-panel">
+                    <div class="fft-chart-title">Destino × Tipo de pedido</div>
+                    <div class="fft-chart-canvas-wrap" id="fft-heatmap-wrap" style="overflow:auto;"></div>
+                </div>
+            </div>
+
+            <!-- Bloque 2: tendencia diaria (graficas por bin quedan para la Etapa 2) -->
+            <div class="fft-card fft-chart-panel" style="margin-bottom:1.25rem;min-height:280px;">
+                <div class="fft-chart-title">Pallets y piezas por día</div>
+                <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-por-dia"></canvas></div>
+            </div>
+
+            <!-- Tabla resumen Destino/Tipo + graficas laterales -->
+            <div class="fft-main-content-grid">
+                <div class="fft-card" style="padding:1.1rem 1.25rem;">
+                    <div class="fft-chart-title">Resumen por Destino y Tipo</div>
+                    <div class="fft-table-wrap">
+                        <table class="fft-table" id="fft-tabla-resumen">
+                            <thead>
+                                <tr>
+                                    <th onclick="fftOrdenarTabla('destino')">Destino</th>
+                                    <th onclick="fftOrdenarTabla('tipoPedido')">Tipo</th>
+                                    <th onclick="fftOrdenarTabla('pallets')">Pallets</th>
+                                    <th onclick="fftOrdenarTabla('piezas')">Piezas</th>
+                                    <th onclick="fftOrdenarTabla('pctPallets')">% Pallets</th>
+                                    <th onclick="fftOrdenarTabla('pctPiezas')">% Piezas</th>
+                                    <th onclick="fftOrdenarTabla('ultimoRegistro')">Último movimiento</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fft-tabla-resumen-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="fft-side-charts">
+                    <div class="fft-card fft-chart-panel" style="min-height:240px;">
+                        <div class="fft-chart-title">Tipos de pedido</div>
+                        <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-tipo-lateral"></canvas></div>
+                    </div>
+                    <div class="fft-card fft-chart-panel" style="min-height:240px;">
+                        <div class="fft-chart-title">Piezas por escaneadora</div>
+                        <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-escaneadora"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <p style="margin-top:1rem;font-size:0.72rem;color:var(--fft-text-muted);text-align:center;">Etapa 1: Destino y Tipo de pedido (datos históricos completos). El módulo por Bines llega en la Etapa 2.</p>
+        </div><!-- /view-dashboard-destinos-fft -->
+
+        <!-- Panel de filtros flotante — Dashboard Destinos FFT -->
+        <div class="fft-filters-panel" id="fft-filters-panel" onclick="if(event.target===this) fftCerrarFiltros()">
+            <div class="fft-filters-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:700;font-size:1rem;">Filtros</span>
+                    <button class="fft-btn" onclick="fftCerrarFiltros()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <label>Destino</label>
+                <select id="fft-f-destino"><option value="">Todos</option></select>
+                <label>Tipo de pedido</label>
+                <select id="fft-f-tipo"><option value="">Todos</option></select>
+                <label>Escaneadora</label>
+                <select id="fft-f-escaneadora"><option value="">Todas</option></select>
+                <label>Condición</label>
+                <select id="fft-f-condicion"><option value="">Todas</option></select>
+                <label>Número de pedido</label>
+                <input type="text" id="fft-f-pedido" placeholder="Ej: 391931">
+                <label>Pallet ID</label>
+                <input type="text" id="fft-f-palletid" placeholder="Ej: 391931">
+                <div style="display:flex;gap:0.5rem;margin-top:1.25rem;">
+                    <button class="fft-btn fft-btn-primary" style="flex:1;justify-content:center;" onclick="fftAplicarFiltros()">Aplicar</button>
+                    <button class="fft-btn" style="flex:1;justify-content:center;" onclick="fftLimpiarFiltros()">Limpiar</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Modales globales de SmartControl — a proposito FUERA de cualquier
              .view (.view{display:none} ocultaria estos modales por herencia
              si vivieran dentro de una vista que no esta activa, ej. abrirlos
@@ -4371,7 +4593,7 @@ function switchView(viewName) {
     // Los administradores (y siempre 3647) quedan exentos: nunca deben perder acceso a "inicio" o al Centro de Control.
     if (currentUser && currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras') && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
     // Centro de Control, Monitor en Vivo y LPN Duplicados: exclusivos del administrador 3647
-    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn' || viewName === 'centro-operativo' || viewName === 'reporte-semanal') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
+    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn' || viewName === 'centro-operativo' || viewName === 'reporte-semanal' || viewName === 'dashboard-destinos-fft') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
     // Operaciones y Pedidos (Retrabajo + Gestionar Pedidos): cualquier admin.
     // La pestaña "Gestionar Pedidos" adentro sigue siendo exclusiva de 3647.
     if (viewName === 'operaciones' && (!currentUser || currentUser.role !== 'admin')) { switchView('home'); return; }
@@ -4415,6 +4637,7 @@ function switchView(viewName) {
     if (viewName === 'operaciones') { setOperacionesTab('retrabajo'); if (typeof renderPedidosAdminPanel === 'function') renderPedidosAdminPanel(); }
     if (viewName === 'centro-operativo') initCentroOperativo();
     if (viewName === 'reporte-semanal') initReporteSemanal();
+    if (viewName === 'dashboard-destinos-fft') initDashboardDestinosFft();
 }
 
 // ══════════════════════════════════════════════
@@ -11207,6 +11430,308 @@ async function rsDescargarExcel() {
         btn.disabled = false;
         btn.innerHTML = prevHtml;
     }
+}
+
+// ══════════════════════════════════════════════
+// DASHBOARD DESTINOS FFT (admin 3647 only) — Etapa 1
+// Consume /api/dashboard-destinos-fft/filtros y /data. Destino y Tipo de pedido
+// ya vienen normalizados y clasificados por el backend (api/services/
+// destinoTipoHelpers.js) — este bloque solo pinta, nunca reclasifica nada aqui.
+// El modulo de Bines (Etapa 2) se agrega aparte, sin tocar este bloque.
+// ══════════════════════════════════════════════
+let fftUltimoDato = null;
+let fftCharts = {};
+let fftAutoTimer = null;
+let fftRequestSeq = 0;
+let fftSort = { campo: 'pallets', asc: false };
+let fftFiltros = { destino: '', tipo: '', escaneadora: '', condicion: '', pedido: '', palletId: '' };
+
+const FFT_COLOR_DESTINO = { 'TRG': '#22c55e', 'Almacén': '#3B82F6', 'FBA': '#8B5CF6', 'Sin destino': '#94A3B8' };
+function fftColorDestino(nombre, idx) {
+    if (FFT_COLOR_DESTINO[nombre]) return FFT_COLOR_DESTINO[nombre];
+    const otros = ['#F59E0B', '#EC4899', '#06B6D4', '#84CC16', '#F97316'];
+    return otros[idx % otros.length];
+}
+const FFT_TIPO_PALETTE = ['#F59E0B', '#3B82F6', '#22c55e', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#EF4444', '#94A3B8'];
+function fftColorTipo(idx) { return FFT_TIPO_PALETTE[idx % FFT_TIPO_PALETTE.length]; }
+
+function initDashboardDestinosFft() {
+    if (!document.getElementById('fft-fecha-fin').value) {
+        const hoy = new Date();
+        const hace30 = new Date(); hace30.setDate(hoy.getDate() - 29);
+        const iso = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        document.getElementById('fft-fecha-inicio').value = iso(hace30);
+        document.getElementById('fft-fecha-fin').value = iso(hoy);
+    }
+    fftCargarFiltrosDisponibles();
+    fftLoad();
+    if (fftAutoTimer) clearInterval(fftAutoTimer);
+    fftAutoTimer = setInterval(() => {
+        if (document.getElementById('view-dashboard-destinos-fft')?.classList.contains('active')) fftLoad(true);
+    }, 30000);
+}
+
+async function fftCargarFiltrosDisponibles() {
+    try {
+        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/filtros`);
+        if (!data.success) return;
+        const fill = (id, valores, todosLabel) => {
+            const sel = document.getElementById(id);
+            const actual = sel.value;
+            sel.innerHTML = `<option value="">${todosLabel}</option>` + valores.map(v => `<option value="${v}">${v}</option>`).join('');
+            if (valores.includes(actual)) sel.value = actual;
+        };
+        fill('fft-f-destino', data.destinos, 'Todos');
+        fill('fft-f-tipo', data.tipos, 'Todos');
+        fill('fft-f-escaneadora', data.escaneadoras, 'Todas');
+        fill('fft-f-condicion', data.condiciones, 'Todas');
+    } catch (e) { /* filtros no criticos: si falla, los selects quedan solo con "Todos" */ }
+}
+
+function fftBuildParams() {
+    const p = new URLSearchParams();
+    const fi = document.getElementById('fft-fecha-inicio').value;
+    const ff = document.getElementById('fft-fecha-fin').value;
+    if (fi) p.set('fecha_inicio', fi);
+    if (ff) p.set('fecha_fin', ff);
+    if (fftFiltros.destino) p.set('destino', fftFiltros.destino);
+    if (fftFiltros.tipo) p.set('tipo', fftFiltros.tipo);
+    if (fftFiltros.escaneadora) p.set('escaneadoras', fftFiltros.escaneadora);
+    if (fftFiltros.condicion) p.set('condicion', fftFiltros.condicion);
+    if (fftFiltros.pedido) p.set('pedido', fftFiltros.pedido);
+    if (fftFiltros.palletId) p.set('palletId', fftFiltros.palletId);
+    return p;
+}
+
+async function fftLoad(silencioso) {
+    const mySeq = ++fftRequestSeq;
+    const statusDot = document.getElementById('fft-status-dot');
+    const statusText = document.getElementById('fft-status-text');
+    if (!silencioso) fftSetSkeleton();
+    try {
+        const params = fftBuildParams();
+        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/data?${params.toString()}`);
+        if (mySeq !== fftRequestSeq) return; // respuesta vieja, ya hay una peticion mas nueva en curso
+        if (!data.success) throw new Error(data.error || 'Error al cargar el dashboard');
+        fftUltimoDato = data;
+        fftRenderKpis(data.kpis);
+        fftRenderCharts(data.graficas);
+        fftRenderTabla(data.tablaResumen);
+        fftRenderChips();
+        document.getElementById('fft-last-update').textContent = new Date().toLocaleTimeString('es-MX');
+        statusDot.className = 'fft-status-dot ok';
+        statusText.textContent = 'Conectado';
+    } catch (e) {
+        if (mySeq !== fftRequestSeq) return;
+        statusDot.className = 'fft-status-dot error';
+        statusText.textContent = 'Error de conexión';
+        if (!silencioso) showToast('Error al cargar Dashboard Destinos FFT: ' + e.message, 'error');
+    }
+}
+
+function fftSetSkeleton() {
+    const labels = ['Pallets totales','Piezas totales','Registros de hoy','Bines activos','Destinos activos','Tipos de pedido'];
+    document.getElementById('fft-kpi-grid').innerHTML = labels.map(l => `
+        <div class="fft-card fft-kpi skeleton">
+            <div class="fft-kpi-top"><span class="fft-kpi-label">${l}</span></div>
+            <div class="fft-kpi-value">000</div>
+        </div>`).join('');
+}
+
+function fftKpiCard(label, icon, color, value, deltaPct, nota) {
+    let deltaHtml = '';
+    if (deltaPct !== null && deltaPct !== undefined) {
+        const up = deltaPct >= 0;
+        deltaHtml = `<span class="fft-kpi-delta ${up ? 'up' : 'down'}"><i class="fa-solid fa-arrow-${up ? 'up' : 'down'}"></i> ${Math.abs(deltaPct).toFixed(1)}% vs ayer</span>`;
+    } else if (nota) {
+        deltaHtml = `<span class="fft-kpi-delta" style="color:var(--fft-text-muted);">${nota}</span>`;
+    }
+    return `
+        <div class="fft-card fft-kpi">
+            <div class="fft-kpi-top">
+                <span class="fft-kpi-label">${label}</span>
+                <span class="fft-kpi-icon" style="background:${color}22;color:${color};"><i class="fa-solid ${icon}"></i></span>
+            </div>
+            <div class="fft-kpi-value">${value}</div>
+            ${deltaHtml}
+        </div>`;
+}
+
+function fftRenderKpis(kpis) {
+    const grid = document.getElementById('fft-kpi-grid');
+    grid.innerHTML = [
+        fftKpiCard('Pallets totales', 'fa-pallet', '#3B82F6', kpis.totalPallets.value.toLocaleString('es-MX'), kpis.totalPallets.deltaPct),
+        fftKpiCard('Piezas totales', 'fa-cubes', '#22c55e', kpis.totalPiezas.value.toLocaleString('es-MX'), kpis.totalPiezas.deltaPct),
+        fftKpiCard('Registros de hoy', 'fa-calendar-day', '#F59E0B', kpis.registrosHoy.value.toLocaleString('es-MX'), null),
+        fftKpiCard('Bines activos', 'fa-warehouse', '#8B5CF6', '—', null, 'Disponible en Etapa 2'),
+        fftKpiCard('Destinos activos', 'fa-location-dot', '#EC4899', kpis.destinosActivos.value, null),
+        fftKpiCard('Tipos de pedido', 'fa-tags', '#06B6D4', kpis.tiposActivos.value, null),
+    ].join('');
+}
+
+function fftMakeChart(key, canvasId, config) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    if (fftCharts[key]) { fftCharts[key].destroy(); }
+    fftCharts[key] = new Chart(canvas.getContext('2d'), config);
+}
+
+function fftDonutBase(labels, data, colors) {
+    return {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#FFFFFF' }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#0F172A', font: { size: 11 }, boxWidth: 10, padding: 10 } },
+                tooltip: { enabled: true },
+                datalabels: { display: false },
+            },
+        },
+    };
+}
+
+function fftRenderCharts(g) {
+    // Pallets/Piezas por destino
+    const destLabels = g.porDestino.map(d => d.nombre);
+    const destColors = g.porDestino.map((d, i) => fftColorDestino(d.nombre, i));
+    fftMakeChart('palletsDestino', 'fft-chart-pallets-destino', fftDonutBase(destLabels, g.porDestino.map(d => d.pallets), destColors));
+    fftMakeChart('piezasDestino', 'fft-chart-piezas-destino', fftDonutBase(destLabels, g.porDestino.map(d => d.piezas), destColors));
+
+    // Pallets por tipo (principal + lateral, mismos datos)
+    const tipoLabels = g.porTipo.map(t => t.nombre);
+    const tipoColors = g.porTipo.map((t, i) => fftColorTipo(i));
+    fftMakeChart('tipo', 'fft-chart-tipo', fftDonutBase(tipoLabels, g.porTipo.map(t => t.pallets), tipoColors));
+    fftMakeChart('tipoLateral', 'fft-chart-tipo-lateral', fftDonutBase(tipoLabels, g.porTipo.map(t => t.pallets), tipoColors));
+
+    // Heatmap Destino x Tipo (tabla con celdas coloreadas, sin libreria nueva)
+    fftRenderHeatmap(g.matriz);
+
+    // Pallets y piezas por dia (linea)
+    fftMakeChart('porDia', 'fft-chart-por-dia', {
+        type: 'line',
+        data: {
+            labels: g.porDia.map(d => d.fecha),
+            datasets: [
+                { label: 'Pallets', data: g.porDia.map(d => d.pallets), borderColor: '#3B82F6', backgroundColor: '#3B82F622', tension: 0.3, yAxisID: 'y' },
+                { label: 'Piezas', data: g.porDia.map(d => d.piezas), borderColor: '#22c55e', backgroundColor: '#22c55e22', tension: 0.3, yAxisID: 'y1' },
+            ],
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { position: 'bottom', labels: { color: '#0F172A' } }, datalabels: { display: false } },
+            scales: {
+                x: { ticks: { color: '#64748B', font: { size: 10 } }, grid: { color: '#F1F5F9' } },
+                y: { position: 'left', ticks: { color: '#64748B' }, grid: { color: '#F1F5F9' } },
+                y1: { position: 'right', ticks: { color: '#64748B' }, grid: { display: false } },
+            },
+        },
+    });
+
+    // Piezas por escaneadora (barras horizontales)
+    fftMakeChart('escaneadora', 'fft-chart-escaneadora', {
+        type: 'bar',
+        data: { labels: g.porEscaneadora.map(e => e.nombre), datasets: [{ data: g.porEscaneadora.map(e => e.piezas), backgroundColor: '#3B82F6cc', borderRadius: 4 }] },
+        options: {
+            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, datalabels: { display: false } },
+            scales: { x: { ticks: { color: '#64748B' }, grid: { color: '#F1F5F9' } }, y: { ticks: { color: '#0F172A', font: { size: 10 } }, grid: { display: false } } },
+        },
+    });
+}
+
+function fftHeatColor(valor, max) {
+    if (!max || valor === 0) return '#F1F5F9';
+    const t = Math.min(1, valor / max);
+    // Escala de azul suave (claro -> mas intenso), consistente con el estilo general
+    const r = Math.round(219 - t * (219 - 37));
+    const g = Math.round(234 - t * (234 - 99));
+    const b = Math.round(254 - t * (254 - 235));
+    return `rgb(${r},${g},${b})`;
+}
+
+function fftRenderHeatmap(matriz) {
+    const wrap = document.getElementById('fft-heatmap-wrap');
+    if (!matriz.destinos.length || !matriz.tipos.length) {
+        wrap.innerHTML = '<div class="fft-empty-note">Sin datos para esta combinación de filtros.</div>';
+        return;
+    }
+    const max = Math.max(1, ...matriz.celdas.flatMap(c => c.valores));
+    let html = '<table class="fft-heatmap-table"><thead><tr><th></th>' + matriz.tipos.map(t => `<th title="${t}">${t.length > 8 ? t.slice(0, 7) + '…' : t}</th>`).join('') + '</tr></thead><tbody>';
+    matriz.celdas.forEach((fila) => {
+        html += `<tr><td class="fft-heatmap-rowlabel">${fila.destino}</td>` +
+            fila.valores.map((v, i) => `<td><div class="fft-heatmap-cell" style="background:${fftHeatColor(v, max)};" title="${fila.destino} / ${matriz.tipos[i]}: ${v} pallets">${v || ''}</div></td>`).join('') +
+            '</tr>';
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+}
+
+function fftOrdenarTabla(campo) {
+    if (fftSort.campo === campo) fftSort.asc = !fftSort.asc;
+    else { fftSort.campo = campo; fftSort.asc = true; }
+    if (fftUltimoDato) fftRenderTabla(fftUltimoDato.tablaResumen);
+}
+
+function fftRenderTabla(filas) {
+    const ordenadas = [...filas].sort((a, b) => {
+        const va = a[fftSort.campo], vb = b[fftSort.campo];
+        const cmp = typeof va === 'string' ? va.localeCompare(vb || '') : (va || 0) - (vb || 0);
+        return fftSort.asc ? cmp : -cmp;
+    });
+    const tbody = document.getElementById('fft-tabla-resumen-body');
+    if (!ordenadas.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="fft-empty-note">Sin registros para este rango/filtros.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = ordenadas.map(f => {
+        const color = fftColorDestino(f.destino, 0);
+        const ultimo = f.ultimoRegistro ? new Date(f.ultimoRegistro).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : '-';
+        return `<tr>
+            <td data-label="Destino"><span class="fft-chip" style="background:${color}22;color:${color};">${f.destino}</span></td>
+            <td data-label="Tipo">${f.tipoPedido}</td>
+            <td data-label="Pallets">${f.pallets.toLocaleString('es-MX')}</td>
+            <td data-label="Piezas">${f.piezas.toLocaleString('es-MX')}</td>
+            <td data-label="% Pallets">${f.pctPallets}%</td>
+            <td data-label="% Piezas">${f.pctPiezas}%</td>
+            <td data-label="Último movimiento">${ultimo}</td>
+        </tr>`;
+    }).join('');
+}
+
+function fftRenderChips() {
+    const activos = Object.entries(fftFiltros).filter(([, v]) => v);
+    const box = document.getElementById('fft-active-chips');
+    if (!activos.length) { box.innerHTML = ''; return; }
+    box.innerHTML = activos.map(([k, v]) => `<span class="fft-chip" style="background:#3B82F615;color:#3B82F6;">${v} <i class="fa-solid fa-xmark" style="margin-left:5px;cursor:pointer;" onclick="fftQuitarFiltro('${k}')"></i></span>`).join('');
+}
+
+function fftQuitarFiltro(key) {
+    fftFiltros[key] = '';
+    const idMap = { destino: 'fft-f-destino', tipo: 'fft-f-tipo', escaneadora: 'fft-f-escaneadora', condicion: 'fft-f-condicion', pedido: 'fft-f-pedido', palletId: 'fft-f-palletid' };
+    const el = document.getElementById(idMap[key]);
+    if (el) el.value = '';
+    fftLoad();
+}
+
+function fftAbrirFiltros() { document.getElementById('fft-filters-panel').classList.add('open'); }
+function fftCerrarFiltros() { document.getElementById('fft-filters-panel').classList.remove('open'); }
+function fftAplicarFiltros() {
+    fftFiltros.destino = document.getElementById('fft-f-destino').value;
+    fftFiltros.tipo = document.getElementById('fft-f-tipo').value;
+    fftFiltros.escaneadora = document.getElementById('fft-f-escaneadora').value;
+    fftFiltros.condicion = document.getElementById('fft-f-condicion').value;
+    fftFiltros.pedido = document.getElementById('fft-f-pedido').value.trim();
+    fftFiltros.palletId = document.getElementById('fft-f-palletid').value.trim();
+    fftCerrarFiltros();
+    fftLoad();
+}
+function fftLimpiarFiltros() {
+    fftFiltros = { destino: '', tipo: '', escaneadora: '', condicion: '', pedido: '', palletId: '' };
+    ['fft-f-destino', 'fft-f-tipo', 'fft-f-escaneadora', 'fft-f-condicion', 'fft-f-pedido', 'fft-f-palletid'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    fftCerrarFiltros();
+    fftLoad();
 }
 
 // ══════════════════════════════════════════════

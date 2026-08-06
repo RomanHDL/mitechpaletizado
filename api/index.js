@@ -24,6 +24,7 @@ const {
   buildReporteSemanal,
 } = require('./services/reporteProduccionHelpers');
 const { construirWorkbookReporteSemanal } = require('./services/reporteProduccionExcel');
+const { prepararRegistroFft, normalizeDestination: fftNormalizeDestino } = require('./services/destinoTipoHelpers');
 
 const app = express();
 app.use(cors());
@@ -2212,6 +2213,172 @@ app.get('/api/reportes/produccion-semanal/excel', auth, roleGuard('admin'), cent
   }
 });
 
+// ═══════════ DASHBOARD DESTINOS FFT (admin 3647 only) — Etapa 1 ═══════════
+// Vista Destino x Tipo de pedido sobre los pallets ya capturados en esta app
+// (EscReg). Reutiliza el filtro y el agrupado por pallet ya usado por Centro
+// Operativo (buildCentroFilter, applyCentroDateRange, getFilteredPalletsMeta:
+// 1 pallet = 1 palletId, cantidad SUMADA por grupo, nunca duplicado) y el
+// catalogo REAL y dinamico de Clasificacion (nunca tipos hardcodeados) via
+// prepararRegistroFft (api/services/destinoTipoHelpers.js).
+//
+// El concepto de "bin" (Etapa 2) depende de BinManagerRO/Cubicaje, que solo
+// da una foto del inventario ACTUAL (no un historial permanente por pallet)
+// — vive en su propio bloque de endpoints, separado de este.
+
+// Rango de fechas por defecto (ultimos 30 dias, America/Mexico_City) cuando el
+// caller no manda fecha_inicio/fecha_fin — evita cargar TODO el historico en
+// memoria solo por no traer filtro de fecha.
+function fftHoyMexico() {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Mexico_City', year: 'numeric', month: 'numeric', day: 'numeric' })
+    .formatToParts(new Date()).reduce((o, p) => (o[p.type] = p.value, o), {});
+  return new Date(parseInt(parts.year, 10), parseInt(parts.month, 10) - 1, parseInt(parts.day, 10));
+}
+function fftIso(d) { const pad2 = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+function fftDefaultRange(query) {
+  if (query.fecha_inicio || query.fecha_fin) return { fecha_inicio: query.fecha_inicio || query.fecha_fin, fecha_fin: query.fecha_fin || query.fecha_inicio };
+  const hoy = fftHoyMexico();
+  const hace30 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 29);
+  return { fecha_inicio: fftIso(hace30), fecha_fin: fftIso(hoy) };
+}
+
+app.get('/api/dashboard-destinos-fft/filtros', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const [destinos, escaneadoras, condiciones, clasifs] = await Promise.all([
+      EscReg.distinct('destino'),
+      EscReg.distinct('escaneadora'),
+      EscReg.distinct('condicion'),
+      Clasif.find({ isActive: true }).sort({ orden: 1, nombre: 1 }),
+    ]);
+    const destinosNorm = [...new Set(destinos.filter(Boolean).map((d) => fftNormalizeDestino(d).valor))].sort();
+    res.json({
+      success: true,
+      destinos: destinosNorm,
+      tipos: clasifs.map((c) => c.nombre),
+      escaneadoras: escaneadoras.filter(Boolean).sort(),
+      condiciones: condiciones.filter(Boolean).sort(),
+    });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.get('/api/dashboard-destinos-fft/data', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const tipoFiltro = req.query.tipo || null;
+    const rango = fftDefaultRange(req.query);
+    const queryConRango = { ...req.query, ...rango };
+
+    const filter = buildCentroFilter(req.query);
+    const catalogo = (await Clasif.find({ isActive: true })).map((c) => c.nombre);
+
+    async function registrosDelRango(filtro, q) {
+      const { orden, porPallet } = await getFilteredPalletsMeta(filtro, q);
+      let regs = orden.map((pid) => prepararRegistroFft({ palletId: pid, ...porPallet.get(pid) }, catalogo));
+      if (tipoFiltro) regs = regs.filter((r) => r.tipoPedido === tipoFiltro);
+      return regs;
+    }
+
+    const registros = await registrosDelRango(filter, queryConRango);
+    const totalPallets = registros.length;
+    const totalPiezas = registros.reduce((s, r) => s + r.piezas, 0);
+
+    const hoy = fftHoyMexico();
+    const hoyStr = `${hoy.getMonth() + 1}/${hoy.getDate()}/${hoy.getFullYear()}`;
+    const registrosHoy = registros.filter((r) => r.fecha === hoyStr).length;
+    const destinosActivos = new Set(registros.map((r) => r.destino)).size;
+    const tiposActivos = new Set(registros.map((r) => r.tipoPedido)).size;
+
+    // Comparacion "vs dia anterior": solo cuando el rango es UN dia exacto, mismo
+    // criterio que /api/centro-operativo/resumen — con un rango de varios dias no
+    // hay un "dia anterior" unico y correcto que comparar.
+    let anterior = null;
+    if (rango.fecha_inicio === rango.fecha_fin) {
+      const [y, m, d] = rango.fecha_inicio.split('-').map((n) => parseInt(n, 10));
+      const fPrev = new Date(y, m - 1, d - 1);
+      const isoPrev = fftIso(fPrev);
+      const regsPrev = await registrosDelRango(filter, { fecha_inicio: isoPrev, fecha_fin: isoPrev });
+      anterior = { totalPallets: regsPrev.length, totalPiezas: regsPrev.reduce((s, r) => s + r.piezas, 0) };
+    }
+    const delta = (key, valorActual) => (anterior ? computeDelta(valorActual, anterior[key]) : null);
+
+    function agrupar(campo) {
+      const m = new Map();
+      for (const r of registros) {
+        const k = r[campo];
+        if (!m.has(k)) m.set(k, { pallets: 0, piezas: 0 });
+        const b = m.get(k);
+        b.pallets += 1;
+        b.piezas += r.piezas;
+      }
+      return [...m.entries()].map(([nombre, v]) => ({ nombre, pallets: v.pallets, piezas: v.piezas })).sort((a, b) => b.pallets - a.pallets);
+    }
+    const porDestino = agrupar('destino');
+    const porTipo = agrupar('tipoPedido');
+    const porEscaneadora = agrupar('escaneadora').slice(0, 10);
+
+    const destinosUnicos = [...new Set(registros.map((r) => r.destino))].sort();
+    const tiposUnicos = [...new Set(registros.map((r) => r.tipoPedido))].sort();
+    const celdas = destinosUnicos.map((d) => ({
+      destino: d,
+      valores: tiposUnicos.map((t) => registros.filter((r) => r.destino === d && r.tipoPedido === t).length),
+    }));
+
+    const porDiaMap = new Map();
+    for (const r of registros) {
+      if (!r.fecha) continue;
+      if (!porDiaMap.has(r.fecha)) porDiaMap.set(r.fecha, { pallets: 0, piezas: 0 });
+      const b = porDiaMap.get(r.fecha);
+      b.pallets += 1;
+      b.piezas += r.piezas;
+    }
+    const porDia = [...porDiaMap.entries()]
+      .map(([fecha, v]) => ({ fecha, fechaDate: parseFechaMDY(fecha), pallets: v.pallets, piezas: v.piezas }))
+      .filter((d) => d.fechaDate)
+      .sort((a, b) => a.fechaDate - b.fechaDate)
+      .map(({ fechaDate, ...rest }) => rest);
+
+    const tablaMap = new Map();
+    for (const r of registros) {
+      const key = r.destino + '||' + r.tipoPedido;
+      if (!tablaMap.has(key)) tablaMap.set(key, { destino: r.destino, tipoPedido: r.tipoPedido, pallets: 0, piezas: 0, ultimoRegistro: null });
+      const row = tablaMap.get(key);
+      row.pallets += 1;
+      row.piezas += r.piezas;
+      if (r.ultimoRegistro && (!row.ultimoRegistro || r.ultimoRegistro > row.ultimoRegistro)) row.ultimoRegistro = r.ultimoRegistro;
+    }
+    const tablaResumen = [...tablaMap.values()]
+      .map((row) => ({
+        ...row,
+        pctPallets: totalPallets > 0 ? Number(((row.pallets / totalPallets) * 100).toFixed(1)) : 0,
+        pctPiezas: totalPiezas > 0 ? Number(((row.piezas / totalPiezas) * 100).toFixed(1)) : 0,
+      }))
+      .sort((a, b) => b.pallets - a.pallets);
+
+    res.json({
+      success: true,
+      kpis: {
+        totalPallets: { value: totalPallets, deltaPct: delta('totalPallets', totalPallets) },
+        totalPiezas: { value: totalPiezas, deltaPct: delta('totalPiezas', totalPiezas) },
+        registrosHoy: { value: registrosHoy, deltaPct: null },
+        binesActivos: { value: null, disponibleEn: 'Etapa 2' },
+        destinosActivos: { value: destinosActivos, deltaPct: null },
+        tiposActivos: { value: tiposActivos, deltaPct: null },
+      },
+      graficas: {
+        porDestino, porTipo, porEscaneadora, porDia,
+        matriz: { destinos: destinosUnicos, tipos: tiposUnicos, celdas },
+      },
+      tablaResumen,
+      meta: {
+        fechaInicio: rango.fecha_inicio,
+        fechaFin: rango.fecha_fin,
+        tipo: tipoFiltro,
+        totalPallets,
+        timezone: 'America/Mexico_City',
+        generadoEn: new Date().toISOString(),
+      },
+    });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // ═══════════ METAS DE PRODUCCION (admin 3647 only) ═══════════
 const targetSchema = new mongoose.Schema({
   turno: { type: String, required: true, enum: ['Día', 'Tiempo Extra', 'Noche', 'Global'], unique: true },
@@ -3085,6 +3252,11 @@ async function getFilteredPalletsMeta(filter, query) {
         destino: { $first: '$destino' },
         pedido: { $first: '$pedido' },
         fecha: { $first: '$fecha' },
+        // Aditivo para Dashboard Destinos FFT (normalizeOrderType necesita el primer
+        // token de observaciones) — no afecta a los callers existentes, que ya ignoran
+        // campos extra en el objeto que arma este mismo loop.
+        observaciones: { $first: '$observaciones' },
+        createdAt: { $first: '$createdAt' },
     } },
   );
   const grupos = await EscReg.aggregate(pipeline);
@@ -3093,7 +3265,7 @@ async function getFilteredPalletsMeta(filter, query) {
   for (const g of grupos) {
     const pid = normalizePalletId(g._id);
     if (!pid) continue;
-    porPallet.set(pid, { cantidad: g.cantidad, escaneadora: g.escaneadora, turno: g.turno, condicion: g.condicion, destino: g.destino, pedido: g.pedido, fecha: g.fecha });
+    porPallet.set(pid, { cantidad: g.cantidad, escaneadora: g.escaneadora, turno: g.turno, condicion: g.condicion, destino: g.destino, pedido: g.pedido, fecha: g.fecha, observaciones: g.observaciones, createdAt: g.createdAt });
     orden.push(pid);
   }
   return { orden, porPallet };
