@@ -11,7 +11,8 @@
     { "source": "/api/(.*)", "destination": "/api/index.js" }
   ],
   "crons": [
-    { "path": "/api/cron/enrich-pallets", "schedule": "0 9 * * *" }
+    { "path": "/api/cron/enrich-pallets", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/sync-cubicaje-inventory", "schedule": "0 6 * * *" }
   ],
   "headers": [
     { "source": "/api/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }, { "key": "Pragma", "value": "no-cache" }] },

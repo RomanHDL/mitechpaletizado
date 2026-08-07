@@ -3235,8 +3235,16 @@
 
             <!-- ══ TAB: AREAS Y BINES ══ -->
             <div class="fft-tabpanel" id="fft-tabpanel-areas">
-                <div class="fft-section-title">Áreas y Bines</div>
-                <div class="fft-section-sub">Cada card de área agrupa sus bines; abre un área para ver el detalle completo</div>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.6rem;">
+                    <div>
+                        <div class="fft-section-title">Áreas y Bines</div>
+                        <div class="fft-section-sub">Cada card de área agrupa sus bines; abre un área para ver el detalle completo</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <button class="fft-btn fft-btn-primary" id="fft-btn-sync-inventario" onclick="fftSincronizarInventario()"><i class="fa-solid fa-rotate"></i> Sincronizar inventario ahora</button>
+                        <div id="fft-inventario-sync-nota" style="font-size:0.72rem;color:var(--fft-text-muted);margin-top:0.35rem;"></div>
+                    </div>
+                </div>
                 <div class="fft-area-grid" id="fft-areas-full"></div>
 
                 <div class="fft-card" style="padding:1.1rem 1.25rem;">
@@ -11818,10 +11826,16 @@ async function fftLoad(silencioso) {
         document.getElementById('fft-destinos-full').innerHTML = `<div class="fft-empty-note">No se pudieron cargar los destinos: ${nota}</div>`;
     }
 
+    const notaSyncEl = document.getElementById('fft-inventario-sync-nota');
     if (areasOk) {
         fftRenderAreas(fftUltimoAreas.areas);
         fftRenderBines(fftUltimoAreas.bines);
         fftRenderDiagnostico(fftUltimoAreas.diagnostico);
+        if (notaSyncEl) {
+            const m = fftUltimoAreas.meta;
+            if (m.nuncaSincronizado) notaSyncEl.innerHTML = '<span style="color:#EF4444;">Nunca se ha sincronizado el inventario — dale clic al botón.</span>';
+            else notaSyncEl.textContent = `Última sincronización: ${m.ultimaSincronizacion ? new Date(m.ultimaSincronizacion).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : 'N/D'}`;
+        }
     } else {
         const nota = areasRes.status === 'rejected' ? areasRes.reason.message : areasRes.value.error;
         const isNotConfigured = /CUBICAJE_API_BASE_URL|CUBICAJE_INTEGRATION_KEY/.test(nota || '');
@@ -12037,6 +12051,31 @@ function fftRenderBines(bines) {
     fftUltimosBines = bines || [];
     fftFiltrarTablaBines();
 }
+// Dispara una sincronizacion manual del inventario (admin 3647). Puede tardar
+// hasta ~40s porque consulta Cubicaje en vivo — si el plan de Vercel de este
+// proyecto tiene un limite de ejecucion mas corto, la plataforma puede cortar
+// la funcion antes de terminar; en ese caso el cron diario sigue refrescando
+// el cache automaticamente.
+async function fftSincronizarInventario() {
+    const btn = document.getElementById('fft-btn-sync-inventario');
+    const nota = document.getElementById('fft-inventario-sync-nota');
+    const prevHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sincronizando... (puede tardar hasta 40s)';
+    try {
+        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/sincronizar-inventario`, { method: 'POST' });
+        if (!data.success) throw new Error(data.error || 'Error al sincronizar');
+        showToast(`Inventario sincronizado: ${data.totalGuardado.toLocaleString('es-MX')} pallets${data.agotado ? ' (parcial, reintenta si faltan)' : ''}.`, 'success', 4000);
+        fftLoad();
+    } catch (e) {
+        showToast('Error al sincronizar inventario: ' + e.message, 'error');
+        if (nota) nota.innerHTML = `<span style="color:#EF4444;">${e.message}</span>`;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = prevHtml;
+    }
+}
+
 function fftFiltrarTablaBines() {
     const qEl = document.getElementById('fft-bin-buscador');
     const q = qEl ? (qEl.value || '').trim().toLowerCase() : '';

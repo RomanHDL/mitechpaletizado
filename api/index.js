@@ -232,6 +232,37 @@ const palletEnrichmentSchema = new mongoose.Schema({
 }, { timestamps: true });
 const PalletEnrichment = mongoose.models.PalletEnrichment || mongoose.model('PalletEnrichment', palletEnrichmentSchema);
 
+// ── Cache local del inventario real de BinManagerRO (via Cubicaje) ──
+// Consultar Cubicaje EN VIVO por los 30,000+ pallets del inventario completo
+// en cada carga de pagina resulto ser demasiado lento (una sola pagina de 200
+// ya tardaba mas de 12s) — Dashboard Destinos FFT (Areas/Bines/Pallets) ahora
+// LEE de este cache local (rapido, un solo query a Mongo) en vez de llamar a
+// Cubicaje en cada request. El cache se refresca via cron (ver
+// /api/cron/sync-cubicaje-inventory, vercel.json) y bajo demanda (admin 3647,
+// boton "Actualizar inventario" del modulo) — nunca de forma sincrona dentro
+// de un request normal de usuario.
+const cubicajeInventarioSchema = new mongoose.Schema({
+  palletId: { type: String, required: true, unique: true, index: true },
+  binTypeId: Number,
+  binTypeName: String,
+  cantidadTotal: Number,
+  skuCount: Number,
+  locationName: String,
+  area: String,
+  areaFuente: String,
+  raw: mongoose.Schema.Types.Mixed,
+}, { timestamps: true });
+const CubicajeInventario = mongoose.models.CubicajeInventario || mongoose.model('CubicajeInventario', cubicajeInventarioSchema);
+const cubicajeSyncMetaSchema = new mongoose.Schema({
+  _id: { type: String, default: 'singleton' },
+  ultimaSincronizacion: Date,
+  totalReal: Number,
+  totalGuardado: Number,
+  agotado: Boolean,
+  error: String,
+}, { timestamps: true });
+const CubicajeSyncMeta = mongoose.models.CubicajeSyncMeta || mongoose.model('CubicajeSyncMeta', cubicajeSyncMetaSchema);
+
 // ── Middleware ──
 async function auth(req, res, next) {
   const h = req.headers.authorization;
@@ -887,14 +918,14 @@ app.post('/api/sc-pallet/sync-import', auth, roleGuard('admin'), async (req, res
 // que tanto /api/sc-pallets/live COMO el agregado por bin de Dashboard Destinos
 // FFT (mas abajo) llamen a la MISMA logica, en vez de reimplementar 2 veces el
 // fetch/timeout/mapeo de campos hacia Cubicaje.
-async function fetchCubicajeLivePalletsPage(limit, offset, search) {
+async function fetchCubicajeLivePalletsPage(limit, offset, search, timeoutMs = 20000) {
   const base = process.env.CUBICAJE_API_BASE_URL;
   const key = process.env.CUBICAJE_INTEGRATION_KEY;
   if (!base || !key) { const e = new Error('CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto'); e.status = 503; throw e; }
   const params = new URLSearchParams({ limit, offset });
   if (search) params.set('search', search);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let resp;
   try {
     resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/live-pallets?${params.toString()}`, {
@@ -967,14 +998,17 @@ const FFT_INVENTARIO_CACHE_TTL_MS = 60000;
 // no un limite de muestreo — en el caso normal se trae TODO. Si el tiempo
 // total excede el presupuesto (proteccion contra timeout serverless), se
 // regresa lo ya obtenido con `agotado:true` en vez de fallar sin datos.
-async function fetchCubicajeLivePalletsAll(maxPallets = 60000, forzar = false) {
+// `presupuestoMs`: Cubicaje resulto ser lento (una sola pagina de 200 puede
+// tardar >12s), asi que este presupuesto es CONFIGURABLE — corto (8s) para el
+// path interactivo (por si algun caller todavia lo usa en vivo), largo (40s)
+// para el sync de cron/manual, que si tiene margen de ejecucion.
+async function fetchCubicajeLivePalletsAll(maxPallets = 60000, forzar = false, presupuestoMs = 8000) {
   const ahora = Date.now();
   if (!forzar && fftInventarioCache.data && (ahora - fftInventarioCache.timestamp) < FFT_INVENTARIO_CACHE_TTL_MS) {
     return fftInventarioCache;
   }
   const pageSize = 200;
   const CONCURRENCIA = 10;
-  const PRESUPUESTO_MS = 8000; // conservador: evita exceder el limite de ejecucion de la funcion serverless
   const inicio = Date.now();
 
   const { data: primera, total } = await fetchCubicajeLivePalletsPage(pageSize, 0);
@@ -987,7 +1021,7 @@ async function fetchCubicajeLivePalletsAll(maxPallets = 60000, forzar = false) {
   let idx = 0;
   async function worker() {
     while (idx < offsets.length) {
-      if (Date.now() - inicio > PRESUPUESTO_MS) { agotadoPorTiempo = true; return; }
+      if (Date.now() - inicio > presupuestoMs) { agotadoPorTiempo = true; return; }
       const miOffset = offsets[idx++];
       try {
         const { data } = await fetchCubicajeLivePalletsPage(pageSize, miOffset);
@@ -1005,6 +1039,50 @@ async function fetchCubicajeLivePalletsAll(maxPallets = 60000, forzar = false) {
   };
   fftInventarioCache = resultado;
   return resultado;
+}
+
+// Trae el inventario COMPLETO en vivo de Cubicaje (presupuesto largo, pensado
+// para cron/accion manual, NO para un request interactivo de usuario) y lo
+// vuelca al cache local en Mongo (CubicajeInventario) — upsert por palletId +
+// borra los que ya no aparecen en el inventario actual (salieron del almacen).
+// UNICO lugar donde se escribe ese cache.
+async function sincronizarInventarioCubicaje() {
+  const { data, total, agotado } = await fetchCubicajeLivePalletsAll(60000, true, 40000);
+  if (data.length) {
+    const ops = data.map((p) => ({
+      updateOne: {
+        filter: { palletId: p.palletId },
+        update: { $set: { binTypeId: p.BinTypeID, binTypeName: p.binTypeName, cantidadTotal: p.cantidadTotal, skuCount: p.skuCount, locationName: p.locationName, area: p.area, areaFuente: p.areaFuente, raw: p.raw } },
+        upsert: true,
+      },
+    }));
+    await CubicajeInventario.bulkWrite(ops, { ordered: false });
+  }
+  const idsActuales = data.map((p) => p.palletId).filter(Boolean);
+  await CubicajeInventario.deleteMany({ palletId: { $nin: idsActuales } });
+  await CubicajeSyncMeta.findByIdAndUpdate(
+    'singleton',
+    { ultimaSincronizacion: new Date(), totalReal: total, totalGuardado: data.length, agotado, error: '' },
+    { upsert: true },
+  );
+  return { totalReal: total, totalGuardado: data.length, agotado };
+}
+
+// Lee el inventario YA CACHEADO en Mongo (rapido) en el shape que espera el
+// resto del modulo Dashboard Destinos FFT (mismo shape que fetchCubicajeLivePalletsAll).
+async function leerInventarioCubicajeCacheado() {
+  const [docs, meta] = await Promise.all([
+    CubicajeInventario.find({}).lean(),
+    CubicajeSyncMeta.findById('singleton').lean(),
+  ]);
+  const pallets = docs.map((d) => ({ palletId: d.palletId, BinTypeID: d.binTypeId, binTypeName: d.binTypeName, cantidadTotal: d.cantidadTotal, skuCount: d.skuCount, locationName: d.locationName, area: d.area, areaFuente: d.areaFuente, raw: d.raw }));
+  return {
+    pallets,
+    totalReal: meta ? meta.totalReal : pallets.length,
+    agotado: meta ? meta.agotado : false,
+    ultimaSincronizacion: meta ? meta.ultimaSincronizacion : null,
+    nuncaSincronizado: !meta,
+  };
 }
 
 // ══════════════════════════════════════════════
@@ -2358,11 +2436,11 @@ app.get('/api/dashboard-destinos-fft/filtros', auth, roleGuard('admin'), centroO
     // seguir funcionando (no se bloquea todo el panel por una fuente caida).
     let areas = [], bines = [], categorias = [];
     try {
-      const { data: inventario } = await fetchCubicajeLivePalletsAll();
+      const { pallets: inventario } = await leerInventarioCubicajeCacheado();
       areas = [...new Set(inventario.map((p) => p.area).filter(Boolean))].sort();
       bines = [...new Set(inventario.map((p) => fftNormalizeBin(p.locationName).valor))].sort();
       categorias = [...new Set(inventario.map((p) => p.binTypeName).filter(Boolean))].sort();
-    } catch (e) { /* Cubicaje no configurado/disponible: filtros de inventario quedan vacios, no rompe el resto */ }
+    } catch (e) { /* cache aun no sincronizado: filtros de inventario quedan vacios, no rompe el resto */ }
 
     res.json({
       success: true,
@@ -2503,8 +2581,10 @@ app.get('/api/dashboard-destinos-fft/data', auth, roleGuard('admin'), centroOper
 // fechas pedido (o los ultimos 30 dias por defecto).
 async function construirCruceFft(query) {
   const rango = fftDefaultRange(query || {});
-  const [{ data: inventario, total: totalInventario, agotado: agotadoInventario }, catalogo] = await Promise.all([
-    fetchCubicajeLivePalletsAll(),
+  // Lee el inventario del CACHE local (rapido) — nunca llama a Cubicaje en vivo
+  // dentro de un request interactivo (ver sincronizarInventarioCubicaje/cron).
+  const [{ pallets: inventario, totalReal: totalInventario, agotado: agotadoInventario, ultimaSincronizacion, nuncaSincronizado }, catalogo] = await Promise.all([
+    leerInventarioCubicajeCacheado(),
     Clasif.find({ isActive: true }).then((docs) => docs.map((c) => c.nombre)),
   ]);
 
@@ -2546,7 +2626,7 @@ async function construirCruceFft(query) {
     palletIdsInvalidos,
   };
 
-  return { registros, rango, totalInventario, agotadoInventario, catalogo, diagnostico };
+  return { registros, rango, totalInventario, agotadoInventario, catalogo, diagnostico, ultimaSincronizacion, nuncaSincronizado };
 }
 
 function fftModaCategoria(regs) {
@@ -2634,12 +2714,24 @@ app.get('/api/dashboard-destinos-fft/destinos', auth, roleGuard('admin'), centro
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 
+// Sincroniza AHORA el cache de inventario (admin 3647, bajo demanda) — puede
+// tardar hasta ~40s porque llama a Cubicaje en vivo; si el plan de Vercel de
+// este proyecto tiene un limite de ejecucion mas corto, puede fallar por
+// timeout de la plataforma (no de este codigo) — en ese caso el cron diario
+// (ver vercel.json) sigue siendo el mecanismo confiable de refresco.
+app.post('/api/dashboard-destinos-fft/sincronizar-inventario', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const r = await sincronizarInventarioCubicaje();
+    res.json({ success: true, ...r });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
 // Areas y Bines — SOLO inventario real (BinManagerRO), cruzado con FFT para
 // destinos relacionados/pedidos/escaneadoras/ultimo movimiento por bin/area.
 // "Bines activos" = bines con inventario actual (al menos 1 pallet ahorita).
 app.get('/api/dashboard-destinos-fft/areas', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
   try {
-    const { registros, totalInventario, agotadoInventario, diagnostico } = await construirCruceFft(req.query);
+    const { registros, totalInventario, agotadoInventario, diagnostico, ultimaSincronizacion, nuncaSincronizado } = await construirCruceFft(req.query);
     const conInventario = registros.filter((r) => r.inventory);
     const totalPalletsInv = conInventario.length;
     const totalPiezasInv = conInventario.reduce((s, r) => s + r.inventory.pieces, 0);
@@ -2697,7 +2789,7 @@ app.get('/api/dashboard-destinos-fft/areas', auth, roleGuard('admin'), centroOpe
         palletsSinCruceFFT: diagnostico.soloInventario,
       },
       diagnostico,
-      meta: { totalInventarioReal: totalInventario, agotadoInventario, generadoEn: new Date().toISOString() },
+      meta: { totalInventarioReal: totalInventario, agotadoInventario, ultimaSincronizacion, nuncaSincronizado, generadoEn: new Date().toISOString() },
     });
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
@@ -2879,8 +2971,8 @@ app.get('/api/dashboard-destinos-fft/pallets/:palletId', auth, roleGuard('admin'
     if (!palletIdParam) return res.status(400).json({ success: false, error: 'palletId invalido' });
     const key = palletIdMatchKey(palletIdParam);
 
-    const [{ data: inventario }, clasifs] = await Promise.all([
-      fetchCubicajeLivePalletsAll(),
+    const [{ pallets: inventario }, clasifs] = await Promise.all([
+      leerInventarioCubicajeCacheado(),
       Clasif.find({ isActive: true }),
     ]);
     const catalogo = clasifs.map((c) => c.nombre);
@@ -4382,6 +4474,21 @@ app.get('/api/cron/enrich-pallets', async (req, res) => {
       procesados += lote.length;
     }
     res.json({ success: true, procesados, faltantesEsteLote: faltantes.length, pendientesTotal: ids.length - yaSet.size - procesados });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Cron diario: refresca el cache local del inventario de BinManagerRO/Cubicaje
+// (ver vercel.json) — mismo patron de proteccion (CRON_SECRET) que
+// /api/cron/enrich-pallets. Es el mecanismo CONFIABLE de refresco (los crons
+// de Vercel tienen mas margen de ejecucion que un request normal de usuario);
+// el boton "Sincronizar ahora" del modulo es un complemento bajo demanda.
+app.get('/api/cron/sync-cubicaje-inventory', async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return res.status(503).json({ success: false, error: 'CRON_SECRET no configurada' });
+  if (req.headers.authorization !== `Bearer ${secret}`) return res.status(401).json({ success: false, error: 'No autorizado' });
+  try {
+    const r = await sincronizarInventarioCubicaje();
+    res.json({ success: true, ...r });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
