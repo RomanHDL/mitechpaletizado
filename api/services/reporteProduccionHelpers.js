@@ -1,11 +1,11 @@
 // Helpers puros (sin DB, sin red) para "Reporte Semanal de Produccion" y para
 // /api/reportes/produccion-excel — UNA SOLA fuente de verdad para normalizar,
-// clasificar (Almacen/TRG/FBA/Bulky/Fierro sin doble conteo), agrupar por dia
+// clasificar (Almacen/TRG/FBA/Bulky/Fierro/Element sin doble conteo), agrupar por dia
 // y calcular el resumen semanal. Se mantienen aqui, separados de api/index.js,
 // para poder probarlos con node:test sin necesitar Mongo real.
 
 const DIAS_ES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-const CATEGORIAS_OFICIALES = ['Almacén', 'TRG', 'FBA', 'Bulky', 'Fierro'];
+const CATEGORIAS_OFICIALES = ['Almacén', 'TRG', 'FBA', 'Bulky', 'Fierro', 'Element'];
 
 // Normaliza el campo `destino` tolerando mayusculas/minusculas/acentos. Regresa
 // exactamente 'TRG' | 'Almacen' | 'FBA' cuando coincide; si no coincide con
@@ -32,22 +32,31 @@ function normalizeDestino(d) {
 // y getClasificacion() ya revierte ese alias en el resto de la app — este
 // helper debe reconocer el mismo alias o los pallets BULKY reales caen en
 // Almacen por error (bug real detectado: Bulky salia siempre en 0).
-// Regresa 'BULKY' | 'FIERRO' | '' (nunca inventa un tipo que no esta en el texto).
+// Regresa 'BULKY' | 'FIERRO' | 'ELEMENT' | '' (nunca inventa un tipo que no
+// esta en el texto). ELEMENT agregado 2026-08-07 a peticion de Roman: se
+// contaba como Almacen (catch-all) y queria poder identificarlo aparte, sin
+// sumarlo a Almacen ni a FBA — mismo mecanismo que ya existia para Bulky/Fierro.
 function extraerTipoPedido(registro) {
   const obsToken = String((registro && registro.observaciones) || '').split('|')[0].trim().toUpperCase();
   if (obsToken === 'BULKY' || obsToken === 'LPN') return 'BULKY';
   if (obsToken === 'FIERRO') return 'FIERRO';
+  if (obsToken === 'ELEMENT') return 'ELEMENT';
   const pedToken = String((registro && registro.pedido) || '').trim().toUpperCase();
   if (pedToken === 'BULKY' || pedToken === 'LPN') return 'BULKY';
   if (pedToken === 'FIERRO') return 'FIERRO';
+  if (pedToken === 'ELEMENT') return 'ELEMENT';
   return '';
 }
 
-// Clasifica UN registro en EXACTAMENTE una de las 5 categorias oficiales.
-// Prioridad: TRG/FBA (por destino) > Bulky/Fierro (por tipo de pedido) > Almacén
-// (todo lo demas, incluyendo Almacen sin tipo especial y cualquier destino
-// no reconocido). Cada rama hace `return` inmediato — un registro nunca puede
-// caer en mas de una categoria por construccion, no por casualidad.
+// Clasifica UN registro en EXACTAMENTE una de las 6 categorias oficiales.
+// Prioridad: TRG/FBA (por destino) > Bulky/Fierro/Element (por tipo de pedido)
+// > Almacén (todo lo demas, incluyendo Almacen sin tipo especial y cualquier
+// destino no reconocido). Cada rama hace `return` inmediato — un registro
+// nunca puede caer en mas de una categoria por construccion, no por casualidad.
+// Element (2026-08-07): mismo nivel de prioridad que Bulky/Fierro — si el
+// registro es destino TRG/FBA, ESE gana (igual que ya pasaba con Bulky/Fierro,
+// ver test "TRG y FBA tienen prioridad"); Element solo aparece separado de
+// Almacén cuando el destino no es TRG/FBA. Nunca se suma a FBA ni a Almacén.
 function clasificarRegistro(registro) {
   const destNorm = normalizeDestino(registro && registro.destino);
   if (destNorm === 'TRG') return 'TRG';
@@ -55,6 +64,7 @@ function clasificarRegistro(registro) {
   const tipo = extraerTipoPedido(registro);
   if (tipo === 'BULKY') return 'Bulky';
   if (tipo === 'FIERRO') return 'Fierro';
+  if (tipo === 'ELEMENT') return 'Element';
   return 'Almacén';
 }
 
@@ -122,20 +132,21 @@ function buildReporteSemanal(registrosPreparados, semanaInicio) {
     const regsDia = regs.filter((r) => r.fecha === fechaStr);
 
     const nuevoBucket = () => ({ pallets: 0, piezas: 0 });
-    const almacen = nuevoBucket(), trg = nuevoBucket(), fba = nuevoBucket(), bulky = nuevoBucket(), fierro = nuevoBucket();
+    const almacen = nuevoBucket(), trg = nuevoBucket(), fba = nuevoBucket(), bulky = nuevoBucket(), fierro = nuevoBucket(), element = nuevoBucket();
     for (const r of regsDia) {
       const b = r.categoria === 'Almacén' ? almacen
         : r.categoria === 'TRG' ? trg
         : r.categoria === 'FBA' ? fba
         : r.categoria === 'Bulky' ? bulky
-        : fierro;
+        : r.categoria === 'Fierro' ? fierro
+        : element;
       b.pallets += 1;
       b.piezas += r.piezas || 0;
     }
     const bulkyFierroPallets = bulky.pallets + fierro.pallets;
     const bulkyFierroPiezas = bulky.piezas + fierro.piezas;
-    const totalPallets = almacen.pallets + trg.pallets + fba.pallets + bulky.pallets + fierro.pallets;
-    const totalPiezas = almacen.piezas + trg.piezas + fba.piezas + bulky.piezas + fierro.piezas;
+    const totalPallets = almacen.pallets + trg.pallets + fba.pallets + bulky.pallets + fierro.pallets + element.pallets;
+    const totalPiezas = almacen.piezas + trg.piezas + fba.piezas + bulky.piezas + fierro.piezas + element.piezas;
 
     let detalleBulkyFierro = 'Sin producción';
     const partes = [];
@@ -148,10 +159,13 @@ function buildReporteSemanal(registrosPreparados, semanaInicio) {
       dia: nombreDia,
       sinProduccion: totalPallets === 0,
       filas: {
-        almacen: { categoria: 'Almacén', pallets: almacen.pallets, piezas: almacen.piezas, bulky: 0, fierro: 0, detalle: 'Excluye Bulky y Fierro' },
+        almacen: { categoria: 'Almacén', pallets: almacen.pallets, piezas: almacen.piezas, bulky: 0, fierro: 0, detalle: 'Excluye Bulky, Fierro y Element' },
         bulkyFierro: { categoria: 'Bulky + Fierro', pallets: bulkyFierroPallets, piezas: bulkyFierroPiezas, bulky: bulky.pallets, fierro: fierro.pallets, detalle: detalleBulkyFierro },
         trg: { categoria: 'TRG', pallets: trg.pallets, piezas: trg.piezas, bulky: 0, fierro: 0, detalle: '' },
         fba: { categoria: 'FBA', pallets: fba.pallets, piezas: fba.piezas, bulky: 0, fierro: 0, detalle: '' },
+        // Element (2026-08-07): identificado aparte, colocado junto a FBA en
+        // la UI/Excel — nunca sumado a FBA ni a Almacén (ver clasificarRegistro).
+        element: { categoria: 'Element', pallets: element.pallets, piezas: element.piezas, bulky: 0, fierro: 0, detalle: '' },
       },
       totalPallets,
       totalPiezas,
@@ -173,6 +187,7 @@ function buildReporteSemanal(registrosPreparados, semanaInicio) {
       fbaPallets: sumFila('fba', 'pallets'),
       bulkyPallets: sumFila('bulkyFierro', 'bulky'),
       fierroPallets: sumFila('bulkyFierro', 'fierro'),
+      elementPallets: sumFila('element', 'pallets'),
       promedioDiarioPallets: totalSemanaPallets / 7,
       diaMayorProduccion: diaTop && diaTop.totalPallets > 0 ? diaTop.dia : null,
     },

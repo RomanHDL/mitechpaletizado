@@ -107,6 +107,9 @@ function construirWorkbookReporteSemanal(reporte, semana) {
     r++;
     escribirFilaDatos(wsProd, r, dia.filas.fba, { mostrarBulkyFierro: false });
     r++;
+    // Element (2026-08-07): junto a FBA en la hoja, nunca sumado a su total.
+    escribirFilaDatos(wsProd, r, dia.filas.element, { mostrarBulkyFierro: false });
+    r++;
     escribirFilaDatos(wsProd, r, { categoria: 'Total del día', pallets: dia.totalPallets, piezas: dia.totalPiezas, detalle: '' }, { mostrarBulkyFierro: false, negrita: true });
     r += 2;
   }
@@ -131,6 +134,7 @@ function construirWorkbookReporteSemanal(reporte, semana) {
     ['Pallets Almacén', reporte.resumen.almacenPallets],
     ['Pallets TRG', reporte.resumen.trgPallets],
     ['Pallets FBA', reporte.resumen.fbaPallets],
+    ['Pallets Element', reporte.resumen.elementPallets],
     ['Pallets Bulky', reporte.resumen.bulkyPallets],
     ['Pallets Fierro', reporte.resumen.fierroPallets],
     ['Promedio diario de pallets', Number(reporte.resumen.promedioDiarioPallets.toFixed(2))],

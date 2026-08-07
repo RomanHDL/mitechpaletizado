@@ -3069,6 +3069,7 @@
                             <option value="Almacén">Almacén</option>
                             <option value="TRG">TRG</option>
                             <option value="FBA">FBA</option>
+                            <option value="Element">Element</option>
                             <option value="Bulky">Bulky</option>
                             <option value="Fierro">Fierro</option>
                         </select>
@@ -11507,6 +11508,7 @@ function rsRender(data) {
         ['Pallets Almacén', r.almacenPallets],
         ['Pallets TRG', r.trgPallets],
         ['Pallets FBA', r.fbaPallets],
+        ['Pallets Element', r.elementPallets],
         ['Pallets Bulky', r.bulkyPallets],
         ['Pallets Fierro', r.fierroPallets],
         ['Promedio diario', r.promedioDiarioPallets.toFixed(1)],
@@ -11552,6 +11554,8 @@ function rsRenderDia(dia, idx) {
         rsFilaHtml(idx, 'bulkyFierro', dia.filas.bulkyFierro, { mostrarBulkyFierro: true }),
         rsFilaHtml(idx, 'trg', dia.filas.trg, { mostrarBulkyFierro: false }),
         rsFilaHtml(idx, 'fba', dia.filas.fba, { mostrarBulkyFierro: false }),
+        // Element (2026-08-07): junto a FBA, nunca sumado a su total ni al de Almacén.
+        rsFilaHtml(idx, 'element', dia.filas.element, { mostrarBulkyFierro: false }),
     ].join('');
     return `
         <div class="rs-day-section">
@@ -11577,7 +11581,7 @@ function rsRenderDia(dia, idx) {
 
 // Categorias reales que forma cada fila clickeable, para filtrar `registros`
 // (lista plana ya clasificada por el backend) sin recalcular nada en el cliente.
-const RS_FILA_CATEGORIAS = { almacen: ['Almacén'], bulkyFierro: ['Bulky', 'Fierro'], trg: ['TRG'], fba: ['FBA'], total: ['Almacén', 'TRG', 'FBA', 'Bulky', 'Fierro'] };
+const RS_FILA_CATEGORIAS = { almacen: ['Almacén'], bulkyFierro: ['Bulky', 'Fierro'], trg: ['TRG'], fba: ['FBA'], element: ['Element'], total: ['Almacén', 'TRG', 'FBA', 'Bulky', 'Fierro', 'Element'] };
 
 function rsAbrirDetalle(idxDia, key) {
     if (!rsUltimoReporte) return;

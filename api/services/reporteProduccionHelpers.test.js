@@ -42,18 +42,33 @@ test('extraerTipoPedido reconoce el alias legado LPN -> BULKY', () => {
   assert.equal(extraerTipoPedido({ observaciones: '', pedido: 'LPN' }), 'BULKY');
 });
 
+test('extraerTipoPedido detecta Element en observaciones o pedido, sin distinguir mayusculas', () => {
+  assert.equal(extraerTipoPedido({ observaciones: 'ELEMENT', pedido: '' }), 'ELEMENT');
+  assert.equal(extraerTipoPedido({ observaciones: 'element | nota extra', pedido: '' }), 'ELEMENT');
+  assert.equal(extraerTipoPedido({ observaciones: '', pedido: 'Element' }), 'ELEMENT');
+});
+
 test('clasificarRegistro: pallet real con clasificacion BULKY (alias LPN) y destino Almacen se clasifica como Bulky', () => {
   assert.equal(clasificarRegistro({ destino: 'Almacen', observaciones: 'LPN | BULKY', pedido: '391931' }), 'Bulky');
 });
 
-test('clasificarRegistro: TRG y FBA tienen prioridad sobre Bulky/Fierro', () => {
+test('clasificarRegistro: TRG y FBA tienen prioridad sobre Bulky/Fierro/Element', () => {
   assert.equal(clasificarRegistro({ destino: 'TRG', pedido: 'BULKY' }), 'TRG');
   assert.equal(clasificarRegistro({ destino: 'FBA', pedido: 'FIERRO' }), 'FBA');
+  assert.equal(clasificarRegistro({ destino: 'FBA', pedido: 'ELEMENT' }), 'FBA');
 });
 
 test('clasificarRegistro: Bulky/Fierro con destino Almacen NO cuentan como Almacen', () => {
   assert.equal(clasificarRegistro({ destino: 'Almacen', pedido: 'BULKY' }), 'Bulky');
   assert.equal(clasificarRegistro({ destino: 'Almacen', observaciones: 'FIERRO' }), 'Fierro');
+});
+
+// Pedido explicito de Roman (2026-08-07): Element se contaba como Almacen
+// (catch-all) — debe identificarse aparte, nunca sumado a Almacen ni a FBA.
+test('clasificarRegistro: Element con destino Almacen se identifica aparte, NO cuenta como Almacen ni como FBA', () => {
+  assert.equal(clasificarRegistro({ destino: 'Almacen', pedido: 'ELEMENT' }), 'Element');
+  assert.equal(clasificarRegistro({ destino: 'Almacen', observaciones: 'ELEMENT | nota' }), 'Element');
+  assert.notEqual(clasificarRegistro({ destino: 'Almacen', pedido: 'ELEMENT' }), 'FBA');
 });
 
 test('clasificarRegistro: Almacen normal (sin tipo especial) cae en Almacén', () => {
@@ -124,6 +139,28 @@ test('buildReporteSemanal: ejemplo exacto del usuario, sin doble conteo', () => 
   assert.equal(reporte.resumen.almacenPallets, 15);
   assert.equal(reporte.resumen.bulkyPallets, 3);
   assert.equal(reporte.resumen.fierroPallets, 2);
+});
+
+// Pedido explicito de Roman (2026-08-07): 20 pallets Almacen, 3 con tipo
+// Element -> Almacen debe quedar en 17 (no 20), Element identificado aparte
+// con 3, y el total del dia sigue siendo 20 (nunca se pierde ni se duplica).
+test('buildReporteSemanal: Element se separa de Almacen sin duplicarse ni sumarse a FBA', () => {
+  const lunes = new Date(2026, 7, 3);
+  const registrosCrudos = [
+    ...Array.from({ length: 17 }, (_, i) => ({ _id: 'a' + i, fecha: '8/3/2026', destino: 'Almacen', pedido: '', observaciones: '', cantidad: 10 })),
+    ...Array.from({ length: 3 }, (_, i) => ({ _id: 'e' + i, fecha: '8/3/2026', destino: 'Almacen', pedido: 'ELEMENT', observaciones: '', cantidad: 10 })),
+  ];
+  const preparados = registrosCrudos.map(prepararRegistro);
+  const reporte = buildReporteSemanal(preparados, lunes);
+  const lunesRow = reporte.dias[0];
+  assert.equal(lunesRow.filas.almacen.pallets, 17); // NUNCA 20
+  assert.equal(lunesRow.filas.element.pallets, 3);
+  assert.equal(lunesRow.filas.element.categoria, 'Element');
+  assert.equal(lunesRow.filas.fba.pallets, 0); // Element nunca se suma a FBA
+  assert.equal(lunesRow.totalPallets, 20); // 17 + 3, sin perder ni duplicar
+  assert.equal(reporte.resumen.almacenPallets, 17);
+  assert.equal(reporte.resumen.elementPallets, 3);
+  assert.equal(reporte.resumen.fbaPallets, 0);
 });
 
 test('buildReporteSemanal: dia sin registros muestra sinProduccion y detalle "Sin producción"', () => {
