@@ -977,6 +977,46 @@ async function fetchCubicajePalletDetail(code, timeoutMs = 15000) {
   } finally { clearTimeout(timeout); }
 }
 
+// Catalogo de tipos de envio/destino (FBA, TRG, HV, FULL, BULK, BOX, UPT,
+// CALVERY, NACIONAL, INTERNACIONAL) con su politica real (apilable, mezcla,
+// inspeccion, documentos) — de la Postgres PROPIA de Cubicaje, no de
+// BinManagerRO. Mismo proxy/llave que fetchCubicajePalletDetail. Auditoria
+// 2026-08-07: pedido explicito de Roman de mostrar este catalogo en el
+// Dashboard Destinos FFT, no solo el conteo operativo de EscReg.
+async function fetchCubicajeShipmentTypes(timeoutMs = 15000) {
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key) { const e = new Error('CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto'); e.status = 503; throw e; }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let resp;
+  try {
+    resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/paletizado/shipment-types`, {
+      headers: { 'X-Integration-Key': key },
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : e.message;
+    const err = new Error('No se pudo consultar Cubicaje: ' + msg);
+    err.status = 502;
+    throw err;
+  } finally { clearTimeout(timeout); }
+  const data = await resp.json();
+  if (!resp.ok || !data.success) {
+    const err = new Error(data.error || `Cubicaje respondio ${resp.status}`);
+    err.status = resp.status === 401 ? 502 : resp.status;
+    throw err;
+  }
+  return data.data;
+}
+
+app.get('/api/dashboard-destinos-fft/shipment-types', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const data = await fetchCubicajeShipmentTypes();
+    res.json({ success: true, data });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
 app.get('/api/sc-pallets/live', auth, roleGuard('admin'), async (req, res) => {
   if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
   try {

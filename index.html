@@ -3269,6 +3269,12 @@
                 <div class="fft-section-sub">Campo real: <code>destino</code> de cada registro EscReg — nunca la categoría de inventario</div>
                 <div class="fft-destino-grid" id="fft-destinos-full"></div>
 
+                <div class="fft-card" style="padding:1.1rem 1.25rem;margin-bottom:1.25rem;">
+                    <div class="fft-chart-title">Catálogo de tipos de envío (Cubicaje)</div>
+                    <div class="fft-section-sub" style="margin-bottom:0.7rem;">Política real por código — apilable, mezcla en pallet, inspección requerida y documentos. No es un conteo operativo, es la definición del catálogo.</div>
+                    <div id="fft-shipment-types-body"><div class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando catálogo...</div></div>
+                </div>
+
                 <div class="fft-card fft-chart-panel" style="min-height:320px;margin-bottom:1.25rem;">
                     <div class="fft-chart-title">FFT → Destinos</div>
                     <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-flujo"></canvas></div>
@@ -11681,6 +11687,7 @@ let fftBinActual = null;
 let fftActividadPage = 1;
 let fftActividadUltimo = null;
 let fftActividadBuscarTimer = null;
+let fftShipmentTypesUltimo = null;
 
 const FFT_COLOR_DESTINO = { 'TRG': '#22c55e', 'Almacén': '#3B82F6', 'FBA': '#8B5CF6', 'Sin destino': '#94A3B8' };
 function fftColorDestino(nombre, idx) {
@@ -11730,6 +11737,7 @@ function fftSetTab(nombre) {
         if (panel) panel.classList.toggle('active', n === nombre);
     });
     if (nombre === 'actividad' && !fftActividadUltimo) fftCargarActividad(1);
+    if (nombre === 'destinos' && !fftShipmentTypesUltimo) fftCargarShipmentTypes();
 }
 
 async function fftCargarFiltrosDisponibles() {
@@ -12028,6 +12036,45 @@ function fftRenderFlujoChart(destinos) {
         data: { labels: destinos.map(d => `FFT → ${d.destino}`), datasets: [{ data: destinos.map(d => d.pallets), backgroundColor: destinos.map((d, i) => fftColorDestino(d.destino, i)), borderRadius: 6 }] },
         options: fftBarOptionsSimple(),
     });
+}
+
+// Catálogo de tipos de envío de Cubicaje (auditoría 2026-08-07) — pedido
+// explícito de Roman: mostrar la política real (FBA/TRG/HV/etc), no solo
+// el conteo operativo de EscReg que ya muestran las tarjetas de arriba.
+// Se carga una sola vez (catálogo, no cambia con el rango de fechas).
+async function fftCargarShipmentTypes() {
+    const body = document.getElementById('fft-shipment-types-body');
+    if (!body) return;
+    body.innerHTML = '<div class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando catálogo...</div>';
+    try {
+        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/shipment-types`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar el catálogo');
+        fftShipmentTypesUltimo = data;
+        fftRenderShipmentTypes(data.data);
+    } catch (e) {
+        body.innerHTML = `<div class="fft-empty-note">No se pudo cargar el catálogo de Cubicaje: ${e.message}</div>`;
+    }
+}
+function fftRenderShipmentTypes(rows) {
+    const body = document.getElementById('fft-shipment-types-body');
+    if (!body) return;
+    if (!rows || !rows.length) {
+        body.innerHTML = '<div class="fft-empty-note">Cubicaje no devolvió tipos de envío activos.</div>';
+        return;
+    }
+    body.innerHTML = `
+        <div class="fft-table-wrap"><table class="fft-table">
+            <thead><tr><th>Código</th><th>Label</th><th>Apilable</th><th>Mezcla en pallet</th><th>Inspección</th><th>Documentos requeridos</th></tr></thead>
+            <tbody>${rows.map(r => `
+                <tr>
+                    <td data-label="Código"><b>${r.code}</b></td>
+                    <td data-label="Label">${r.label || '-'}</td>
+                    <td data-label="Apilable">${r.stackable ? `Sí${r.maxStackHeightCm ? ` (≤${r.maxStackHeightCm}cm)` : ''}` : 'No'}</td>
+                    <td data-label="Mezcla en pallet">${({ free: 'Libre', same_size_only: 'Solo mismo tamaño', single_sku_per_pallet: '1 solo SKU por pallet' })[r.mixingPolicy] || r.mixingPolicy || '-'}</td>
+                    <td data-label="Inspección">${r.requiresInspection ? 'Sí' : 'No'}</td>
+                    <td data-label="Documentos requeridos">${(r.requiredDocuments || []).join(', ') || '-'}</td>
+                </tr>`).join('')}</tbody>
+        </table></div>`;
 }
 
 function fftAreaCardHtml(a) {
