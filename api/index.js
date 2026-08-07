@@ -1070,12 +1070,18 @@ async function sincronizarInventarioCubicaje() {
 
 // Lee el inventario YA CACHEADO en Mongo (rapido) en el shape que espera el
 // resto del modulo Dashboard Destinos FFT (mismo shape que fetchCubicajeLivePalletsAll).
+// EXCLUYE `raw` a proposito (projection -raw): las vistas agregadas
+// (Areas/Bines/Destinos/Actividad) no lo necesitan, y traer el objeto crudo
+// completo de Cubicaje para los ~30,000 pallets en cada carga era el cuello
+// de botella real (mucho trafico innecesario Mongo -> funcion serverless).
+// El detalle de UN pallet especifico pide su `raw` aparte, con
+// leerRawInventarioDePallet() (una sola fila, barato).
 async function leerInventarioCubicajeCacheado() {
   const [docs, meta] = await Promise.all([
-    CubicajeInventario.find({}).lean(),
+    CubicajeInventario.find({}).select('-raw').lean(),
     CubicajeSyncMeta.findById('singleton').lean(),
   ]);
-  const pallets = docs.map((d) => ({ palletId: d.palletId, BinTypeID: d.binTypeId, binTypeName: d.binTypeName, cantidadTotal: d.cantidadTotal, skuCount: d.skuCount, locationName: d.locationName, area: d.area, areaFuente: d.areaFuente, raw: d.raw }));
+  const pallets = docs.map((d) => ({ palletId: d.palletId, BinTypeID: d.binTypeId, binTypeName: d.binTypeName, cantidadTotal: d.cantidadTotal, skuCount: d.skuCount, locationName: d.locationName, area: d.area, areaFuente: d.areaFuente }));
   return {
     pallets,
     totalReal: meta ? meta.totalReal : pallets.length,
@@ -1083,6 +1089,14 @@ async function leerInventarioCubicajeCacheado() {
     ultimaSincronizacion: meta ? meta.ultimaSincronizacion : null,
     nuncaSincronizado: !meta,
   };
+}
+
+// Trae el `raw` (respuesta original de Cubicaje) de UN SOLO pallet — usado
+// unicamente por el detalle de pallet (pestaña "Datos originales").
+async function leerRawInventarioDePallet(palletIdOriginal) {
+  if (!palletIdOriginal) return null;
+  const doc = await CubicajeInventario.findOne({ palletId: palletIdOriginal }).select('raw').lean();
+  return doc ? doc.raw : null;
 }
 
 // ══════════════════════════════════════════════
@@ -2977,6 +2991,9 @@ app.get('/api/dashboard-destinos-fft/pallets/:palletId', auth, roleGuard('admin'
     ]);
     const catalogo = clasifs.map((c) => c.nombre);
     const inv = inventario.find((p) => palletIdMatchKey(p.palletId) === key) || null;
+    // `raw` se excluye de la lectura masiva del cache (ver leerInventarioCubicajeCacheado) —
+    // aqui, para UN solo pallet, si es barato traerlo.
+    const invRaw = inv ? await leerRawInventarioDePallet(inv.palletId) : null;
 
     const fftDocs = await EscReg.find({ palletId: new RegExp(`^${escapeRegex(palletIdParam)}$`, 'i') }).sort({ createdAt: -1 });
     const fftMasReciente = fftDocs[0] || null;
@@ -3020,7 +3037,7 @@ app.get('/api/dashboard-destinos-fft/pallets/:palletId', auth, roleGuard('admin'
       productos,
       movimientos,
       datosOriginales: {
-        inventario: inv ? fftLimpiarDatosSensibles(inv.raw) : null,
+        inventario: invRaw ? fftLimpiarDatosSensibles(invRaw) : null,
         fft: fftMasReciente ? fftLimpiarDatosSensibles(fftMasReciente) : null,
       },
     });
