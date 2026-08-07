@@ -950,6 +950,33 @@ async function fetchCubicajeLivePalletsPage(limit, offset, search, timeoutMs = 2
   };
 }
 
+// Contenido REAL (SKUs+cantidad+condicion) de UN pallet directo de
+// BinManagerRO por su BinCode — mismo proxy/llave que fetchCubicajeLivePalletsPage
+// pero contra /api/integrations/paletizado/pallets/:code (auditoria 2026-08-07,
+// Dashboard Destinos FFT: el modal de pallet solo tenia SKU/LPN via
+// SmartControl, opcional y a veces vacio). Complementa data.productos, no lo
+// reemplaza. Devuelve null en cualquier falla/config faltante — SIEMPRE
+// opcional, el resto del detalle del pallet debe seguir mostrandose igual.
+async function fetchCubicajePalletDetail(code, timeoutMs = 15000) {
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key || !code) return null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/paletizado/pallets/${encodeURIComponent(code)}`, {
+      headers: { 'X-Integration-Key': key },
+      signal: controller.signal,
+    });
+    if (resp.status === 404) return null;
+    const data = await resp.json();
+    if (!resp.ok || !data.success) return null;
+    return data.data; // { bin, content, movements }
+  } catch (e) {
+    return null;
+  } finally { clearTimeout(timeout); }
+}
+
 app.get('/api/sc-pallets/live', auth, roleGuard('admin'), async (req, res) => {
   if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
   try {
@@ -3035,6 +3062,12 @@ app.get('/api/dashboard-destinos-fft/pallets/:palletId', auth, roleGuard('admin'
       if (enr && enr.productos) productos = enr.productos;
     } catch (e) { /* enriquecimiento opcional */ }
 
+    // Contenido REAL en BinManagerRO (SKU+cantidad+condicion), directo de
+    // Cubicaje — auditoria 2026-08-07. Complementa productos (SmartControl):
+    // esta fuente es la tarima FISICA reportada por BinManagerRO ahorita
+    // mismo, no depende de que SmartControl tenga el LPN indexado.
+    const binManagerRO = await fetchCubicajePalletDetail(palletIdParam);
+
     // Trazabilidad: solo eventos reales, nunca inventados.
     const movimientos = [];
     fftDocs.slice().reverse().forEach((d) => {
@@ -3056,6 +3089,7 @@ app.get('/api/dashboard-destinos-fft/pallets/:palletId', auth, roleGuard('admin'
         createdAt: d.createdAt ? d.createdAt.toISOString() : null,
       })),
       productos,
+      binManagerRO,
       movimientos,
       datosOriginales: {
         inventario: invRaw ? fftLimpiarDatosSensibles(invRaw) : null,
