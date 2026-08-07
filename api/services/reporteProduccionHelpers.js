@@ -177,8 +177,26 @@ function buildReporteSemanal(registrosPreparados, semanaInicio) {
   const sumFila = (key, campo) => dias.reduce((s, d) => s + d.filas[key][campo], 0);
   const diaTop = dias.reduce((max, d) => (max === null || d.totalPallets > max.totalPallets ? d : max), null);
 
+  // Filas de RESUMEN SEMANAL — mismo shape que dia.filas (categoria/pallets/
+  // piezas/bulky/fierro/detalle), pero sumando TODA la semana. Pedido de
+  // Roman (2026-08-07): quiere esta misma tabla al final de la hoja
+  // "Producción" (ver reporteProduccionExcel.js), no solo en la hoja "Resumen".
+  let detalleBulkyFierroSemana = 'Sin producción';
+  const partesSemana = [];
+  if (sumFila('bulkyFierro', 'bulky') > 0) partesSemana.push(`${sumFila('bulkyFierro', 'bulky')} Bulky`);
+  if (sumFila('bulkyFierro', 'fierro') > 0) partesSemana.push(`${sumFila('bulkyFierro', 'fierro')} Fierro`);
+  if (partesSemana.length) detalleBulkyFierroSemana = partesSemana.join(' + ');
+  const resumenFilas = {
+    almacen: { categoria: 'Almacén', pallets: sumFila('almacen', 'pallets'), piezas: sumFila('almacen', 'piezas'), bulky: 0, fierro: 0, detalle: 'Excluye Bulky, Fierro y Element' },
+    bulkyFierro: { categoria: 'Bulky + Fierro', pallets: sumFila('bulkyFierro', 'pallets'), piezas: sumFila('bulkyFierro', 'piezas'), bulky: sumFila('bulkyFierro', 'bulky'), fierro: sumFila('bulkyFierro', 'fierro'), detalle: detalleBulkyFierroSemana },
+    trg: { categoria: 'TRG', pallets: sumFila('trg', 'pallets'), piezas: sumFila('trg', 'piezas'), bulky: 0, fierro: 0, detalle: '' },
+    fba: { categoria: 'FBA', pallets: sumFila('fba', 'pallets'), piezas: sumFila('fba', 'piezas'), bulky: 0, fierro: 0, detalle: '' },
+    element: { categoria: 'Element', pallets: sumFila('element', 'pallets'), piezas: sumFila('element', 'piezas'), bulky: 0, fierro: 0, detalle: '' },
+  };
+
   return {
     dias,
+    resumenFilas,
     resumen: {
       totalPallets: totalSemanaPallets,
       totalPiezas: totalSemanaPiezas,

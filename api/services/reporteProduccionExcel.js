@@ -114,6 +114,33 @@ function construirWorkbookReporteSemanal(reporte, semana) {
     r += 2;
   }
 
+  // Resumen semanal AL FINAL de la hoja Producción, mismo formato que las
+  // tablas por día — pedido de Roman (2026-08-07): quiere el total de la
+  // semana visible aquí, no solo en la hoja "Resumen" aparte.
+  if (reporte.resumenFilas) {
+    const encResumen = wsProd.getCell(`A${r}`);
+    encResumen.value = 'RESUMEN SEMANAL';
+    estiloEncabezadoDia(encResumen, 'FFCBD5E1');
+    wsProd.mergeCells(`A${r}:F${r}`);
+    for (let c = 1; c <= 6; c++) wsProd.getRow(r).getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCBD5E1' } };
+    r++;
+
+    escribirFilaColumnas(wsProd, r);
+    r++;
+    escribirFilaDatos(wsProd, r, reporte.resumenFilas.almacen, { mostrarBulkyFierro: false });
+    r++;
+    escribirFilaDatos(wsProd, r, reporte.resumenFilas.bulkyFierro, { mostrarBulkyFierro: true });
+    r++;
+    escribirFilaDatos(wsProd, r, reporte.resumenFilas.trg, { mostrarBulkyFierro: false });
+    r++;
+    escribirFilaDatos(wsProd, r, reporte.resumenFilas.fba, { mostrarBulkyFierro: false });
+    r++;
+    escribirFilaDatos(wsProd, r, reporte.resumenFilas.element, { mostrarBulkyFierro: false });
+    r++;
+    escribirFilaDatos(wsProd, r, { categoria: 'Total de la semana', pallets: reporte.resumen.totalPallets, piezas: reporte.resumen.totalPiezas, detalle: '' }, { mostrarBulkyFierro: false, negrita: true });
+    r += 2;
+  }
+
   const wsResumen = wb.addWorksheet('Resumen');
   wsResumen.columns = [{ width: 32 }, { width: 18 }];
   let rr = 1;

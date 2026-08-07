@@ -163,6 +163,38 @@ test('buildReporteSemanal: Element se separa de Almacen sin duplicarse ni sumars
   assert.equal(reporte.resumen.fbaPallets, 0);
 });
 
+// Pedido explicito de Roman (2026-08-07): quiere el resumen semanal (mismo
+// formato de filas que los dias) tambien al final de la hoja "Producción".
+test('buildReporteSemanal: resumenFilas suma TODA la semana, mismo shape que dia.filas, sin doble conteo', () => {
+  const lunes = new Date(2026, 7, 3);
+  const crudos = [
+    { _id: '1', fecha: '8/3/2026', destino: 'Almacen', pedido: '', observaciones: '', cantidad: 10 }, // Lunes, Almacen
+    { _id: '2', fecha: '8/4/2026', destino: 'Almacen', pedido: '', observaciones: '', cantidad: 5 },  // Martes, Almacen
+    { _id: '3', fecha: '8/4/2026', destino: 'TRG', cantidad: 20 },                                     // Martes, TRG
+    { _id: '4', fecha: '8/5/2026', destino: 'FBA', cantidad: 8 },                                      // Miercoles, FBA
+    { _id: '5', fecha: '8/5/2026', destino: 'Almacen', pedido: 'ELEMENT', cantidad: 6 },               // Miercoles, Element
+    { _id: '6', fecha: '8/6/2026', destino: 'Almacen', pedido: 'BULKY', cantidad: 4 },                 // Jueves, Bulky
+  ];
+  const preparados = crudos.map(prepararRegistro);
+  const reporte = buildReporteSemanal(preparados, lunes);
+  const rf = reporte.resumenFilas;
+  assert.equal(rf.almacen.pallets, 2); // registros 1 y 2 (nunca el de Element ni el de Bulky)
+  assert.equal(rf.almacen.piezas, 15);
+  assert.equal(rf.trg.pallets, 1);
+  assert.equal(rf.trg.piezas, 20);
+  assert.equal(rf.fba.pallets, 1);
+  assert.equal(rf.fba.piezas, 8);
+  assert.equal(rf.element.pallets, 1); // NUNCA sumado a fba ni a almacen
+  assert.equal(rf.element.piezas, 6);
+  assert.equal(rf.bulkyFierro.pallets, 1);
+  assert.equal(rf.bulkyFierro.bulky, 1);
+  assert.equal(rf.bulkyFierro.fierro, 0);
+  // Suma de todas las filas = total real de la semana (6 registros).
+  const sumaFilas = rf.almacen.pallets + rf.trg.pallets + rf.fba.pallets + rf.element.pallets + rf.bulkyFierro.pallets;
+  assert.equal(sumaFilas, 6);
+  assert.equal(reporte.resumen.totalPallets, 6);
+});
+
 test('buildReporteSemanal: dia sin registros muestra sinProduccion y detalle "Sin producción"', () => {
   const lunes = new Date(2026, 7, 3);
   const reporte = buildReporteSemanal([], lunes);

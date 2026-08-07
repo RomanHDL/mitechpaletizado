@@ -2421,6 +2421,7 @@ async function computeReporteSemanal(query) {
     semana,
     dias: reporte.dias,
     resumen: reporte.resumen,
+    resumenFilas: reporte.resumenFilas,
     registros,
     filtros: {
       turno: turno || null,
@@ -2461,7 +2462,7 @@ app.get('/api/reportes/produccion-semanal', auth, roleGuard('admin'), centroOper
 app.get('/api/reportes/produccion-semanal/excel', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
   try {
     const r = await computeReporteSemanal(req.query);
-    const wb = construirWorkbookReporteSemanal({ dias: r.dias, resumen: r.resumen }, r.semana);
+    const wb = construirWorkbookReporteSemanal({ dias: r.dias, resumen: r.resumen, resumenFilas: r.resumenFilas }, r.semana);
     const buffer = await wb.xlsx.writeBuffer();
     const nombreArchivo = `Reporte_Produccion_Semanal_${r.semana.isoInicio}_a_${r.semana.isoFin}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
