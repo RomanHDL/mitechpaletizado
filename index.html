@@ -12059,6 +12059,14 @@ async function fftCargarShipmentTypes() {
         body.innerHTML = `<div class="fft-empty-note">No se pudo cargar el catálogo de Cubicaje: ${e.message}</div>`;
     }
 }
+// Auditoria 2026-08-07: Roman pidio explicitamente ver los 10 destinos con
+// el inventario REAL de BinManagerRO ahi mismo -- no solo la politica.
+// realPallets/realPiezas/realSkuCount vienen de buscar el codigo del
+// catalogo dentro del BinCode real (ver getRealInventoryMatchingBinCode en
+// Cubicaje) -- confirmado con datos reales que HV/CALVERY/NACIONAL/
+// INTERNACIONAL no tienen NINGUN bin relacionado (0 honesto, no inventado).
+// Se ordenan primero los que SI tienen inventario real, para que no queden
+// perdidos entre los que estan en 0.
 function fftRenderShipmentTypes(rows) {
     const body = document.getElementById('fft-shipment-types-body');
     if (!body) return;
@@ -12066,19 +12074,27 @@ function fftRenderShipmentTypes(rows) {
         body.innerHTML = '<div class="fft-empty-note">Cubicaje no devolvió tipos de envío activos.</div>';
         return;
     }
+    const ordenadas = rows.slice().sort((a, b) => (b.realPallets || 0) - (a.realPallets || 0));
     body.innerHTML = `
         <div class="fft-table-wrap"><table class="fft-table">
-            <thead><tr><th>Código</th><th>Label</th><th>Apilable</th><th>Mezcla en pallet</th><th>Inspección</th><th>Documentos requeridos</th></tr></thead>
-            <tbody>${rows.map(r => `
+            <thead><tr><th>Código</th><th>Label</th><th>Pallets reales</th><th>Piezas reales</th><th>SKUs</th><th>Apilable</th><th>Mezcla en pallet</th><th>Inspección</th><th>Documentos requeridos</th></tr></thead>
+            <tbody>${ordenadas.map(r => {
+                const sinInventario = !r.realPallets;
+                return `
                 <tr>
                     <td data-label="Código"><b>${r.code}</b></td>
                     <td data-label="Label">${r.label || '-'}</td>
+                    <td data-label="Pallets reales" class="rs-qty" style="${sinInventario ? 'color:var(--fft-text-muted);' : 'font-weight:700;color:#16A34A;'}">${r.realPallets ?? 0}</td>
+                    <td data-label="Piezas reales" style="${sinInventario ? 'color:var(--fft-text-muted);' : ''}">${(r.realPiezas ?? 0).toLocaleString('es-MX')}</td>
+                    <td data-label="SKUs" style="${sinInventario ? 'color:var(--fft-text-muted);' : ''}">${r.realSkuCount ?? 0}</td>
                     <td data-label="Apilable">${r.stackable ? `Sí${r.maxStackHeightCm ? ` (≤${r.maxStackHeightCm}cm)` : ''}` : 'No'}</td>
                     <td data-label="Mezcla en pallet">${({ free: 'Libre', same_size_only: 'Solo mismo tamaño', single_sku_per_pallet: '1 solo SKU por pallet' })[r.mixingPolicy] || r.mixingPolicy || '-'}</td>
                     <td data-label="Inspección">${r.requiresInspection ? 'Sí' : 'No'}</td>
                     <td data-label="Documentos requeridos">${(r.requiredDocuments || []).join(', ') || '-'}</td>
-                </tr>`).join('')}</tbody>
-        </table></div>`;
+                </tr>`;
+            }).join('')}</tbody>
+        </table></div>
+        <div style="font-size:0.72rem;color:var(--fft-text-muted);margin-top:0.5rem;">Pallets/Piezas/SKUs reales = bins activos en BinManagerRO cuyo código contiene el nombre del destino, con contenido ahorita mismo. BinManagerRO no tiene un campo de "tipo de envío" — los códigos en 0 no tienen ningún bin relacionado.</div>`;
 }
 
 function fftAreaCardHtml(a) {
