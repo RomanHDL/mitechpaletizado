@@ -2022,15 +2022,20 @@ app.get('/api/clasificaciones/counts', auth, roleGuard('admin'), async (req, res
 // ademas de la sesion JWT normal de admin 3647. Nunca requiere ninguna de las dos vacias:
 // si REPORTES_EXCEL_TOKEN no esta configurada, solo queda disponible por sesion admin 3647.
 const REPORTES_EXCEL_TOKEN = process.env.REPORTES_EXCEL_TOKEN || '';
+// Llave SEPARADA para el consumidor server-a-server mitechnologies-rt (2026-08-06)
+// — independiente de REPORTES_EXCEL_TOKEN a proposito, para no romper el Power
+// Query de Excel que ya usa esa llave si esta se rota o revoca despues.
+const MITECHNOLOGIES_RT_REPORT_TOKEN = process.env.MITECHNOLOGIES_RT_REPORT_TOKEN || '';
+function constantTimeTokenMatch(provided, expected) {
+  if (!expected || !provided) return false;
+  const a = Buffer.from(String(provided));
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 async function reportesExcelGuard(req, res, next) {
   const provided = req.get('X-Report-Token') || req.query.token || '';
-  if (REPORTES_EXCEL_TOKEN && provided) {
-    const a = Buffer.from(String(provided));
-    const b = Buffer.from(REPORTES_EXCEL_TOKEN);
-    // Comparacion en tiempo constante para no filtrar el token por timing; el
-    // largo se compara primero porque timingSafeEqual exige buffers del mismo tamaño.
-    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return next();
-  }
+  if (constantTimeTokenMatch(provided, REPORTES_EXCEL_TOKEN)) return next();
+  if (constantTimeTokenMatch(provided, MITECHNOLOGIES_RT_REPORT_TOKEN)) return next();
   const h = req.headers.authorization;
   if (h && h.startsWith('Bearer ')) {
     try {
