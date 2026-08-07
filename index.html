@@ -11790,7 +11790,7 @@ async function fftLoad(silencioso) {
     if (!silencioso) fftSetSkeleton();
     const params = fftBuildParams();
     const qs = params.toString();
-    const TIMEOUT_MS = 30000; // Areas/Bines cruza ~30,000 registros de inventario contra EscReg; 15s resulto insuficiente
+    const TIMEOUT_MS = 45000; // confirmado con el usuario: el cruce real tarda ~35s la primera vez
 
     const [dataRes, destinosRes, areasRes, actividadRes] = await Promise.allSettled([
         fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/data?${qs}`), TIMEOUT_MS),

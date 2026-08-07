@@ -2593,7 +2593,28 @@ app.get('/api/dashboard-destinos-fft/data', auth, roleGuard('admin'), centroOper
 // cuenta. El lado de inventario es el snapshot COMPLETO actual (sin cap de
 // muestra, ver fetchCubicajeLivePalletsAll); el lado FFT se acota al rango de
 // fechas pedido (o los ultimos 30 dias por defecto).
+// Cache corta en memoria (por instancia serverless tibia) del resultado YA
+// CRUZADO — el join en si (leer ~decenas de miles de pallets cacheados +
+// agregar EscReg + unificar en JS) resulto ser pesado (~35s la primera vez).
+// Dentro de esta ventana, cambiar de pestaña (Resumen/Areas/Destinos/
+// Actividad) o el auto-refresh de 30s reutilizan el mismo resultado en vez
+// de recalcularlo desde cero cada vez.
+const fftCruceCache = new Map();
+const FFT_CRUCE_CACHE_TTL_MS = 45000;
 async function construirCruceFft(query) {
+  const cacheKey = JSON.stringify(query || {});
+  const cacheado = fftCruceCache.get(cacheKey);
+  if (cacheado && (Date.now() - cacheado.timestamp) < FFT_CRUCE_CACHE_TTL_MS) return cacheado.valor;
+  const valor = await construirCruceFftSinCache(query);
+  fftCruceCache.set(cacheKey, { valor, timestamp: Date.now() });
+  if (fftCruceCache.size > 20) {
+    const masVieja = [...fftCruceCache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0][0];
+    fftCruceCache.delete(masVieja);
+  }
+  return valor;
+}
+
+async function construirCruceFftSinCache(query) {
   const rango = fftDefaultRange(query || {});
   // Lee el inventario del CACHE local (rapido) — nunca llama a Cubicaje en vivo
   // dentro de un request interactivo (ver sincronizarInventarioCubicaje/cron).
