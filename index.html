@@ -11763,47 +11763,85 @@ function fftBuildParams() {
     return p;
 }
 
+// Cada llamada tiene su propio limite de tiempo — una fuente lenta o colgada
+// (ej. Cubicaje) nunca debe bloquear el resto del dashboard (ej. los KPIs de
+// EscReg, que no dependen de Cubicaje). Se usa Promise.allSettled en vez de
+// Promise.all: cada seccion se pinta con lo que SI llego, y muestra su propio
+// error si su llamada especifica fallo o tardo demasiado.
+function fftConTimeout(promise, ms) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo de espera agotado')), ms)),
+    ]);
+}
+
 async function fftLoad(silencioso) {
     const mySeq = ++fftRequestSeq;
     const statusDot = document.getElementById('fft-status-dot');
     const statusText = document.getElementById('fft-status-text');
     if (!silencioso) fftSetSkeleton();
-    try {
-        const params = fftBuildParams();
-        const qs = params.toString();
-        const [dataRes, destinosRes, areasRes, actividadRes] = await Promise.all([
-            apiFetch(`${API}/api/dashboard-destinos-fft/data?${qs}`),
-            apiFetch(`${API}/api/dashboard-destinos-fft/destinos?${qs}`),
-            apiFetch(`${API}/api/dashboard-destinos-fft/areas?${qs}`),
-            apiFetch(`${API}/api/dashboard-destinos-fft/pallets?${qs}&page=1&pageSize=8`),
-        ]);
-        if (mySeq !== fftRequestSeq) return; // respuesta vieja, ya hay una peticion mas nueva en curso
-        if (!dataRes.success) throw new Error(dataRes.error || 'Error al cargar el dashboard');
-        fftUltimoDato = dataRes;
-        fftUltimoDestinos = destinosRes.success ? destinosRes.destinos : [];
-        fftUltimoAreas = areasRes.success ? areasRes : null;
+    const params = fftBuildParams();
+    const qs = params.toString();
+    const TIMEOUT_MS = 15000;
 
-        fftRenderKpis(dataRes.kpis, fftUltimoAreas ? fftUltimoAreas.resumen : null);
-        fftRenderCharts(dataRes.graficas);
-        fftRenderTabla(dataRes.tablaResumen);
+    const [dataRes, destinosRes, areasRes, actividadRes] = await Promise.allSettled([
+        fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/data?${qs}`), TIMEOUT_MS),
+        fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/destinos?${qs}`), TIMEOUT_MS),
+        fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/areas?${qs}`), TIMEOUT_MS),
+        fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/pallets?${qs}&page=1&pageSize=8`), TIMEOUT_MS),
+    ]);
+    if (mySeq !== fftRequestSeq) return; // respuesta vieja, ya hay una peticion mas nueva en curso
+
+    const dataOk = dataRes.status === 'fulfilled' && dataRes.value.success;
+    const destinosOk = destinosRes.status === 'fulfilled' && destinosRes.value.success;
+    const areasOk = areasRes.status === 'fulfilled' && areasRes.value.success;
+    const actividadOk = actividadRes.status === 'fulfilled' && actividadRes.value.success;
+
+    fftUltimoDato = dataOk ? dataRes.value : null;
+    fftUltimoDestinos = destinosOk ? destinosRes.value.destinos : [];
+    fftUltimoAreas = areasOk ? areasRes.value : null;
+
+    if (dataOk) {
+        fftRenderKpis(fftUltimoDato.kpis, fftUltimoAreas ? fftUltimoAreas.resumen : null);
+        fftRenderCharts(fftUltimoDato.graficas);
+        fftRenderTabla(fftUltimoDato.tablaResumen);
         fftRenderChips();
-        fftRenderDestinos(fftUltimoDestinos);
-        fftRenderFlujoChart(fftUltimoDestinos);
-        if (fftUltimoAreas) {
-            fftRenderAreas(fftUltimoAreas.areas);
-            fftRenderBines(fftUltimoAreas.bines);
-            fftRenderDiagnostico(fftUltimoAreas.diagnostico);
-        }
-        if (actividadRes.success) fftRenderActividadPreview(actividadRes.records);
+    } else {
+        document.getElementById('fft-kpi-grid').innerHTML = `<div class="fft-empty-note" style="grid-column:1/-1;">No se pudieron cargar los KPIs: ${dataRes.reason ? dataRes.reason.message : (dataRes.value && dataRes.value.error)}</div>`;
+    }
 
-        document.getElementById('fft-last-update').textContent = new Date().toLocaleTimeString('es-MX');
+    fftRenderDestinos(fftUltimoDestinos);
+    fftRenderFlujoChart(fftUltimoDestinos);
+    if (!destinosOk) {
+        const nota = destinosRes.status === 'rejected' ? destinosRes.reason.message : destinosRes.value.error;
+        document.getElementById('fft-destinos-preview').innerHTML = `<div class="fft-empty-note">No se pudieron cargar los destinos: ${nota}</div>`;
+        document.getElementById('fft-destinos-full').innerHTML = `<div class="fft-empty-note">No se pudieron cargar los destinos: ${nota}</div>`;
+    }
+
+    if (areasOk) {
+        fftRenderAreas(fftUltimoAreas.areas);
+        fftRenderBines(fftUltimoAreas.bines);
+        fftRenderDiagnostico(fftUltimoAreas.diagnostico);
+    } else {
+        const nota = areasRes.status === 'rejected' ? areasRes.reason.message : areasRes.value.error;
+        const isNotConfigured = /CUBICAJE_API_BASE_URL|CUBICAJE_INTEGRATION_KEY/.test(nota || '');
+        const msg = isNotConfigured ? 'Áreas/Bines no disponibles: falta configurar la conexión con Cubicaje.' : `No se pudo cargar el inventario (Áreas/Bines): ${nota}`;
+        document.getElementById('fft-areas-preview').innerHTML = `<div class="fft-empty-note">${msg}</div>`;
+        document.getElementById('fft-areas-full').innerHTML = `<div class="fft-empty-note">${msg}</div>`;
+        document.getElementById('fft-tabla-bines-body').innerHTML = `<tr><td colspan="7" class="fft-empty-note">${msg}</td></tr>`;
+    }
+
+    if (actividadOk) fftRenderActividadPreview(actividadRes.value.records);
+    else document.getElementById('fft-actividad-preview-body').innerHTML = '<tr><td colspan="9" class="fft-empty-note">No se pudo cargar la actividad reciente.</td></tr>';
+
+    document.getElementById('fft-last-update').textContent = new Date().toLocaleTimeString('es-MX');
+    if (dataOk) {
         statusDot.className = 'fft-status-dot ok';
-        statusText.textContent = 'Conectado';
-    } catch (e) {
-        if (mySeq !== fftRequestSeq) return;
+        statusText.textContent = areasOk ? 'Conectado' : 'Conectado (inventario no disponible)';
+    } else {
         statusDot.className = 'fft-status-dot error';
         statusText.textContent = 'Error de conexión';
-        if (!silencioso) showToast('Error al cargar Dashboard Destinos FFT: ' + e.message, 'error');
+        if (!silencioso) showToast('Error al cargar Dashboard Destinos FFT', 'error');
     }
 }
 

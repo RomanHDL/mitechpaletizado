@@ -974,7 +974,7 @@ async function fetchCubicajeLivePalletsAll(maxPallets = 60000, forzar = false) {
   }
   const pageSize = 200;
   const CONCURRENCIA = 10;
-  const PRESUPUESTO_MS = 25000;
+  const PRESUPUESTO_MS = 8000; // conservador: evita exceder el limite de ejecucion de la funcion serverless
   const inicio = Date.now();
 
   const { data: primera, total } = await fetchCubicajeLivePalletsPage(pageSize, 0);
