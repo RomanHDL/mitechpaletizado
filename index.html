@@ -3183,8 +3183,8 @@
             <div class="fft-tabpanel active" id="fft-tabpanel-resumen">
                 <div class="fft-kpi-grid" id="fft-kpi-grid"></div>
 
-                <div class="fft-section-title">¿A qué áreas o destinos van los pallets de FFT?</div>
-                <div class="fft-section-sub">Destino real de cada escaneo (EscReg) — nunca la categoría de inventario de BinManagerRO</div>
+                <div class="fft-section-title">¿A qué destinos van los pallets de FFT?</div>
+                <div class="fft-section-sub">Catálogo real de Cubicaje (10 códigos) con inventario real de BinManagerRO — nunca el destino de escaneo (EscReg)</div>
                 <div class="fft-destino-grid" id="fft-destinos-preview"></div>
 
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
@@ -3270,7 +3270,7 @@
             <!-- ══ TAB: DESTINOS FFT ══ -->
             <div class="fft-tabpanel" id="fft-tabpanel-destinos">
                 <div class="fft-section-title">Destinos de salida de FFT</div>
-                <div class="fft-section-sub">Campo real: <code>destino</code> de cada registro EscReg — nunca la categoría de inventario</div>
+                <div class="fft-section-sub">Catálogo real de Cubicaje (10 códigos) con inventario real de BinManagerRO — nunca el <code>destino</code> capturado al escanear (EscReg)</div>
                 <div class="fft-destino-grid" id="fft-destinos-full"></div>
 
                 <div class="fft-card" style="padding:1.1rem 1.25rem;margin-bottom:1.25rem;">
@@ -3420,6 +3420,29 @@
                 <div class="fft-tabpanel" id="fpt-productos"></div>
                 <div class="fft-tabpanel" id="fpt-trazabilidad"></div>
                 <div class="fft-tabpanel" id="fpt-original"></div>
+            </div>
+        </div>
+
+        <!-- Modal "Ver pallets" de un codigo del catalogo (Dashboard Destinos
+             FFT) — auditoria 2026-08-10: PalletID/BinCode REALES de
+             BinManagerRO, nunca el PalletID que el escaneo (EscReg) le puso.
+             Reutiliza .co-pallet-modal-* (mismo patron visual que el modal
+             de detalle de pallet), sin pestañas -- solo una tabla. -->
+        <div class="co-pallet-modal-backdrop" id="fft-catpallets-backdrop" onclick="fftCerrarCatalogoPallets()"></div>
+        <div class="co-pallet-modal" id="fft-catpallets-modal" role="dialog" aria-modal="true" style="width:min(96vw,900px);">
+            <div class="co-pallet-modal-header">
+                <div class="co-pallet-modal-header-row">
+                    <div>
+                        <span style="font-size:1.05rem;font-weight:700;" id="fft-catpallets-titulo">Pallets reales</span>
+                    </div>
+                    <div class="co-pallet-modal-actions">
+                        <button class="co-pallet-modal-close-x" onclick="fftCerrarCatalogoPallets()"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+                <div class="co-pallet-modal-meta" id="fft-catpallets-meta"></div>
+            </div>
+            <div class="co-pallet-modal-body">
+                <div id="fft-catpallets-body"></div>
             </div>
         </div>
 
@@ -11829,12 +11852,15 @@ async function fftLoad(silencioso) {
     const dataOk = dataRes.status === 'fulfilled' && dataRes.value.success;
     const resumenOk = resumenRes.status === 'fulfilled' && resumenRes.value.success;
     const catalogoOk = catalogoRes.status === 'fulfilled' && catalogoRes.value.success;
-    const destinosOk = resumenOk;
     const areasOk = resumenOk;
     const actividadOk = resumenOk;
 
     fftUltimoDato = dataOk ? dataRes.value : null;
-    fftUltimoDestinos = destinosOk ? resumenRes.value.destinos.destinos : [];
+    // Auditoria 2026-08-10: fftUltimoDestinos (tarjetas + flujo FFT->Destino)
+    // ya NO viene de EscReg (destino de escaneo) -- viene del catalogo real
+    // de Cubicaje (10 codigos, inventario real de BinManagerRO). Ver
+    // fftRenderDestinos/fftDestinoCardHtml mas abajo.
+    fftUltimoDestinos = catalogoOk ? catalogoRes.value.data : [];
     fftUltimoAreas = areasOk ? resumenRes.value.areas : null;
     if (catalogoOk) fftShipmentTypesUltimo = catalogoRes.value; // evita refetch al abrir la pestaña Destinos FFT
 
@@ -11856,12 +11882,13 @@ async function fftLoad(silencioso) {
         document.getElementById('fft-kpi-grid').innerHTML = `<div class="fft-empty-note" style="grid-column:1/-1;">No se pudieron cargar los KPIs: ${dataRes.reason ? dataRes.reason.message : (dataRes.value && dataRes.value.error)}</div>`;
     }
 
-    fftRenderDestinos(fftUltimoDestinos);
-    fftRenderFlujoChart(fftUltimoDestinos);
-    if (!destinosOk) {
-        const nota = resumenRes.status === 'rejected' ? resumenRes.reason.message : resumenRes.value.error;
-        document.getElementById('fft-destinos-preview').innerHTML = `<div class="fft-empty-note">No se pudieron cargar los destinos: ${nota}</div>`;
-        document.getElementById('fft-destinos-full').innerHTML = `<div class="fft-empty-note">No se pudieron cargar los destinos: ${nota}</div>`;
+    if (catalogoOk) {
+        fftRenderDestinos(fftUltimoDestinos);
+        fftRenderFlujoChart(fftUltimoDestinos);
+    } else {
+        const nota = catalogoRes.status === 'rejected' ? catalogoRes.reason.message : catalogoRes.value.error;
+        document.getElementById('fft-destinos-preview').innerHTML = `<div class="fft-empty-note">No se pudo cargar el catálogo de Cubicaje: ${nota}</div>`;
+        document.getElementById('fft-destinos-full').innerHTML = `<div class="fft-empty-note">No se pudo cargar el catálogo de Cubicaje: ${nota}</div>`;
     }
 
     const notaSyncEl = document.getElementById('fft-inventario-sync-nota');
@@ -12029,52 +12056,82 @@ function fftRenderDestinoDonutsDesdeCatalogo(rows) {
     fftMakeChart('piezasDestino', 'fft-chart-piezas-destino', fftDonutBase(labels, ordenadas.map(r => r.realPiezas || 0), colors));
 }
 
+// Auditoria 2026-08-10: las tarjetas de destino ya NO son TRG/Almacen/FBA
+// (EscReg) -- son los 10 codigos reales del catalogo de Cubicaje, con
+// inventario REAL de BinManagerRO (mismo shape que fftRenderShipmentTypes).
+const FFT_METODO_LABEL = { consignacion_por_serie: 'Consignación real (por serie)', nombre_de_bin: 'Heurística (nombre de bin)' };
 function fftDestinoCardHtml(d) {
-    const color = fftColorDestino(d.destino, 0);
-    const ultimo = d.ultimoMovimiento ? new Date(d.ultimoMovimiento).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : 'N/D';
+    const color = fftColorDestino(d.code, 0);
+    const sinInventario = !d.realPallets;
     return `
         <div class="fft-card fft-destino-card" style="border-top-color:${color};">
-            <div class="fft-dc-nombre" style="color:${color};">${d.destino}</div>
-            <div class="fft-dc-metric"><span>Pallets</span><b>${d.pallets.toLocaleString('es-MX')}</b></div>
-            <div class="fft-dc-metric"><span>Piezas</span><b>${d.piezas.toLocaleString('es-MX')}</b></div>
-            <div class="fft-dc-metric"><span>% del total</span><b>${d.pctPallets}%</b></div>
-            <div class="fft-dc-metric"><span>Bines relacionados</span><b>${d.binesRelacionados}</b></div>
-            <div class="fft-dc-metric"><span>Último movimiento</span><b>${ultimo}</b></div>
-            <div class="fft-dc-tipos">${(d.tiposPedidoPrincipales || []).map(t => `<span class="fft-chip" style="background:#94A3B822;color:#475569;">${t}</span>`).join('') || '<span style="font-size:0.72rem;color:var(--fft-text-muted);">Sin tipo de pedido</span>'}</div>
-            <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;margin-top:0.75rem;" onclick="fftAbrirDestino('${encodeURIComponent(d.destino)}')">Ver pallets <i class="fa-solid fa-arrow-right"></i></button>
+            <div class="fft-dc-nombre" style="color:${color};">${d.code}</div>
+            <div class="fft-dc-metric"><span>Pallets reales</span><b>${(d.realPallets || 0).toLocaleString('es-MX')}</b></div>
+            <div class="fft-dc-metric"><span>Piezas reales</span><b>${(d.realPiezas || 0).toLocaleString('es-MX')}</b></div>
+            <div class="fft-dc-metric"><span>SKUs distintos</span><b>${d.realSkuCount || 0}</b></div>
+            <div class="fft-dc-metric"><span>Método de detección</span><b style="font-size:0.72rem;${d.detectionMethod === 'consignacion_por_serie' ? 'color:#16A34A;' : ''}">${FFT_METODO_LABEL[d.detectionMethod] || d.detectionMethod || '-'}</b></div>
+            <div class="fft-dc-tipos"><span class="fft-chip" style="background:#94A3B822;color:#475569;">${d.label || ''}</span></div>
+            <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;margin-top:0.75rem;" ${sinInventario ? 'disabled title="Sin bines reales relacionados"' : ''} onclick="fftAbrirDestino('${encodeURIComponent(d.code)}')">Ver pallets <i class="fa-solid fa-arrow-right"></i></button>
         </div>`;
 }
-// Auditoria 2026-08-07: las tarjetas de destino (TRG/Almacen/FBA/etc) no
-// llevaban a ningun lado — "Ver pallets" filtra la tabla de Actividad
-// (ya paginada/con busqueda en servidor) por este destino, reusando el
-// mismo filtro global fftFiltros.destino que ya usa el panel de Filtros
-// (fftBuildParams ya lo lee — ver linea ~11763).
-function fftAbrirDestino(destinoEncoded) {
-    const destino = decodeURIComponent(destinoEncoded);
-    fftFiltros.destino = destino;
-    const sel = document.getElementById('fft-f-destino');
-    if (sel) sel.value = destino;
-    fftSetTab('actividad');
-    fftLoad();
-    fftCargarActividad(1);
+// Auditoria 2026-08-10: "Ver pallets" ya NO filtra la tabla de Actividad
+// (EscReg) -- abre un modal con los BinCode/SKU/Qty REALES de BinManagerRO
+// que coinciden con este codigo (ver /shipment-types/:code/pallets).
+async function fftAbrirDestino(codeEncoded) {
+    const code = decodeURIComponent(codeEncoded);
+    document.getElementById('fft-catpallets-titulo').textContent = `Pallets reales — ${code}`;
+    document.getElementById('fft-catpallets-meta').textContent = '';
+    document.getElementById('fft-catpallets-body').innerHTML = '<div class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando pallets reales de BinManagerRO...</div>';
+    document.getElementById('fft-catpallets-backdrop').classList.add('open');
+    document.getElementById('fft-catpallets-modal').classList.add('open');
+    try {
+        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/shipment-types/${encodeURIComponent(code)}/pallets`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar los pallets');
+        const rows = data.pallets || [];
+        document.getElementById('fft-catpallets-meta').textContent = `${rows.length} fila${rows.length === 1 ? '' : 's'} de BinManagerRO (bin activo, cantidad > 0)${rows.length >= 500 ? ' — mostrando las primeras 500' : ''}`;
+        if (!rows.length) {
+            document.getElementById('fft-catpallets-body').innerHTML = '<div class="fft-empty-note">Sin bines reales relacionados con este código en BinManagerRO.</div>';
+            return;
+        }
+        document.getElementById('fft-catpallets-body').innerHTML = `
+            <div class="fft-table-wrap"><table class="fft-table">
+                <thead><tr><th>BinCode (pallet real)</th><th>SKU</th><th>Cantidad</th><th>Condición</th><th>Serie</th></tr></thead>
+                <tbody>${rows.map(r => `
+                    <tr>
+                        <td data-label="BinCode"><b>${r.binCode}</b></td>
+                        <td data-label="SKU">${r.productSku || '-'}</td>
+                        <td data-label="Cantidad">${r.qty}</td>
+                        <td data-label="Condición">${r.skuCondition || '-'}</td>
+                        <td data-label="Serie">${r.serialNumber || '-'}</td>
+                    </tr>`).join('')}</tbody>
+            </table></div>`;
+    } catch (e) {
+        document.getElementById('fft-catpallets-body').innerHTML = `<div class="fft-empty-note">No se pudieron cargar los pallets reales: ${e.message}</div>`;
+    }
+}
+function fftCerrarCatalogoPallets() {
+    document.getElementById('fft-catpallets-backdrop').classList.remove('open');
+    document.getElementById('fft-catpallets-modal').classList.remove('open');
 }
 function fftRenderDestinos(destinos) {
     const previewEl = document.getElementById('fft-destinos-preview');
     const fullEl = document.getElementById('fft-destinos-full');
     if (!destinos || !destinos.length) {
-        const vacio = '<div class="fft-empty-note">No hay registros FFT con destino para este rango/filtros.</div>';
+        const vacio = '<div class="fft-empty-note">No se pudo cargar el catálogo de Cubicaje.</div>';
         if (previewEl) previewEl.innerHTML = vacio;
         if (fullEl) fullEl.innerHTML = vacio;
         return;
     }
-    if (previewEl) previewEl.innerHTML = destinos.slice(0, 4).map(fftDestinoCardHtml).join('');
-    if (fullEl) fullEl.innerHTML = destinos.map(fftDestinoCardHtml).join('');
+    const ordenadas = destinos.slice().sort((a, b) => (b.realPallets || 0) - (a.realPallets || 0));
+    if (previewEl) previewEl.innerHTML = ordenadas.slice(0, 4).map(fftDestinoCardHtml).join('');
+    if (fullEl) fullEl.innerHTML = ordenadas.map(fftDestinoCardHtml).join('');
 }
 function fftRenderFlujoChart(destinos) {
     if (!destinos || !document.getElementById('fft-chart-flujo')) return;
+    const ordenadas = destinos.slice().sort((a, b) => (b.realPallets || 0) - (a.realPallets || 0));
     fftMakeChart('flujo', 'fft-chart-flujo', {
         type: 'bar',
-        data: { labels: destinos.map(d => `FFT → ${d.destino}`), datasets: [{ data: destinos.map(d => d.pallets), backgroundColor: destinos.map((d, i) => fftColorDestino(d.destino, i)), borderRadius: 6 }] },
+        data: { labels: ordenadas.map(d => `FFT → ${d.code}`), datasets: [{ data: ordenadas.map(d => d.realPallets || 0), backgroundColor: ordenadas.map((d, i) => fftColorDestino(d.code, i)), borderRadius: 6 }] },
         options: fftBarOptionsSimple(),
     });
 }
