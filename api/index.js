@@ -2786,34 +2786,40 @@ function fftLimpiarDatosSensibles(obj) {
 
 // "¿A que destinos van los pallets de FFT?" — SIEMPRE desde el campo real
 // destino de EscReg (nunca desde la categoria de inventario de BinManagerRO).
+// Extraido a funcion pura (recibe el cruce YA calculado) para que
+// /resumen-completo pueda reusarla sin recalcular construirCruceFft.
+function buildDestinosPayload(registros) {
+  const conFft = registros.filter((r) => r.fft);
+  const totalPallets = conFft.length;
+  const totalPiezas = conFft.reduce((s, r) => s + r.fft.pieces, 0);
+
+  const porDestinoMap = new Map();
+  for (const r of conFft) {
+    const d = r.fft.destination;
+    if (!porDestinoMap.has(d)) porDestinoMap.set(d, []);
+    porDestinoMap.get(d).push(r);
+  }
+  const destinos = [...porDestinoMap.entries()].map(([destino, regs]) => {
+    const piezas = regs.reduce((s, r) => s + r.fft.pieces, 0);
+    const binesRelacionados = new Set(regs.filter((r) => r.inventory).map((r) => r.inventory.bin)).size;
+    return {
+      destino,
+      pallets: regs.length,
+      piezas,
+      pctPallets: totalPallets > 0 ? Number(((regs.length / totalPallets) * 100).toFixed(1)) : 0,
+      binesRelacionados,
+      ultimoMovimiento: fftUltimoMovimiento(regs),
+      tiposPedidoPrincipales: fftAgruparPorCampo(regs, (r) => r.fft.orderType).slice(0, 3).map((t) => t.nombre),
+    };
+  }).sort((a, b) => b.pallets - a.pallets);
+
+  return { destinos, meta: { totalPallets, totalPiezas, generadoEn: new Date().toISOString() } };
+}
+
 app.get('/api/dashboard-destinos-fft/destinos', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
   try {
     const { registros } = await construirCruceFft(req.query);
-    const conFft = registros.filter((r) => r.fft);
-    const totalPallets = conFft.length;
-    const totalPiezas = conFft.reduce((s, r) => s + r.fft.pieces, 0);
-
-    const porDestinoMap = new Map();
-    for (const r of conFft) {
-      const d = r.fft.destination;
-      if (!porDestinoMap.has(d)) porDestinoMap.set(d, []);
-      porDestinoMap.get(d).push(r);
-    }
-    const destinos = [...porDestinoMap.entries()].map(([destino, regs]) => {
-      const piezas = regs.reduce((s, r) => s + r.fft.pieces, 0);
-      const binesRelacionados = new Set(regs.filter((r) => r.inventory).map((r) => r.inventory.bin)).size;
-      return {
-        destino,
-        pallets: regs.length,
-        piezas,
-        pctPallets: totalPallets > 0 ? Number(((regs.length / totalPallets) * 100).toFixed(1)) : 0,
-        binesRelacionados,
-        ultimoMovimiento: fftUltimoMovimiento(regs),
-        tiposPedidoPrincipales: fftAgruparPorCampo(regs, (r) => r.fft.orderType).slice(0, 3).map((t) => t.nombre),
-      };
-    }).sort((a, b) => b.pallets - a.pallets);
-
-    res.json({ success: true, destinos, meta: { totalPallets, totalPiezas, generadoEn: new Date().toISOString() } });
+    res.json({ success: true, ...buildDestinosPayload(registros) });
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 
@@ -2832,68 +2838,74 @@ app.post('/api/dashboard-destinos-fft/sincronizar-inventario', auth, roleGuard('
 // Areas y Bines — SOLO inventario real (BinManagerRO), cruzado con FFT para
 // destinos relacionados/pedidos/escaneadoras/ultimo movimiento por bin/area.
 // "Bines activos" = bines con inventario actual (al menos 1 pallet ahorita).
+// Extraido a funcion pura (recibe el cruce YA calculado) por el mismo motivo
+// que buildDestinosPayload — reusada por /resumen-completo.
+function buildAreasPayload(cruce) {
+  const { registros, totalInventario, agotadoInventario, diagnostico, ultimaSincronizacion, nuncaSincronizado } = cruce;
+  const conInventario = registros.filter((r) => r.inventory);
+  const totalPalletsInv = conInventario.length;
+  const totalPiezasInv = conInventario.reduce((s, r) => s + r.inventory.pieces, 0);
+
+  const binesMap = new Map();
+  for (const r of conInventario) {
+    const bin = r.inventory.bin;
+    if (!binesMap.has(bin)) binesMap.set(bin, { bin, area: r.inventory.area, regs: [] });
+    binesMap.get(bin).regs.push(r);
+  }
+  const bines = [...binesMap.values()].map((g) => {
+    const piezas = g.regs.reduce((s, r) => s + r.inventory.pieces, 0);
+    return {
+      bin: g.bin,
+      area: g.area,
+      categoria: fftModaCategoria(g.regs),
+      pallets: g.regs.length,
+      piezas,
+      pctPallets: totalPalletsInv > 0 ? Number(((g.regs.length / totalPalletsInv) * 100).toFixed(1)) : 0,
+      pctPiezas: totalPiezasInv > 0 ? Number(((piezas / totalPiezasInv) * 100).toFixed(1)) : 0,
+      destinosRelacionados: [...new Set(g.regs.filter((r) => r.fft).map((r) => r.fft.destination))],
+      ultimoMovimiento: fftUltimoMovimiento(g.regs),
+      estado: 'Con inventario',
+    };
+  }).sort((a, b) => b.pallets - a.pallets);
+
+  const areasMap = new Map();
+  for (const b of bines) {
+    if (!areasMap.has(b.area)) areasMap.set(b.area, { area: b.area, bines: [], pallets: 0, piezas: 0 });
+    const g = areasMap.get(b.area);
+    g.bines.push(b);
+    g.pallets += b.pallets;
+    g.piezas += b.piezas;
+  }
+  const areas = [...areasMap.values()].map((g) => ({
+    area: g.area,
+    cantidadBines: g.bines.length,
+    pallets: g.pallets,
+    piezas: g.piezas,
+    pctPallets: totalPalletsInv > 0 ? Number(((g.pallets / totalPalletsInv) * 100).toFixed(1)) : 0,
+    pctPiezas: totalPiezasInv > 0 ? Number(((g.piezas / totalPiezasInv) * 100).toFixed(1)) : 0,
+    destinosRelacionados: [...new Set(g.bines.flatMap((b) => b.destinosRelacionados))],
+    ultimoMovimiento: g.bines.reduce((max, b) => (b.ultimoMovimiento && (!max || b.ultimoMovimiento > max) ? b.ultimoMovimiento : max), null),
+    estado: 'Activa',
+    binesPreview: g.bines.slice().sort((a, b) => b.pallets - a.pallets).slice(0, 5),
+  })).sort((a, b) => b.pallets - a.pallets);
+
+  return {
+    areas,
+    bines,
+    resumen: {
+      areasActivas: areas.length,
+      binesActivos: bines.length,
+      palletsSinCruceFFT: diagnostico.soloInventario,
+    },
+    diagnostico,
+    meta: { totalInventarioReal: totalInventario, agotadoInventario, ultimaSincronizacion, nuncaSincronizado, generadoEn: new Date().toISOString() },
+  };
+}
+
 app.get('/api/dashboard-destinos-fft/areas', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
   try {
-    const { registros, totalInventario, agotadoInventario, diagnostico, ultimaSincronizacion, nuncaSincronizado } = await construirCruceFft(req.query);
-    const conInventario = registros.filter((r) => r.inventory);
-    const totalPalletsInv = conInventario.length;
-    const totalPiezasInv = conInventario.reduce((s, r) => s + r.inventory.pieces, 0);
-
-    const binesMap = new Map();
-    for (const r of conInventario) {
-      const bin = r.inventory.bin;
-      if (!binesMap.has(bin)) binesMap.set(bin, { bin, area: r.inventory.area, regs: [] });
-      binesMap.get(bin).regs.push(r);
-    }
-    const bines = [...binesMap.values()].map((g) => {
-      const piezas = g.regs.reduce((s, r) => s + r.inventory.pieces, 0);
-      return {
-        bin: g.bin,
-        area: g.area,
-        categoria: fftModaCategoria(g.regs),
-        pallets: g.regs.length,
-        piezas,
-        pctPallets: totalPalletsInv > 0 ? Number(((g.regs.length / totalPalletsInv) * 100).toFixed(1)) : 0,
-        pctPiezas: totalPiezasInv > 0 ? Number(((piezas / totalPiezasInv) * 100).toFixed(1)) : 0,
-        destinosRelacionados: [...new Set(g.regs.filter((r) => r.fft).map((r) => r.fft.destination))],
-        ultimoMovimiento: fftUltimoMovimiento(g.regs),
-        estado: 'Con inventario',
-      };
-    }).sort((a, b) => b.pallets - a.pallets);
-
-    const areasMap = new Map();
-    for (const b of bines) {
-      if (!areasMap.has(b.area)) areasMap.set(b.area, { area: b.area, bines: [], pallets: 0, piezas: 0 });
-      const g = areasMap.get(b.area);
-      g.bines.push(b);
-      g.pallets += b.pallets;
-      g.piezas += b.piezas;
-    }
-    const areas = [...areasMap.values()].map((g) => ({
-      area: g.area,
-      cantidadBines: g.bines.length,
-      pallets: g.pallets,
-      piezas: g.piezas,
-      pctPallets: totalPalletsInv > 0 ? Number(((g.pallets / totalPalletsInv) * 100).toFixed(1)) : 0,
-      pctPiezas: totalPiezasInv > 0 ? Number(((g.piezas / totalPiezasInv) * 100).toFixed(1)) : 0,
-      destinosRelacionados: [...new Set(g.bines.flatMap((b) => b.destinosRelacionados))],
-      ultimoMovimiento: g.bines.reduce((max, b) => (b.ultimoMovimiento && (!max || b.ultimoMovimiento > max) ? b.ultimoMovimiento : max), null),
-      estado: 'Activa',
-      binesPreview: g.bines.slice().sort((a, b) => b.pallets - a.pallets).slice(0, 5),
-    })).sort((a, b) => b.pallets - a.pallets);
-
-    res.json({
-      success: true,
-      areas,
-      bines,
-      resumen: {
-        areasActivas: areas.length,
-        binesActivos: bines.length,
-        palletsSinCruceFFT: diagnostico.soloInventario,
-      },
-      diagnostico,
-      meta: { totalInventarioReal: totalInventario, agotadoInventario, ultimaSincronizacion, nuncaSincronizado, generadoEn: new Date().toISOString() },
-    });
+    const cruce = await construirCruceFft(req.query);
+    res.json({ success: true, ...buildAreasPayload(cruce) });
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 
@@ -3011,56 +3023,85 @@ app.get('/api/dashboard-destinos-fft/areas/:areaId/bines/:binId', auth, roleGuar
 
 // Tabla/actividad: paginacion, filtros, orden y busqueda EN SERVIDOR sobre el
 // conjunto completo ya cruzado — el navegador nunca recibe el dataset entero.
+// Extraido a funcion pura (recibe el cruce YA calculado + los query params de
+// filtro/paginacion) por el mismo motivo que buildDestinosPayload/buildAreasPayload.
+function buildPalletsPayload(registros, query) {
+  let filtrados = registros;
+  const { area, bin, destino, categoria, tipo, pedido, palletId, escaneadora, condicion, matchStatus, q } = query;
+  if (area) filtrados = filtrados.filter((r) => r.inventory && r.inventory.area === area);
+  if (bin) filtrados = filtrados.filter((r) => r.inventory && r.inventory.bin === bin);
+  if (destino) filtrados = filtrados.filter((r) => r.fft && r.fft.destination === destino);
+  if (categoria) filtrados = filtrados.filter((r) => r.inventory && r.inventory.category === categoria);
+  if (tipo) filtrados = filtrados.filter((r) => r.fft && r.fft.orderType === tipo);
+  if (pedido) filtrados = filtrados.filter((r) => r.fft && r.fft.orderNumber.toLowerCase().includes(String(pedido).toLowerCase()));
+  if (palletId) filtrados = filtrados.filter((r) => r.palletId.toLowerCase().includes(String(palletId).toLowerCase()));
+  if (escaneadora) filtrados = filtrados.filter((r) => r.fft && r.fft.scanner === escaneadora);
+  if (condicion) filtrados = filtrados.filter((r) => r.fft && r.fft.condition === condicion);
+  if (matchStatus) filtrados = filtrados.filter((r) => r.matchStatus === matchStatus);
+  if (q) {
+    const ql = String(q).toLowerCase();
+    filtrados = filtrados.filter((r) => r.palletId.toLowerCase().includes(ql) || (r.fft && r.fft.orderNumber.toLowerCase().includes(ql)));
+  }
+
+  filtrados = filtrados.slice().sort((a, b) => {
+    const ta = a.fft && a.fft.createdAt ? new Date(a.fft.createdAt).getTime() : 0;
+    const tb = b.fft && b.fft.createdAt ? new Date(b.fft.createdAt).getTime() : 0;
+    return tb - ta;
+  });
+
+  const page = Math.max(1, parseInt(query.page, 10) || 1);
+  const pageSize = Math.min(200, Math.max(1, parseInt(query.pageSize, 10) || 25));
+  const totalRecords = filtrados.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const pageSlice = filtrados.slice((page - 1) * pageSize, page * pageSize);
+
+  const records = pageSlice.map((r) => ({
+    palletId: r.palletId,
+    area: r.inventory ? r.inventory.area : null,
+    bin: r.inventory ? r.inventory.bin : null,
+    categoria: r.inventory ? r.inventory.category : null,
+    piezasInventario: r.inventory ? r.inventory.pieces : null,
+    destino: r.fft ? r.fft.destination : null,
+    tipoPedido: r.fft ? r.fft.orderType : null,
+    pedido: r.fft ? r.fft.orderNumber : null,
+    piezasFft: r.fft ? r.fft.pieces : null,
+    escaneadora: r.fft ? r.fft.scanner : null,
+    condicion: r.fft ? r.fft.condition : null,
+    fecha: r.fft ? r.fft.date : null,
+    hora: r.fft && r.fft.createdAt ? r.fft.createdAt : null,
+    matchStatus: r.matchStatus,
+  }));
+
+  return { records, pagination: { page, pageSize, totalRecords, totalPages } };
+}
+
 app.get('/api/dashboard-destinos-fft/pallets', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
   try {
     const { registros } = await construirCruceFft(req.query);
-    let filtrados = registros;
-    const { area, bin, destino, categoria, tipo, pedido, palletId, escaneadora, condicion, matchStatus, q } = req.query;
-    if (area) filtrados = filtrados.filter((r) => r.inventory && r.inventory.area === area);
-    if (bin) filtrados = filtrados.filter((r) => r.inventory && r.inventory.bin === bin);
-    if (destino) filtrados = filtrados.filter((r) => r.fft && r.fft.destination === destino);
-    if (categoria) filtrados = filtrados.filter((r) => r.inventory && r.inventory.category === categoria);
-    if (tipo) filtrados = filtrados.filter((r) => r.fft && r.fft.orderType === tipo);
-    if (pedido) filtrados = filtrados.filter((r) => r.fft && r.fft.orderNumber.toLowerCase().includes(String(pedido).toLowerCase()));
-    if (palletId) filtrados = filtrados.filter((r) => r.palletId.toLowerCase().includes(String(palletId).toLowerCase()));
-    if (escaneadora) filtrados = filtrados.filter((r) => r.fft && r.fft.scanner === escaneadora);
-    if (condicion) filtrados = filtrados.filter((r) => r.fft && r.fft.condition === condicion);
-    if (matchStatus) filtrados = filtrados.filter((r) => r.matchStatus === matchStatus);
-    if (q) {
-      const ql = String(q).toLowerCase();
-      filtrados = filtrados.filter((r) => r.palletId.toLowerCase().includes(ql) || (r.fft && r.fft.orderNumber.toLowerCase().includes(ql)));
-    }
+    res.json({ success: true, ...buildPalletsPayload(registros, req.query) });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
 
-    filtrados = filtrados.slice().sort((a, b) => {
-      const ta = a.fft && a.fft.createdAt ? new Date(a.fft.createdAt).getTime() : 0;
-      const tb = b.fft && b.fft.createdAt ? new Date(b.fft.createdAt).getTime() : 0;
-      return tb - ta;
+// Endpoint UNICO para el Resumen del Dashboard Destinos FFT (auditoria
+// 2026-08-10): antes, fftLoad() del frontend disparaba /destinos, /areas y
+// /pallets EN PARALELO con el mismo rango de fechas — cada uno llamaba
+// construirCruceFft() por su cuenta, y como el cache (fftCruceCache) solo
+// guarda el resultado YA terminado (no la promesa en curso), las 3 llegaban
+// con el cache frio a la vez y triplicaban el cruce pesado (~35s cada uno)
+// en vez de compartirlo — eso es lo que causaba "Tiempo de espera agotado"
+// en Resumen. Aqui se llama construirCruceFft() UNA sola vez y se arma la
+// respuesta de los 3 con las mismas funciones puras que ya usan los
+// endpoints individuales (que se dejan intactos para Areas/Actividad, que
+// sí necesitan pedirlos por separado con sus propios filtros/paginacion).
+app.get('/api/dashboard-destinos-fft/resumen-completo', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const cruce = await construirCruceFft(req.query);
+    res.json({
+      success: true,
+      destinos: buildDestinosPayload(cruce.registros),
+      areas: buildAreasPayload(cruce),
+      pallets: buildPalletsPayload(cruce.registros, { ...req.query, page: 1, pageSize: 8 }),
     });
-
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 25));
-    const totalRecords = filtrados.length;
-    const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
-    const pageSlice = filtrados.slice((page - 1) * pageSize, page * pageSize);
-
-    const records = pageSlice.map((r) => ({
-      palletId: r.palletId,
-      area: r.inventory ? r.inventory.area : null,
-      bin: r.inventory ? r.inventory.bin : null,
-      categoria: r.inventory ? r.inventory.category : null,
-      piezasInventario: r.inventory ? r.inventory.pieces : null,
-      destino: r.fft ? r.fft.destination : null,
-      tipoPedido: r.fft ? r.fft.orderType : null,
-      pedido: r.fft ? r.fft.orderNumber : null,
-      piezasFft: r.fft ? r.fft.pieces : null,
-      escaneadora: r.fft ? r.fft.scanner : null,
-      condicion: r.fft ? r.fft.condition : null,
-      fecha: r.fft ? r.fft.date : null,
-      hora: r.fft && r.fft.createdAt ? r.fft.createdAt : null,
-      matchStatus: r.matchStatus,
-    }));
-
-    res.json({ success: true, records, pagination: { page, pageSize, totalRecords, totalPages } });
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 

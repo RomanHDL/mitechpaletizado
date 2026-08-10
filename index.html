@@ -11805,22 +11805,28 @@ async function fftLoad(silencioso) {
     const qs = params.toString();
     const TIMEOUT_MS = 45000; // confirmado con el usuario: el cruce real tarda ~35s la primera vez
 
-    const [dataRes, destinosRes, areasRes, actividadRes] = await Promise.allSettled([
+    // Auditoria 2026-08-10: antes esto disparaba /destinos + /areas + /pallets
+    // EN PARALELO con el mismo rango — cada uno llamaba construirCruceFft() por
+    // su cuenta, y el cache del servidor solo guarda el resultado YA terminado
+    // (no la promesa en curso), asi que con cache frio las 3 llegaban a la vez
+    // y TRIPLICABAN el cruce pesado (~35s cada una) en vez de compartirlo — eso
+    // causaba el "Tiempo de espera agotado" en Resumen. /resumen-completo
+    // calcula el cruce UNA sola vez en el servidor y regresa los 3 shapes juntos.
+    const [dataRes, resumenRes] = await Promise.allSettled([
         fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/data?${qs}`), TIMEOUT_MS),
-        fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/destinos?${qs}`), TIMEOUT_MS),
-        fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/areas?${qs}`), TIMEOUT_MS),
-        fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/pallets?${qs}&page=1&pageSize=8`), TIMEOUT_MS),
+        fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/resumen-completo?${qs}`), TIMEOUT_MS),
     ]);
     if (mySeq !== fftRequestSeq) return; // respuesta vieja, ya hay una peticion mas nueva en curso
 
     const dataOk = dataRes.status === 'fulfilled' && dataRes.value.success;
-    const destinosOk = destinosRes.status === 'fulfilled' && destinosRes.value.success;
-    const areasOk = areasRes.status === 'fulfilled' && areasRes.value.success;
-    const actividadOk = actividadRes.status === 'fulfilled' && actividadRes.value.success;
+    const resumenOk = resumenRes.status === 'fulfilled' && resumenRes.value.success;
+    const destinosOk = resumenOk;
+    const areasOk = resumenOk;
+    const actividadOk = resumenOk;
 
     fftUltimoDato = dataOk ? dataRes.value : null;
-    fftUltimoDestinos = destinosOk ? destinosRes.value.destinos : [];
-    fftUltimoAreas = areasOk ? areasRes.value : null;
+    fftUltimoDestinos = destinosOk ? resumenRes.value.destinos.destinos : [];
+    fftUltimoAreas = areasOk ? resumenRes.value.areas : null;
 
     if (dataOk) {
         fftRenderKpis(fftUltimoDato.kpis, fftUltimoAreas ? fftUltimoAreas.resumen : null);
@@ -11834,7 +11840,7 @@ async function fftLoad(silencioso) {
     fftRenderDestinos(fftUltimoDestinos);
     fftRenderFlujoChart(fftUltimoDestinos);
     if (!destinosOk) {
-        const nota = destinosRes.status === 'rejected' ? destinosRes.reason.message : destinosRes.value.error;
+        const nota = resumenRes.status === 'rejected' ? resumenRes.reason.message : resumenRes.value.error;
         document.getElementById('fft-destinos-preview').innerHTML = `<div class="fft-empty-note">No se pudieron cargar los destinos: ${nota}</div>`;
         document.getElementById('fft-destinos-full').innerHTML = `<div class="fft-empty-note">No se pudieron cargar los destinos: ${nota}</div>`;
     }
@@ -11850,7 +11856,7 @@ async function fftLoad(silencioso) {
             else notaSyncEl.textContent = `Última sincronización: ${m.ultimaSincronizacion ? new Date(m.ultimaSincronizacion).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : 'N/D'}`;
         }
     } else {
-        const nota = areasRes.status === 'rejected' ? areasRes.reason.message : areasRes.value.error;
+        const nota = resumenRes.status === 'rejected' ? resumenRes.reason.message : resumenRes.value.error;
         const isNotConfigured = /CUBICAJE_API_BASE_URL|CUBICAJE_INTEGRATION_KEY/.test(nota || '');
         const msg = isNotConfigured ? 'Áreas/Bines no disponibles: falta configurar la conexión con Cubicaje.' : `No se pudo cargar el inventario (Áreas/Bines): ${nota}`;
         document.getElementById('fft-areas-preview').innerHTML = `<div class="fft-empty-note">${msg}</div>`;
@@ -11858,7 +11864,7 @@ async function fftLoad(silencioso) {
         document.getElementById('fft-tabla-bines-body').innerHTML = `<tr><td colspan="7" class="fft-empty-note">${msg}</td></tr>`;
     }
 
-    if (actividadOk) fftRenderActividadPreview(actividadRes.value.records);
+    if (actividadOk) fftRenderActividadPreview(resumenRes.value.pallets.records);
     else document.getElementById('fft-actividad-preview-body').innerHTML = '<tr><td colspan="9" class="fft-empty-note">No se pudo cargar la actividad reciente.</td></tr>';
 
     document.getElementById('fft-last-update').textContent = new Date().toLocaleTimeString('es-MX');
@@ -12075,11 +12081,13 @@ function fftRenderShipmentTypes(rows) {
         return;
     }
     const ordenadas = rows.slice().sort((a, b) => (b.realPallets || 0) - (a.realPallets || 0));
+    const metodoLabel = { consignacion_por_serie: 'Consignación real (por serie)', nombre_de_bin: 'Heurística (nombre de bin)' };
     body.innerHTML = `
         <div class="fft-table-wrap"><table class="fft-table">
-            <thead><tr><th>Código</th><th>Label</th><th>Pallets reales</th><th>Piezas reales</th><th>SKUs</th><th>Apilable</th><th>Mezcla en pallet</th><th>Inspección</th><th>Documentos requeridos</th></tr></thead>
+            <thead><tr><th>Código</th><th>Label</th><th>Pallets reales</th><th>Piezas reales</th><th>SKUs</th><th>Método de detección</th><th>Apilable</th><th>Mezcla en pallet</th><th>Inspección</th><th>Documentos requeridos</th></tr></thead>
             <tbody>${ordenadas.map(r => {
                 const sinInventario = !r.realPallets;
+                const esPreciso = r.detectionMethod === 'consignacion_por_serie';
                 return `
                 <tr>
                     <td data-label="Código"><b>${r.code}</b></td>
@@ -12087,6 +12095,7 @@ function fftRenderShipmentTypes(rows) {
                     <td data-label="Pallets reales" class="rs-qty" style="${sinInventario ? 'color:var(--fft-text-muted);' : 'font-weight:700;color:#16A34A;'}">${r.realPallets ?? 0}</td>
                     <td data-label="Piezas reales" style="${sinInventario ? 'color:var(--fft-text-muted);' : ''}">${(r.realPiezas ?? 0).toLocaleString('es-MX')}</td>
                     <td data-label="SKUs" style="${sinInventario ? 'color:var(--fft-text-muted);' : ''}">${r.realSkuCount ?? 0}</td>
+                    <td data-label="Método de detección" style="${esPreciso ? 'color:#16A34A;font-weight:600;' : 'color:var(--fft-text-muted);'}">${metodoLabel[r.detectionMethod] || r.detectionMethod || '-'}</td>
                     <td data-label="Apilable">${r.stackable ? `Sí${r.maxStackHeightCm ? ` (≤${r.maxStackHeightCm}cm)` : ''}` : 'No'}</td>
                     <td data-label="Mezcla en pallet">${({ free: 'Libre', same_size_only: 'Solo mismo tamaño', single_sku_per_pallet: '1 solo SKU por pallet' })[r.mixingPolicy] || r.mixingPolicy || '-'}</td>
                     <td data-label="Inspección">${r.requiresInspection ? 'Sí' : 'No'}</td>
@@ -12094,7 +12103,7 @@ function fftRenderShipmentTypes(rows) {
                 </tr>`;
             }).join('')}</tbody>
         </table></div>
-        <div style="font-size:0.72rem;color:var(--fft-text-muted);margin-top:0.5rem;">Pallets/Piezas/SKUs reales = bins activos en BinManagerRO cuyo código contiene el nombre del destino, con contenido ahorita mismo. BinManagerRO no tiene un campo de "tipo de envío" — los códigos en 0 no tienen ningún bin relacionado.</div>`;
+        <div style="font-size:0.72rem;color:var(--fft-text-muted);margin-top:0.5rem;">"Consignación real (por serie)" = cruce contra el feed real de consignación (BM.InventoryFeed_TRGCONSIGMENT), por serie individual — no adivina por nombre de bin. El resto usa la heurística de texto en el BinCode (ej. "TRG-RETU03", "FBA/VZ-009") porque todavía no tienen un feed propio; BinManagerRO no tiene un campo de "tipo de envío". Los códigos en 0 no tienen ningún bin relacionado (honesto, no inventado).</div>`;
 }
 
 function fftAreaCardHtml(a) {
