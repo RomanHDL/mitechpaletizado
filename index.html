@@ -12234,8 +12234,14 @@ function fftRenderCharts(g) {
 function fftConOtros(rows, totalPalletsReal, totalPiezasReal) {
     const base = rows || [];
     if (totalPalletsReal == null && totalPiezasReal == null) return base;
-    const sumaPallets = base.reduce((s, r) => s + (r.realPallets || 0), 0);
-    const sumaPiezas = base.reduce((s, r) => s + (r.realPiezas || 0), 0);
+    // Auditoria 2026-08-10: NACIONAL/INTERNACIONAL/CALVERY cuentan PEDIDOS
+    // (OM.Orders), no pallets/piezas de TV -- son una unidad distinta a
+    // totalPalletsReal/totalPiezasReal (inventario de TVs). Restarlos aqui
+    // corromperia OTROS (estaria restando pedidos como si fueran pallets).
+    // Solo se suman los codigos que SI comparten la unidad de inventario.
+    const contables = base.filter((r) => r.unidadPallets !== 'pedidos');
+    const sumaPallets = contables.reduce((s, r) => s + (r.realPallets || 0), 0);
+    const sumaPiezas = contables.reduce((s, r) => s + (r.realPiezas || 0), 0);
     const otrosPallets = Math.max(0, (totalPalletsReal || 0) - sumaPallets);
     const otrosPiezas = Math.max(0, (totalPiezasReal || 0) - sumaPiezas);
     if (!otrosPallets && !otrosPiezas) return base;
@@ -12279,8 +12285,13 @@ function fftAplicarOficialADestinos(destinos, oficial) {
 // shape que ya usa la tabla de "Catálogo de tipos de envío" en la pestaña
 // Destinos FFT — ver fftRenderShipmentTypes). Los codigos en 0 se muestran
 // igual (honesto, no se ocultan ni se inventa un numero).
+// Auditoria 2026-08-10: NACIONAL/INTERNACIONAL/CALVERY cuentan PEDIDOS
+// (OM.Orders), no pallets/piezas fisicas de TV -- mezclarlos en una dona
+// titulada "Pallets/Piezas por destino" haria pasar un pedido por un
+// pallet. Se excluyen aqui (siguen visibles en sus propias tarjetas, con
+// su unidad correcta) para no corromper la lectura visual de inventario.
 function fftRenderDestinoDonutsDesdeCatalogo(rows) {
-    const ordenadas = (rows || []).slice().sort((a, b) => (b.realPallets || 0) - (a.realPallets || 0));
+    const ordenadas = (rows || []).filter((r) => r.unidadPallets !== 'pedidos').sort((a, b) => (b.realPallets || 0) - (a.realPallets || 0));
     const labels = ordenadas.map(r => r.code);
     const colors = ordenadas.map((r, i) => fftColorDestino(r.code, i));
     fftMakeChart('palletsDestino', 'fft-chart-pallets-destino', fftDonutBase(labels, ordenadas.map(r => r.realPallets || 0), colors));
@@ -12290,21 +12301,31 @@ function fftRenderDestinoDonutsDesdeCatalogo(rows) {
 // Auditoria 2026-08-10: las tarjetas de destino ya NO son TRG/Almacen/FBA
 // (EscReg) -- son los 10 codigos reales del catalogo de Cubicaje, con
 // inventario REAL de BinManagerRO (mismo shape que fftRenderShipmentTypes).
-const FFT_METODO_LABEL = { consignacion_por_serie: 'Consignación real (por serie)', nombre_de_bin: 'Heurística (nombre de bin)', nombre_de_bin_o_tipo_de_bin: 'Nombre de bin + tipo de bin real', resto_no_clasificado: 'Resto sin código en el bin', oficial_binmanager: 'Oficial BinManager (flujo, no inventario)' };
+const FFT_METODO_LABEL = { consignacion_por_serie: 'Consignación real (por serie)', nombre_de_bin: 'Heurística (nombre de bin)', nombre_de_bin_o_tipo_de_bin: 'Nombre de bin + tipo de bin real', resto_no_clasificado: 'Resto sin código en el bin', oficial_binmanager: 'Oficial BinManager (flujo, no inventario)', flujo_ordenes_30d: 'Flujo real de pedidos (30 días)' };
+// Auditoria 2026-08-10: NACIONAL/INTERNACIONAL/CALVERY vienen de OM.Orders
+// (flujo de pedidos reales, ultimos 30 dias) -- Cubicaje manda
+// unidadPallets:"pedidos" para esos 3 porque esa fuente no tiene concepto
+// de pallet fisico. La card nunca les dice "Pallets reales" -- diria
+// "Pedidos reales" para no hacerlos pasar por algo que no son. Tampoco
+// tienen "Ver pallets" (no hay bin que mostrar, es un pedido).
 function fftDestinoCardHtml(d) {
     const color = fftColorDestino(d.code, 0);
     const sinInventario = !d.realPallets;
     const esOtros = d.code === 'OTROS';
+    const esFlujoOrdenes = d.unidadPallets === 'pedidos';
+    const labelPallets = esFlujoOrdenes ? 'Pedidos reales' : 'Pallets reales';
     return `
         <div class="fft-card fft-destino-card" style="border-top-color:${color};">
             <div class="fft-dc-nombre" style="color:${color};">${d.code}</div>
-            <div class="fft-dc-metric"><span>Pallets reales</span><b>${(d.realPallets || 0).toLocaleString('es-MX')}</b></div>
+            <div class="fft-dc-metric"><span>${labelPallets}</span><b>${(d.realPallets || 0).toLocaleString('es-MX')}</b></div>
             <div class="fft-dc-metric"><span>Piezas reales</span><b>${(d.realPiezas || 0).toLocaleString('es-MX')}</b></div>
             <div class="fft-dc-metric"><span>SKUs distintos</span><b>${esOtros ? 'N/D' : (d.realSkuCount || 0)}</b></div>
-            <div class="fft-dc-metric"><span>Método de detección</span><b style="font-size:0.72rem;${d.detectionMethod === 'consignacion_por_serie' ? 'color:#16A34A;' : d.detectionMethod === 'oficial_binmanager' ? 'color:#2563EB;' : ''}">${FFT_METODO_LABEL[d.detectionMethod] || d.detectionMethod || '-'}</b></div>
+            <div class="fft-dc-metric"><span>Método de detección</span><b style="font-size:0.72rem;${d.detectionMethod === 'consignacion_por_serie' ? 'color:#16A34A;' : (d.detectionMethod === 'oficial_binmanager' || d.detectionMethod === 'flujo_ordenes_30d') ? 'color:#2563EB;' : ''}">${FFT_METODO_LABEL[d.detectionMethod] || d.detectionMethod || '-'}</b></div>
             <div class="fft-dc-tipos"><span class="fft-chip" style="background:#94A3B822;color:#475569;">${d.label || ''}</span></div>
             ${d.overlapNota ? `<div style="font-size:0.68rem;color:#B45309;background:#FEF3C7;border-radius:6px;padding:0.35rem 0.5rem;margin-top:0.5rem;"><i class="fa-solid fa-triangle-exclamation"></i> ${d.overlapNota}</div>` : ''}
-            <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;margin-top:0.75rem;" ${(sinInventario || esOtros) ? `disabled title="${esOtros ? 'No es un código real del catálogo, es la resta del total' : 'Sin bines reales relacionados'}"` : ''} onclick="fftAbrirDestino('${encodeURIComponent(d.code)}')">Ver pallets <i class="fa-solid fa-arrow-right"></i></button>
+            ${esFlujoOrdenes
+                ? `<div style="font-size:0.7rem;color:var(--fft-text-muted);margin-top:0.75rem;text-align:center;">Sin bin que mostrar — es flujo de pedidos, no inventario</div>`
+                : `<button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;margin-top:0.75rem;" ${(sinInventario || esOtros) ? `disabled title="${esOtros ? 'No es un código real del catálogo, es la resta del total' : 'Sin bines reales relacionados'}"` : ''} onclick="fftAbrirDestino('${encodeURIComponent(d.code)}')">Ver pallets <i class="fa-solid fa-arrow-right"></i></button>`}
         </div>`;
 }
 // Auditoria 2026-08-10: "Ver pallets" ya NO filtra la tabla de Actividad
@@ -12364,7 +12385,9 @@ function fftRenderDestinos(destinos) {
 }
 function fftRenderFlujoChart(destinos) {
     if (!destinos || !document.getElementById('fft-chart-flujo')) return;
-    const ordenadas = destinos.slice().sort((a, b) => (b.realPallets || 0) - (a.realPallets || 0));
+    // Mismo motivo que fftRenderDestinoDonutsDesdeCatalogo -- pedidos no son
+    // pallets, no se mezclan en "FFT -> Destino".
+    const ordenadas = destinos.filter((d) => d.unidadPallets !== 'pedidos').sort((a, b) => (b.realPallets || 0) - (a.realPallets || 0));
     fftMakeChart('flujo', 'fft-chart-flujo', {
         type: 'bar',
         data: { labels: ordenadas.map(d => `FFT → ${d.code}`), datasets: [{ data: ordenadas.map(d => d.realPallets || 0), backgroundColor: ordenadas.map((d, i) => fftColorDestino(d.code, i)), borderRadius: 6 }] },
@@ -12405,18 +12428,19 @@ function fftRenderShipmentTypes(rows) {
         return;
     }
     const ordenadas = rows.slice().sort((a, b) => (b.realPallets || 0) - (a.realPallets || 0));
-    const metodoLabel = { consignacion_por_serie: 'Consignación real (por serie)', nombre_de_bin: 'Heurística (nombre de bin)', nombre_de_bin_o_tipo_de_bin: 'Nombre de bin + tipo de bin real' };
+    const metodoLabel = { consignacion_por_serie: 'Consignación real (por serie)', nombre_de_bin: 'Heurística (nombre de bin)', nombre_de_bin_o_tipo_de_bin: 'Nombre de bin + tipo de bin real', flujo_ordenes_30d: 'Flujo real de pedidos (30 días)' };
     body.innerHTML = `
         <div class="fft-table-wrap"><table class="fft-table">
-            <thead><tr><th>Código</th><th>Label</th><th>Pallets reales</th><th>Piezas reales</th><th>SKUs</th><th>Método de detección</th><th>Apilable</th><th>Mezcla en pallet</th><th>Inspección</th><th>Documentos requeridos</th></tr></thead>
+            <thead><tr><th>Código</th><th>Label</th><th>Pallets/Pedidos reales</th><th>Piezas reales</th><th>SKUs</th><th>Método de detección</th><th>Apilable</th><th>Mezcla en pallet</th><th>Inspección</th><th>Documentos requeridos</th></tr></thead>
             <tbody>${ordenadas.map(r => {
                 const sinInventario = !r.realPallets;
-                const esPreciso = r.detectionMethod === 'consignacion_por_serie' || r.detectionMethod === 'nombre_de_bin_o_tipo_de_bin';
+                const esPreciso = r.detectionMethod === 'consignacion_por_serie' || r.detectionMethod === 'nombre_de_bin_o_tipo_de_bin' || r.detectionMethod === 'flujo_ordenes_30d';
+                const esPedidos = r.unidadPallets === 'pedidos';
                 return `
                 <tr>
                     <td data-label="Código"><b>${r.code}</b></td>
                     <td data-label="Label">${r.label || '-'}</td>
-                    <td data-label="Pallets reales" class="rs-qty" style="${sinInventario ? 'color:var(--fft-text-muted);' : 'font-weight:700;color:#16A34A;'}">${r.realPallets ?? 0}</td>
+                    <td data-label="Pallets/Pedidos reales" class="rs-qty" style="${sinInventario ? 'color:var(--fft-text-muted);' : 'font-weight:700;color:#16A34A;'}">${r.realPallets ?? 0}${esPedidos ? ' pedidos' : ''}</td>
                     <td data-label="Piezas reales" style="${sinInventario ? 'color:var(--fft-text-muted);' : ''}">${(r.realPiezas ?? 0).toLocaleString('es-MX')}</td>
                     <td data-label="SKUs" style="${sinInventario ? 'color:var(--fft-text-muted);' : ''}">${r.realSkuCount ?? 0}</td>
                     <td data-label="Método de detección" style="${esPreciso ? 'color:#16A34A;font-weight:600;' : 'color:var(--fft-text-muted);'}">${metodoLabel[r.detectionMethod] || r.detectionMethod || '-'}</td>
