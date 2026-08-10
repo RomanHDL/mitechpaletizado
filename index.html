@@ -1143,6 +1143,8 @@
         .fft-status-dot.error{background:#ef4444;}
         .fft-actions-row{display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:flex-end;align-items:center;}
         .fft-btn{background:var(--fft-card);border:1px solid var(--fft-border);color:var(--fft-text);border-radius:8px;padding:0.45rem 0.8rem;font-size:0.82rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:box-shadow 0.15s ease,border-color 0.15s ease;}
+        .fft-btn.active{background:#3B82F6;border-color:#3B82F6;color:#fff;}
+        .fft-date-input:disabled{opacity:0.5;cursor:not-allowed;}
         .fft-btn:hover{box-shadow:var(--fft-shadow);border-color:#CBD5E1;}
         .fft-btn.fft-btn-primary{background:#3B82F6;border-color:#3B82F6;color:#fff;}
         .fft-btn.fft-btn-primary:hover{background:#2563EB;}
@@ -3162,9 +3164,10 @@
                         <span>Actualizado: <b id="fft-last-update" style="color:var(--fft-text);">--</b></span>
                     </div>
                     <div class="fft-actions-row">
-                        <input type="date" class="fft-date-input" id="fft-fecha-inicio" onchange="fftLoad()">
+                        <button class="fft-btn" id="fft-btn-todo" onclick="fftToggleSinFecha()" title="Ignora el rango de fechas -- todo el historico de EscReg (el inventario real de BinManagerRO ya es siempre 'ahorita mismo', sin fecha)">Todo</button>
+                        <input type="date" class="fft-date-input" id="fft-fecha-inicio" onchange="fftOnFechaInputChange()">
                         <span style="color:var(--fft-text-muted);font-size:0.8rem;">a</span>
-                        <input type="date" class="fft-date-input" id="fft-fecha-fin" onchange="fftLoad()">
+                        <input type="date" class="fft-date-input" id="fft-fecha-fin" onchange="fftOnFechaInputChange()">
                         <button class="fft-btn" onclick="fftLoad()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
                         <button class="fft-btn" onclick="fftAbrirFiltros()"><i class="fa-solid fa-sliders"></i> Filtros</button>
                         <button class="fft-btn" onclick="fftLimpiarFiltros()"><i class="fa-solid fa-xmark"></i> Limpiar</button>
@@ -11724,6 +11727,7 @@ let fftActividadPage = 1;
 let fftActividadUltimo = null;
 let fftActividadBuscarTimer = null;
 let fftShipmentTypesUltimo = null;
+let fftSinFecha = false; // "Todo" -- ignora fecha_inicio/fecha_fin, pide el historico completo
 
 const FFT_COLOR_DESTINO = { 'TRG': '#22c55e', 'Almacén': '#3B82F6', 'FBA': '#8B5CF6', 'Sin destino': '#94A3B8' };
 function fftColorDestino(nombre, idx) {
@@ -11799,10 +11803,14 @@ async function fftCargarFiltrosDisponibles() {
 
 function fftBuildParams() {
     const p = new URLSearchParams();
-    const fi = document.getElementById('fft-fecha-inicio').value;
-    const ff = document.getElementById('fft-fecha-fin').value;
-    if (fi) p.set('fecha_inicio', fi);
-    if (ff) p.set('fecha_fin', ff);
+    if (fftSinFecha) {
+        p.set('sinFecha', '1');
+    } else {
+        const fi = document.getElementById('fft-fecha-inicio').value;
+        const ff = document.getElementById('fft-fecha-fin').value;
+        if (fi) p.set('fecha_inicio', fi);
+        if (ff) p.set('fecha_fin', ff);
+    }
     if (fftFiltros.area) p.set('area', fftFiltros.area);
     if (fftFiltros.bin) p.set('bin', fftFiltros.bin);
     if (fftFiltros.destino) p.set('destino', fftFiltros.destino);
@@ -11814,6 +11822,34 @@ function fftBuildParams() {
     if (fftFiltros.pedido) p.set('pedido', fftFiltros.pedido);
     if (fftFiltros.palletId) p.set('palletId', fftFiltros.palletId);
     return p;
+}
+
+// "Todo" — datos completos, sin tope de 30 dias (pedido explicito de Roman:
+// poder ver historico completo, o rango, o un dia especifico). El inventario
+// real de BinManagerRO (destinos/areas/bines) YA es siempre "ahorita mismo"
+// sin fecha — esto solo cambia el rango del lado de EscReg (KPIs que aun lo
+// usan, actividad, tendencia por dia).
+function fftToggleSinFecha() {
+    fftSinFecha = !fftSinFecha;
+    const btn = document.getElementById('fft-btn-todo');
+    const fi = document.getElementById('fft-fecha-inicio');
+    const ff = document.getElementById('fft-fecha-fin');
+    if (btn) btn.classList.toggle('active', fftSinFecha);
+    if (fi) fi.disabled = fftSinFecha;
+    if (ff) ff.disabled = fftSinFecha;
+    fftLoad();
+    if (fftActividadUltimo) fftCargarActividad(1);
+}
+// El usuario edito una fecha a mano (rango, o mismo dia en ambos campos para
+// "un dia especifico") -- "Todo" se desactiva solo.
+function fftOnFechaInputChange() {
+    if (fftSinFecha) {
+        fftSinFecha = false;
+        const btn = document.getElementById('fft-btn-todo');
+        if (btn) btn.classList.remove('active');
+    }
+    fftLoad();
+    if (fftActividadUltimo) fftCargarActividad(1);
 }
 
 // Cada llamada tiene su propio limite de tiempo — una fuente lenta o colgada
@@ -11879,13 +11915,20 @@ async function fftLoad(silencioso) {
         if (notaDestinoEl) notaDestinoEl.innerHTML = `<div class="fft-empty-note">No se pudo cargar el catálogo de Cubicaje: ${nota}</div>`;
     }
 
+    // Auditoria 2026-08-10: los KPIs ya NO dependen de dataOk (EscReg) -- solo
+    // de areasOk (BinManagerRO) + catalogoOk (Cubicaje), para que nunca
+    // muestren un numero que no cuadre con las tarjetas/donas de destino.
+    if (areasOk) {
+        fftRenderKpis(fftUltimoAreas.resumen, catalogoOk ? catalogoRes.value.data : null);
+    } else {
+        const nota = resumenRes.status === 'rejected' ? resumenRes.reason.message : resumenRes.value.error;
+        document.getElementById('fft-kpi-grid').innerHTML = `<div class="fft-empty-note" style="grid-column:1/-1;">No se pudo cargar el inventario real de BinManagerRO: ${nota}</div>`;
+    }
+
     if (dataOk) {
-        fftRenderKpis(fftUltimoDato.kpis, fftUltimoAreas ? fftUltimoAreas.resumen : null);
         fftRenderCharts(fftUltimoDato.graficas);
         fftRenderTabla(fftUltimoDato.tablaResumen);
         fftRenderChips();
-    } else {
-        document.getElementById('fft-kpi-grid').innerHTML = `<div class="fft-empty-note" style="grid-column:1/-1;">No se pudieron cargar los KPIs: ${dataRes.reason ? dataRes.reason.message : (dataRes.value && dataRes.value.error)}</div>`;
     }
 
     if (catalogoOk) {
@@ -11958,22 +12001,30 @@ function fftKpiCard(label, icon, color, value, deltaPct, nota) {
         </div>`;
 }
 
+// Auditoria 2026-08-10: pedido explicito de Roman de que los KPIs sean SOLO
+// datos reales de la API/BinManagerRO -- antes Pallets/Piezas/Registros de
+// hoy/Tipos de pedido/Destinos activos venian de EscReg (kpis) y NO cuadraban
+// con las tarjetas/donas de destino (que ya son 100% catalogo real). Se
+// quitaron "Registros de hoy" y "Tipos de pedido" (conceptos solo de EscReg,
+// sin equivalente real) y "Destinos activos" ahora cuenta codigos del
+// catalogo con inventario real > 0, no destinos distintos de EscReg.
 // "Bin activo"/"Area activa" = tiene inventario ACTUAL (al menos 1 pallet
 // ahorita en BinManagerRO) — no es un conteo historico, es lo que hay ahorita.
-function fftRenderKpis(kpis, resumenInventario) {
+function fftRenderKpis(resumenInventario, catalogo) {
     const grid = document.getElementById('fft-kpi-grid');
-    const areasActivas = resumenInventario ? resumenInventario.areasActivas : '—';
-    const binesActivos = resumenInventario ? resumenInventario.binesActivos : '—';
-    const sinCruce = resumenInventario ? resumenInventario.palletsSinCruceFFT : '—';
+    if (!resumenInventario) {
+        grid.innerHTML = '<div class="fft-empty-note" style="grid-column:1/-1;">No se pudo cargar el inventario real de BinManagerRO.</div>';
+        return;
+    }
+    const totalCodigos = (catalogo || []).length || 10;
+    const destinosActivos = (catalogo || []).filter(d => (d.realPallets || 0) > 0).length;
     grid.innerHTML = [
-        fftKpiCard('Pallets totales', 'fa-pallet', '#3B82F6', kpis.totalPallets.value.toLocaleString('es-MX'), kpis.totalPallets.deltaPct),
-        fftKpiCard('Piezas totales', 'fa-cubes', '#22c55e', kpis.totalPiezas.value.toLocaleString('es-MX'), kpis.totalPiezas.deltaPct),
-        fftKpiCard('Registros de hoy', 'fa-calendar-day', '#F59E0B', kpis.registrosHoy.value.toLocaleString('es-MX'), null),
-        fftKpiCard('Áreas activas', 'fa-map-location-dot', '#F97316', areasActivas, null, 'Con inventario actual'),
-        fftKpiCard('Bines activos', 'fa-warehouse', '#8B5CF6', binesActivos, null, 'Con inventario actual'),
-        fftKpiCard('Destinos activos', 'fa-location-dot', '#EC4899', kpis.destinosActivos.value, null),
-        fftKpiCard('Tipos de pedido', 'fa-tags', '#06B6D4', kpis.tiposActivos.value, null),
-        fftKpiCard('Pallets sin cruce FFT', 'fa-triangle-exclamation', '#EF4444', sinCruce, null, 'En inventario, sin registro FFT'),
+        fftKpiCard('Pallets totales', 'fa-pallet', '#3B82F6', resumenInventario.totalPalletsReal.toLocaleString('es-MX'), null, 'Inventario real (BinManagerRO)'),
+        fftKpiCard('Piezas totales', 'fa-cubes', '#22c55e', resumenInventario.totalPiezasReal.toLocaleString('es-MX'), null, 'Inventario real (BinManagerRO)'),
+        fftKpiCard('Áreas activas', 'fa-map-location-dot', '#F97316', resumenInventario.areasActivas, null, 'Con inventario actual'),
+        fftKpiCard('Bines activos', 'fa-warehouse', '#8B5CF6', resumenInventario.binesActivos, null, 'Con inventario actual'),
+        fftKpiCard('Destinos activos', 'fa-location-dot', '#EC4899', `${destinosActivos}/${totalCodigos}`, null, 'Códigos del catálogo con inventario real'),
+        fftKpiCard('Pallets sin cruce FFT', 'fa-triangle-exclamation', '#EF4444', resumenInventario.palletsSinCruceFFT, null, 'En inventario, sin registro FFT'),
     ].join('');
 }
 
@@ -12415,6 +12466,11 @@ function fftAplicarFiltros() {
 function fftLimpiarFiltros() {
     fftFiltros = { area: '', bin: '', destino: '', categoria: '', tipo: '', escaneadora: '', condicion: '', matchStatus: '', pedido: '', palletId: '' };
     ['fft-f-area', 'fft-f-bin', 'fft-f-destino', 'fft-f-categoria', 'fft-f-tipo', 'fft-f-escaneadora', 'fft-f-condicion', 'fft-f-matchstatus', 'fft-f-pedido', 'fft-f-palletid'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    fftSinFecha = false;
+    document.getElementById('fft-btn-todo')?.classList.remove('active');
+    const fi = document.getElementById('fft-fecha-inicio'), ff = document.getElementById('fft-fecha-fin');
+    if (fi) fi.disabled = false;
+    if (ff) ff.disabled = false;
     fftCerrarFiltros();
     fftLoad();
     if (fftActividadUltimo) fftCargarActividad(1);

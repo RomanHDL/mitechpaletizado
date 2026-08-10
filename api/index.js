@@ -2534,7 +2534,13 @@ function fftHoyMexico() {
   return new Date(parseInt(parts.year, 10), parseInt(parts.month, 10) - 1, parseInt(parts.day, 10));
 }
 function fftIso(d) { const pad2 = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+// Auditoria 2026-08-10: pedido explicito de Roman de poder ver "datos
+// completos" (todo el historico, sin tope de 30 dias) además de rango o dia
+// especifico. sinFecha=1 se propaga como fecha_inicio/fecha_fin vacios --
+// applyCentroDateRange/construirCruceFftSinCache ya saben tratar eso como
+// "sin filtro de fecha" (nunca como el default de 30 dias).
 function fftDefaultRange(query) {
+  if (query.sinFecha === '1' || query.sinFecha === 'true') return { fecha_inicio: '', fecha_fin: '' };
   if (query.fecha_inicio || query.fecha_fin) return { fecha_inicio: query.fecha_inicio || query.fecha_fin, fecha_fin: query.fecha_fin || query.fecha_inicio };
   const hoy = fftHoyMexico();
   const hace30 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 29);
@@ -2604,7 +2610,7 @@ app.get('/api/dashboard-destinos-fft/data', auth, roleGuard('admin'), centroOper
     // criterio que /api/centro-operativo/resumen — con un rango de varios dias no
     // hay un "dia anterior" unico y correcto que comparar.
     let anterior = null;
-    if (rango.fecha_inicio === rango.fecha_fin) {
+    if (rango.fecha_inicio && rango.fecha_inicio === rango.fecha_fin) {
       const [y, m, d] = rango.fecha_inicio.split('-').map((n) => parseInt(n, 10));
       const fPrev = new Date(y, m - 1, d - 1);
       const isoPrev = fftIso(fPrev);
@@ -2731,8 +2737,12 @@ async function construirCruceFftSinCache(query) {
 
   const filter = buildCentroFilter(query || {});
   const pipeline = [{ $match: filter }];
-  pipeline.push(...fechaDateStages());
-  pipeline.push({ $match: fechaDateRangeMatch(rango.fecha_inicio, rango.fecha_fin) });
+  // Mismo guard que applyCentroDateRange: sin fecha_inicio/fecha_fin (ej.
+  // sinFecha=1) significa "todo el historico", nunca "0 resultados".
+  if (rango.fecha_inicio || rango.fecha_fin) {
+    pipeline.push(...fechaDateStages());
+    pipeline.push({ $match: fechaDateRangeMatch(rango.fecha_inicio, rango.fecha_fin) });
+  }
   pipeline.push({ $sort: { createdAt: -1 } });
   const fftDocsCrudos = await EscReg.aggregate(pipeline);
 
@@ -2934,6 +2944,12 @@ function buildAreasPayload(cruce) {
       areasActivas: areas.length,
       binesActivos: bines.length,
       palletsSinCruceFFT: diagnostico.soloInventario,
+      // Auditoria 2026-08-10: KPIs de Resumen ya NO mezclan totales de EscReg
+      // con totales reales -- totalPalletsReal/totalPiezasReal salen de
+      // conInventario (el inventario real completo, ya calculado arriba)
+      // para que "Pallets/Piezas totales" tambien sean 100% BinManagerRO.
+      totalPalletsReal: totalPalletsInv,
+      totalPiezasReal: totalPiezasInv,
     },
     diagnostico,
     meta: { totalInventarioReal: totalInventario, agotadoInventario, ultimaSincronizacion, nuncaSincronizado, generadoEn: new Date().toISOString() },
