@@ -3199,10 +3199,13 @@
                 <div class="fft-charts-grid-4">
                     <div class="fft-card fft-chart-panel">
                         <div class="fft-chart-title">Pallets por destino</div>
+                        <div class="fft-section-sub" style="margin-bottom:0.4rem;">Catálogo real de Cubicaje (10 códigos) — nunca el destino de escaneo</div>
+                        <div id="fft-chart-destino-nota"></div>
                         <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-pallets-destino"></canvas></div>
                     </div>
                     <div class="fft-card fft-chart-panel">
                         <div class="fft-chart-title">Piezas por destino</div>
+                        <div class="fft-section-sub" style="margin-bottom:0.4rem;">Catálogo real de Cubicaje (10 códigos) — nunca el destino de escaneo</div>
                         <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-piezas-destino"></canvas></div>
                     </div>
                     <div class="fft-card fft-chart-panel">
@@ -11812,14 +11815,20 @@ async function fftLoad(silencioso) {
     // y TRIPLICABAN el cruce pesado (~35s cada una) en vez de compartirlo — eso
     // causaba el "Tiempo de espera agotado" en Resumen. /resumen-completo
     // calcula el cruce UNA sola vez en el servidor y regresa los 3 shapes juntos.
-    const [dataRes, resumenRes] = await Promise.allSettled([
+    // El catalogo (shipment-types) no depende del rango de fechas — se pide
+    // aparte del cruce pesado para que un catalogo lento nunca bloquee KPIs/
+    // areas/actividad, y viceversa (mismo principio que ya describe el
+    // comentario de fftConTimeout arriba).
+    const [dataRes, resumenRes, catalogoRes] = await Promise.allSettled([
         fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/data?${qs}`), TIMEOUT_MS),
         fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/resumen-completo?${qs}`), TIMEOUT_MS),
+        fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/shipment-types`), TIMEOUT_MS),
     ]);
     if (mySeq !== fftRequestSeq) return; // respuesta vieja, ya hay una peticion mas nueva en curso
 
     const dataOk = dataRes.status === 'fulfilled' && dataRes.value.success;
     const resumenOk = resumenRes.status === 'fulfilled' && resumenRes.value.success;
+    const catalogoOk = catalogoRes.status === 'fulfilled' && catalogoRes.value.success;
     const destinosOk = resumenOk;
     const areasOk = resumenOk;
     const actividadOk = resumenOk;
@@ -11827,6 +11836,16 @@ async function fftLoad(silencioso) {
     fftUltimoDato = dataOk ? dataRes.value : null;
     fftUltimoDestinos = destinosOk ? resumenRes.value.destinos.destinos : [];
     fftUltimoAreas = areasOk ? resumenRes.value.areas : null;
+    if (catalogoOk) fftShipmentTypesUltimo = catalogoRes.value; // evita refetch al abrir la pestaña Destinos FFT
+
+    const notaDestinoEl = document.getElementById('fft-chart-destino-nota');
+    if (catalogoOk) {
+        if (notaDestinoEl) notaDestinoEl.innerHTML = '';
+        fftRenderDestinoDonutsDesdeCatalogo(catalogoRes.value.data);
+    } else {
+        const nota = catalogoRes.status === 'rejected' ? catalogoRes.reason.message : catalogoRes.value.error;
+        if (notaDestinoEl) notaDestinoEl.innerHTML = `<div class="fft-empty-note">No se pudo cargar el catálogo de Cubicaje: ${nota}</div>`;
+    }
 
     if (dataOk) {
         fftRenderKpis(fftUltimoDato.kpis, fftUltimoAreas ? fftUltimoAreas.resumen : null);
@@ -11978,11 +11997,6 @@ function fftLineChartConfig(porDia) {
 }
 
 function fftRenderCharts(g) {
-    const destLabels = g.porDestino.map(d => d.nombre);
-    const destColors = g.porDestino.map((d, i) => fftColorDestino(d.nombre, i));
-    fftMakeChart('palletsDestino', 'fft-chart-pallets-destino', fftDonutBase(destLabels, g.porDestino.map(d => d.pallets), destColors));
-    fftMakeChart('piezasDestino', 'fft-chart-piezas-destino', fftDonutBase(destLabels, g.porDestino.map(d => d.piezas), destColors));
-
     const tipoLabels = g.porTipo.map(t => t.nombre);
     const tipoColors = g.porTipo.map((t, i) => fftColorTipo(i));
     fftMakeChart('tipo', 'fft-chart-tipo', fftDonutBase(tipoLabels, g.porTipo.map(t => t.pallets), tipoColors));
@@ -11996,6 +12010,23 @@ function fftRenderCharts(g) {
         data: { labels: g.porEscaneadora.map(e => e.nombre), datasets: [{ data: g.porEscaneadora.map(e => e.piezas), backgroundColor: '#3B82F6cc', borderRadius: 4 }] },
         options: { ...fftBarOptionsSimple(), indexAxis: 'y' },
     });
+}
+
+// Auditoria 2026-08-10: "Pallets por destino"/"Piezas por destino" en Resumen
+// mostraban SOLO TRG/Almacen/FBA -- el campo `destino` de EscReg (dato que
+// captura el propio Roman al escanear), no el catalogo real de Cubicaje.
+// Pedido explicito de Roman: quitar ese dato y usar SOLO los 10 codigos
+// reales del catalogo (FBA/TRG/HV/FULL/BULK/BOX/UPT/CALVERY/NACIONAL/
+// INTERNACIONAL), con el inventario REAL de BinManagerRO por codigo (mismo
+// shape que ya usa la tabla de "Catálogo de tipos de envío" en la pestaña
+// Destinos FFT — ver fftRenderShipmentTypes). Los codigos en 0 se muestran
+// igual (honesto, no se ocultan ni se inventa un numero).
+function fftRenderDestinoDonutsDesdeCatalogo(rows) {
+    const ordenadas = (rows || []).slice().sort((a, b) => (b.realPallets || 0) - (a.realPallets || 0));
+    const labels = ordenadas.map(r => r.code);
+    const colors = ordenadas.map((r, i) => fftColorDestino(r.code, i));
+    fftMakeChart('palletsDestino', 'fft-chart-pallets-destino', fftDonutBase(labels, ordenadas.map(r => r.realPallets || 0), colors));
+    fftMakeChart('piezasDestino', 'fft-chart-piezas-destino', fftDonutBase(labels, ordenadas.map(r => r.realPiezas || 0), colors));
 }
 
 function fftDestinoCardHtml(d) {
