@@ -3188,27 +3188,11 @@
             <!-- ══ TAB: RESUMEN ══ -->
             <div class="fft-tabpanel active" id="fft-tabpanel-resumen">
                 <!-- Auditoria 2026-08-10: pedido explicito de Roman de poner PRIMERO
-                     los destinos reales (catalogo de Cubicaje), antes que los KPIs. -->
-                <div class="fft-section-title">¿A qué destinos van los pallets de FFT?</div>
-                <div class="fft-section-sub">Catálogo real de Cubicaje (10 códigos) con inventario real de BinManagerRO — nunca el destino de escaneo (EscReg)</div>
-                <div class="fft-destino-grid" id="fft-destinos-preview"></div>
-
-                <div class="fft-kpi-grid" id="fft-kpi-grid"></div>
-
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
-                    <div>
-                        <div class="fft-section-title" style="margin-bottom:0.15rem;">Áreas y Bines</div>
-                        <div class="fft-section-sub" style="margin-bottom:0.6rem;">Inventario actual real (BinManagerRO)</div>
-                    </div>
-                    <button class="fft-btn" onclick="fftSetTab('areas')">Ver todas <i class="fa-solid fa-arrow-right"></i></button>
-                </div>
-                <div class="fft-area-grid" id="fft-areas-preview"></div>
-
-                <!-- Auditoria 2026-08-10: se quito "Pallets por tipo de pedido" de aqui
-                     -- es tipo de pedido de EscReg (no destino), y mezclaba nombres de
-                     escaneadores por un bug de datos (Lorena/Alejandro/Jesus). Pedido
-                     explicito de Roman de no confundirlo con las tarjetas de destino
-                     real. Sigue disponible en la pestaña Destinos FFT (grafica lateral). -->
+                     estas 3 cards (donas de destino + Destino x Tipo de pedido), antes
+                     de las tarjetas de destino, los KPIs y Areas y Bines. Se quito
+                     "Pallets por tipo de pedido" de aqui -- es tipo de pedido de EscReg
+                     (no destino), y mezclaba nombres de escaneadores por un bug de datos
+                     (Lorena/Alejandro/Jesus). Sigue en la pestaña Destinos FFT. -->
                 <div class="fft-charts-grid-3">
                     <div class="fft-card fft-chart-panel">
                         <div class="fft-chart-title">Pallets por destino</div>
@@ -3226,6 +3210,21 @@
                         <div class="fft-chart-canvas-wrap" id="fft-heatmap-wrap" style="overflow:auto;"></div>
                     </div>
                 </div>
+
+                <div class="fft-section-title">¿A qué destinos van los pallets de FFT?</div>
+                <div class="fft-section-sub">Catálogo real de Cubicaje (10 códigos) con inventario real de BinManagerRO — nunca el destino de escaneo (EscReg)</div>
+                <div class="fft-destino-grid" id="fft-destinos-preview"></div>
+
+                <div class="fft-kpi-grid" id="fft-kpi-grid"></div>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+                    <div>
+                        <div class="fft-section-title" style="margin-bottom:0.15rem;">Áreas y Bines</div>
+                        <div class="fft-section-sub" style="margin-bottom:0.6rem;">Inventario actual real (BinManagerRO)</div>
+                    </div>
+                    <button class="fft-btn" onclick="fftSetTab('areas')">Ver todas <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+                <div class="fft-area-grid" id="fft-areas-preview"></div>
 
                 <div class="fft-card fft-chart-panel" style="margin-bottom:1.25rem;min-height:280px;">
                     <div class="fft-chart-title">Pallets y piezas por día</div>
@@ -11729,7 +11728,7 @@ let fftActividadBuscarTimer = null;
 let fftShipmentTypesUltimo = null;
 let fftSinFecha = false; // "Todo" -- ignora fecha_inicio/fecha_fin, pide el historico completo
 
-const FFT_COLOR_DESTINO = { 'TRG': '#22c55e', 'Almacén': '#3B82F6', 'FBA': '#8B5CF6', 'Sin destino': '#94A3B8' };
+const FFT_COLOR_DESTINO = { 'TRG': '#22c55e', 'Almacén': '#3B82F6', 'FBA': '#8B5CF6', 'Sin destino': '#94A3B8', 'OTROS': '#94A3B8' };
 function fftColorDestino(nombre, idx) {
     if (FFT_COLOR_DESTINO[nombre]) return FFT_COLOR_DESTINO[nombre];
     const otros = ['#F59E0B', '#EC4899', '#06B6D4', '#84CC16', '#F97316'];
@@ -11898,18 +11897,24 @@ async function fftLoad(silencioso) {
     const actividadOk = resumenOk;
 
     fftUltimoDato = dataOk ? dataRes.value : null;
-    // Auditoria 2026-08-10: fftUltimoDestinos (tarjetas + flujo FFT->Destino)
-    // ya NO viene de EscReg (destino de escaneo) -- viene del catalogo real
-    // de Cubicaje (10 codigos, inventario real de BinManagerRO). Ver
-    // fftRenderDestinos/fftDestinoCardHtml mas abajo.
-    fftUltimoDestinos = catalogoOk ? catalogoRes.value.data : [];
     fftUltimoAreas = areasOk ? resumenRes.value.areas : null;
+    // Auditoria 2026-08-10: fftUltimoDestinos (tarjetas + donas + flujo
+    // FFT->Destino) ya NO viene de EscReg (destino de escaneo) -- viene del
+    // catalogo real de Cubicaje (10 codigos, inventario real de BinManagerRO).
+    // Pedido explicito de Roman: los 10 codigos solo capturan un puñado de
+    // los pallets reales (los que por convencion tienen el codigo en el
+    // BinCode) -- se agrega un 11vo bucket "OTROS" con el RESTO del
+    // inventario real (Pallets/Piezas totales - suma de los 10) para que la
+    // dona sume el 100% real, nunca solo lo que matchea por nombre de bin.
+    fftUltimoDestinos = catalogoOk
+        ? fftConOtros(catalogoRes.value.data, areasOk ? fftUltimoAreas.resumen.totalPalletsReal : null, areasOk ? fftUltimoAreas.resumen.totalPiezasReal : null)
+        : [];
     if (catalogoOk) fftShipmentTypesUltimo = catalogoRes.value; // evita refetch al abrir la pestaña Destinos FFT
 
     const notaDestinoEl = document.getElementById('fft-chart-destino-nota');
     if (catalogoOk) {
         if (notaDestinoEl) notaDestinoEl.innerHTML = '';
-        fftRenderDestinoDonutsDesdeCatalogo(catalogoRes.value.data);
+        fftRenderDestinoDonutsDesdeCatalogo(fftUltimoDestinos);
     } else {
         const nota = catalogoRes.status === 'rejected' ? catalogoRes.reason.message : catalogoRes.value.error;
         if (notaDestinoEl) notaDestinoEl.innerHTML = `<div class="fft-empty-note">No se pudo cargar el catálogo de Cubicaje: ${nota}</div>`;
@@ -12097,6 +12102,32 @@ function fftRenderCharts(g) {
     });
 }
 
+// Auditoria 2026-08-10: los 10 codigos del catalogo solo capturan los
+// pallets reales cuyo BinCode por CONVENCION contiene ese texto (ej.
+// "TRG-RETU03") -- son un puñado (~29) contra los ~9200 pallets reales
+// totales. Pedido explicito de Roman de que se vea el 100% real: se agrega
+// un 11vo bucket sintetico "OTROS" = Pallets/Piezas totales reales MENOS la
+// suma de los 10 codigos (nunca negativo). Si la suma ya alcanza el total
+// (o no hay total real todavia), no se agrega nada -- nunca se inventa un
+// numero negativo ni se duplica el total.
+function fftConOtros(rows, totalPalletsReal, totalPiezasReal) {
+    const base = rows || [];
+    if (totalPalletsReal == null && totalPiezasReal == null) return base;
+    const sumaPallets = base.reduce((s, r) => s + (r.realPallets || 0), 0);
+    const sumaPiezas = base.reduce((s, r) => s + (r.realPiezas || 0), 0);
+    const otrosPallets = Math.max(0, (totalPalletsReal || 0) - sumaPallets);
+    const otrosPiezas = Math.max(0, (totalPiezasReal || 0) - sumaPiezas);
+    if (!otrosPallets && !otrosPiezas) return base;
+    return [...base, {
+        code: 'OTROS',
+        label: 'Resto del inventario real — sin código de catálogo en el nombre del bin',
+        realPallets: otrosPallets,
+        realPiezas: otrosPiezas,
+        realSkuCount: null,
+        detectionMethod: 'resto_no_clasificado',
+    }];
+}
+
 // Auditoria 2026-08-10: "Pallets por destino"/"Piezas por destino" en Resumen
 // mostraban SOLO TRG/Almacen/FBA -- el campo `destino` de EscReg (dato que
 // captura el propio Roman al escanear), no el catalogo real de Cubicaje.
@@ -12117,19 +12148,20 @@ function fftRenderDestinoDonutsDesdeCatalogo(rows) {
 // Auditoria 2026-08-10: las tarjetas de destino ya NO son TRG/Almacen/FBA
 // (EscReg) -- son los 10 codigos reales del catalogo de Cubicaje, con
 // inventario REAL de BinManagerRO (mismo shape que fftRenderShipmentTypes).
-const FFT_METODO_LABEL = { consignacion_por_serie: 'Consignación real (por serie)', nombre_de_bin: 'Heurística (nombre de bin)' };
+const FFT_METODO_LABEL = { consignacion_por_serie: 'Consignación real (por serie)', nombre_de_bin: 'Heurística (nombre de bin)', resto_no_clasificado: 'Resto sin código en el bin' };
 function fftDestinoCardHtml(d) {
     const color = fftColorDestino(d.code, 0);
     const sinInventario = !d.realPallets;
+    const esOtros = d.code === 'OTROS';
     return `
         <div class="fft-card fft-destino-card" style="border-top-color:${color};">
             <div class="fft-dc-nombre" style="color:${color};">${d.code}</div>
             <div class="fft-dc-metric"><span>Pallets reales</span><b>${(d.realPallets || 0).toLocaleString('es-MX')}</b></div>
             <div class="fft-dc-metric"><span>Piezas reales</span><b>${(d.realPiezas || 0).toLocaleString('es-MX')}</b></div>
-            <div class="fft-dc-metric"><span>SKUs distintos</span><b>${d.realSkuCount || 0}</b></div>
+            <div class="fft-dc-metric"><span>SKUs distintos</span><b>${esOtros ? 'N/D' : (d.realSkuCount || 0)}</b></div>
             <div class="fft-dc-metric"><span>Método de detección</span><b style="font-size:0.72rem;${d.detectionMethod === 'consignacion_por_serie' ? 'color:#16A34A;' : ''}">${FFT_METODO_LABEL[d.detectionMethod] || d.detectionMethod || '-'}</b></div>
             <div class="fft-dc-tipos"><span class="fft-chip" style="background:#94A3B822;color:#475569;">${d.label || ''}</span></div>
-            <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;margin-top:0.75rem;" ${sinInventario ? 'disabled title="Sin bines reales relacionados"' : ''} onclick="fftAbrirDestino('${encodeURIComponent(d.code)}')">Ver pallets <i class="fa-solid fa-arrow-right"></i></button>
+            <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;margin-top:0.75rem;" ${(sinInventario || esOtros) ? `disabled title="${esOtros ? 'No es un código real del catálogo, es la resta del total' : 'Sin bines reales relacionados'}"` : ''} onclick="fftAbrirDestino('${encodeURIComponent(d.code)}')">Ver pallets <i class="fa-solid fa-arrow-right"></i></button>
         </div>`;
 }
 // Auditoria 2026-08-10: "Ver pallets" ya NO filtra la tabla de Actividad
