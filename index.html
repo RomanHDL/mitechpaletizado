@@ -12166,7 +12166,7 @@ function fftRenderDestinoDonutsDesdeCatalogo(rows) {
 // Auditoria 2026-08-10: las tarjetas de destino ya NO son TRG/Almacen/FBA
 // (EscReg) -- son los 10 codigos reales del catalogo de Cubicaje, con
 // inventario REAL de BinManagerRO (mismo shape que fftRenderShipmentTypes).
-const FFT_METODO_LABEL = { consignacion_por_serie: 'Consignación real (por serie)', nombre_de_bin: 'Heurística (nombre de bin)', resto_no_clasificado: 'Resto sin código en el bin' };
+const FFT_METODO_LABEL = { consignacion_por_serie: 'Consignación real (por serie)', nombre_de_bin: 'Heurística (nombre de bin)', nombre_de_bin_o_tipo_de_bin: 'Nombre de bin + tipo de bin real', resto_no_clasificado: 'Resto sin código en el bin' };
 function fftDestinoCardHtml(d) {
     const color = fftColorDestino(d.code, 0);
     const sinInventario = !d.realPallets;
@@ -12280,13 +12280,13 @@ function fftRenderShipmentTypes(rows) {
         return;
     }
     const ordenadas = rows.slice().sort((a, b) => (b.realPallets || 0) - (a.realPallets || 0));
-    const metodoLabel = { consignacion_por_serie: 'Consignación real (por serie)', nombre_de_bin: 'Heurística (nombre de bin)' };
+    const metodoLabel = { consignacion_por_serie: 'Consignación real (por serie)', nombre_de_bin: 'Heurística (nombre de bin)', nombre_de_bin_o_tipo_de_bin: 'Nombre de bin + tipo de bin real' };
     body.innerHTML = `
         <div class="fft-table-wrap"><table class="fft-table">
             <thead><tr><th>Código</th><th>Label</th><th>Pallets reales</th><th>Piezas reales</th><th>SKUs</th><th>Método de detección</th><th>Apilable</th><th>Mezcla en pallet</th><th>Inspección</th><th>Documentos requeridos</th></tr></thead>
             <tbody>${ordenadas.map(r => {
                 const sinInventario = !r.realPallets;
-                const esPreciso = r.detectionMethod === 'consignacion_por_serie';
+                const esPreciso = r.detectionMethod === 'consignacion_por_serie' || r.detectionMethod === 'nombre_de_bin_o_tipo_de_bin';
                 return `
                 <tr>
                     <td data-label="Código"><b>${r.code}</b></td>
