@@ -12134,11 +12134,16 @@ async function fftGuardarOficial() {
         nonTrg: parseInt(document.getElementById('fo-nontrg').value, 10) || 0,
         hvLots: parseInt(document.getElementById('fo-hv').value, 10) || 0,
         actualizadoEn: new Date().toISOString(),
+        // Auditoria 2026-08-10: guardado DENTRO de value (no solo en el
+        // AppSetting.updatedBy externo) porque GET /api/settings solo
+        // regresa el mapa de values -- sin esto, tras un reload se perdia
+        // el "actualizado por" y quedaba "-".
+        actualizadoPor: (currentUser && (currentUser.nombre || currentUser.usuario)) || '-',
     };
     try {
         const data = await apiFetch(`${API}/api/settings/trg_hv_oficial`, { method: 'PUT', body: JSON.stringify({ value }) });
         if (!data.success) throw new Error(data.error || 'Error al guardar');
-        fftUltimoOficial = { ...value, actualizadoPor: (currentUser && (currentUser.nombre || currentUser.usuario)) || '-' };
+        fftUltimoOficial = value;
         fftRenderOficial();
         // Refresca las cards/donas de TRG/HV con el dato oficial recien
         // guardado -- sin esto se verian los valores viejos hasta el
