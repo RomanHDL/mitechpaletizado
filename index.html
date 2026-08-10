@@ -1149,6 +1149,9 @@
         .fft-btn.fft-btn-primary{background:#3B82F6;border-color:#3B82F6;color:#fff;}
         .fft-btn.fft-btn-primary:hover{background:#2563EB;}
         .fft-date-input{border:1px solid var(--fft-border);border-radius:8px;padding:0.42rem 0.6rem;font-size:0.8rem;background:var(--fft-card);color:var(--fft-text);}
+        .fft-num-input{border:1px solid var(--fft-border);border-radius:8px;padding:0.42rem 0.6rem;font-size:0.8rem;background:var(--fft-card);color:var(--fft-text);width:100%;box-sizing:border-box;}
+        .fft-oficial-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.6rem;}
+        .fft-oficial-form-grid label{display:flex;flex-direction:column;gap:0.25rem;font-size:0.75rem;color:var(--fft-text-muted);}
         .fft-kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem;}
         @media (max-width:1400px){.fft-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
         @media (max-width:760px){.fft-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
@@ -3214,6 +3217,30 @@
                 <div class="fft-section-title">¿A qué destinos van los pallets de FFT?</div>
                 <div class="fft-section-sub">Catálogo real de Cubicaje (10 códigos) con inventario real de BinManagerRO — nunca el destino de escaneo (EscReg)</div>
                 <div class="fft-destino-grid" id="fft-destinos-preview"></div>
+
+                <!-- Auditoria 2026-08-10: pedido explicito de Roman -- el flujo REAL
+                     de TRG/HV (BM.sp_GetReportTRG / sp_GetOperationalDashboard) vive
+                     en la base SmartControl, a la que ni la cuenta SQL de Roman ni la
+                     de Cubicaje tienen acceso (EXECUTE denegado, confirmado). El MCP
+                     de BinManager SI puede traerlo (con la cuenta de Roman), pero el
+                     MCP es una herramienta de chat con un asistente de IA -- no hay
+                     forma de que el SERVIDOR de esta pagina lo llame solo. Mientras no
+                     exista un scope/API de servicio para eso (ver Manual del
+                     Desarrollador de BinManager, seccion "Consulta de endpoints por
+                     API token" -- pallets/reportes marcados "A futuro"), este panel
+                     guarda MANUALMENTE el ultimo dato real que se consulto por MCP
+                     (admin 3647 lo pega aqui despues de pedirlo por chat) -- reusa
+                     /api/settings (AppSetting), no crea infraestructura nueva. -->
+                <div class="fft-card" style="padding:1.1rem 1.25rem;margin-bottom:1.25rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+                        <div>
+                            <div class="fft-chart-title" style="margin-bottom:0.15rem;">TRG / HV oficial (BinManager)</div>
+                            <div class="fft-section-sub" style="margin-bottom:0;">Flujo real por rango de fechas (BM.sp_GetReportTRG / sp_GetOperationalDashboard) — actualizado a mano vía MCP, no en tiempo real</div>
+                        </div>
+                        <button class="fft-btn" id="fft-oficial-btn-editar" onclick="fftAbrirOficialForm()" style="display:none;"><i class="fa-solid fa-pen"></i> Actualizar</button>
+                    </div>
+                    <div id="fft-oficial-body" style="margin-top:0.75rem;"></div>
+                </div>
 
                 <div class="fft-kpi-grid" id="fft-kpi-grid"></div>
 
@@ -11726,6 +11753,7 @@ let fftActividadPage = 1;
 let fftActividadUltimo = null;
 let fftActividadBuscarTimer = null;
 let fftShipmentTypesUltimo = null;
+let fftUltimoOficial = null; // TRG/HV oficial de BinManager (manual, via /api/settings)
 let fftSinFecha = false; // "Todo" -- ignora fecha_inicio/fecha_fin, pide el historico completo
 
 const FFT_COLOR_DESTINO = { 'TRG': '#22c55e', 'Almacén': '#3B82F6', 'FBA': '#8B5CF6', 'Sin destino': '#94A3B8', 'OTROS': '#94A3B8' };
@@ -11759,6 +11787,7 @@ function initDashboardDestinosFft() {
     fftActividadUltimo = null;
     fftSetTab('resumen');
     fftCargarFiltrosDisponibles();
+    fftCargarOficial();
     fftLoad();
     if (fftAutoTimer) clearInterval(fftAutoTimer);
     fftAutoTimer = setInterval(() => {
@@ -12049,6 +12078,77 @@ function fftRenderKpis(tvTotal, resumenInventario, catalogo) {
         fftKpiCard('Destinos activos', 'fa-location-dot', '#EC4899', `${destinosActivos}/${totalCodigos}`, null, 'Códigos del catálogo con inventario real'),
         fftKpiCard('Pallets sin cruce FFT', 'fa-triangle-exclamation', '#EF4444', resumenInventario.palletsSinCruceFFT, null, 'En inventario, sin registro FFT'),
     ].join('');
+}
+
+// Auditoria 2026-08-10: TRG/HV oficial de BinManager (BM.sp_GetReportTRG /
+// sp_GetOperationalDashboard) vive en SmartControl -- ni la cuenta SQL de
+// Roman ni la de Cubicaje tienen acceso ahi (EXECUTE denegado, confirmado).
+// El MCP de BinManager SI puede traerlo (con la cuenta de Roman), pero el
+// MCP es una herramienta de chat -- el SERVIDOR de esta pagina no puede
+// llamarlo solo. Este panel guarda MANUALMENTE el ultimo dato real
+// consultado por MCP, reusando /api/settings (AppSetting) -- admin 3647 lo
+// actualiza aqui despues de pedirlo en el chat. No es tiempo real, pero es
+// dato oficial real, no inventado.
+async function fftCargarOficial() {
+    try {
+        const data = await apiFetch(`${API}/api/settings`);
+        if (!data.success) return;
+        fftUltimoOficial = data.data.trg_hv_oficial || null;
+        fftRenderOficial();
+    } catch (e) { /* no critico */ }
+}
+function fftRenderOficial() {
+    const body = document.getElementById('fft-oficial-body');
+    const btn = document.getElementById('fft-oficial-btn-editar');
+    if (!body) return;
+    if (btn) btn.style.display = (currentUser && currentUser.usuario === '3647') ? '' : 'none';
+    const o = fftUltimoOficial;
+    if (!o) {
+        body.innerHTML = '<div class="fft-empty-note">Sin datos oficiales cargados todavía.</div>';
+        return;
+    }
+    body.innerHTML = `
+        <div class="fft-kpi-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));">
+            ${fftKpiCard('TRG con ID', 'fa-check', '#16A34A', (o.trgConId || 0).toLocaleString('es-MX'), null, 'piezas procesadas')}
+            ${fftKpiCard('TRG sin ID', 'fa-question', '#F59E0B', (o.trgSinId || 0).toLocaleString('es-MX'), null, 'piezas procesadas')}
+            ${fftKpiCard('Non-TRG', 'fa-xmark', '#94A3B8', (o.nonTrg || 0).toLocaleString('es-MX'), null, 'piezas procesadas')}
+            ${fftKpiCard('HV Lots', 'fa-star', '#8B5CF6', (o.hvLots || 0).toLocaleString('es-MX'), null, 'lotes (SupplierID 36)')}
+        </div>
+        <div style="font-size:0.75rem;color:var(--fft-text-muted);margin-top:0.5rem;">Rango consultado: ${o.rangoInicio || '?'} a ${o.rangoFin || '?'} · Actualizado: ${o.actualizadoEn ? new Date(o.actualizadoEn).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : 'N/D'} por ${o.actualizadoPor || '-'}</div>`;
+}
+function fftAbrirOficialForm() {
+    const o = fftUltimoOficial || {};
+    document.getElementById('fft-oficial-body').innerHTML = `
+        <div class="fft-oficial-form-grid">
+            <label>Rango inicio<input type="date" class="fft-date-input" id="fo-inicio" value="${o.rangoInicio || ''}"></label>
+            <label>Rango fin<input type="date" class="fft-date-input" id="fo-fin" value="${o.rangoFin || ''}"></label>
+            <label>TRG con ID (piezas)<input type="number" min="0" class="fft-num-input" id="fo-trgcon" value="${o.trgConId || 0}"></label>
+            <label>TRG sin ID (piezas)<input type="number" min="0" class="fft-num-input" id="fo-trgsin" value="${o.trgSinId || 0}"></label>
+            <label>Non-TRG (piezas)<input type="number" min="0" class="fft-num-input" id="fo-nontrg" value="${o.nonTrg || 0}"></label>
+            <label>HV Lots<input type="number" min="0" class="fft-num-input" id="fo-hv" value="${o.hvLots || 0}"></label>
+        </div>
+        <div style="display:flex;gap:0.5rem;margin-top:0.75rem;">
+            <button class="fft-btn fft-btn-primary" onclick="fftGuardarOficial()"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+            <button class="fft-btn" onclick="fftRenderOficial()">Cancelar</button>
+        </div>`;
+}
+async function fftGuardarOficial() {
+    const value = {
+        rangoInicio: document.getElementById('fo-inicio').value,
+        rangoFin: document.getElementById('fo-fin').value,
+        trgConId: parseInt(document.getElementById('fo-trgcon').value, 10) || 0,
+        trgSinId: parseInt(document.getElementById('fo-trgsin').value, 10) || 0,
+        nonTrg: parseInt(document.getElementById('fo-nontrg').value, 10) || 0,
+        hvLots: parseInt(document.getElementById('fo-hv').value, 10) || 0,
+        actualizadoEn: new Date().toISOString(),
+    };
+    try {
+        const data = await apiFetch(`${API}/api/settings/trg_hv_oficial`, { method: 'PUT', body: JSON.stringify({ value }) });
+        if (!data.success) throw new Error(data.error || 'Error al guardar');
+        fftUltimoOficial = { ...value, actualizadoPor: (currentUser && (currentUser.nombre || currentUser.usuario)) || '-' };
+        fftRenderOficial();
+        showToast('Datos oficiales de BinManager actualizados', 'success');
+    } catch (e) { showToast('Error al guardar: ' + e.message, 'error'); }
 }
 
 function fftMakeChart(key, canvasId, config) {
