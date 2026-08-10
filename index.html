@@ -12179,6 +12179,7 @@ function fftDestinoCardHtml(d) {
             <div class="fft-dc-metric"><span>SKUs distintos</span><b>${esOtros ? 'N/D' : (d.realSkuCount || 0)}</b></div>
             <div class="fft-dc-metric"><span>Método de detección</span><b style="font-size:0.72rem;${d.detectionMethod === 'consignacion_por_serie' ? 'color:#16A34A;' : ''}">${FFT_METODO_LABEL[d.detectionMethod] || d.detectionMethod || '-'}</b></div>
             <div class="fft-dc-tipos"><span class="fft-chip" style="background:#94A3B822;color:#475569;">${d.label || ''}</span></div>
+            ${d.overlapNota ? `<div style="font-size:0.68rem;color:#B45309;background:#FEF3C7;border-radius:6px;padding:0.35rem 0.5rem;margin-top:0.5rem;"><i class="fa-solid fa-triangle-exclamation"></i> ${d.overlapNota}</div>` : ''}
             <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;margin-top:0.75rem;" ${(sinInventario || esOtros) ? `disabled title="${esOtros ? 'No es un código real del catálogo, es la resta del total' : 'Sin bines reales relacionados'}"` : ''} onclick="fftAbrirDestino('${encodeURIComponent(d.code)}')">Ver pallets <i class="fa-solid fa-arrow-right"></i></button>
         </div>`;
 }
