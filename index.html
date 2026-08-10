@@ -11883,31 +11883,38 @@ async function fftLoad(silencioso) {
     // aparte del cruce pesado para que un catalogo lento nunca bloquee KPIs/
     // areas/actividad, y viceversa (mismo principio que ya describe el
     // comentario de fftConTimeout arriba).
-    const [dataRes, resumenRes, catalogoRes] = await Promise.allSettled([
+    const [dataRes, resumenRes, catalogoRes, tvTotalRes] = await Promise.allSettled([
         fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/data?${qs}`), TIMEOUT_MS),
         fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/resumen-completo?${qs}`), TIMEOUT_MS),
         fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/shipment-types`), TIMEOUT_MS),
+        fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/tv-inventory-total`), TIMEOUT_MS),
     ]);
     if (mySeq !== fftRequestSeq) return; // respuesta vieja, ya hay una peticion mas nueva en curso
 
     const dataOk = dataRes.status === 'fulfilled' && dataRes.value.success;
     const resumenOk = resumenRes.status === 'fulfilled' && resumenRes.value.success;
     const catalogoOk = catalogoRes.status === 'fulfilled' && catalogoRes.value.success;
+    // Auditoria 2026-08-10: "Pallets/Piezas totales" venian del cache de
+    // pallets de Cubicaje, que mezcla TVs con insumos/consumibles a granel
+    // (confirmado: el bin de mas volumen eran 2 SKUs de insumos, no TVs).
+    // Pedido explicito de Roman: solo contar TVs -- tvTotalOk/tvTotal
+    // reemplazan totalPalletsReal/totalPiezasReal en TODO lo de abajo.
+    const tvTotalOk = tvTotalRes.status === 'fulfilled' && tvTotalRes.value.success;
+    const tvTotal = tvTotalOk ? tvTotalRes.value.total : null;
     const areasOk = resumenOk;
     const actividadOk = resumenOk;
 
     fftUltimoDato = dataOk ? dataRes.value : null;
     fftUltimoAreas = areasOk ? resumenRes.value.areas : null;
-    // Auditoria 2026-08-10: fftUltimoDestinos (tarjetas + donas + flujo
-    // FFT->Destino) ya NO viene de EscReg (destino de escaneo) -- viene del
-    // catalogo real de Cubicaje (10 codigos, inventario real de BinManagerRO).
-    // Pedido explicito de Roman: los 10 codigos solo capturan un puñado de
-    // los pallets reales (los que por convencion tienen el codigo en el
-    // BinCode) -- se agrega un 11vo bucket "OTROS" con el RESTO del
-    // inventario real (Pallets/Piezas totales - suma de los 10) para que la
-    // dona sume el 100% real, nunca solo lo que matchea por nombre de bin.
+    // fftUltimoDestinos (tarjetas + donas + flujo FFT->Destino) ya NO viene
+    // de EscReg (destino de escaneo) -- viene del catalogo real de Cubicaje
+    // (10 codigos, inventario real de BinManagerRO). Los 10 codigos solo
+    // capturan un puñado de los pallets reales (los que por convencion
+    // tienen el codigo en el BinCode) -- se agrega un 11vo bucket "OTROS"
+    // con el RESTO del inventario real de TVs (nunca insumos) para que la
+    // dona sume el 100% de TVs, nunca solo lo que matchea por nombre de bin.
     fftUltimoDestinos = catalogoOk
-        ? fftConOtros(catalogoRes.value.data, areasOk ? fftUltimoAreas.resumen.totalPalletsReal : null, areasOk ? fftUltimoAreas.resumen.totalPiezasReal : null)
+        ? fftConOtros(catalogoRes.value.data, tvTotalOk ? tvTotal.pallets : null, tvTotalOk ? tvTotal.piezas : null)
         : [];
     if (catalogoOk) fftShipmentTypesUltimo = catalogoRes.value; // evita refetch al abrir la pestaña Destinos FFT
 
@@ -11921,12 +11928,15 @@ async function fftLoad(silencioso) {
     }
 
     // Auditoria 2026-08-10: los KPIs ya NO dependen de dataOk (EscReg) -- solo
-    // de areasOk (BinManagerRO) + catalogoOk (Cubicaje), para que nunca
-    // muestren un numero que no cuadre con las tarjetas/donas de destino.
-    if (areasOk) {
-        fftRenderKpis(fftUltimoAreas.resumen, catalogoOk ? catalogoRes.value.data : null);
+    // de tvTotalOk/areasOk (BinManagerRO) + catalogoOk (Cubicaje), para que
+    // nunca muestren un numero que no cuadre con las tarjetas/donas de
+    // destino (Pallets/Piezas totales = SOLO TVs, no insumos/consumibles).
+    if (tvTotalOk && areasOk) {
+        fftRenderKpis(tvTotal, fftUltimoAreas.resumen, catalogoOk ? catalogoRes.value.data : null);
     } else {
-        const nota = resumenRes.status === 'rejected' ? resumenRes.reason.message : resumenRes.value.error;
+        const nota = !tvTotalOk
+            ? (tvTotalRes.status === 'rejected' ? tvTotalRes.reason.message : tvTotalRes.value.error)
+            : (resumenRes.status === 'rejected' ? resumenRes.reason.message : resumenRes.value.error);
         document.getElementById('fft-kpi-grid').innerHTML = `<div class="fft-empty-note" style="grid-column:1/-1;">No se pudo cargar el inventario real de BinManagerRO: ${nota}</div>`;
     }
 
@@ -12015,17 +12025,25 @@ function fftKpiCard(label, icon, color, value, deltaPct, nota) {
 // catalogo con inventario real > 0, no destinos distintos de EscReg.
 // "Bin activo"/"Area activa" = tiene inventario ACTUAL (al menos 1 pallet
 // ahorita en BinManagerRO) — no es un conteo historico, es lo que hay ahorita.
-function fftRenderKpis(resumenInventario, catalogo) {
+// Auditoria 2026-08-10: Pallets/Piezas totales = SOLO TVs (tvTotal, via
+// getRealTvInventoryTotal en Cubicaje) -- confirmado con Roman que el
+// inventario real de BinManagerRO mezcla TVs con insumos/consumibles a
+// granel (un solo rack de insumos llegaba a 682,100 piezas), asi que
+// comparar contra "todo el inventario real" no tenia sentido para las
+// tarjetas/donas de destino. Áreas/Bines activos y Pallets sin cruce FFT
+// siguen en el alcance amplio (todo BinManagerRO, no solo TVs) -- avisar si
+// tambien se quiere acotar eso a TVs.
+function fftRenderKpis(tvTotal, resumenInventario, catalogo) {
     const grid = document.getElementById('fft-kpi-grid');
-    if (!resumenInventario) {
+    if (!tvTotal || !resumenInventario) {
         grid.innerHTML = '<div class="fft-empty-note" style="grid-column:1/-1;">No se pudo cargar el inventario real de BinManagerRO.</div>';
         return;
     }
     const totalCodigos = (catalogo || []).length || 10;
     const destinosActivos = (catalogo || []).filter(d => (d.realPallets || 0) > 0).length;
     grid.innerHTML = [
-        fftKpiCard('Pallets totales', 'fa-pallet', '#3B82F6', resumenInventario.totalPalletsReal.toLocaleString('es-MX'), null, 'Inventario real (BinManagerRO)'),
-        fftKpiCard('Piezas totales', 'fa-cubes', '#22c55e', resumenInventario.totalPiezasReal.toLocaleString('es-MX'), null, 'Inventario real (BinManagerRO)'),
+        fftKpiCard('Pallets totales', 'fa-pallet', '#3B82F6', tvTotal.pallets.toLocaleString('es-MX'), null, 'Solo TVs — inventario real (BinManagerRO)'),
+        fftKpiCard('Piezas totales', 'fa-cubes', '#22c55e', tvTotal.piezas.toLocaleString('es-MX'), null, 'Solo TVs — inventario real (BinManagerRO)'),
         fftKpiCard('Áreas activas', 'fa-map-location-dot', '#F97316', resumenInventario.areasActivas, null, 'Con inventario actual'),
         fftKpiCard('Bines activos', 'fa-warehouse', '#8B5CF6', resumenInventario.binesActivos, null, 'Con inventario actual'),
         fftKpiCard('Destinos activos', 'fa-location-dot', '#EC4899', `${destinosActivos}/${totalCodigos}`, null, 'Códigos del catálogo con inventario real'),
@@ -12120,7 +12138,7 @@ function fftConOtros(rows, totalPalletsReal, totalPiezasReal) {
     if (!otrosPallets && !otrosPiezas) return base;
     return [...base, {
         code: 'OTROS',
-        label: 'Resto del inventario real — sin código de catálogo en el nombre del bin',
+        label: 'Resto de TVs reales — sin código de catálogo en el nombre del bin',
         realPallets: otrosPallets,
         realPiezas: otrosPiezas,
         realSkuCount: null,

@@ -1055,6 +1055,43 @@ app.get('/api/dashboard-destinos-fft/shipment-types/:code/pallets', auth, roleGu
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 
+// Total real de inventario de TELEVISIONES (nunca insumos/consumibles) —
+// pedido explicito de Roman de que "Pallets/Piezas totales" del Resumen
+// solo cuenten TVs. Auditoria 2026-08-10.
+async function fetchCubicajeTvInventoryTotal(timeoutMs = 15000) {
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key) { const e = new Error('CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto'); e.status = 503; throw e; }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let resp;
+  try {
+    resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/paletizado/tv-inventory-total`, {
+      headers: { 'X-Integration-Key': key },
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : e.message;
+    const err = new Error('No se pudo consultar Cubicaje: ' + msg);
+    err.status = 502;
+    throw err;
+  } finally { clearTimeout(timeout); }
+  const data = await resp.json();
+  if (!resp.ok || !data.success) {
+    const err = new Error(data.error || `Cubicaje respondio ${resp.status}`);
+    err.status = resp.status === 401 ? 502 : resp.status;
+    throw err;
+  }
+  return data.total;
+}
+
+app.get('/api/dashboard-destinos-fft/tv-inventory-total', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const total = await fetchCubicajeTvInventoryTotal();
+    res.json({ success: true, total });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
 app.get('/api/sc-pallets/live', auth, roleGuard('admin'), async (req, res) => {
   if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
   try {
