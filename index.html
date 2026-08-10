@@ -3214,33 +3214,26 @@
                     </div>
                 </div>
 
-                <div class="fft-section-title">¿A qué destinos van los pallets de FFT?</div>
-                <div class="fft-section-sub">Catálogo real de Cubicaje (10 códigos) con inventario real de BinManagerRO — nunca el destino de escaneo (EscReg)</div>
-                <div class="fft-destino-grid" id="fft-destinos-preview"></div>
-
-                <!-- Auditoria 2026-08-10: pedido explicito de Roman -- el flujo REAL
-                     de TRG/HV (BM.sp_GetReportTRG / sp_GetOperationalDashboard) vive
-                     en la base SmartControl, a la que ni la cuenta SQL de Roman ni la
-                     de Cubicaje tienen acceso (EXECUTE denegado, confirmado). El MCP
-                     de BinManager SI puede traerlo (con la cuenta de Roman), pero el
-                     MCP es una herramienta de chat con un asistente de IA -- no hay
-                     forma de que el SERVIDOR de esta pagina lo llame solo. Mientras no
-                     exista un scope/API de servicio para eso (ver Manual del
-                     Desarrollador de BinManager, seccion "Consulta de endpoints por
-                     API token" -- pallets/reportes marcados "A futuro"), este panel
-                     guarda MANUALMENTE el ultimo dato real que se consulto por MCP
-                     (admin 3647 lo pega aqui despues de pedirlo por chat) -- reusa
-                     /api/settings (AppSetting), no crea infraestructura nueva. -->
-                <div class="fft-card" style="padding:1.1rem 1.25rem;margin-bottom:1.25rem;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
-                        <div>
-                            <div class="fft-chart-title" style="margin-bottom:0.15rem;">TRG / HV oficial (BinManager)</div>
-                            <div class="fft-section-sub" style="margin-bottom:0;">Flujo real por rango de fechas (BM.sp_GetReportTRG / sp_GetOperationalDashboard) — actualizado a mano vía MCP, no en tiempo real</div>
-                        </div>
-                        <button class="fft-btn" id="fft-oficial-btn-editar" onclick="fftAbrirOficialForm()" style="display:none;"><i class="fa-solid fa-pen"></i> Actualizar</button>
+                <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:0.5rem;">
+                    <div>
+                        <div class="fft-section-title" style="margin-bottom:0.15rem;">¿A qué destinos van los pallets de FFT?</div>
+                        <div class="fft-section-sub" style="margin-bottom:0;">Catálogo real de Cubicaje (10 códigos) con inventario real de BinManagerRO — nunca el destino de escaneo (EscReg). TRG y HV ya incluyen el dato oficial de BinManager (flujo por fecha) cuando existe.</div>
                     </div>
-                    <div id="fft-oficial-body" style="margin-top:0.75rem;"></div>
+                    <!-- Auditoria 2026-08-10: pedido explicito de Roman -- el dato oficial
+                         va DENTRO de las cards de TRG/HV (fftAplicarOficialADestinos), no
+                         en un panel aparte. El flujo real (BM.sp_GetReportTRG/
+                         sp_GetOperationalDashboard) vive en SmartControl, a la que ni la
+                         cuenta SQL de Roman ni la de Cubicaje tienen acceso (EXECUTE
+                         denegado, confirmado) -- solo el MCP (cuenta de Roman) lo trae, y
+                         el MCP es una herramienta de chat, el servidor no puede llamarlo
+                         solo. Mientras no exista un scope/API de servicio para eso (ver
+                         Manual del Desarrollador de BinManager -- "A futuro"), este boton
+                         solo guarda MANUALMENTE el ultimo dato que se pidio por MCP, via
+                         /api/settings (AppSetting) -- no crea infraestructura nueva. -->
+                    <button class="fft-btn" id="fft-oficial-btn-editar" onclick="fftAbrirOficialForm()" style="display:none;" title="Actualizar con el dato oficial de BinManager pedido por MCP"><i class="fa-solid fa-pen"></i> Actualizar oficial TRG/HV</button>
                 </div>
+                <div id="fft-oficial-body"></div>
+                <div class="fft-destino-grid" id="fft-destinos-preview"></div>
 
                 <div class="fft-kpi-grid" id="fft-kpi-grid"></div>
 
@@ -11776,7 +11769,7 @@ function fftMatchBadge(status) {
     return `<span class="fft-match-badge" style="background:${m.color}22;color:${m.color};">${m.label}</span>`;
 }
 
-function initDashboardDestinosFft() {
+async function initDashboardDestinosFft() {
     if (!document.getElementById('fft-fecha-fin').value) {
         const hoy = new Date();
         const hace30 = new Date(); hace30.setDate(hoy.getDate() - 29);
@@ -11787,7 +11780,11 @@ function initDashboardDestinosFft() {
     fftActividadUltimo = null;
     fftSetTab('resumen');
     fftCargarFiltrosDisponibles();
-    fftCargarOficial();
+    // Auditoria 2026-08-10: se espera a que cargue el dato oficial ANTES de
+    // fftLoad() -- fftLoad ya mezcla fftUltimoOficial dentro de las cards de
+    // TRG/HV (fftAplicarOficialADestinos), asi que si no se espera, la
+    // primera carga de la pagina mostraria el snapshot sin mezclar.
+    await fftCargarOficial();
     fftLoad();
     if (fftAutoTimer) clearInterval(fftAutoTimer);
     fftAutoTimer = setInterval(() => {
@@ -11943,7 +11940,7 @@ async function fftLoad(silencioso) {
     // con el RESTO del inventario real de TVs (nunca insumos) para que la
     // dona sume el 100% de TVs, nunca solo lo que matchea por nombre de bin.
     fftUltimoDestinos = catalogoOk
-        ? fftConOtros(catalogoRes.value.data, tvTotalOk ? tvTotal.pallets : null, tvTotalOk ? tvTotal.piezas : null)
+        ? fftAplicarOficialADestinos(fftConOtros(catalogoRes.value.data, tvTotalOk ? tvTotal.pallets : null, tvTotalOk ? tvTotal.piezas : null), fftUltimoOficial)
         : [];
     if (catalogoOk) fftShipmentTypesUltimo = catalogoRes.value; // evita refetch al abrir la pestaña Destinos FFT
 
@@ -12097,24 +12094,20 @@ async function fftCargarOficial() {
         fftRenderOficial();
     } catch (e) { /* no critico */ }
 }
+// Auditoria 2026-08-10: ya NO dibuja los 4 KPIs oficiales aqui -- ese dato
+// ahora vive DENTRO de las cards de TRG/HV (fftAplicarOficialADestinos,
+// pedido explicito de Roman: "en las cards de donas, no por separado").
+// Esta funcion solo deja una nota chica de trazabilidad (rango/fecha/quien)
+// y sirve para "Cancelar" del formulario de edicion.
 function fftRenderOficial() {
     const body = document.getElementById('fft-oficial-body');
     const btn = document.getElementById('fft-oficial-btn-editar');
     if (!body) return;
     if (btn) btn.style.display = (currentUser && currentUser.usuario === '3647') ? '' : 'none';
     const o = fftUltimoOficial;
-    if (!o) {
-        body.innerHTML = '<div class="fft-empty-note">Sin datos oficiales cargados todavía.</div>';
-        return;
-    }
-    body.innerHTML = `
-        <div class="fft-kpi-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));">
-            ${fftKpiCard('TRG con ID', 'fa-check', '#16A34A', (o.trgConId || 0).toLocaleString('es-MX'), null, 'piezas procesadas')}
-            ${fftKpiCard('TRG sin ID', 'fa-question', '#F59E0B', (o.trgSinId || 0).toLocaleString('es-MX'), null, 'piezas procesadas')}
-            ${fftKpiCard('Non-TRG', 'fa-xmark', '#94A3B8', (o.nonTrg || 0).toLocaleString('es-MX'), null, 'piezas procesadas')}
-            ${fftKpiCard('HV Lots', 'fa-star', '#8B5CF6', (o.hvLots || 0).toLocaleString('es-MX'), null, 'lotes (SupplierID 36)')}
-        </div>
-        <div style="font-size:0.75rem;color:var(--fft-text-muted);margin-top:0.5rem;">Rango consultado: ${o.rangoInicio || '?'} a ${o.rangoFin || '?'} · Actualizado: ${o.actualizadoEn ? new Date(o.actualizadoEn).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : 'N/D'} por ${o.actualizadoPor || '-'}</div>`;
+    body.innerHTML = o
+        ? `<div style="font-size:0.72rem;color:var(--fft-text-muted);margin-bottom:0.5rem;">Dato oficial BinManager ya mezclado en TRG/HV — rango ${o.rangoInicio || '?'} a ${o.rangoFin || '?'} · actualizado ${o.actualizadoEn ? new Date(o.actualizadoEn).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : 'N/D'} por ${o.actualizadoPor || '-'}</div>`
+        : '';
 }
 function fftAbrirOficialForm() {
     const o = fftUltimoOficial || {};
@@ -12147,6 +12140,11 @@ async function fftGuardarOficial() {
         if (!data.success) throw new Error(data.error || 'Error al guardar');
         fftUltimoOficial = { ...value, actualizadoPor: (currentUser && (currentUser.nombre || currentUser.usuario)) || '-' };
         fftRenderOficial();
+        // Refresca las cards/donas de TRG/HV con el dato oficial recien
+        // guardado -- sin esto se verian los valores viejos hasta el
+        // auto-refresh de 30s (fftAplicarOficialADestinos corre dentro de
+        // fftLoad).
+        fftLoad(true);
         showToast('Datos oficiales de BinManager actualizados', 'success');
     } catch (e) { showToast('Error al guardar: ' + e.message, 'error'); }
 }
@@ -12246,6 +12244,27 @@ function fftConOtros(rows, totalPalletsReal, totalPiezasReal) {
     }];
 }
 
+// Auditoria 2026-08-10: pedido explicito de Roman -- el dato oficial de
+// BinManager (piezas TRG con/sin ID, lotes HV) va DENTRO de las cards/donas
+// de destino, no en un panel aparte. TRG usa piezas procesadas oficiales
+// (trgConId+trgSinId, flujo del rango consultado) en vez del snapshot de
+// consignacion; HV usa hvLots como "Pallets reales" (Lots es la unidad real
+// de ese reporte, no hay piezas por lote). Se marca detectionMethod como
+// 'oficial_binmanager' para que se note que esa card mezcla flujo oficial,
+// no inventario actual como el resto -- no se oculta la diferencia.
+function fftAplicarOficialADestinos(destinos, oficial) {
+    if (!oficial) return destinos;
+    return destinos.map(d => {
+        if (d.code === 'TRG') {
+            return { ...d, realPiezas: (oficial.trgConId || 0) + (oficial.trgSinId || 0), detectionMethod: 'oficial_binmanager' };
+        }
+        if (d.code === 'HV') {
+            return { ...d, realPallets: oficial.hvLots || 0, detectionMethod: 'oficial_binmanager' };
+        }
+        return d;
+    });
+}
+
 // Auditoria 2026-08-10: "Pallets por destino"/"Piezas por destino" en Resumen
 // mostraban SOLO TRG/Almacen/FBA -- el campo `destino` de EscReg (dato que
 // captura el propio Roman al escanear), no el catalogo real de Cubicaje.
@@ -12266,7 +12285,7 @@ function fftRenderDestinoDonutsDesdeCatalogo(rows) {
 // Auditoria 2026-08-10: las tarjetas de destino ya NO son TRG/Almacen/FBA
 // (EscReg) -- son los 10 codigos reales del catalogo de Cubicaje, con
 // inventario REAL de BinManagerRO (mismo shape que fftRenderShipmentTypes).
-const FFT_METODO_LABEL = { consignacion_por_serie: 'Consignación real (por serie)', nombre_de_bin: 'Heurística (nombre de bin)', nombre_de_bin_o_tipo_de_bin: 'Nombre de bin + tipo de bin real', resto_no_clasificado: 'Resto sin código en el bin' };
+const FFT_METODO_LABEL = { consignacion_por_serie: 'Consignación real (por serie)', nombre_de_bin: 'Heurística (nombre de bin)', nombre_de_bin_o_tipo_de_bin: 'Nombre de bin + tipo de bin real', resto_no_clasificado: 'Resto sin código en el bin', oficial_binmanager: 'Oficial BinManager (flujo, no inventario)' };
 function fftDestinoCardHtml(d) {
     const color = fftColorDestino(d.code, 0);
     const sinInventario = !d.realPallets;
@@ -12277,7 +12296,7 @@ function fftDestinoCardHtml(d) {
             <div class="fft-dc-metric"><span>Pallets reales</span><b>${(d.realPallets || 0).toLocaleString('es-MX')}</b></div>
             <div class="fft-dc-metric"><span>Piezas reales</span><b>${(d.realPiezas || 0).toLocaleString('es-MX')}</b></div>
             <div class="fft-dc-metric"><span>SKUs distintos</span><b>${esOtros ? 'N/D' : (d.realSkuCount || 0)}</b></div>
-            <div class="fft-dc-metric"><span>Método de detección</span><b style="font-size:0.72rem;${d.detectionMethod === 'consignacion_por_serie' ? 'color:#16A34A;' : ''}">${FFT_METODO_LABEL[d.detectionMethod] || d.detectionMethod || '-'}</b></div>
+            <div class="fft-dc-metric"><span>Método de detección</span><b style="font-size:0.72rem;${d.detectionMethod === 'consignacion_por_serie' ? 'color:#16A34A;' : d.detectionMethod === 'oficial_binmanager' ? 'color:#2563EB;' : ''}">${FFT_METODO_LABEL[d.detectionMethod] || d.detectionMethod || '-'}</b></div>
             <div class="fft-dc-tipos"><span class="fft-chip" style="background:#94A3B822;color:#475569;">${d.label || ''}</span></div>
             ${d.overlapNota ? `<div style="font-size:0.68rem;color:#B45309;background:#FEF3C7;border-radius:6px;padding:0.35rem 0.5rem;margin-top:0.5rem;"><i class="fa-solid fa-triangle-exclamation"></i> ${d.overlapNota}</div>` : ''}
             <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;margin-top:0.75rem;" ${(sinInventario || esOtros) ? `disabled title="${esOtros ? 'No es un código real del catálogo, es la resta del total' : 'Sin bines reales relacionados'}"` : ''} onclick="fftAbrirDestino('${encodeURIComponent(d.code)}')">Ver pallets <i class="fa-solid fa-arrow-right"></i></button>
