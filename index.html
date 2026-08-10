@@ -1164,6 +1164,9 @@
         .fft-charts-grid-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1.1rem;margin-bottom:1.25rem;}
         @media (max-width:1400px){.fft-charts-grid-4{grid-template-columns:repeat(2,minmax(0,1fr));}}
         @media (max-width:640px){.fft-charts-grid-4{grid-template-columns:minmax(0,1fr);}}
+        .fft-charts-grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.1rem;margin-bottom:1.25rem;}
+        @media (max-width:1400px){.fft-charts-grid-3{grid-template-columns:repeat(2,minmax(0,1fr));}}
+        @media (max-width:640px){.fft-charts-grid-3{grid-template-columns:minmax(0,1fr);}}
         .fft-chart-panel{padding:1.1rem 1.25rem;min-height:300px;display:flex;flex-direction:column;}
         .fft-chart-title{font-size:0.85rem;font-weight:700;color:var(--fft-text);margin-bottom:0.75rem;}
         .fft-chart-canvas-wrap{flex:1;position:relative;min-height:220px;}
@@ -3181,11 +3184,13 @@
 
             <!-- ══ TAB: RESUMEN ══ -->
             <div class="fft-tabpanel active" id="fft-tabpanel-resumen">
-                <div class="fft-kpi-grid" id="fft-kpi-grid"></div>
-
+                <!-- Auditoria 2026-08-10: pedido explicito de Roman de poner PRIMERO
+                     los destinos reales (catalogo de Cubicaje), antes que los KPIs. -->
                 <div class="fft-section-title">¿A qué destinos van los pallets de FFT?</div>
                 <div class="fft-section-sub">Catálogo real de Cubicaje (10 códigos) con inventario real de BinManagerRO — nunca el destino de escaneo (EscReg)</div>
                 <div class="fft-destino-grid" id="fft-destinos-preview"></div>
+
+                <div class="fft-kpi-grid" id="fft-kpi-grid"></div>
 
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
                     <div>
@@ -3196,7 +3201,12 @@
                 </div>
                 <div class="fft-area-grid" id="fft-areas-preview"></div>
 
-                <div class="fft-charts-grid-4">
+                <!-- Auditoria 2026-08-10: se quito "Pallets por tipo de pedido" de aqui
+                     -- es tipo de pedido de EscReg (no destino), y mezclaba nombres de
+                     escaneadores por un bug de datos (Lorena/Alejandro/Jesus). Pedido
+                     explicito de Roman de no confundirlo con las tarjetas de destino
+                     real. Sigue disponible en la pestaña Destinos FFT (grafica lateral). -->
+                <div class="fft-charts-grid-3">
                     <div class="fft-card fft-chart-panel">
                         <div class="fft-chart-title">Pallets por destino</div>
                         <div class="fft-section-sub" style="margin-bottom:0.4rem;">Catálogo real de Cubicaje (10 códigos) — nunca el destino de escaneo</div>
@@ -3207,10 +3217,6 @@
                         <div class="fft-chart-title">Piezas por destino</div>
                         <div class="fft-section-sub" style="margin-bottom:0.4rem;">Catálogo real de Cubicaje (10 códigos) — nunca el destino de escaneo</div>
                         <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-piezas-destino"></canvas></div>
-                    </div>
-                    <div class="fft-card fft-chart-panel">
-                        <div class="fft-chart-title">Pallets por tipo de pedido</div>
-                        <div class="fft-chart-canvas-wrap"><canvas id="fft-chart-tipo"></canvas></div>
                     </div>
                     <div class="fft-card fft-chart-panel">
                         <div class="fft-chart-title">Destino × Tipo de pedido</div>
@@ -12024,9 +12030,10 @@ function fftLineChartConfig(porDia) {
 }
 
 function fftRenderCharts(g) {
+    // "Pallets por tipo de pedido" (fft-chart-tipo) se quito del Resumen —
+    // fft-chart-tipo-lateral sigue vivo en la pestaña Destinos FFT.
     const tipoLabels = g.porTipo.map(t => t.nombre);
     const tipoColors = g.porTipo.map((t, i) => fftColorTipo(i));
-    fftMakeChart('tipo', 'fft-chart-tipo', fftDonutBase(tipoLabels, g.porTipo.map(t => t.pallets), tipoColors));
     fftMakeChart('tipoLateral', 'fft-chart-tipo-lateral', fftDonutBase(tipoLabels, g.porTipo.map(t => t.pallets), tipoColors));
 
     fftRenderHeatmap(g.matriz);
@@ -12122,8 +12129,11 @@ function fftRenderDestinos(destinos) {
         if (fullEl) fullEl.innerHTML = vacio;
         return;
     }
+    // Auditoria 2026-08-10: son solo 10 codigos del catalogo -- se muestran
+    // los 10 completos aqui tambien (pedido explicito de Roman), no un
+    // preview recortado como pasaba con las areas (que si pueden ser decenas).
     const ordenadas = destinos.slice().sort((a, b) => (b.realPallets || 0) - (a.realPallets || 0));
-    if (previewEl) previewEl.innerHTML = ordenadas.slice(0, 4).map(fftDestinoCardHtml).join('');
+    if (previewEl) previewEl.innerHTML = ordenadas.map(fftDestinoCardHtml).join('');
     if (fullEl) fullEl.innerHTML = ordenadas.map(fftDestinoCardHtml).join('');
 }
 function fftRenderFlujoChart(destinos) {
