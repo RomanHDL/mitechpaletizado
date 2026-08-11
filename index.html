@@ -12486,22 +12486,34 @@ function fftAreaFisicaCardHtml(area, d) {
     if (!d) {
         return `<div class="fft-card fft-destino-card" style="border-top-color:${color};"><div class="fft-dc-nombre" style="color:${color};">${area}</div><div class="fft-empty-note">No se pudo cargar</div></div>`;
     }
-    const ultima = d.ultimaActividad ? new Date(d.ultimaActividad).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : 'Sin registro';
+    const binsTotal = d.binsTotal || 0;
+    const binsConPallets = d.binsConPallets || 0;
+    // Auditoria 2026-08-11: derivado, no un dato nuevo -- "vacios" aqui NO
+    // distingue activo/inactivo (eso solo lo distingue el grid de bins);
+    // en la card es simplemente "no tiene contenido ahorita", tal como
+    // pidio Roman ("91 bins vacios" = 93 totales - 2 con contenido).
+    const binsVacios = Math.max(0, binsTotal - binsConPallets);
+    const ultima = d.ultimaActividad ? new Date(d.ultimaActividad).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : null;
     return `
         <div class="fft-card fft-destino-card" style="border-top-color:${color};">
             <div class="fft-dc-nombre" style="color:${color};">${area}</div>
-            <div class="fft-dc-metric"><span>Bins con pallets</span><b>${(d.binsConPallets || 0).toLocaleString('es-MX')}</b></div>
             <div class="fft-dc-metric"><span>Piezas (TVs)</span><b>${(d.piezas || 0).toLocaleString('es-MX')}</b></div>
-            <div class="fft-dc-metric"><span>Bins totales</span><b>${(d.binsTotal || 0).toLocaleString('es-MX')}</b></div>
-            <div class="fft-dc-metric"><span>Movimientos hoy</span><b>${(d.movimientosHoy || 0).toLocaleString('es-MX')}</b></div>
-            <div class="fft-dc-metric"><span>Última actividad</span><b style="font-size:0.78rem;">${ultima}</b></div>
-            <div style="font-size:0.68rem;color:var(--fft-text-muted);margin-top:0.4rem;">${d.syncLagNote || ''}</div>
-            <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;margin-top:0.75rem;" onclick="fftAbrirAreaFisica('${area}')">Ver bins del área <i class="fa-solid fa-arrow-right"></i></button>
+            <div class="fft-dc-metric"><span>Bins con contenido</span><b>${binsConPallets.toLocaleString('es-MX')} de ${binsTotal.toLocaleString('es-MX')}</b></div>
+            <div class="fft-dc-metric"><span>Bins vacíos</span><b>${binsVacios.toLocaleString('es-MX')}</b></div>
+            ${ultima ? `<div class="fft-dc-metric"><span>Última actividad</span><b style="font-size:0.78rem;">${ultima}</b></div>` : ''}
+            ${binsConPallets === 0 ? `<div style="font-size:0.75rem;color:var(--fft-text-muted);background:#F1F5F9;border-radius:6px;padding:0.4rem 0.55rem;margin-top:0.4rem;">No hay pallets actualmente en ${area}.</div>` : ''}
+            <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;margin-top:0.75rem;" onclick="fftAbrirAreaFisica('${area}')">Ver ubicaciones <i class="fa-solid fa-arrow-right"></i></button>
         </div>`;
 }
 
+let fftAreaFisicaBinsTodos = [];
+let fftAreaFisicaFiltroEstado = 'TODOS';
+let fftAreaFisicaBusqueda = '';
+
 async function fftAbrirAreaFisica(area) {
     fftAreaFisicaActual = area;
+    fftAreaFisicaFiltroEstado = 'TODOS';
+    fftAreaFisicaBusqueda = '';
     const wrap = document.getElementById('fft-area-fisica-bins-wrap');
     wrap.style.display = 'block';
     wrap.innerHTML = '<div class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando bins reales...</div>';
@@ -12509,30 +12521,71 @@ async function fftAbrirAreaFisica(area) {
     try {
         const data = await apiFetch(`${API}/api/dashboard-destinos-fft/maxx/areas/${area}/bins`);
         if (!data.success) throw new Error(data.error || 'Error al cargar los bins');
-        const rows = data.data || [];
-        if (!rows.length) {
-            wrap.innerHTML = `<div class="fft-section-title">Bins de ${area}</div><div class="fft-empty-note">No se encontraron bins reales para esta área.</div>`;
+        fftAreaFisicaBinsTodos = data.data || [];
+        if (!fftAreaFisicaBinsTodos.length) {
+            wrap.innerHTML = `<div class="fft-section-title">Ubicaciones de ${area}</div><div class="fft-empty-note">No se encontraron bins reales para esta área.</div>`;
             return;
         }
-        const estadoChip = (estado) => estado === 'CON_PALLETS'
-            ? '<span class="fft-chip" style="background:#22c55e22;color:#16A34A;">CON PALLETS</span>'
-            : estado === 'INACTIVO'
-                ? '<span class="fft-chip" style="background:#94A3B822;color:#475569;">INACTIVO</span>'
-                : '<span class="fft-chip" style="background:#F59E0B22;color:#B45309;">VACÍO</span>';
-        wrap.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem;">
-                <div class="fft-section-title" style="margin-bottom:0;">Bins de ${area} (${rows.length})</div>
-                <button class="fft-btn" onclick="document.getElementById('fft-area-fisica-bins-wrap').style.display='none';">Cerrar <i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="fft-area-grid">${rows.map(b => `
-                <div class="fft-card fft-area-card">
-                    <div class="fft-ac-header"><div class="fft-ac-nombre">${b.binCode}</div>${estadoChip(b.estado)}</div>
-                    <div class="fft-ac-kpis"><div>Piezas<b>${b.piezas}</b></div><div>SKUs<b>${b.skuCount}</b></div><div style="font-size:0.66rem;">Últ. mov.<b style="font-size:0.66rem;">${b.ultimoMovimiento ? new Date(b.ultimoMovimiento).toLocaleDateString('es-MX') : 'N/D'}</b></div></div>
-                    <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;" ${b.estado === 'VACIO' ? 'disabled title="Bin sin contenido ahorita"' : ''} onclick="fftAbrirPalletDetalle(encodeURIComponent('${b.binCode}'))">Abrir <i class="fa-solid fa-arrow-right"></i></button>
-                </div>`).join('')}</div>`;
+        fftRenderAreaFisicaBins();
     } catch (e) {
         wrap.innerHTML = `<div class="fft-empty-note">No se pudieron cargar los bins de ${area}: ${e.message}</div>`;
     }
+}
+
+function fftAreaFisicaEstadoChip(estado) {
+    return estado === 'CON_PALLETS'
+        ? '<span class="fft-chip" style="background:#22c55e22;color:#16A34A;">CON CONTENIDO</span>'
+        : estado === 'INACTIVO'
+            ? '<span class="fft-chip" style="background:#94A3B822;color:#475569;">INACTIVO</span>'
+            : '<span class="fft-chip" style="background:#F59E0B22;color:#B45309;">VACÍO</span>';
+}
+
+function fftSetFiltroAreaFisica(estado) {
+    fftAreaFisicaFiltroEstado = estado;
+    fftRenderAreaFisicaBins();
+}
+
+function fftBuscarBinAreaFisica(valor) {
+    fftAreaFisicaBusqueda = (valor || '').trim().toUpperCase();
+    fftRenderAreaFisicaBins();
+}
+
+function fftRenderAreaFisicaBins() {
+    const wrap = document.getElementById('fft-area-fisica-bins-wrap');
+    const area = fftAreaFisicaActual;
+    const todos = fftAreaFisicaBinsTodos;
+    const conContenido = todos.filter(b => b.estado === 'CON_PALLETS').length;
+    const vacios = todos.filter(b => b.estado === 'VACIO').length;
+    const inactivos = todos.filter(b => b.estado === 'INACTIVO').length;
+
+    let rows = todos;
+    if (fftAreaFisicaFiltroEstado === 'CON_CONTENIDO') rows = rows.filter(b => b.estado === 'CON_PALLETS');
+    else if (fftAreaFisicaFiltroEstado === 'VACIOS') rows = rows.filter(b => b.estado === 'VACIO');
+    else if (fftAreaFisicaFiltroEstado === 'INACTIVOS') rows = rows.filter(b => b.estado === 'INACTIVO');
+    if (fftAreaFisicaBusqueda) rows = rows.filter(b => (b.binCode || '').toUpperCase().includes(fftAreaFisicaBusqueda));
+
+    const filtroBtn = (key, label, count) => `<button class="fft-btn ${fftAreaFisicaFiltroEstado === key ? 'fft-btn-primary' : ''}" style="padding:0.3rem 0.65rem;font-size:0.78rem;" onclick="fftSetFiltroAreaFisica('${key}')">${label} (${count})</button>`;
+
+    wrap.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem;flex-wrap:wrap;gap:0.5rem;">
+            <div class="fft-section-title" style="margin-bottom:0;">Ubicaciones de ${area} — ${todos.length} totales, ${conContenido} con contenido, ${vacios} vacíos${inactivos ? `, ${inactivos} inactivos` : ''}</div>
+            <button class="fft-btn" onclick="document.getElementById('fft-area-fisica-bins-wrap').style.display='none';">Cerrar <i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin-bottom:0.75rem;">
+            ${filtroBtn('TODOS', 'TODOS', todos.length)}
+            ${filtroBtn('CON_CONTENIDO', 'CON CONTENIDO', conContenido)}
+            ${filtroBtn('VACIOS', 'VACÍOS', vacios)}
+            ${filtroBtn('INACTIVOS', 'INACTIVOS', inactivos)}
+            <input type="text" placeholder="Buscar BinCode..." value="${fftAreaFisicaBusqueda}" oninput="fftBuscarBinAreaFisica(this.value)" style="flex:1;min-width:160px;padding:0.35rem 0.6rem;font-size:0.8rem;border:1px solid var(--fft-border);border-radius:6px;">
+        </div>
+        ${!rows.length ? '<div class="fft-empty-note">Ningún bin coincide con el filtro/búsqueda actual.</div>' : `
+        <div class="fft-area-grid">${rows.map(b => `
+            <div class="fft-card fft-area-card">
+                <div class="fft-ac-header"><div class="fft-ac-nombre">${b.binCode}</div>${fftAreaFisicaEstadoChip(b.estado)}</div>
+                <div class="fft-ac-kpis"><div>Piezas<b>${b.piezas}</b></div><div>SKUs<b>${b.skuCount}</b></div><div style="font-size:0.62rem;">BinID<b style="font-size:0.66rem;">${b.binId}</b></div></div>
+                <div style="font-size:0.7rem;color:var(--fft-text-muted);margin-bottom:0.5rem;">Últ. movimiento: ${b.ultimoMovimiento ? new Date(b.ultimoMovimiento).toLocaleDateString('es-MX') : 'Sin registro'}</div>
+                <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;" ${b.estado === 'VACIO' ? 'disabled title="Bin sin contenido ahorita"' : ''} onclick="fftAbrirPalletDetalle(encodeURIComponent('${b.binCode}'))">Ver detalle <i class="fa-solid fa-arrow-right"></i></button>
+            </div>`).join('')}</div>`}`;
 }
 function fftRenderDestinos(destinos) {
     const previewEl = document.getElementById('fft-destinos-preview');
