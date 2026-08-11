@@ -3241,6 +3241,14 @@
                 <div id="fft-oficial-body"></div>
                 <div class="fft-destino-grid" id="fft-destinos-preview"></div>
 
+                <!-- Areas fisicas confirmadas (classifyPhysicalArea, Cubicaje) -- distinto
+                     de las cards de destino de arriba: esto es UBICACION FISICA real
+                     (BinCode de BinManagerRO), nunca destino/clasificacion operativa. -->
+                <div class="fft-section-title" style="margin-bottom:0.15rem;">Áreas físicas — Monterrey MAXX</div>
+                <div class="fft-section-sub" style="margin-bottom:0.6rem;">Solo áreas con bins reales confirmados (BinManagerRO) — TRG, FBA, UPT</div>
+                <div class="fft-destino-grid" id="fft-areas-fisicas-grid"></div>
+                <div id="fft-area-fisica-bins-wrap" style="display:none;margin-top:0.9rem;"></div>
+
                 <div class="fft-kpi-grid" id="fft-kpi-grid"></div>
 
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
@@ -11808,6 +11816,7 @@ async function initDashboardDestinosFft() {
     // primera carga de la pagina mostraria el snapshot sin mezclar.
     await fftCargarOficial();
     fftLoad();
+    fftCargarAreasFisicas();
     if (fftAutoTimer) clearInterval(fftAutoTimer);
     fftAutoTimer = setInterval(() => {
         if (document.getElementById('view-dashboard-destinos-fft')?.classList.contains('active')) {
@@ -11943,6 +11952,10 @@ async function fftLoad(silencioso) {
     const statusDot = document.getElementById('fft-status-dot');
     const statusText = document.getElementById('fft-status-text');
     if (!silencioso) fftSetSkeleton();
+    // Areas fisicas (TRG/FBA/UPT) no dependen del rango de fechas -- son
+    // estado ACTUAL de BinManagerRO, no un cruce historico. Se recargan aparte,
+    // sin bloquear el resto si fallan.
+    fftCargarAreasFisicas();
     const params = fftBuildParams();
     const qs = params.toString();
     const TIMEOUT_MS = 45000; // confirmado con el usuario: el cruce real tarda ~35s la primera vez
@@ -12445,6 +12458,81 @@ async function fftAbrirDestino(codeEncoded) {
 function fftCerrarCatalogoPallets() {
     document.getElementById('fft-catpallets-backdrop').classList.remove('open');
     document.getElementById('fft-catpallets-modal').classList.remove('open');
+}
+
+// ÁREAS FÍSICAS confirmadas (TRG/FBA/UPT) — a diferencia de las cards de
+// destino de arriba (destino/clasificación operativa), esto es UBICACIÓN
+// FÍSICA real via classifyPhysicalArea (Cubicaje). HV/ETTC/CALVERY/
+// NACIONAL/INTERNACIONAL NUNCA aparecen aquí -- no tienen bins reales.
+const FFT_AREAS_FISICAS = ['TRG', 'FBA', 'UPT'];
+let fftAreaFisicaActual = null;
+
+async function fftCargarAreasFisicas() {
+    const grid = document.getElementById('fft-areas-fisicas-grid');
+    if (!grid) return;
+    grid.innerHTML = FFT_AREAS_FISICAS.map(a => `<div class="fft-card fft-kpi skeleton"><div class="fft-kpi-value">000</div></div>`).join('');
+    try {
+        const resultados = await Promise.all(FFT_AREAS_FISICAS.map(a =>
+            apiFetch(`${API}/api/dashboard-destinos-fft/maxx/areas/${a}`).then(r => ({ area: a, ok: r.success, data: r.data })).catch(() => ({ area: a, ok: false, data: null }))
+        ));
+        grid.innerHTML = resultados.map(r => fftAreaFisicaCardHtml(r.area, r.ok ? r.data : null)).join('');
+    } catch (e) {
+        grid.innerHTML = `<div class="fft-empty-note" style="grid-column:1/-1;">No se pudieron cargar las áreas físicas: ${e.message}</div>`;
+    }
+}
+
+function fftAreaFisicaCardHtml(area, d) {
+    const color = fftColorDestino(area, 0);
+    if (!d) {
+        return `<div class="fft-card fft-destino-card" style="border-top-color:${color};"><div class="fft-dc-nombre" style="color:${color};">${area}</div><div class="fft-empty-note">No se pudo cargar</div></div>`;
+    }
+    const ultima = d.ultimaActividad ? new Date(d.ultimaActividad).toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'short' }) : 'Sin registro';
+    return `
+        <div class="fft-card fft-destino-card" style="border-top-color:${color};">
+            <div class="fft-dc-nombre" style="color:${color};">${area}</div>
+            <div class="fft-dc-metric"><span>Bins con pallets</span><b>${(d.binsConPallets || 0).toLocaleString('es-MX')}</b></div>
+            <div class="fft-dc-metric"><span>Piezas (TVs)</span><b>${(d.piezas || 0).toLocaleString('es-MX')}</b></div>
+            <div class="fft-dc-metric"><span>Bins totales</span><b>${(d.binsTotal || 0).toLocaleString('es-MX')}</b></div>
+            <div class="fft-dc-metric"><span>Movimientos hoy</span><b>${(d.movimientosHoy || 0).toLocaleString('es-MX')}</b></div>
+            <div class="fft-dc-metric"><span>Última actividad</span><b style="font-size:0.78rem;">${ultima}</b></div>
+            <div style="font-size:0.68rem;color:var(--fft-text-muted);margin-top:0.4rem;">${d.syncLagNote || ''}</div>
+            <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;margin-top:0.75rem;" onclick="fftAbrirAreaFisica('${area}')">Ver bins del área <i class="fa-solid fa-arrow-right"></i></button>
+        </div>`;
+}
+
+async function fftAbrirAreaFisica(area) {
+    fftAreaFisicaActual = area;
+    const wrap = document.getElementById('fft-area-fisica-bins-wrap');
+    wrap.style.display = 'block';
+    wrap.innerHTML = '<div class="fft-empty-note"><i class="fa-solid fa-spinner fa-spin"></i> Cargando bins reales...</div>';
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    try {
+        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/maxx/areas/${area}/bins`);
+        if (!data.success) throw new Error(data.error || 'Error al cargar los bins');
+        const rows = data.data || [];
+        if (!rows.length) {
+            wrap.innerHTML = `<div class="fft-section-title">Bins de ${area}</div><div class="fft-empty-note">No se encontraron bins reales para esta área.</div>`;
+            return;
+        }
+        const estadoChip = (estado) => estado === 'CON_PALLETS'
+            ? '<span class="fft-chip" style="background:#22c55e22;color:#16A34A;">CON PALLETS</span>'
+            : estado === 'INACTIVO'
+                ? '<span class="fft-chip" style="background:#94A3B822;color:#475569;">INACTIVO</span>'
+                : '<span class="fft-chip" style="background:#F59E0B22;color:#B45309;">VACÍO</span>';
+        wrap.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem;">
+                <div class="fft-section-title" style="margin-bottom:0;">Bins de ${area} (${rows.length})</div>
+                <button class="fft-btn" onclick="document.getElementById('fft-area-fisica-bins-wrap').style.display='none';">Cerrar <i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="fft-area-grid">${rows.map(b => `
+                <div class="fft-card fft-area-card">
+                    <div class="fft-ac-header"><div class="fft-ac-nombre">${b.binCode}</div>${estadoChip(b.estado)}</div>
+                    <div class="fft-ac-kpis"><div>Piezas<b>${b.piezas}</b></div><div>SKUs<b>${b.skuCount}</b></div><div style="font-size:0.66rem;">Últ. mov.<b style="font-size:0.66rem;">${b.ultimoMovimiento ? new Date(b.ultimoMovimiento).toLocaleDateString('es-MX') : 'N/D'}</b></div></div>
+                    <button class="fft-btn fft-btn-primary" style="width:100%;justify-content:center;" ${b.estado === 'VACIO' ? 'disabled title="Bin sin contenido ahorita"' : ''} onclick="fftAbrirPalletDetalle(encodeURIComponent('${b.binCode}'))">Abrir <i class="fa-solid fa-arrow-right"></i></button>
+                </div>`).join('')}</div>`;
+    } catch (e) {
+        wrap.innerHTML = `<div class="fft-empty-note">No se pudieron cargar los bins de ${area}: ${e.message}</div>`;
+    }
 }
 function fftRenderDestinos(destinos) {
     const previewEl = document.getElementById('fft-destinos-preview');
