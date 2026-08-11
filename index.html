@@ -12128,26 +12128,10 @@ async function fftCargarBulkyCdmx() {
         if (!resp.success) throw new Error(resp.error || 'Error');
         const d = resp.data || {};
         if (!d.binId) { el.innerHTML = '<div class="fft-empty-note">Bin BULKY-CDMX no encontrado.</div>'; return; }
-        const fmtFecha = (iso) => iso ? new Date(iso).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
-        const meses = (d.porMes || []).slice(-6);
-        const tabla = meses.length ? `
-            <table class="fft-table" style="max-width:420px;">
-                <thead><tr><th>Mes</th><th>Entradas</th><th>Salidas</th></tr></thead>
-                <tbody>${meses.map((m) => `<tr><td>${m.mes}</td><td>${m.entradas}</td><td>${m.salidas}</td></tr>`).join('')}</tbody>
-            </table>` : '';
-        const tipos = (d.porTipoMovimiento || []).map((t) => `${t.tipo}: <b>${t.movimientos}</b>`).join(' · ');
         el.innerHTML = `
             <div class="fft-chart-title" style="margin-bottom:0.25rem;">Consolidado BULKY-CDMX <span style="font-size:0.7rem;font-weight:400;color:var(--fft-text-muted);">(fuera de MAXX — ${d.warehouseName || 'CDMX'})</span></div>
             <div class="fft-section-sub" style="margin-bottom:0.85rem;">Bin real donde se consolida todo lo Bulky de la empresa antes de embarcar. Es un número complementario al de la card BULK de arriba (esa mide lo que sigue en Monterrey MAXX sin consolidar) — nunca se suma a los totales de MAXX.</div>
-            <div style="display:flex;gap:2rem;flex-wrap:wrap;align-items:flex-start;margin-bottom:0.85rem;">
-                <div><span style="font-size:1.4rem;font-weight:700;">${d.piezasActuales}</span><div style="font-size:0.75rem;color:var(--fft-text-muted);">piezas ahora mismo · ${d.skuCountActual} SKUs</div></div>
-                <div style="font-size:0.8rem;">
-                    <div>Vivo desde: ${fmtFecha(d.primerMovimiento)}</div>
-                    <div>Último movimiento: ${d.ultimoMovimiento ? `${fmtFecha(d.ultimoMovimiento.fecha)} · ${d.ultimoMovimiento.tipo} · ${d.ultimoMovimiento.por || ''}` : '—'}</div>
-                    <div style="color:var(--fft-text-muted);margin-top:0.15rem;">${tipos}</div>
-                </div>
-            </div>
-            ${tabla}`;
+            <div><span style="font-size:1.4rem;font-weight:700;">${d.piezasActuales}</span><span style="font-size:0.85rem;color:var(--fft-text-muted);"> piezas ahora mismo · ${d.skuCountActual} SKUs</span></div>`;
     } catch (e) { el.innerHTML = `<div class="fft-empty-note">Error: ${e.message}</div>`; }
 }
 
