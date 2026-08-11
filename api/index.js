@@ -1092,6 +1092,82 @@ app.get('/api/dashboard-destinos-fft/tv-inventory-total', auth, roleGuard('admin
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 
+// "Operadores con movimientos" en Monterrey MAXX (COUNT DISTINCT MovementBy,
+// BM.BinMovements) — KPI real para Centro de Control de Pallets, en vez de
+// "usuarios activos por sesion" (no calculable, no hay tabla de sesiones).
+async function fetchCubicajeMaxxOperatorActivity(windowHours = 48, timeoutMs = 15000) {
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key) { const e = new Error('CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto'); e.status = 503; throw e; }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let resp;
+  try {
+    resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/paletizado/maxx/operator-activity?windowHours=${windowHours}`, {
+      headers: { 'X-Integration-Key': key },
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : e.message;
+    const err = new Error('No se pudo consultar Cubicaje: ' + msg);
+    err.status = 502;
+    throw err;
+  } finally { clearTimeout(timeout); }
+  const data = await resp.json();
+  if (!resp.ok || !data.success) {
+    const err = new Error(data.error || `Cubicaje respondio ${resp.status}`);
+    err.status = resp.status === 401 ? 502 : resp.status;
+    throw err;
+  }
+  return data.data;
+}
+
+app.get('/api/dashboard-destinos-fft/maxx/operator-activity', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const windowHours = Math.min(168, Math.max(1, parseInt(req.query.windowHours, 10) || 48));
+    const data = await fetchCubicajeMaxxOperatorActivity(windowHours);
+    res.json({ success: true, data });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
+// Auditoria FISICA de Monterrey MAXX (BM.Audit) — deliberadamente separada
+// de movimientos/pallets (pedido explicito de Roman: nunca mezclarlas en
+// la misma seccion de la UI).
+async function fetchCubicajeMaxxAudit(limit = 50, timeoutMs = 15000) {
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key) { const e = new Error('CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto'); e.status = 503; throw e; }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let resp;
+  try {
+    resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/paletizado/maxx/audit?limit=${limit}`, {
+      headers: { 'X-Integration-Key': key },
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : e.message;
+    const err = new Error('No se pudo consultar Cubicaje: ' + msg);
+    err.status = 502;
+    throw err;
+  } finally { clearTimeout(timeout); }
+  const data = await resp.json();
+  if (!resp.ok || !data.success) {
+    const err = new Error(data.error || `Cubicaje respondio ${resp.status}`);
+    err.status = resp.status === 401 ? 502 : resp.status;
+    throw err;
+  }
+  return data.data;
+}
+
+app.get('/api/dashboard-destinos-fft/maxx/audit', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+    const data = await fetchCubicajeMaxxAudit(limit);
+    res.json({ success: true, data });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
 app.get('/api/sc-pallets/live', auth, roleGuard('admin'), async (req, res) => {
   if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
   try {
