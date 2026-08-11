@@ -1357,11 +1357,13 @@ app.get('/api/dashboard-destinos-fft/maxx/areas/:area/bins', auth, roleGuard('ad
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 
-// "UBICACIONES / BINES" (fondo del Resumen, 2026-08-11): combina las 3
-// areas fisicas confirmadas (TRG/FBA_FULL/UPT) en una sola tabla. Por
+// "UBICACIONES / BINES" (fondo del Resumen, 2026-08-11): combina las 4
+// areas fisicas confirmadas (TRG/FBA_FULL/UPT/FFT) en una sola tabla. Por
 // default (sinVacios=true, el default de la UI) cada area ya viene sin
-// bins vacios -- mas barato y es lo que pide el nuevo diseño.
-const MAXX_AREAS_CONFIRMADAS = ['TRG', 'FBA_FULL', 'UPT'];
+// bins vacios -- mas barato y es lo que pide el nuevo diseño. FFT agregada
+// 2026-08-11 (WorkStationID=49 + texto "FFT", ~3,079 pallets reales -- la
+// mas grande de las 4; el frontend pagina esta tabla justo por esto).
+const MAXX_AREAS_CONFIRMADAS = ['TRG', 'FBA_FULL', 'UPT', 'FFT'];
 app.get('/api/dashboard-destinos-fft/maxx/ubicaciones', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
   try {
     const includeEmpty = req.query.includeEmpty === '1' || req.query.includeEmpty === 'true';

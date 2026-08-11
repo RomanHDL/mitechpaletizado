@@ -3279,6 +3279,7 @@
                     </div>
                     <button class="fft-btn" id="fft-btn-ver-vacios" onclick="fftToggleBinsVacios()">Mostrar bins vacíos</button>
                 </div>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;" id="fft-ubicaciones-filtros"></div>
                 <div class="fft-card" style="padding:1.1rem 1.25rem;">
                     <div class="fft-table-wrap" style="max-height:420px;">
                         <table class="fft-table">
@@ -12136,10 +12137,18 @@ async function fftCargarMiniAuditoria() {
         </div>`).join('');
 }
 
-// BLOQUE 5: Ubicaciones/Bines -- solo con contenido por default (las 3
-// areas fisicas confirmadas: TRG/FBA_FULL/UPT). "Mostrar bins vacios" pide
-// includeEmpty=1 -- deliberadamente no es el default (mas caro, ver backend).
+// BLOQUE 5: Ubicaciones/Bines -- solo con contenido por default (las 4
+// areas fisicas confirmadas: TRG/FBA_FULL/UPT/FFT). "Mostrar bins vacios"
+// pide includeEmpty=1 -- deliberadamente no es el default (mas caro, ver
+// backend). FFT agregada 2026-08-11 (~3,079 pallets reales, la mas grande
+// de las 4) -- por eso esta tabla ahora pagina en el cliente en vez de
+// pintar todo de un jalon.
 let fftUbicacionesIncludeEmpty = false;
+let fftUbicacionesTodas = [];
+let fftUbicacionesFiltroArea = 'TODAS';
+let fftUbicacionesPagina = 1;
+const FFT_UBICACIONES_POR_PAGINA = 50;
+
 async function fftCargarUbicaciones() {
     const body = document.getElementById('fft-ubicaciones-body');
     if (!body) return;
@@ -12149,25 +12158,71 @@ async function fftCargarUbicaciones() {
         if (!data.success) throw new Error(data.error || 'Error al cargar ubicaciones');
         let rows = data.data || [];
         if (!fftUbicacionesIncludeEmpty) rows = rows.filter((r) => r.estado === 'CON_PALLETS');
-        rows = rows.slice().sort((a, b) => b.piezas - a.piezas);
-        if (!rows.length) {
-            body.innerHTML = '<tr><td colspan="7"><div class="fft-empty-note">Sin bins con contenido ahorita.</div></td></tr>';
-            return;
-        }
-        body.innerHTML = rows.map((r) => `
-            <tr>
-                <td data-label="BinCode"><b>${r.binCode}</b></td>
-                <td data-label="BinID">${r.binId}</td>
-                <td data-label="Área física">${r.areaFisica || '-'}</td>
-                <td data-label="Piezas">${r.piezas}</td>
-                <td data-label="SKUs">${r.skuCount}</td>
-                <td data-label="Último movimiento">${r.ultimoMovimiento ? new Date(r.ultimoMovimiento).toLocaleString('es-MX') : (r.estado === 'INACTIVO' ? 'Inactivo' : 'Sin registro (180d)')}</td>
-                <td data-label="Acción"><button class="fft-btn" style="padding:0.2rem 0.5rem;" onclick="fftAbrirPalletDetalle(encodeURIComponent('${r.binCode}'))"><i class="fa-solid fa-eye"></i> Ver</button></td>
-            </tr>`).join('');
+        fftUbicacionesTodas = rows.slice().sort((a, b) => b.piezas - a.piezas);
+        fftUbicacionesPagina = 1;
+        fftRenderUbicaciones();
     } catch (e) {
         body.innerHTML = `<tr><td colspan="7"><div class="fft-empty-note">No se pudieron cargar las ubicaciones: ${e.message}</div></td></tr>`;
     }
 }
+
+function fftSetFiltroUbicaciones(area) {
+    fftUbicacionesFiltroArea = area;
+    fftUbicacionesPagina = 1;
+    fftRenderUbicaciones();
+}
+
+function fftUbicacionesPaginaCambiar(delta) {
+    fftUbicacionesPagina = Math.max(1, fftUbicacionesPagina + delta);
+    fftRenderUbicaciones();
+}
+
+function fftRenderUbicaciones() {
+    const body = document.getElementById('fft-ubicaciones-body');
+    const filtrosEl = document.getElementById('fft-ubicaciones-filtros');
+    if (!body) return;
+    const todas = fftUbicacionesTodas;
+    if (!todas.length) {
+        body.innerHTML = '<tr><td colspan="7"><div class="fft-empty-note">Sin bins con contenido ahorita.</div></td></tr>';
+        if (filtrosEl) filtrosEl.innerHTML = '';
+        return;
+    }
+    const areasPresentes = ['TODAS', ...new Set(todas.map((r) => r.areaFisica).filter(Boolean))];
+    if (filtrosEl) {
+        filtrosEl.innerHTML = areasPresentes.map((a) => {
+            const count = a === 'TODAS' ? todas.length : todas.filter((r) => r.areaFisica === a).length;
+            const activo = fftUbicacionesFiltroArea === a;
+            return `<button class="fft-btn ${activo ? 'fft-btn-primary' : ''}" style="padding:0.25rem 0.6rem;font-size:0.75rem;" onclick="fftSetFiltroUbicaciones('${a}')">${a} (${count.toLocaleString('es-MX')})</button>`;
+        }).join('');
+    }
+    const filtradas = fftUbicacionesFiltroArea === 'TODAS' ? todas : todas.filter((r) => r.areaFisica === fftUbicacionesFiltroArea);
+    const totalPaginas = Math.max(1, Math.ceil(filtradas.length / FFT_UBICACIONES_POR_PAGINA));
+    fftUbicacionesPagina = Math.min(fftUbicacionesPagina, totalPaginas);
+    const inicio = (fftUbicacionesPagina - 1) * FFT_UBICACIONES_POR_PAGINA;
+    const pagina = filtradas.slice(inicio, inicio + FFT_UBICACIONES_POR_PAGINA);
+
+    body.innerHTML = pagina.map((r) => `
+        <tr>
+            <td data-label="BinCode"><b>${r.binCode}</b></td>
+            <td data-label="BinID">${r.binId}</td>
+            <td data-label="Área física">${r.areaFisica || '-'}</td>
+            <td data-label="Piezas">${r.piezas}</td>
+            <td data-label="SKUs">${r.skuCount}</td>
+            <td data-label="Último movimiento">${r.ultimoMovimiento ? new Date(r.ultimoMovimiento).toLocaleString('es-MX') : (r.estado === 'INACTIVO' ? 'Inactivo' : 'Sin registro (180d)')}</td>
+            <td data-label="Acción"><button class="fft-btn" style="padding:0.2rem 0.5rem;" onclick="fftAbrirPalletDetalle(encodeURIComponent('${r.binCode}'))"><i class="fa-solid fa-eye"></i> Ver</button></td>
+        </tr>`).join('') + `
+        <tr><td colspan="7">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;">
+                <span style="font-size:0.78rem;color:var(--fft-text-muted);">${filtradas.length.toLocaleString('es-MX')} bins con contenido${fftUbicacionesFiltroArea !== 'TODAS' ? ' en ' + fftUbicacionesFiltroArea : ''}</span>
+                <div style="display:flex;gap:0.5rem;align-items:center;">
+                    <button class="fft-btn" style="padding:0.2rem 0.5rem;" onclick="fftUbicacionesPaginaCambiar(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                    <span style="font-size:0.8rem;">Página ${fftUbicacionesPagina} de ${totalPaginas}</span>
+                    <button class="fft-btn" style="padding:0.2rem 0.5rem;" onclick="fftUbicacionesPaginaCambiar(1)"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+            </div>
+        </td></tr>`;
+}
+
 function fftToggleBinsVacios() {
     fftUbicacionesIncludeEmpty = !fftUbicacionesIncludeEmpty;
     const btn = document.getElementById('fft-btn-ver-vacios');
