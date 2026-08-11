@@ -1168,6 +1168,116 @@ app.get('/api/dashboard-destinos-fft/maxx/audit', auth, roleGuard('admin'), cent
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 
+// Pallets reales (un renglon por PalletID/pedido) de UN destino -- para el
+// listado "click en un destino" del rediseño de Resumen (2026-08-11).
+async function fetchCubicajeDestinoPallets(code, timeoutMs = 15000) {
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key) { const e = new Error('CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto'); e.status = 503; throw e; }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let resp;
+  try {
+    resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/paletizado/destinos/${encodeURIComponent(code)}/pallets`, {
+      headers: { 'X-Integration-Key': key },
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : e.message;
+    const err = new Error('No se pudo consultar Cubicaje: ' + msg);
+    err.status = 502;
+    throw err;
+  } finally { clearTimeout(timeout); }
+  const data = await resp.json();
+  if (!resp.ok || !data.success) {
+    const err = new Error(data.error || `Cubicaje respondio ${resp.status}`);
+    err.status = resp.status === 401 ? 502 : resp.status;
+    throw err;
+  }
+  return { unidad: data.unidad, data: data.data };
+}
+
+app.get('/api/dashboard-destinos-fft/destinos/:code/pallets', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const code = String(req.params.code || '').trim();
+    if (!code) return res.status(400).json({ success: false, error: 'code invalido' });
+    const { unidad, data } = await fetchCubicajeDestinoPallets(code);
+    res.json({ success: true, unidad, data, total: data.length });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
+// Pallets sin movimiento confirmado hacia su bin actual, >= minHours.
+async function fetchCubicajeMaxxPalletsSinMovimiento(minHours, timeoutMs = 15000) {
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key) { const e = new Error('CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto'); e.status = 503; throw e; }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let resp;
+  try {
+    resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/paletizado/maxx/pallets-sin-movimiento?minHours=${minHours}`, {
+      headers: { 'X-Integration-Key': key },
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : e.message;
+    const err = new Error('No se pudo consultar Cubicaje: ' + msg);
+    err.status = 502;
+    throw err;
+  } finally { clearTimeout(timeout); }
+  const data = await resp.json();
+  if (!resp.ok || !data.success) {
+    const err = new Error(data.error || `Cubicaje respondio ${resp.status}`);
+    err.status = resp.status === 401 ? 502 : resp.status;
+    throw err;
+  }
+  return data.data;
+}
+
+app.get('/api/dashboard-destinos-fft/maxx/pallets-sin-movimiento', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const minHours = Math.min(720, Math.max(0, parseInt(req.query.minHours, 10) || 2));
+    const data = await fetchCubicajeMaxxPalletsSinMovimiento(minHours);
+    res.json({ success: true, data, total: data.length });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
+// Actividad reciente real (BM.BinMovements, MAXX) -- NUNCA BM.Audit.
+async function fetchCubicajeMaxxActividadReciente(limit = 50, timeoutMs = 15000) {
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key) { const e = new Error('CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto'); e.status = 503; throw e; }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let resp;
+  try {
+    resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/paletizado/maxx/actividad-reciente?limit=${limit}`, {
+      headers: { 'X-Integration-Key': key },
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : e.message;
+    const err = new Error('No se pudo consultar Cubicaje: ' + msg);
+    err.status = 502;
+    throw err;
+  } finally { clearTimeout(timeout); }
+  const data = await resp.json();
+  if (!resp.ok || !data.success) {
+    const err = new Error(data.error || `Cubicaje respondio ${resp.status}`);
+    err.status = resp.status === 401 ? 502 : resp.status;
+    throw err;
+  }
+  return data.data;
+}
+
+app.get('/api/dashboard-destinos-fft/maxx/actividad-reciente', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+    const data = await fetchCubicajeMaxxActividadReciente(limit);
+    res.json({ success: true, data, total: data.length });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
 // Resumen real de UNA area fisica confirmada (TRG/FBA/FULL/UPT) -- las
 // cards grandes del Centro de Control de Pallets. Mismo proxy/llave que
 // fetchCubicajeMaxxAudit.
@@ -1207,8 +1317,10 @@ app.get('/api/dashboard-destinos-fft/maxx/areas/:area', auth, roleGuard('admin')
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 
-// Grid real de bins de UNA area fisica confirmada.
-async function fetchCubicajeMaxxAreaBins(area, timeoutMs = 15000) {
+// Grid real de bins de UNA area fisica confirmada. includeEmpty=1 es el
+// modo "Ver bins vacios" -- NO es el default (ver nota en getMaxxAreaBins
+// del lado de Cubicaje sobre por que es mucho mas caro).
+async function fetchCubicajeMaxxAreaBins(area, includeEmpty, timeoutMs = 15000) {
   const base = process.env.CUBICAJE_API_BASE_URL;
   const key = process.env.CUBICAJE_INTEGRATION_KEY;
   if (!base || !key) { const e = new Error('CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto'); e.status = 503; throw e; }
@@ -1216,7 +1328,7 @@ async function fetchCubicajeMaxxAreaBins(area, timeoutMs = 15000) {
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let resp;
   try {
-    resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/paletizado/maxx/areas/${encodeURIComponent(area)}/bins`, {
+    resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/paletizado/maxx/areas/${encodeURIComponent(area)}/bins${includeEmpty ? '?includeEmpty=1' : ''}`, {
       headers: { 'X-Integration-Key': key },
       signal: controller.signal,
     });
@@ -1239,7 +1351,22 @@ app.get('/api/dashboard-destinos-fft/maxx/areas/:area/bins', auth, roleGuard('ad
   try {
     const area = String(req.params.area || '').trim();
     if (!area) return res.status(400).json({ success: false, error: 'area invalida' });
-    const data = await fetchCubicajeMaxxAreaBins(area);
+    const includeEmpty = req.query.includeEmpty === '1' || req.query.includeEmpty === 'true';
+    const data = await fetchCubicajeMaxxAreaBins(area, includeEmpty);
+    res.json({ success: true, data, total: data.length });
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
+// "UBICACIONES / BINES" (fondo del Resumen, 2026-08-11): combina las 3
+// areas fisicas confirmadas (TRG/FBA_FULL/UPT) en una sola tabla. Por
+// default (sinVacios=true, el default de la UI) cada area ya viene sin
+// bins vacios -- mas barato y es lo que pide el nuevo diseño.
+const MAXX_AREAS_CONFIRMADAS = ['TRG', 'FBA_FULL', 'UPT'];
+app.get('/api/dashboard-destinos-fft/maxx/ubicaciones', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const includeEmpty = req.query.includeEmpty === '1' || req.query.includeEmpty === 'true';
+    const porArea = await Promise.all(MAXX_AREAS_CONFIRMADAS.map((a) => fetchCubicajeMaxxAreaBins(a, includeEmpty).then((data) => data.map((b) => ({ ...b, areaFisica: a }))).catch(() => [])));
+    const data = porArea.flat();
     res.json({ success: true, data, total: data.length });
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
