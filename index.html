@@ -11961,8 +11961,18 @@ function fftRenderDestinosUnificado() {
     // mostrar un "total pallets" que en realidad mezcle pedidos con pallets.
     const totalSegmentos = destinos.reduce((s, d) => s + (d.realPallets || 0), 0);
     const destinosPalletUnidad = destinos.filter((d) => d.unidadPallets !== 'pedidos');
-    const totalPallets = destinosPalletUnidad.reduce((s, d) => s + (d.realPallets || 0), 0);
-    const totalPiezas = destinos.reduce((s, d) => s + (d.realPiezas || 0), 0);
+    // Correccion de doble conteo confirmada 2026-08-11: FBA y FULL comparten
+    // literalmente los MISMOS bins reales (overlapNota ya lo documenta) --
+    // sumarlos ambos en el total contaria 122 bins reales como 244. Se resta
+    // UNA vez el menor de los dos (o el mismo valor si son iguales) para que
+    // el total sea el conteo real de bins DISTINTOS, no la suma de dos
+    // etiquetas sobre el mismo bin.
+    const fbaRow = destinosPalletUnidad.find((d) => d.code === 'FBA');
+    const fullRow = destinosPalletUnidad.find((d) => d.code === 'FULL');
+    const overlapPallets = (fbaRow && fullRow) ? Math.min(fbaRow.realPallets || 0, fullRow.realPallets || 0) : 0;
+    const overlapPiezas = (fbaRow && fullRow) ? Math.min(fbaRow.realPiezas || 0, fullRow.realPiezas || 0) : 0;
+    const totalPallets = destinosPalletUnidad.reduce((s, d) => s + (d.realPallets || 0), 0) - overlapPallets;
+    const totalPiezas = destinos.reduce((s, d) => s + (d.realPiezas || 0), 0) - overlapPiezas;
 
     if (centro) {
         centro.innerHTML = `
@@ -12333,8 +12343,15 @@ async function fftLoad(silencioso) {
     // tienen el codigo en el BinCode) -- se agrega un 11vo bucket "OTROS"
     // con el RESTO del inventario real de TVs (nunca insumos) para que la
     // dona sume el 100% de TVs, nunca solo lo que matchea por nombre de bin.
+    // Reconciliacion 2026-08-11: se RETIRO fftAplicarOficialADestinos de aqui
+    // -- ese mecanismo sobreescribia TRG/HV con un numero pegado A MANO en
+    // una sesion anterior (via MCP, "flujo por rango de fechas"), que ya no
+    // es rastreable/reproducible ahorita mismo y contradecia el numero real
+    // recien reconciliado (TRG MAXX real = 2 pallets/11 piezas, no el dato
+    // oficial viejo). classifyPhysicalArea + LocationID=68 ya dan un numero
+    // real, en vivo, sin necesitar el pegado manual.
     fftUltimoDestinos = catalogoOk
-        ? fftAplicarOficialADestinos(fftConOtros(catalogoRes.value.data, tvTotalOk ? tvTotal.pallets : null, tvTotalOk ? tvTotal.piezas : null), fftUltimoOficial)
+        ? fftConOtros(catalogoRes.value.data, tvTotalOk ? tvTotal.pallets : null, tvTotalOk ? tvTotal.piezas : null)
         : [];
     if (catalogoOk) fftShipmentTypesUltimo = catalogoRes.value; // evita refetch al abrir la pestaña Destinos FFT
 
