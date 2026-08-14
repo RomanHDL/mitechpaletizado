@@ -11977,24 +11977,32 @@ function fftRenderDestinosUnificado() {
         return;
     }
 
-    const hist = fftUltimoDestinosHistoricos; // { dataCutoff, confirmedDestinations, totalDestinations, destinos: [...] } o null
+    const hist = fftUltimoDestinosHistoricos; // { dataCutoff, confirmedDestinations, totalDestinations, donutTotal, destinos: [...] } o null
     const histByCode = new Map((hist?.destinos || []).map((h) => [h.code, h]));
     const filas = destinos.map((d, i) => {
         const h = histByCode.get(d.code) || null;
         const confirmado = h?.status === 'CONFIRMADO';
+        // BULK (2026-08-15): clasificación TRANSVERSAL validada -- tiene
+        // números reales (no "Pendiente de validación"), pero NO es destino
+        // físico: no participa en la dona ni en confirmadas/donutTotal. Un
+        // mismo evento puede ser físico=TRG y clasificación=BULK a la vez.
+        const transversal = h?.status === 'CONFIRMADO_CLASIFICACION_TRANSVERSAL';
         return {
             code: d.code,
             colorIdx: i,
             confirmado,
-            palletsUnicos: confirmado ? (h.palletsUnicos ?? 0) : null,
-            eventosSalida: confirmado ? (h.eventosSalida ?? 0) : null,
+            transversal,
+            palletsUnicos: (confirmado || transversal) ? (h.palletsUnicos ?? 0) : null,
+            eventosSalida: (confirmado || transversal) ? (h.eventosSalida ?? 0) : null,
+            qtyTotal: transversal ? (h.qtyTotal ?? 0) : null,
+            overlap: transversal ? (h.overlapConDestinosFisicos || null) : null,
         };
     });
 
     if (tituloEl) tituloEl.textContent = hist ? 'Distribución de salidas FFT' : 'Destinos FFT';
     if (subtituloEl) {
         subtituloEl.textContent = hist
-            ? `${hist.confirmedDestinations} de ${hist.totalDestinations} destinos validados`
+            ? `${hist.confirmedDestinations}/${hist.totalDestinations} destinos físicos validados${filas.some((f) => f.transversal) ? ' · 1 clasificación validada' : ''}`
             : 'Distribución real de pallets por destino';
     }
     if (cutoffEl) {
@@ -12021,6 +12029,17 @@ function fftRenderDestinosUnificado() {
         legendBody.innerHTML = filas.map((f) => {
             const pct = f.confirmado && totalEventosConfirmados > 0 ? (f.eventosSalida / totalEventosConfirmados * 100) : null;
             const dot = `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${fftColorTipo(f.colorIdx)};margin-right:6px;${f.confirmado ? '' : 'opacity:0.4;'}"></span>`;
+            if (f.transversal) {
+                // Sin onclick: el drill-down /destinos/:code/pallets todavía usa la
+                // regla vieja (BinCode/condición snapshot) -- no está conectado a la
+                // clasificación histórica por contenido validada para BULK.
+                return `
+                    <tr>
+                        <td data-label="Destino">${dot}${f.code} <span style="font-size:0.6rem;font-weight:700;color:#8a5a00;background:#fff3cd;padding:0.05rem 0.3rem;border-radius:3px;">CLASIFICACIÓN TRANSVERSAL</span></td>
+                        <td data-label="Pallets">${f.palletsUnicos.toLocaleString('es-MX')}</td>
+                        <td data-label="Eventos" colspan="2" style="font-style:italic;color:var(--fft-text-muted);">No participa en la distribución por destino</td>
+                    </tr>`;
+            }
             if (!f.confirmado) {
                 return `
                     <tr style="opacity:0.55;">
@@ -12040,16 +12059,30 @@ function fftRenderDestinosUnificado() {
     }
 
     if (miniGrid) {
-        miniGrid.innerHTML = filas.map((f) => f.confirmado ? `
+        miniGrid.innerHTML = filas.map((f) => {
+            if (f.transversal) {
+                return `
+            <div class="fft-card" style="padding:0.85rem 1rem;border-top:3px solid ${fftColorTipo(f.colorIdx)};">
+                <div style="font-weight:800;font-size:0.85rem;color:${fftColorTipo(f.colorIdx)};">${f.code} <span style="font-size:0.6rem;font-weight:700;color:#8a5a00;background:#fff3cd;padding:0.05rem 0.3rem;border-radius:3px;">CLASIFICACIÓN TRANSVERSAL</span></div>
+                <div style="font-size:0.95rem;font-weight:700;margin-top:0.25rem;">${f.palletsUnicos.toLocaleString('es-MX')} pallets únicos</div>
+                <div style="font-size:0.75rem;color:var(--fft-text-muted);">${f.eventosSalida.toLocaleString('es-MX')} eventos · ${(f.qtyTotal ?? 0).toLocaleString('es-MX')} piezas</div>
+                <div style="font-size:0.68rem;color:var(--fft-text-muted);font-style:italic;margin-top:0.2rem;">No participa en la distribución por destino</div>
+            </div>`;
+            }
+            if (f.confirmado) {
+                return `
             <div class="fft-card" style="padding:0.85rem 1rem;cursor:pointer;border-top:3px solid ${fftColorTipo(f.colorIdx)};" onclick="fftAbrirDestinoPallets('${f.code}')">
                 <div style="font-weight:800;font-size:0.85rem;color:${fftColorTipo(f.colorIdx)};">${f.code} <span style="font-size:0.62rem;font-weight:700;color:#2e7d32;">✔ CONFIRMADO</span></div>
                 <div style="font-size:0.95rem;font-weight:700;margin-top:0.25rem;">${f.palletsUnicos.toLocaleString('es-MX')} pallets únicos</div>
                 <div style="font-size:0.75rem;color:var(--fft-text-muted);">${f.eventosSalida.toLocaleString('es-MX')} eventos de salida</div>
-            </div>` : `
+            </div>`;
+            }
+            return `
             <div class="fft-card" style="padding:0.85rem 1rem;opacity:0.55;border-top:3px solid ${fftColorTipo(f.colorIdx)};">
                 <div style="font-weight:800;font-size:0.85rem;color:${fftColorTipo(f.colorIdx)};">${f.code}</div>
                 <div style="font-size:0.85rem;font-weight:700;margin-top:0.25rem;font-style:italic;">Pendiente de validación</div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
     }
 
     fftMakeChart('destinosUnificado', 'fft-chart-destinos-unificado', {
