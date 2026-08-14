@@ -1017,6 +1017,50 @@ app.get('/api/dashboard-destinos-fft/shipment-types', auth, roleGuard('admin'), 
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 
+// Catalogo historico de los 10 destinos FFT sobre BM.ContainerMovements
+// (salidas reales WorkStationIDFromBin=49) — NO el snapshot actual que usa
+// /shipment-types de arriba. Ruta NUEVA y separada a proposito: no
+// reemplaza shipment-types (alcance completo de sus otros consumidores no
+// verificado). Solo 4/10 destinos (TRG/FBA/FULL/UPT) tienen regla
+// historica confirmada; los otros 6 llegan con status:"PENDIENTE" y
+// valores null (nunca 0 — un 0 afirmaria que ya se demostro su
+// inactividad, y eso no se ha investigado). Mismo proxy/llave que
+// fetchCubicajeShipmentTypes.
+async function fetchCubicajeDestinosHistoricos(startDate, timeoutMs = 15000) {
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key) { const e = new Error('CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto'); e.status = 503; throw e; }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let resp;
+  try {
+    const qs = startDate ? `?startDate=${encodeURIComponent(startDate)}` : '';
+    resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/paletizado/fft/destinos-historicos${qs}`, {
+      headers: { 'X-Integration-Key': key },
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : e.message;
+    const err = new Error('No se pudo consultar Cubicaje: ' + msg);
+    err.status = 502;
+    throw err;
+  } finally { clearTimeout(timeout); }
+  const data = await resp.json();
+  if (!resp.ok || !data.success) {
+    const err = new Error(data.error || `Cubicaje respondio ${resp.status}`);
+    err.status = resp.status === 401 ? 502 : resp.status;
+    throw err;
+  }
+  return data;
+}
+
+app.get('/api/dashboard-destinos-fft/destinos-historicos', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try {
+    const data = await fetchCubicajeDestinosHistoricos(req.query.startDate);
+    res.json(data);
+  } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
+});
+
 // Filas reales (BinCode/SKU/Qty de BinManagerRO) para UN codigo del catalogo
 // — "Ver pallets" en las tarjetas de destino necesita el PalletID/BinCode
 // REAL, nunca el PalletID que el escaneo (EscReg) le puso. Auditoria

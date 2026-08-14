@@ -3205,8 +3205,9 @@
 
                 <!-- BLOQUE 1: Destinos FFT -->
                 <div class="fft-card" style="padding:1.25rem 1.5rem;margin-bottom:1.25rem;">
-                    <div class="fft-chart-title">Destinos FFT</div>
-                    <div class="fft-section-sub" style="margin-bottom:1rem;">Distribución real de pallets por destino</div>
+                    <div class="fft-chart-title" id="fft-destinos-title">Destinos FFT</div>
+                    <div class="fft-section-sub" id="fft-destinos-subtitle" style="margin-bottom:0.15rem;">Distribución real de pallets por destino</div>
+                    <div class="fft-section-sub" id="fft-destinos-cutoff" style="margin-bottom:1rem;font-size:0.72rem;"></div>
                     <div style="display:flex;gap:2rem;flex-wrap:wrap;align-items:center;">
                         <div style="flex:1 1 280px;max-width:380px;position:relative;height:300px;margin:0 auto;">
                             <canvas id="fft-chart-destinos-unificado"></canvas>
@@ -3214,7 +3215,7 @@
                         </div>
                         <div style="flex:2 1 320px;min-width:0;overflow-x:auto;">
                             <table class="fft-table">
-                                <thead><tr><th>Destino FFT</th><th>Pallets</th><th>Piezas</th><th>% del total</th></tr></thead>
+                                <thead><tr><th>Destino FFT</th><th>Pallets</th><th id="fft-destinos-th-eventos">Eventos</th><th>% del total</th></tr></thead>
                                 <tbody id="fft-destinos-legend-body"></tbody>
                             </table>
                         </div>
@@ -11834,6 +11835,7 @@ async function rsDescargarExcel() {
 // ══════════════════════════════════════════════
 let fftUltimoDato = null;
 let fftUltimoDestinos = null;
+let fftUltimoDestinosHistoricos = null; // motor nuevo BM.ContainerMovements -- solo fftRenderDestinosUnificado() lo usa
 let fftUltimoAreas = null;
 let fftCharts = {};
 let fftAutoTimer = null;
@@ -11950,73 +11952,111 @@ function fftDestinosOrdenados() {
 // Dona UNIFICADA de los 10 destinos + leyenda + minicards. Reemplaza las
 // 10 cards rectangulares y las 2 donas separadas de antes -- pedido
 // explicito de Roman: "UNA sola card grande... UNA dona grande".
+//
+// 2026-08-14: se agrega el motor historico nuevo (BM.ContainerMovements,
+// salidas reales FFT WorkStationIDFromBin=49) via fftUltimoDestinosHistoricos
+// -- SOLO 4/10 destinos (TRG/FBA/FULL/UPT) tienen regla confirmada ahi; los
+// otros 6 se pintan como "Pendiente de validacion" (nunca 0 -- un 0
+// afirmaria que ya se demostro su inactividad). La dona SOLO grafica
+// EVENTOS DE SALIDA de los confirmados (nunca pallets unicos sumados --
+// un mismo PalletID puede aparecer en mas de un destino historicamente).
+// El catalogo viejo (shipment-types/fftUltimoDestinos) sigue intacto y
+// sigue alimentando KPIs/tarjetas/flujo -- esta funcion es la UNICA que
+// mezcla ambas fuentes, solo para pintar esta card.
 function fftRenderDestinosUnificado() {
     const destinos = fftDestinosOrdenados();
     const centro = document.getElementById('fft-destinos-donut-centro');
     const legendBody = document.getElementById('fft-destinos-legend-body');
     const miniGrid = document.getElementById('fft-destinos-minicards');
+    const tituloEl = document.getElementById('fft-destinos-title');
+    const subtituloEl = document.getElementById('fft-destinos-subtitle');
+    const cutoffEl = document.getElementById('fft-destinos-cutoff');
     if (!destinos.length) {
         if (legendBody) legendBody.innerHTML = '<tr><td colspan="4"><div class="fft-empty-note">No se pudo cargar el catálogo de destinos.</div></td></tr>';
         if (miniGrid) miniGrid.innerHTML = '';
         return;
     }
-    // Auditoria 2026-08-11: NACIONAL/INTERNACIONAL/CALVERY son PEDIDOS
-    // (OM.Orders), no pallets fisicos -- se grafican en el mismo donut (es
-    // una sola visualizacion de "que tan grande es cada destino", valido
-    // aunque las unidades nativas sean distintas) pero el total del centro
-    // SOLO suma pallets reales (TRG/FBA/FULL/BULK/BOX/UPT/HV) para nunca
-    // mostrar un "total pallets" que en realidad mezcle pedidos con pallets.
-    const totalSegmentos = destinos.reduce((s, d) => s + (d.realPallets || 0), 0);
-    const destinosPalletUnidad = destinos.filter((d) => d.unidadPallets !== 'pedidos');
-    // Correccion de doble conteo confirmada 2026-08-11: FBA y FULL comparten
-    // literalmente los MISMOS bins reales (overlapNota ya lo documenta) --
-    // sumarlos ambos en el total contaria 122 bins reales como 244. Se resta
-    // UNA vez el menor de los dos (o el mismo valor si son iguales) para que
-    // el total sea el conteo real de bins DISTINTOS, no la suma de dos
-    // etiquetas sobre el mismo bin.
-    const fbaRow = destinosPalletUnidad.find((d) => d.code === 'FBA');
-    const fullRow = destinosPalletUnidad.find((d) => d.code === 'FULL');
-    const overlapPallets = (fbaRow && fullRow) ? Math.min(fbaRow.realPallets || 0, fullRow.realPallets || 0) : 0;
-    const overlapPiezas = (fbaRow && fullRow) ? Math.min(fbaRow.realPiezas || 0, fullRow.realPiezas || 0) : 0;
-    const totalPallets = destinosPalletUnidad.reduce((s, d) => s + (d.realPallets || 0), 0) - overlapPallets;
-    const totalPiezas = destinos.reduce((s, d) => s + (d.realPiezas || 0), 0) - overlapPiezas;
+
+    const hist = fftUltimoDestinosHistoricos; // { dataCutoff, confirmedDestinations, totalDestinations, destinos: [...] } o null
+    const histByCode = new Map((hist?.destinos || []).map((h) => [h.code, h]));
+    const filas = destinos.map((d, i) => {
+        const h = histByCode.get(d.code) || null;
+        const confirmado = h?.status === 'CONFIRMADO';
+        return {
+            code: d.code,
+            colorIdx: i,
+            confirmado,
+            palletsUnicos: confirmado ? (h.palletsUnicos ?? 0) : null,
+            eventosSalida: confirmado ? (h.eventosSalida ?? 0) : null,
+        };
+    });
+
+    if (tituloEl) tituloEl.textContent = hist ? 'Distribución de salidas FFT' : 'Destinos FFT';
+    if (subtituloEl) {
+        subtituloEl.textContent = hist
+            ? `${hist.confirmedDestinations} de ${hist.totalDestinations} destinos validados`
+            : 'Distribución real de pallets por destino';
+    }
+    if (cutoffEl) {
+        cutoffEl.textContent = hist?.dataCutoff
+            ? `Datos disponibles hasta: ${new Date(hist.dataCutoff).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`
+            : '';
+    }
+
+    const confirmadas = filas.filter((f) => f.confirmado);
+    const totalEventosConfirmados = confirmadas.reduce((s, f) => s + (f.eventosSalida || 0), 0);
 
     if (centro) {
-        centro.innerHTML = `
-            <div style="font-size:0.68rem;color:var(--fft-text-muted);font-weight:700;letter-spacing:0.03em;">TOTAL PALLETS</div>
-            <div style="font-size:1.5rem;font-weight:800;color:var(--fft-text);">${totalPallets.toLocaleString('es-MX')}</div>
-            <div style="font-size:0.68rem;color:var(--fft-text-muted);font-weight:700;letter-spacing:0.03em;margin-top:0.3rem;">TOTAL PIEZAS</div>
-            <div style="font-size:1.1rem;font-weight:800;color:var(--fft-text);">${totalPiezas.toLocaleString('es-MX')}</div>`;
+        centro.innerHTML = hist
+            ? `
+            <div style="font-size:0.68rem;color:var(--fft-text-muted);font-weight:700;letter-spacing:0.03em;">EVENTOS DE SALIDA FFT</div>
+            <div style="font-size:1.5rem;font-weight:800;color:var(--fft-text);">${totalEventosConfirmados.toLocaleString('es-MX')}</div>
+            <div style="font-size:0.68rem;color:var(--fft-text-muted);font-weight:700;letter-spacing:0.03em;margin-top:0.3rem;">DESTINOS VALIDADOS</div>
+            <div style="font-size:1.1rem;font-weight:800;color:var(--fft-text);">${hist.confirmedDestinations} / ${hist.totalDestinations}</div>`
+            : `
+            <div style="font-size:0.68rem;color:var(--fft-text-muted);font-weight:700;letter-spacing:0.03em;">Cargando…</div>`;
     }
 
     if (legendBody) {
-        legendBody.innerHTML = destinos.map((d, i) => {
-            const pct = totalSegmentos > 0 ? ((d.realPallets || 0) / totalSegmentos * 100) : 0;
-            const esPedidos = d.unidadPallets === 'pedidos';
+        legendBody.innerHTML = filas.map((f) => {
+            const pct = f.confirmado && totalEventosConfirmados > 0 ? (f.eventosSalida / totalEventosConfirmados * 100) : null;
+            const dot = `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${fftColorTipo(f.colorIdx)};margin-right:6px;${f.confirmado ? '' : 'opacity:0.4;'}"></span>`;
+            if (!f.confirmado) {
+                return `
+                    <tr style="opacity:0.55;">
+                        <td data-label="Destino">${dot}${f.code}</td>
+                        <td data-label="Pallets">—</td>
+                        <td data-label="Eventos" colspan="2" style="font-style:italic;">Pendiente de validación</td>
+                    </tr>`;
+            }
             return `
-                <tr style="cursor:pointer;" onclick="fftAbrirDestinoPallets('${d.code}')">
-                    <td data-label="Destino"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${fftColorTipo(i)};margin-right:6px;"></span>${d.code}${esPedidos ? ' <span style="font-size:0.65rem;color:var(--fft-text-muted);">(pedidos)</span>' : ''}</td>
-                    <td data-label="Pallets">${(d.realPallets || 0).toLocaleString('es-MX')}</td>
-                    <td data-label="Piezas">${(d.realPiezas || 0).toLocaleString('es-MX')}</td>
-                    <td data-label="% del total">${pct.toFixed(1)}%</td>
+                <tr style="cursor:pointer;" onclick="fftAbrirDestinoPallets('${f.code}')">
+                    <td data-label="Destino">${dot}${f.code}</td>
+                    <td data-label="Pallets">${f.palletsUnicos.toLocaleString('es-MX')}</td>
+                    <td data-label="Eventos">${f.eventosSalida.toLocaleString('es-MX')}</td>
+                    <td data-label="% del total">${pct === null ? '—' : pct.toFixed(1) + '%'}</td>
                 </tr>`;
         }).join('');
     }
 
     if (miniGrid) {
-        miniGrid.innerHTML = destinos.map((d, i) => `
-            <div class="fft-card" style="padding:0.85rem 1rem;cursor:pointer;border-top:3px solid ${fftColorTipo(i)};" onclick="fftAbrirDestinoPallets('${d.code}')">
-                <div style="font-weight:800;font-size:0.85rem;color:${fftColorTipo(i)};">${d.code}</div>
-                <div style="font-size:0.95rem;font-weight:700;margin-top:0.25rem;">${(d.realPallets || 0).toLocaleString('es-MX')} ${d.unidadPallets === 'pedidos' ? 'pedidos' : 'pallets'}</div>
-                <div style="font-size:0.75rem;color:var(--fft-text-muted);">${(d.realPiezas || 0).toLocaleString('es-MX')} piezas</div>
+        miniGrid.innerHTML = filas.map((f) => f.confirmado ? `
+            <div class="fft-card" style="padding:0.85rem 1rem;cursor:pointer;border-top:3px solid ${fftColorTipo(f.colorIdx)};" onclick="fftAbrirDestinoPallets('${f.code}')">
+                <div style="font-weight:800;font-size:0.85rem;color:${fftColorTipo(f.colorIdx)};">${f.code} <span style="font-size:0.62rem;font-weight:700;color:#2e7d32;">✔ CONFIRMADO</span></div>
+                <div style="font-size:0.95rem;font-weight:700;margin-top:0.25rem;">${f.palletsUnicos.toLocaleString('es-MX')} pallets únicos</div>
+                <div style="font-size:0.75rem;color:var(--fft-text-muted);">${f.eventosSalida.toLocaleString('es-MX')} eventos de salida</div>
+            </div>` : `
+            <div class="fft-card" style="padding:0.85rem 1rem;opacity:0.55;border-top:3px solid ${fftColorTipo(f.colorIdx)};">
+                <div style="font-weight:800;font-size:0.85rem;color:${fftColorTipo(f.colorIdx)};">${f.code}</div>
+                <div style="font-size:0.85rem;font-weight:700;margin-top:0.25rem;font-style:italic;">Pendiente de validación</div>
             </div>`).join('');
     }
 
     fftMakeChart('destinosUnificado', 'fft-chart-destinos-unificado', {
         type: 'doughnut',
         data: {
-            labels: destinos.map((d) => d.code),
-            datasets: [{ data: destinos.map((d) => d.realPallets || 0), backgroundColor: destinos.map((_, i) => fftColorTipo(i)), borderWidth: 2, borderColor: '#fff' }],
+            labels: confirmadas.map((f) => f.code),
+            datasets: [{ data: confirmadas.map((f) => f.eventosSalida || 0), backgroundColor: confirmadas.map((f) => fftColorTipo(f.colorIdx)), borderWidth: 2, borderColor: '#fff' }],
         },
         options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { display: false } } },
     });
@@ -12396,13 +12436,22 @@ async function fftLoad(silencioso) {
     // aparte del cruce pesado para que un catalogo lento nunca bloquee KPIs/
     // areas/actividad, y viceversa (mismo principio que ya describe el
     // comentario de fftConTimeout arriba).
-    const [dataRes, resumenRes, catalogoRes, tvTotalRes] = await Promise.allSettled([
+    const [dataRes, resumenRes, catalogoRes, tvTotalRes, historicosRes] = await Promise.allSettled([
         fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/data?${qs}`), TIMEOUT_MS),
         fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/resumen-completo?${qs}`), TIMEOUT_MS),
         fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/shipment-types`), TIMEOUT_MS),
         fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/tv-inventory-total`), TIMEOUT_MS),
+        // Motor historico nuevo (BM.ContainerMovements, salidas reales FFT) --
+        // 2026-08-14, pedido explicito de Roman. Independiente del catalogo
+        // de arriba (shipment-types sigue snapshot/OM.Orders sin tocar); solo
+        // fftRenderDestinosUnificado() lo consume, para no romper KPIs/tarjetas/
+        // flujo que siguen usando fftUltimoDestinos como antes.
+        fftConTimeout(apiFetch(`${API}/api/dashboard-destinos-fft/destinos-historicos`), TIMEOUT_MS),
     ]);
     if (mySeq !== fftRequestSeq) return; // respuesta vieja, ya hay una peticion mas nueva en curso
+
+    const historicosOk = historicosRes.status === 'fulfilled' && historicosRes.value.success;
+    fftUltimoDestinosHistoricos = historicosOk ? historicosRes.value : null;
 
     const dataOk = dataRes.status === 'fulfilled' && dataRes.value.success;
     const resumenOk = resumenRes.status === 'fulfilled' && resumenRes.value.success;
