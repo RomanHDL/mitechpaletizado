@@ -12001,8 +12001,12 @@ function fftRenderDestinosUnificado() {
 
     if (tituloEl) tituloEl.textContent = hist ? 'Distribución de salidas FFT' : 'Destinos FFT';
     if (subtituloEl) {
+        const transversales = filas.filter((f) => f.transversal);
+        const sufijoTransversal = transversales.length
+            ? ` · ${transversales.length} clasificaci${transversales.length === 1 ? 'ón' : 'ones'} validada${transversales.length === 1 ? '' : 's'}: ${transversales.map((f) => f.code).join(', ')}`
+            : '';
         subtituloEl.textContent = hist
-            ? `${hist.confirmedDestinations}/${hist.totalDestinations} destinos físicos validados${filas.some((f) => f.transversal) ? ' · 1 clasificación validada' : ''}`
+            ? `${hist.confirmedDestinations}/${hist.totalDestinations} destinos físicos validados${sufijoTransversal}`
             : 'Distribución real de pallets por destino';
     }
     if (cutoffEl) {
