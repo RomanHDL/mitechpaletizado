@@ -3203,25 +3203,48 @@
                  Diagnostico), bines HASTA ABAJO y solo con contenido por default. -->
             <div class="fft-tabpanel active" id="fft-tabpanel-resumen">
 
-                <!-- BLOQUE 1: Destinos FFT -->
+                <!-- BLOQUE 1: Distribución de salidas FFT. Rediseño 2026-08-16 (pedido
+                     explicito de Roman): separa visualmente DESTINOS FÍSICOS (dona +
+                     tabla, participan en donutTotal) de CLASIFICACIONES TRANSVERSALES
+                     (BULK/HV, cards independientes, NUNCA en la dona) y PENDIENTES
+                     (NACIONAL/CALVERY/INTERNACIONAL), las 3 zonas DENTRO de la misma
+                     card grande -- ya no hay una segunda fila de minicards debajo. -->
                 <div class="fft-card" style="padding:1.25rem 1.5rem;margin-bottom:1.25rem;">
                     <div class="fft-chart-title" id="fft-destinos-title">Destinos FFT</div>
                     <div class="fft-section-sub" id="fft-destinos-subtitle" style="margin-bottom:0.15rem;">Distribución real de pallets por destino</div>
                     <div class="fft-section-sub" id="fft-destinos-cutoff" style="margin-bottom:1rem;font-size:0.72rem;"></div>
-                    <div style="display:flex;gap:2rem;flex-wrap:wrap;align-items:center;">
-                        <div style="flex:1 1 280px;max-width:380px;position:relative;height:300px;margin:0 auto;">
-                            <canvas id="fft-chart-destinos-unificado"></canvas>
-                            <div id="fft-destinos-donut-centro" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;"></div>
+                    <div style="display:flex;gap:1.75rem;flex-wrap:wrap;align-items:flex-start;">
+                        <!-- ZONA 1 (~60%): destinos físicos -- dona + tabla -->
+                        <div style="flex:3 1 460px;min-width:300px;">
+                            <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.04em;color:var(--fft-text-muted);">DESTINOS FÍSICOS</div>
+                            <div style="font-size:0.72rem;color:var(--fft-text-muted);margin-bottom:0.75rem;">Incluidos en la distribución de salidas FFT</div>
+                            <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center;">
+                                <div style="flex:1 1 220px;max-width:270px;position:relative;height:260px;margin:0 auto;">
+                                    <canvas id="fft-chart-destinos-unificado"></canvas>
+                                    <div id="fft-destinos-donut-centro" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;"></div>
+                                </div>
+                                <div style="flex:2 1 260px;min-width:0;overflow-x:auto;">
+                                    <table class="fft-table">
+                                        <thead><tr><th>Destino</th><th>Pallets únicos</th><th>Eventos</th><th>% del total</th></tr></thead>
+                                        <tbody id="fft-destinos-legend-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
-                        <div style="flex:2 1 320px;min-width:0;overflow-x:auto;">
-                            <table class="fft-table">
-                                <thead><tr><th>Destino FFT</th><th>Pallets</th><th id="fft-destinos-th-eventos">Eventos</th><th>% del total</th></tr></thead>
-                                <tbody id="fft-destinos-legend-body"></tbody>
-                            </table>
+                        <!-- ZONA 2 (~24%): clasificaciones transversales -- BULK/HV, NUNCA en la dona -->
+                        <div style="flex:1 1 260px;min-width:220px;">
+                            <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.04em;color:var(--fft-text-muted);">CLASIFICACIONES TRANSVERSALES</div>
+                            <div style="font-size:0.72rem;color:var(--fft-text-muted);margin-bottom:0.75rem;">No participan en la distribución por destino</div>
+                            <div id="fft-destinos-transversales" style="display:flex;flex-wrap:wrap;gap:0.6rem;"></div>
+                        </div>
+                        <!-- ZONA 3 (~18%): pendientes de validación -->
+                        <div style="flex:1 1 180px;min-width:160px;">
+                            <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.04em;color:var(--fft-text-muted);">PENDIENTES / NO VALIDADOS</div>
+                            <div style="font-size:0.72rem;color:var(--fft-text-muted);margin-bottom:0.75rem;">Pendiente de validación</div>
+                            <div id="fft-destinos-pendientes" style="display:flex;flex-direction:column;gap:0.5rem;"></div>
                         </div>
                     </div>
                 </div>
-                <div class="fft-destino-grid" id="fft-destinos-minicards" style="margin-bottom:1.25rem;"></div>
 
                 <!-- BLOQUE 1b: BULKY-CDMX -- bin consolidador real (LocationID 47,
                      CDMX, NO Monterrey MAXX). Numero COMPLEMENTARIO al de la card
@@ -11963,29 +11986,44 @@ function fftDestinosOrdenados() {
 // El catalogo viejo (shipment-types/fftUltimoDestinos) sigue intacto y
 // sigue alimentando KPIs/tarjetas/flujo -- esta funcion es la UNICA que
 // mezcla ambas fuentes, solo para pintar esta card.
+// Iconos/etiqueta de "piezas" por código transversal -- default genérico
+// para que un futuro 3er código transversal no rompa el render (cae en
+// fa-layer-group / "piezas"). HV usa "LPN HV" en vez de "piezas" a propósito
+// (control de semántica 2026-08-16: qtyTotal de HV es distinct LPN, no Qty
+// ocurrencia-sumada -- ver debugHvHistoricalFinal en Cubicaje).
+const FFT_TRANSVERSAL_META = {
+    BULK: { icon: 'fa-box', qtyLabel: 'piezas' },
+    HV: { icon: 'fa-gem', qtyLabel: 'LPN HV' },
+};
+function fftTransversalMeta(code) {
+    return FFT_TRANSVERSAL_META[code] || { icon: 'fa-layer-group', qtyLabel: 'piezas' };
+}
+
 function fftRenderDestinosUnificado() {
     const destinos = fftDestinosOrdenados();
     const centro = document.getElementById('fft-destinos-donut-centro');
     const legendBody = document.getElementById('fft-destinos-legend-body');
-    const miniGrid = document.getElementById('fft-destinos-minicards');
+    const transversalesEl = document.getElementById('fft-destinos-transversales');
+    const pendientesEl = document.getElementById('fft-destinos-pendientes');
     const tituloEl = document.getElementById('fft-destinos-title');
     const subtituloEl = document.getElementById('fft-destinos-subtitle');
     const cutoffEl = document.getElementById('fft-destinos-cutoff');
     if (!destinos.length) {
         if (legendBody) legendBody.innerHTML = '<tr><td colspan="4"><div class="fft-empty-note">No se pudo cargar el catálogo de destinos.</div></td></tr>';
-        if (miniGrid) miniGrid.innerHTML = '';
+        if (transversalesEl) transversalesEl.innerHTML = '';
+        if (pendientesEl) pendientesEl.innerHTML = '';
         return;
     }
 
-    const hist = fftUltimoDestinosHistoricos; // { dataCutoff, confirmedDestinations, totalDestinations, donutTotal, destinos: [...] } o null
+    const hist = fftUltimoDestinosHistoricos; // { dataCutoff, confirmedDestinations, totalDestinations, donutTotal, donutPalletsUnicosTotal, destinos: [...] } o null
     const histByCode = new Map((hist?.destinos || []).map((h) => [h.code, h]));
     const filas = destinos.map((d, i) => {
         const h = histByCode.get(d.code) || null;
         const confirmado = h?.status === 'CONFIRMADO';
-        // BULK (2026-08-15): clasificación TRANSVERSAL validada -- tiene
-        // números reales (no "Pendiente de validación"), pero NO es destino
-        // físico: no participa en la dona ni en confirmadas/donutTotal. Un
-        // mismo evento puede ser físico=TRG y clasificación=BULK a la vez.
+        // BULK/HV: clasificación TRANSVERSAL validada -- tienen números
+        // reales (no "Pendiente de validación"), pero NO son destino físico:
+        // no participan en la dona ni en confirmadas/donutTotal. Un mismo
+        // evento puede ser físico=TRG y clasificación=BULK/HV a la vez.
         const transversal = h?.status === 'CONFIRMADO_CLASIFICACION_TRANSVERSAL';
         return {
             code: d.code,
@@ -12000,8 +12038,9 @@ function fftRenderDestinosUnificado() {
     });
 
     if (tituloEl) tituloEl.textContent = hist ? 'Distribución de salidas FFT' : 'Destinos FFT';
+    const transversales = filas.filter((f) => f.transversal);
+    const pendientes = filas.filter((f) => !f.confirmado && !f.transversal);
     if (subtituloEl) {
-        const transversales = filas.filter((f) => f.transversal);
         const sufijoTransversal = transversales.length
             ? ` · ${transversales.length} clasificaci${transversales.length === 1 ? 'ón' : 'ones'} validada${transversales.length === 1 ? '' : 's'}: ${transversales.map((f) => f.code).join(', ')}`
             : '';
@@ -12023,70 +12062,74 @@ function fftRenderDestinosUnificado() {
             ? `
             <div style="font-size:0.68rem;color:var(--fft-text-muted);font-weight:700;letter-spacing:0.03em;">EVENTOS DE SALIDA FFT</div>
             <div style="font-size:1.5rem;font-weight:800;color:var(--fft-text);">${totalEventosConfirmados.toLocaleString('es-MX')}</div>
-            <div style="font-size:0.68rem;color:var(--fft-text-muted);font-weight:700;letter-spacing:0.03em;margin-top:0.3rem;">DESTINOS VALIDADOS</div>
-            <div style="font-size:1.1rem;font-weight:800;color:var(--fft-text);">${hist.confirmedDestinations} / ${hist.totalDestinations}</div>`
+            <div style="font-size:0.64rem;color:var(--fft-text-muted);font-weight:700;letter-spacing:0.03em;">EVENTOS TOTALES</div>
+            <div style="font-size:1.1rem;font-weight:800;color:var(--fft-text);margin-top:0.35rem;">${hist.confirmedDestinations} / ${hist.totalDestinations}</div>
+            <div style="font-size:0.64rem;color:var(--fft-text-muted);font-weight:700;letter-spacing:0.03em;line-height:1.25;">DESTINOS FÍSICOS<br>VALIDADOS</div>`
             : `
             <div style="font-size:0.68rem;color:var(--fft-text-muted);font-weight:700;letter-spacing:0.03em;">Cargando…</div>`;
     }
 
+    // Tabla: SOLO destinos físicos confirmados (TRG/FBA/FULL/UPT/BOX) --
+    // transversales y pendientes tienen sus propias zonas ahora.
     if (legendBody) {
-        legendBody.innerHTML = filas.map((f) => {
-            const pct = f.confirmado && totalEventosConfirmados > 0 ? (f.eventosSalida / totalEventosConfirmados * 100) : null;
-            const dot = `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${fftColorTipo(f.colorIdx)};margin-right:6px;${f.confirmado ? '' : 'opacity:0.4;'}"></span>`;
-            if (f.transversal) {
-                // Sin onclick: el drill-down /destinos/:code/pallets todavía usa la
-                // regla vieja (BinCode/condición snapshot) -- no está conectado a la
-                // clasificación histórica por contenido validada para BULK.
-                return `
-                    <tr>
-                        <td data-label="Destino">${dot}${f.code} <span style="font-size:0.6rem;font-weight:700;color:#8a5a00;background:#fff3cd;padding:0.05rem 0.3rem;border-radius:3px;">CLASIFICACIÓN TRANSVERSAL</span></td>
-                        <td data-label="Pallets">${f.palletsUnicos.toLocaleString('es-MX')}</td>
-                        <td data-label="Eventos" colspan="2" style="font-style:italic;color:var(--fft-text-muted);">No participa en la distribución por destino</td>
-                    </tr>`;
-            }
-            if (!f.confirmado) {
-                return `
-                    <tr style="opacity:0.55;">
-                        <td data-label="Destino">${dot}${f.code}</td>
-                        <td data-label="Pallets">—</td>
-                        <td data-label="Eventos" colspan="2" style="font-style:italic;">Pendiente de validación</td>
-                    </tr>`;
-            }
+        const filasHtml = confirmadas.map((f) => {
+            const pct = totalEventosConfirmados > 0 ? (f.eventosSalida / totalEventosConfirmados * 100) : null;
+            const dot = `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${fftColorTipo(f.colorIdx)};margin-right:6px;"></span>`;
             return `
                 <tr style="cursor:pointer;" onclick="fftAbrirDestinoPallets('${f.code}')">
                     <td data-label="Destino">${dot}${f.code}</td>
-                    <td data-label="Pallets">${f.palletsUnicos.toLocaleString('es-MX')}</td>
+                    <td data-label="Pallets únicos">${f.palletsUnicos.toLocaleString('es-MX')}</td>
                     <td data-label="Eventos">${f.eventosSalida.toLocaleString('es-MX')}</td>
                     <td data-label="% del total">${pct === null ? '—' : pct.toFixed(1) + '%'}</td>
                 </tr>`;
         }).join('');
+        // Fila de total: pallets únicos viene de hist.donutPalletsUnicosTotal
+        // (distinct BinID real calculado en Cubicaje, TRG∪FBA∪FULL∪UPT∪BOX) --
+        // NUNCA se suma ingenuamente aquí porque BOX puede solaparse con
+        // TRG/FBA/FULL/UPT (mismo pallet, dos clasificaciones) y eso
+        // duplicaría el conteo. Si el backend no lo trae todavía, se muestra
+        // "—", nunca un número inventado.
+        const totalPalletsUnicos = hist && typeof hist.donutPalletsUnicosTotal === 'number'
+            ? hist.donutPalletsUnicosTotal.toLocaleString('es-MX')
+            : '—';
+        const totalRow = hist
+            ? `
+                <tr style="font-weight:700;border-top:2px solid var(--fft-border);">
+                    <td data-label="Destino">Total destinos físicos</td>
+                    <td data-label="Pallets únicos">${totalPalletsUnicos}</td>
+                    <td data-label="Eventos">${totalEventosConfirmados.toLocaleString('es-MX')}</td>
+                    <td data-label="% del total">100.0%</td>
+                </tr>`
+            : '';
+        legendBody.innerHTML = filasHtml + totalRow;
     }
 
-    if (miniGrid) {
-        miniGrid.innerHTML = filas.map((f) => {
-            if (f.transversal) {
-                return `
-            <div class="fft-card" style="padding:0.85rem 1rem;border-top:3px solid ${fftColorTipo(f.colorIdx)};">
-                <div style="font-weight:800;font-size:0.85rem;color:${fftColorTipo(f.colorIdx)};">${f.code} <span style="font-size:0.6rem;font-weight:700;color:#8a5a00;background:#fff3cd;padding:0.05rem 0.3rem;border-radius:3px;">CLASIFICACIÓN TRANSVERSAL</span></div>
-                <div style="font-size:0.95rem;font-weight:700;margin-top:0.25rem;">${f.palletsUnicos.toLocaleString('es-MX')} pallets únicos</div>
-                <div style="font-size:0.75rem;color:var(--fft-text-muted);">${f.eventosSalida.toLocaleString('es-MX')} eventos · ${(f.qtyTotal ?? 0).toLocaleString('es-MX')} piezas</div>
-                <div style="font-size:0.68rem;color:var(--fft-text-muted);font-style:italic;margin-top:0.2rem;">No participa en la distribución por destino</div>
-            </div>`;
-            }
-            if (f.confirmado) {
-                return `
-            <div class="fft-card" style="padding:0.85rem 1rem;cursor:pointer;border-top:3px solid ${fftColorTipo(f.colorIdx)};" onclick="fftAbrirDestinoPallets('${f.code}')">
-                <div style="font-weight:800;font-size:0.85rem;color:${fftColorTipo(f.colorIdx)};">${f.code} <span style="font-size:0.62rem;font-weight:700;color:#2e7d32;">✔ CONFIRMADO</span></div>
-                <div style="font-size:0.95rem;font-weight:700;margin-top:0.25rem;">${f.palletsUnicos.toLocaleString('es-MX')} pallets únicos</div>
-                <div style="font-size:0.75rem;color:var(--fft-text-muted);">${f.eventosSalida.toLocaleString('es-MX')} eventos de salida</div>
-            </div>`;
-            }
+    // ZONA 2: clasificaciones transversales (BULK/HV) -- cards independientes,
+    // nunca una segunda dona (no son excluyentes entre sí ni con los físicos).
+    if (transversalesEl) {
+        transversalesEl.innerHTML = transversales.map((f) => {
+            const meta = fftTransversalMeta(f.code);
             return `
-            <div class="fft-card" style="padding:0.85rem 1rem;opacity:0.55;border-top:3px solid ${fftColorTipo(f.colorIdx)};">
-                <div style="font-weight:800;font-size:0.85rem;color:${fftColorTipo(f.colorIdx)};">${f.code}</div>
-                <div style="font-size:0.85rem;font-weight:700;margin-top:0.25rem;font-style:italic;">Pendiente de validación</div>
+            <div class="fft-card" style="flex:1 1 140px;min-width:140px;padding:0.85rem 1rem;border-top:3px solid ${fftColorTipo(f.colorIdx)};">
+                <div style="display:flex;align-items:center;gap:0.4rem;">
+                    <i class="fa-solid ${meta.icon}" style="color:${fftColorTipo(f.colorIdx)};font-size:0.9rem;"></i>
+                    <span style="font-weight:800;font-size:0.85rem;color:${fftColorTipo(f.colorIdx)};">${f.code}</span>
+                </div>
+                <div style="font-size:0.6rem;font-weight:700;color:#8a5a00;background:#fff3cd;padding:0.05rem 0.3rem;border-radius:3px;display:inline-block;margin-top:0.3rem;">CLASIFICACIÓN TRANSVERSAL</div>
+                <div style="font-size:0.95rem;font-weight:700;margin-top:0.4rem;">${f.palletsUnicos.toLocaleString('es-MX')} pallets únicos</div>
+                <div style="font-size:0.75rem;color:var(--fft-text-muted);">${f.eventosSalida.toLocaleString('es-MX')} eventos</div>
+                <div style="font-size:0.75rem;color:var(--fft-text-muted);">${(f.qtyTotal ?? 0).toLocaleString('es-MX')} ${meta.qtyLabel}</div>
             </div>`;
-        }).join('');
+        }).join('') || '<div class="fft-empty-note" style="font-size:0.75rem;">Sin clasificaciones transversales todavía.</div>';
+    }
+
+    // ZONA 3: pendientes de validación -- nunca 0, nunca inventado.
+    if (pendientesEl) {
+        pendientesEl.innerHTML = pendientes.map((f) => `
+            <div class="fft-card" style="padding:0.6rem 0.85rem;opacity:0.7;border-top:3px solid ${fftColorTipo(f.colorIdx)};">
+                <div style="font-weight:800;font-size:0.78rem;color:${fftColorTipo(f.colorIdx)};">${f.code}</div>
+                <div style="font-size:0.72rem;font-style:italic;color:var(--fft-text-muted);margin-top:0.1rem;">Pendiente de validación</div>
+            </div>`).join('') || '<div class="fft-empty-note" style="font-size:0.75rem;">Sin pendientes.</div>';
     }
 
     fftMakeChart('destinosUnificado', 'fft-chart-destinos-unificado', {
