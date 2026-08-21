@@ -1654,12 +1654,15 @@
 
             <div class="card">
                 <div class="card-title"><i class="fa-solid fa-list-check"></i> PalletIDs a comparar</div>
-                <textarea id="cmp-input-ids" rows="3" placeholder="Pega o escribe varios PalletID separados por coma, espacio, tab o salto de linea..." style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:0.65rem 0.8rem;color:var(--text-main);font-size:0.85rem;resize:vertical;box-sizing:border-box;"></textarea>
+                <textarea id="cmp-input-ids" rows="3" placeholder="Pega o escribe varios PalletID/BinCode (ej: 388714-0015) separados por coma, espacio, tab o salto de linea. Si solo tienes el BinID corto (ej: 388714) tambien funciona: se intenta resolver el BinCode automaticamente, pero puede fallar si el bin ya no esta en inventario vivo." style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:0.65rem 0.8rem;color:var(--text-main);font-size:0.85rem;resize:vertical;box-sizing:border-box;"></textarea>
                 <div style="display:flex;gap:0.6rem;align-items:center;margin-top:0.7rem;flex-wrap:wrap;">
                     <button type="button" class="btn btn-primary btn-sm" style="width:auto;" onclick="cmpAgregarPallets()"><i class="fa-solid fa-plus"></i> Agregar</button>
                     <button type="button" class="btn btn-secondary btn-sm" onclick="cmpLimpiarTodo()"><i class="fa-solid fa-trash"></i> Limpiar todo</button>
                     <button type="button" class="btn btn-secondary btn-sm" onclick="cmpExportarCSV()"><i class="fa-solid fa-file-csv"></i> Exportar CSV</button>
                     <span id="cmp-loading-note" style="font-size:0.8rem;color:var(--text-muted);"></span>
+                </div>
+                <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.4rem;">
+                    Nota: el BinID corto (solo numeros) no siempre coincide con el BinCode real (algunos bines especiales, ej. areas de sorting, tienen un BinCode sin relacion numerica con su BinID) -- en esos casos pega el BinCode completo tal cual aparece en BinManager/Cubicaje.
                 </div>
                 <div class="fft-active-chips" id="cmp-chips" style="margin-top:0.9rem;margin-bottom:0;"></div>
             </div>
@@ -14047,11 +14050,48 @@ function cmpAgregarPallets() {
     if (nuevos.length) cmpFetchEnLotes(nuevos);
 }
 
+// Auditoria 2026-08-21: /api/dashboard-destinos-fft/pallets/:code hace match
+// EXACTO (palletIdMatchKey = trim+uppercase) contra el BinCode real -- nunca
+// contra el BinID interno corto. El buscador viejo (fftBuscarPalletDirecto)
+// tiene el MISMO problema (pasa el texto crudo tal cual, sin resolver nada);
+// no existe ninguna "resolucion" oculta que reusar ahi. Lo que si existe y es
+// reusable es /api/sc-pallets/live?search= (mismo endpoint que ya usa "Todos
+// los pallets reales" para buscar texto parcial contra Cubicaje) -- se usa
+// aqui como intento automatico de resolver un BinID corto (solo digitos, sin
+// guion) al BinCode real ANTES de rendirse. No siempre funciona: algunos
+// bines especiales (ej. areas de sorting) tienen un BinCode sin relacion
+// numerica con su BinID, y en ese caso el search tampoco lo encuentra -- se
+// documenta esa limitacion en el mensaje de error, nunca se finge un match.
+async function cmpResolverBinCode(rawId) {
+    if (!/^\d+$/.test(rawId)) return null; // ya trae guion => se asume BinCode completo, no se toca
+    try {
+        const data = await apiFetch(`${API}/api/sc-pallets/live?search=${encodeURIComponent(rawId)}&limit=10`);
+        if (!data || !data.success || !Array.isArray(data.data)) return null;
+        const exacto = data.data.find(r => String(r.palletId) === rawId);
+        if (exacto) return exacto.palletId;
+        const prefijoRx = new RegExp('^' + rawId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '-');
+        const porPrefijo = data.data.find(r => prefijoRx.test(String(r.palletId)));
+        return porPrefijo ? porPrefijo.palletId : null;
+    } catch (e) {
+        return null;
+    }
+}
+
 async function cmpFetchUnPallet(palletId) {
     try {
-        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/pallets/${encodeURIComponent(palletId)}`);
+        let data = await apiFetch(`${API}/api/dashboard-destinos-fft/pallets/${encodeURIComponent(palletId)}`);
+        if (!data || !data.success) {
+            const binCodeResuelto = await cmpResolverBinCode(palletId);
+            if (binCodeResuelto && binCodeResuelto !== palletId) {
+                data = await apiFetch(`${API}/api/dashboard-destinos-fft/pallets/${encodeURIComponent(binCodeResuelto)}`);
+            }
+        }
         if (!data || !data.success || !data.binManagerRO || !data.binManagerRO.bin) {
-            cmpPallets[palletId] = { status: 'error', error: (data && data.error) || 'PalletID no encontrado en BinManagerRO' };
+            let error = (data && data.error) || 'PalletID no encontrado en BinManagerRO';
+            if (/^\d+$/.test(palletId)) {
+                error += ` (se intento resolver "${palletId}" como BinID corto contra inventario vivo y no hubo match; si tienes el BinCode completo -ej. "${palletId}-0015"- pegalo tal cual)`;
+            }
+            cmpPallets[palletId] = { status: 'error', error };
         } else {
             cmpPallets[palletId] = { status: 'ok', data };
         }
