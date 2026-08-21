@@ -977,6 +977,39 @@ async function fetchCubicajePalletDetail(code, timeoutMs = 15000) {
   } finally { clearTimeout(timeout); }
 }
 
+// Detalle de UN pallet en CUALQUIER almacen (no solo MAXX/LocationID=68) --
+// usado por el Comparador de Pallets (2026-08-21). A diferencia de
+// fetchCubicajePalletDetail (arriba), aqui el detalle del pallet ES el dato
+// principal de la ruta que lo llama, no un enriquecimiento opcional: por eso
+// esta funcion SIEMPRE propaga el error real (404/502/503) en vez de
+// devolver null en silencio. El endpoint remoto tambien intenta resolver
+// un BinID numerico corto a su BinCode real del lado del servidor
+// (best-effort, puede seguir fallando para bines especiales sin relacion
+// numerica con su BinCode).
+async function fetchCubicajePalletDetailGlobal(code, timeoutMs = 15000) {
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key) { const e = new Error('CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto'); e.status = 503; throw e; }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let resp;
+  try {
+    resp = await fetch(`${base.replace(/\/$/, '')}/api/integrations/paletizado/pallet-detail-global/${encodeURIComponent(code)}`, {
+      headers: { 'X-Integration-Key': key },
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : e.message;
+    const err = new Error('No se pudo consultar Cubicaje: ' + msg);
+    err.status = 502;
+    throw err;
+  } finally { clearTimeout(timeout); }
+  const data = await resp.json();
+  if (resp.status === 404) { const err = new Error(data.error || 'Pallet no encontrado en ningun almacen'); err.status = 404; throw err; }
+  if (!resp.ok || !data.success) { const err = new Error(data.error || `Cubicaje respondio ${resp.status}`); err.status = resp.status; throw err; }
+  return data.data; // { bin, content, movements }
+}
+
 // Catalogo de tipos de envio/destino (FBA, TRG, HV, FULL, BULK, BOX, UPT,
 // CALVERY, NACIONAL, INTERNACIONAL) con su politica real (apilable, mezcla,
 // inspeccion, documentos) — de la Postgres PROPIA de Cubicaje, no de
@@ -1464,6 +1497,21 @@ app.get('/api/sc-pallets/live', auth, roleGuard('admin'), async (req, res) => {
     res.json({ success: true, data: data.map(({ raw, ...rest }) => rest), total, limit, offset });
   } catch (error) {
     res.status(error.status || 502).json({ success: false, error: error.message });
+  }
+});
+
+// Detalle de UN pallet para el Comparador de Pallets (2026-08-21) -- busca en
+// CUALQUIER almacen (no solo MAXX), a diferencia de
+// /api/dashboard-destinos-fft/pallets/:palletId que esta fijo a LocationID=68.
+app.get('/api/comparador-pallets/:code', auth, roleGuard('admin'), async (req, res) => {
+  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+  try {
+    const code = String(req.params.code || '').trim();
+    if (!code) return res.status(400).json({ success: false, error: 'code invalido' });
+    const data = await fetchCubicajePalletDetailGlobal(code);
+    res.json({ success: true, bin: data.bin, content: data.content || [] });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, error: error.message });
   }
 });
 
