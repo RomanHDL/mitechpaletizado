@@ -1006,7 +1006,17 @@ async function fetchCubicajePalletDetailGlobal(code, timeoutMs = 15000) {
   } finally { clearTimeout(timeout); }
   const data = await resp.json();
   if (resp.status === 404) { const err = new Error(data.error || 'Pallet no encontrado en ningun almacen'); err.status = 404; throw err; }
-  if (!resp.ok || !data.success) { const err = new Error(data.error || `Cubicaje respondio ${resp.status}`); err.status = resp.status; throw err; }
+  if (!resp.ok || !data.success) {
+    // Nunca propagar un 401/403 de Cubicaje tal cual al navegador: en el
+    // frontend (apiFetch) un 401 significa "tu sesion de mitechpaletizado
+    // expiro" y dispara un logout automatico -- un 401/403 aqui es una falla
+    // de la integracion servidor-a-servidor con Cubicaje (llave invalida,
+    // deploy de Coolify aun propagandose, etc.), no de la sesion del usuario.
+    const status = (resp.status === 401 || resp.status === 403) ? 502 : resp.status;
+    const err = new Error(data.error || `Cubicaje respondio ${resp.status}`);
+    err.status = status;
+    throw err;
+  }
   return data.data; // { bin, content, movements }
 }
 
