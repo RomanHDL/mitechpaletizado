@@ -1242,6 +1242,18 @@
         .fft-match-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:0.68rem;font-weight:700;}
         .fft-pallet-link{color:#3B82F6;font-weight:700;cursor:pointer;text-decoration:none;}
         .fft-pallet-link:hover{text-decoration:underline;}
+
+        /* ── Comparador de Pallets (cmp) — vista exclusiva del admin 3647.
+           Usa las variables de tema principal (--bg-card/--border/--text-*),
+           NO las --fft-* (esas solo existen dentro de las vistas fft-*). ── */
+        .cmp-sku-card{flex:0 0 auto;min-width:150px;max-width:190px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:0.7rem 0.85rem;cursor:pointer;transition:border-color 0.15s ease,transform 0.15s ease;}
+        .cmp-sku-card:hover{transform:translateY(-2px);border-color:var(--accent);}
+        .cmp-sku-card.selected{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow);}
+        .cmp-sku-card-sku{font-weight:800;font-size:0.85rem;font-family:monospace;overflow-wrap:anywhere;}
+        .cmp-sku-card-total{font-size:1.05rem;font-weight:700;margin-top:0.35rem;}
+        .cmp-sku-card-pallets{font-size:0.7rem;color:var(--text-muted);margin-top:0.15rem;}
+        .cmp-sku-card-conds{display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.5rem;}
+        .cmp-cond-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:0.68rem;font-weight:700;}
     </style>
 </head>
 <body>
@@ -1602,8 +1614,90 @@
                         </div>
                     </button>
 
+                    <!-- J: Comparador de Pallets (exclusivo 3647) -->
+                    <button type="button" class="hero-card hero-purple card-3647-only" onclick="switchView('comparador-pallets')" style="position:relative;">
+                        <div class="hero-illustration">
+                            <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <rect x="14" y="20" width="70" height="80" rx="8" fill="#0f1830" stroke="#a855f7" stroke-width="2"/>
+                                <rect x="116" y="20" width="70" height="80" rx="8" fill="#0f1830" stroke="#8b5cf6" stroke-width="2"/>
+                                <rect x="24" y="32" width="50" height="10" rx="2" fill="#a855f7" opacity="0.8"/>
+                                <rect x="24" y="48" width="34" height="8" rx="2" fill="#1a2540"/>
+                                <rect x="24" y="62" width="42" height="8" rx="2" fill="#1a2540"/>
+                                <rect x="126" y="32" width="50" height="10" rx="2" fill="#8b5cf6" opacity="0.8"/>
+                                <rect x="126" y="48" width="34" height="8" rx="2" fill="#1a2540"/>
+                                <rect x="126" y="62" width="42" height="8" rx="2" fill="#1a2540"/>
+                                <circle cx="100" cy="60" r="15" fill="#0f1830" stroke="#22c55e" stroke-width="2"/>
+                                <path d="M93 60 l5 5 l9 -10" stroke="#22c55e" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <div class="hero-body">
+                            <div class="hero-title">Comparador de Pallets</div>
+                            <div class="hero-desc">Suma SKUs y condiciones entre varios PalletID (contenido real en BinManagerRO)</div>
+                            <div class="hero-cta">Abrir comparador <i class="fa-solid fa-arrow-right"></i></div>
+                        </div>
+                    </button>
+
                 </div>
 
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: COMPARADOR DE PALLETS (exclusivo 3647) -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-comparador-pallets">
+            <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
+            <div class="page-header">
+                <h1><i class="fa-solid fa-code-compare"></i> Comparador de Pallets</h1>
+                <p>Suma piezas por SKU y condición entre varios PalletID — fuente: contenido real en BinManagerRO (vía Cubicaje)</p>
+            </div>
+
+            <div class="card">
+                <div class="card-title"><i class="fa-solid fa-list-check"></i> PalletIDs a comparar</div>
+                <textarea id="cmp-input-ids" rows="3" placeholder="Pega o escribe varios PalletID separados por coma, espacio, tab o salto de linea..." style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:0.65rem 0.8rem;color:var(--text-main);font-size:0.85rem;resize:vertical;box-sizing:border-box;"></textarea>
+                <div style="display:flex;gap:0.6rem;align-items:center;margin-top:0.7rem;flex-wrap:wrap;">
+                    <button type="button" class="btn btn-primary btn-sm" style="width:auto;" onclick="cmpAgregarPallets()"><i class="fa-solid fa-plus"></i> Agregar</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="cmpLimpiarTodo()"><i class="fa-solid fa-trash"></i> Limpiar todo</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="cmpExportarCSV()"><i class="fa-solid fa-file-csv"></i> Exportar CSV</button>
+                    <span id="cmp-loading-note" style="font-size:0.8rem;color:var(--text-muted);"></span>
+                </div>
+                <div class="fft-active-chips" id="cmp-chips" style="margin-top:0.9rem;margin-bottom:0;"></div>
+            </div>
+
+            <div class="co-pallet-summary-grid" id="cmp-resumen-kpis" style="margin-bottom:1rem;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));"></div>
+
+            <div class="card">
+                <div class="card-title"><i class="fa-solid fa-tags"></i> Resumen por SKU</div>
+                <input type="text" id="cmp-sku-buscador" placeholder="Buscar SKU..." oninput="cmpFiltrarSkuCards(this.value)" style="width:100%;max-width:320px;margin-bottom:0.9rem;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.75rem;color:var(--text-main);font-size:0.85rem;box-sizing:border-box;">
+                <div id="cmp-sku-cards" style="display:flex;gap:0.75rem;overflow-x:auto;padding-bottom:0.4rem;"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title"><i class="fa-solid fa-table"></i> Tabla por SKU</div>
+                <div class="table-wrap">
+                    <table class="ctrl-table">
+                        <thead><tr><th>SKU</th><th>Total</th><th>GRA</th><th>GRB</th><th>GRC</th><th>Otras</th><th>Pallets</th></tr></thead>
+                        <tbody id="cmp-tabla-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card" id="cmp-detalle-panel" style="display:none;flex-direction:column;">
+                <div class="card-title" style="justify-content:space-between;">
+                    <span id="cmp-detalle-titulo"><i class="fa-solid fa-magnifying-glass"></i> Detalle</span>
+                    <button type="button" class="co-pallet-modal-close-x" onclick="cmpCerrarDetalle()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="table-wrap">
+                    <table class="ctrl-table">
+                        <thead><tr><th>PalletID</th><th>SKU</th><th>Serie/LPN</th><th>Condición</th><th>Proveedor</th></tr></thead>
+                        <tbody id="cmp-detalle-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card" style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
+                <span style="font-size:0.78rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-right:0.4rem;">Desglose global por condición:</span>
+                <div id="cmp-footer-condiciones" style="display:flex;gap:0.6rem;flex-wrap:wrap;"></div>
             </div>
         </div>
 
@@ -5004,7 +5098,7 @@ function switchView(viewName) {
     // Los administradores (y siempre 3647) quedan exentos: nunca deben perder acceso a "inicio" o al Centro de Control.
     if (currentUser && currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras') && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
     // Centro de Control, Monitor en Vivo y LPN Duplicados: exclusivos del administrador 3647
-    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn' || viewName === 'centro-operativo' || viewName === 'reporte-semanal' || viewName === 'dashboard-destinos-fft' || viewName === 'fft-area-detalle' || viewName === 'fft-bin-detalle') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
+    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn' || viewName === 'centro-operativo' || viewName === 'reporte-semanal' || viewName === 'dashboard-destinos-fft' || viewName === 'fft-area-detalle' || viewName === 'fft-bin-detalle' || viewName === 'comparador-pallets') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
     // Operaciones y Pedidos (Retrabajo + Gestionar Pedidos): cualquier admin.
     // La pestaña "Gestionar Pedidos" adentro sigue siendo exclusiva de 3647.
     if (viewName === 'operaciones' && (!currentUser || currentUser.role !== 'admin')) { switchView('home'); return; }
@@ -5051,6 +5145,7 @@ function switchView(viewName) {
     if (viewName === 'dashboard-destinos-fft') initDashboardDestinosFft();
     if (viewName === 'fft-area-detalle') initFftAreaDetalle();
     if (viewName === 'fft-bin-detalle') initFftBinDetalle();
+    if (viewName === 'comparador-pallets') initComparadorPallets();
 }
 
 // ══════════════════════════════════════════════
@@ -13907,6 +14002,256 @@ function fftRenderPalletDetalle(data) {
             <summary style="cursor:pointer;font-weight:700;">Respuesta original — Registro FFT</summary>
             <pre style="white-space:pre-wrap;font-size:0.72rem;background:#F8FAFC;border:1px solid var(--fft-border);border-radius:8px;padding:0.75rem;margin-top:0.5rem;max-height:300px;overflow:auto;">${data.datosOriginales.fft ? JSON.stringify(data.datosOriginales.fft, null, 2).replace(/</g, '&lt;') : 'Sin datos'}</pre>
         </details>`;
+}
+
+// ══════════════════════════════════════════════
+// COMPARADOR DE PALLETS (cmp) — exclusivo admin 3647.
+// Reusa el endpoint ya existente /api/dashboard-destinos-fft/pallets/:palletId
+// (uno por PalletID, no hay batch). La fuente de SKU/condicion/serie por
+// pallet es SIEMPRE binManagerRO.content[] (productSku/qty/skuCondition/
+// serialNumber) -- la misma fuente que ya usa fftRenderPalletDetalle arriba.
+// No existe campo de "proveedor" verificado en esa fuente (se confirmo
+// leyendo fftRenderPalletDetalle completo: nunca lee un campo de proveedor
+// de binManagerRO.bin/content ni de productos[]/fft) -- por eso la columna
+// Proveedor del panel de detalle siempre muestra "—", nunca se inventa.
+// ══════════════════════════════════════════════
+let cmpPallets = {};           // { [palletId]: { status:'loading'|'ok'|'error', data?, error? } }
+let cmpSkuSeleccionado = null; // SKU actualmente abierto en el panel de detalle
+let cmpFiltroSku = '';         // texto del buscador de tarjetas SKU
+
+const CMP_COND_COLORS = { GRA: '#22c55e', GRB: '#16a34a', GRC: '#15803d' };
+const CMP_COND_OTRAS_COLOR = '#6b7280';
+function cmpColorCond(bucket) { return CMP_COND_COLORS[bucket] || CMP_COND_OTRAS_COLOR; }
+function cmpBucketCond(cond) { return (cond === 'GRA' || cond === 'GRB' || cond === 'GRC') ? cond : 'OTRAS'; }
+
+function initComparadorPallets() {
+    cmpRenderChips();
+    cmpRenderAll();
+}
+
+function cmpParseInputIds(raw) {
+    return String(raw || '').split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+}
+
+function cmpAgregarPallets() {
+    const ta = document.getElementById('cmp-input-ids');
+    const ids = cmpParseInputIds(ta.value);
+    if (!ids.length) return;
+    const nuevos = [];
+    ids.forEach(id => {
+        if (!cmpPallets[id]) { cmpPallets[id] = { status: 'loading' }; nuevos.push(id); }
+    });
+    ta.value = '';
+    cmpRenderChips();
+    cmpRenderAll();
+    if (nuevos.length) cmpFetchEnLotes(nuevos);
+}
+
+async function cmpFetchUnPallet(palletId) {
+    try {
+        const data = await apiFetch(`${API}/api/dashboard-destinos-fft/pallets/${encodeURIComponent(palletId)}`);
+        if (!data || !data.success || !data.binManagerRO || !data.binManagerRO.bin) {
+            cmpPallets[palletId] = { status: 'error', error: (data && data.error) || 'PalletID no encontrado en BinManagerRO' };
+        } else {
+            cmpPallets[palletId] = { status: 'ok', data };
+        }
+    } catch (e) {
+        cmpPallets[palletId] = { status: 'error', error: e.message || 'Error al consultar' };
+    }
+}
+
+async function cmpFetchEnLotes(ids) {
+    const LOTE = 5;
+    for (let i = 0; i < ids.length; i += LOTE) {
+        const lote = ids.slice(i, i + LOTE);
+        await Promise.all(lote.map(id => cmpFetchUnPallet(id)));
+        cmpRenderChips();
+        cmpRenderAll();
+    }
+}
+
+function cmpQuitarPallet(palletId) {
+    delete cmpPallets[palletId];
+    cmpRenderChips();
+    cmpRenderAll();
+}
+
+function cmpLimpiarTodo() {
+    cmpPallets = {};
+    cmpSkuSeleccionado = null;
+    cmpFiltroSku = '';
+    const buscador = document.getElementById('cmp-sku-buscador');
+    if (buscador) buscador.value = '';
+    cmpRenderChips();
+    cmpRenderAll();
+}
+
+function cmpRenderChips() {
+    const box = document.getElementById('cmp-chips');
+    if (!box) return;
+    const ids = Object.keys(cmpPallets);
+    if (!ids.length) {
+        box.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">Ningun PalletID agregado todavia.</span>';
+        return;
+    }
+    box.innerHTML = ids.map(id => {
+        const p = cmpPallets[id];
+        let style = 'background:rgba(79,124,255,0.12);color:var(--accent);';
+        let title = 'Cargado correctamente';
+        let icon = '';
+        if (p.status === 'loading') { style = 'background:var(--inset-bg);color:var(--text-muted);'; title = 'Cargando...'; icon = '<i class="fa-solid fa-spinner fa-spin" style="margin-right:5px;"></i>'; }
+        else if (p.status === 'error') { style = 'background:rgba(239,68,68,0.12);color:var(--danger);border:1.5px solid var(--danger);'; title = p.error || 'No encontrado'; icon = '<i class="fa-solid fa-triangle-exclamation" style="margin-right:5px;"></i>'; }
+        const idEsc = id.replace(/'/g, "\\'");
+        return `<span class="fft-chip" style="${style}" title="${String(title).replace(/"/g, '&quot;')}">${icon}${id}<i class="fa-solid fa-xmark" style="margin-left:7px;cursor:pointer;" onclick="cmpQuitarPallet('${idEsc}')" title="Quitar"></i></span>`;
+    }).join('');
+}
+
+function cmpComputeAggregates() {
+    const skuMap = {};   // sku -> { sku, total, porCondicion:{GRA,GRB,GRC,OTRAS}, pallets:Set }
+    const lpnRows = [];  // filas planas para el panel de detalle
+    let totalPiezas = 0, validCount = 0, errorCount = 0, loadingCount = 0;
+    Object.entries(cmpPallets).forEach(([id, p]) => {
+        if (p.status === 'error') { errorCount++; return; }
+        if (p.status === 'loading') { loadingCount++; return; }
+        validCount++;
+        const content = (p.data.binManagerRO && p.data.binManagerRO.content) || [];
+        content.forEach(c => {
+            const sku = c.productSku || '(sin SKU)';
+            const qty = Number(c.qty) || 0;
+            const bucket = cmpBucketCond(c.skuCondition);
+            if (!skuMap[sku]) skuMap[sku] = { sku, total: 0, porCondicion: { GRA: 0, GRB: 0, GRC: 0, OTRAS: 0 }, pallets: new Set() };
+            skuMap[sku].total += qty;
+            skuMap[sku].porCondicion[bucket] += qty;
+            skuMap[sku].pallets.add(id);
+            totalPiezas += qty;
+            lpnRows.push({ palletId: id, sku, serie: c.serialNumber || '—', condicion: c.skuCondition || '—', proveedor: '—' });
+        });
+    });
+    return { skuMap, lpnRows, totalPiezas, validCount, errorCount, loadingCount };
+}
+
+function cmpRenderResumen(agg) {
+    const box = document.getElementById('cmp-resumen-kpis');
+    if (!box) return;
+    const summaryCard = (icon, label, val, iconStyle) => `<div class="co-pallet-summary-card"><div style="display:flex;align-items:center;gap:6px;"><i class="fa-solid ${icon}" ${iconStyle ? `style="${iconStyle}"` : ''}></i><span style="font-size:0.66rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;">${label}</span></div><div style="font-size:1.1rem;font-weight:800;margin-top:6px;">${val}</div></div>`;
+    const skuCount = Object.keys(agg.skuMap).length;
+    const cards = [
+        summaryCard('fa-pallet', 'Pallets seleccionados', agg.validCount, 'background:rgba(79,124,255,0.15);color:var(--accent);'),
+    ];
+    if (agg.errorCount > 0) cards.push(summaryCard('fa-triangle-exclamation', 'Pallets no encontrados', agg.errorCount, 'background:rgba(239,68,68,0.15);color:var(--danger);'));
+    cards.push(summaryCard('fa-cubes', 'Total LPN/piezas', agg.totalPiezas.toLocaleString('es-MX')));
+    cards.push(summaryCard('fa-tag', 'SKUs distintos', skuCount));
+    box.innerHTML = cards.join('');
+
+    const nota = document.getElementById('cmp-loading-note');
+    if (nota) nota.innerHTML = agg.loadingCount > 0 ? `<i class="fa-solid fa-spinner fa-spin"></i> Cargando ${agg.loadingCount} pallet(s)...` : '';
+}
+
+function cmpRenderSkuCards(agg) {
+    const box = document.getElementById('cmp-sku-cards');
+    if (!box) return;
+    let skus = Object.values(agg.skuMap).sort((a, b) => b.total - a.total);
+    const filtro = (cmpFiltroSku || '').trim().toUpperCase();
+    if (filtro) skus = skus.filter(s => s.sku.toUpperCase().includes(filtro));
+    if (!skus.length) {
+        box.innerHTML = `<div style="font-size:0.82rem;color:var(--text-muted);padding:0.5rem;">${Object.keys(agg.skuMap).length ? 'Sin SKU que coincidan con la busqueda.' : 'Agrega PalletIDs para ver el resumen por SKU.'}</div>`;
+        return;
+    }
+    box.innerHTML = skus.map(s => {
+        const skuEsc = s.sku.replace(/'/g, "\\'");
+        const pills = ['GRA', 'GRB', 'GRC', 'OTRAS'].filter(k => s.porCondicion[k] > 0).map(k => `<span class="cmp-cond-pill" style="background:${cmpColorCond(k)}22;color:${cmpColorCond(k)};">${k === 'OTRAS' ? 'Otras' : k}: ${s.porCondicion[k].toLocaleString('es-MX')}</span>`).join('');
+        return `<div class="cmp-sku-card ${cmpSkuSeleccionado === s.sku ? 'selected' : ''}" onclick="cmpAbrirDetalleSku('${skuEsc}')">
+            <div class="cmp-sku-card-sku">${s.sku}</div>
+            <div class="cmp-sku-card-total">${s.total.toLocaleString('es-MX')} pzas</div>
+            <div class="cmp-sku-card-pallets">${s.pallets.size} pallet${s.pallets.size === 1 ? '' : 's'}</div>
+            <div class="cmp-sku-card-conds">${pills}</div>
+        </div>`;
+    }).join('');
+}
+
+function cmpRenderTablaPrincipal(agg) {
+    const tbody = document.getElementById('cmp-tabla-body');
+    if (!tbody) return;
+    const skus = Object.values(agg.skuMap).sort((a, b) => b.total - a.total);
+    if (!skus.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">Agrega PalletIDs para ver el resumen por SKU.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = skus.map(s => {
+        const skuEsc = s.sku.replace(/'/g, "\\'");
+        const sel = cmpSkuSeleccionado === s.sku ? 'background:var(--inset-bg-hover);' : '';
+        return `<tr onclick="cmpAbrirDetalleSku('${skuEsc}')" style="cursor:pointer;${sel}">
+            <td data-label="SKU" style="font-weight:700;">${s.sku}</td>
+            <td data-label="Total">${s.total.toLocaleString('es-MX')}</td>
+            <td data-label="GRA">${s.porCondicion.GRA.toLocaleString('es-MX')}</td>
+            <td data-label="GRB">${s.porCondicion.GRB.toLocaleString('es-MX')}</td>
+            <td data-label="GRC">${s.porCondicion.GRC.toLocaleString('es-MX')}</td>
+            <td data-label="Otras">${s.porCondicion.OTRAS.toLocaleString('es-MX')}</td>
+            <td data-label="Pallets">${s.pallets.size}</td>
+        </tr>`;
+    }).join('');
+}
+
+function cmpRenderDetallePanel(agg) {
+    const panel = document.getElementById('cmp-detalle-panel');
+    if (!panel) return;
+    if (!cmpSkuSeleccionado || !agg.skuMap[cmpSkuSeleccionado]) {
+        panel.style.display = 'none';
+        return;
+    }
+    const rows = agg.lpnRows.filter(r => r.sku === cmpSkuSeleccionado);
+    panel.style.display = 'flex';
+    document.getElementById('cmp-detalle-titulo').innerHTML = `<i class="fa-solid fa-magnifying-glass"></i> SKU ${cmpSkuSeleccionado} — ${rows.length} LPN/serie(s)`;
+    document.getElementById('cmp-detalle-body').innerHTML = rows.length ? rows.map(r => `
+        <tr>
+            <td data-label="PalletID">${r.palletId}</td>
+            <td data-label="SKU">${r.sku}</td>
+            <td data-label="Serie/LPN">${r.serie}</td>
+            <td data-label="Condición">${r.condicion}</td>
+            <td data-label="Proveedor">${r.proveedor}</td>
+        </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:1rem;">Sin filas.</td></tr>';
+}
+
+function cmpRenderFooterCondiciones(agg) {
+    const box = document.getElementById('cmp-footer-condiciones');
+    if (!box) return;
+    const totales = { GRA: 0, GRB: 0, GRC: 0, OTRAS: 0 };
+    Object.values(agg.skuMap).forEach(s => { ['GRA', 'GRB', 'GRC', 'OTRAS'].forEach(k => { totales[k] += s.porCondicion[k]; }); });
+    box.innerHTML = ['GRA', 'GRB', 'GRC', 'OTRAS'].map(k => `<span class="cmp-cond-pill" style="background:${cmpColorCond(k)}22;color:${cmpColorCond(k)};font-size:0.85rem;padding:0.4rem 0.9rem;">${k === 'OTRAS' ? 'Otras' : k}: <b>${totales[k].toLocaleString('es-MX')}</b></span>`).join('');
+}
+
+function cmpAbrirDetalleSku(sku) {
+    cmpSkuSeleccionado = sku;
+    cmpRenderAll();
+}
+
+function cmpCerrarDetalle() {
+    cmpSkuSeleccionado = null;
+    cmpRenderAll();
+}
+
+function cmpFiltrarSkuCards(valor) {
+    cmpFiltroSku = valor;
+    const agg = cmpComputeAggregates();
+    cmpRenderSkuCards(agg);
+}
+
+function cmpExportarCSV() {
+    const agg = cmpComputeAggregates();
+    const skus = Object.values(agg.skuMap).sort((a, b) => b.total - a.total);
+    if (!skus.length) { showToast('No hay datos para exportar todavia.', 'error'); return; }
+    const headers = ['SKU', 'Total', 'GRA', 'GRB', 'GRC', 'Otras', 'Pallets'];
+    const rows = skus.map(s => [s.sku, s.total, s.porCondicion.GRA, s.porCondicion.GRB, s.porCondicion.GRC, s.porCondicion.OTRAS, s.pallets.size]);
+    exportCSV(`comparador-pallets-${Date.now()}.csv`, headers, rows);
+}
+
+function cmpRenderAll() {
+    const agg = cmpComputeAggregates();
+    cmpRenderResumen(agg);
+    cmpRenderSkuCards(agg);
+    cmpRenderTablaPrincipal(agg);
+    cmpRenderDetallePanel(agg);
+    cmpRenderFooterCondiciones(agg);
 }
 
 // ══════════════════════════════════════════════
