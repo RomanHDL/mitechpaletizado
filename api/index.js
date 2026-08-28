@@ -5157,6 +5157,215 @@ app.get('/api/cron/sync-cubicaje-inventory', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// ══════════════════════════════════════════════
+// CENTRO DE TRAZABILIDAD TAG — MAXX (auditoria 2026-08-28)
+//
+// Mismo principio que TODO el resto de este archivo: esta app NUNCA se conecta
+// directo a SQL Server (ver comentario ~L906) — proxy server-a-servidor hacia
+// Cubicaje (mi2-apps/cubicaje), CUBICAJE_API_BASE_URL + X-Integration-Key,
+// misma llave que ya usan fetchCubicajePalletDetailGlobal/fetchCubicajeShipmentTypes
+// arriba. Guard identico al resto del Centro de Control (auth + roleGuard('admin') +
+// centroOperativoGuard, exclusivo usuario 3647) — NO se inventa un guard nuevo.
+//
+// Rutas remotas CONFIRMADAS leyendo cubicaje/server/routes.ts directamente
+// (bloque "requirePaletizadoIntegrationKey" + /tags/*, 2026-08-28) -- shapes
+// exactos de cubicaje/server/services/tagTraceSql.ts (interfaces
+// TagCatalogEntry/TagSummaryResult/TagDestinationsResult/DestinationDetailsResult/
+// TagPalletGroup/PalletDetailsResult/TagOrderGroup/OrderDetailForTag/
+// LpnTagTraceResult/OverlappingLpnRow/TagTraceSourceLag). Dos rutas NO viven
+// bajo el patron "plural" que se hubiera esperado -- ver notas puntuales en
+// fetchCubicajePalletDetails/fetchCubicajeOrderDetail/fetchCubicajeLpnTrace
+// mas abajo (evitan colision con "/integrations/paletizado/pallets/:code" ya
+// existente, o quedan fuera del namespace /tags/ segun el caso).
+// ══════════════════════════════════════════════
+
+// Helper generico (mismo patron que fetchCubicajePalletDetailGlobal): SIEMPRE
+// propaga el error real (nunca null en silencio), porque este dato ES el
+// contenido principal del modulo, no un enriquecimiento opcional. 401/403 de
+// Cubicaje se convierten en 502 (falla de la integracion servidor-a-servidor,
+// nunca la sesion del usuario en el navegador — ver nota identica arriba).
+async function cubicajeTagsGet(path, timeoutMs = 15000) {
+  const base = process.env.CUBICAJE_API_BASE_URL;
+  const key = process.env.CUBICAJE_INTEGRATION_KEY;
+  if (!base || !key) { const e = new Error('CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto'); e.status = 503; throw e; }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let resp;
+  try {
+    resp = await fetch(`${base.replace(/\/$/, '')}${path}`, {
+      headers: { 'X-Integration-Key': key },
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Cubicaje no respondio a tiempo' : e.message;
+    const err = new Error('No se pudo consultar Cubicaje: ' + msg);
+    err.status = 502;
+    throw err;
+  } finally { clearTimeout(timeout); }
+  const data = await resp.json().catch(() => null);
+  if (resp.status === 404) { const err = new Error(data?.error || 'No encontrado en Cubicaje'); err.status = 404; throw err; }
+  if (!resp.ok || !data || !data.success) {
+    const status = (resp.status === 401 || resp.status === 403) ? 502 : resp.status;
+    const err = new Error(data?.error || `Cubicaje respondio ${resp.status}`);
+    err.status = status;
+    throw err;
+  }
+  return data.data;
+}
+
+// startDate/endDate SIEMPRE vienen del filtro libre que elige el usuario en el
+// frontend (nunca una fecha fija de este archivo) — este helper solo arma el
+// querystring, nunca decide un rango por defecto.
+function tagsRangeParams(startDate, endDate, workCenterId) {
+  const params = new URLSearchParams();
+  if (startDate) params.set('startDate', startDate);
+  if (endDate) params.set('endDate', endDate);
+  if (workCenterId) params.set('workCenterId', workCenterId);
+  return params;
+}
+
+async function fetchCubicajeTagCatalog() {
+  return cubicajeTagsGet('/api/integrations/paletizado/tags/catalog');
+}
+async function fetchCubicajeSourceLag() {
+  return cubicajeTagsGet('/api/integrations/paletizado/source-lag');
+}
+async function fetchCubicajeTagSummary(startDate, endDate, workCenterId) {
+  const params = tagsRangeParams(startDate, endDate, workCenterId);
+  return cubicajeTagsGet(`/api/integrations/paletizado/tags/summary?${params.toString()}`);
+}
+async function fetchCubicajeOverlappingTags(startDate, endDate, workCenterId) {
+  const params = tagsRangeParams(startDate, endDate, workCenterId);
+  return cubicajeTagsGet(`/api/integrations/paletizado/tags/overlap?${params.toString()}`);
+}
+async function fetchCubicajeTagDestinations(tagId, startDate, endDate, workCenterId) {
+  const params = tagsRangeParams(startDate, endDate, workCenterId);
+  return cubicajeTagsGet(`/api/integrations/paletizado/tags/${encodeURIComponent(tagId)}/destinations?${params.toString()}`);
+}
+async function fetchCubicajeDestinationDetails(tagId, destinationKey, startDate, endDate, page, pageSize, workCenterId) {
+  const params = tagsRangeParams(startDate, endDate, workCenterId);
+  if (page) params.set('page', page);
+  if (pageSize) params.set('pageSize', pageSize);
+  return cubicajeTagsGet(`/api/integrations/paletizado/tags/${encodeURIComponent(tagId)}/destinations/${encodeURIComponent(destinationKey)}?${params.toString()}`);
+}
+async function fetchCubicajeTagPallets(tagId, startDate, endDate, workCenterId) {
+  const params = tagsRangeParams(startDate, endDate, workCenterId);
+  return cubicajeTagsGet(`/api/integrations/paletizado/tags/${encodeURIComponent(tagId)}/pallets?${params.toString()}`);
+}
+async function fetchCubicajePalletDetails(palletBinId, tagId, startDate, endDate, workCenterId) {
+  // Ruta real (confirmada en cubicaje/server/routes.ts): "/tags/pallet/:palletBinId"
+  // (SINGULAR, dentro del namespace /tags/) -- NO "/tags/pallets/:id", que hubiera
+  // colisionado con la ruta ya existente "/integrations/paletizado/pallets/:code"
+  // (mismo patron de matching ante Express, distinto proposito). startDate/endDate
+  // son OPCIONALES para este endpoint (el servicio defaultea a "ultimos 30 dias").
+  const params = tagsRangeParams(startDate, endDate, workCenterId);
+  if (tagId != null) params.set('tagId', tagId);
+  return cubicajeTagsGet(`/api/integrations/paletizado/tags/pallet/${encodeURIComponent(palletBinId)}?${params.toString()}`);
+}
+async function fetchCubicajeTagOrders(tagId, startDate, endDate, workCenterId) {
+  const params = tagsRangeParams(startDate, endDate, workCenterId);
+  return cubicajeTagsGet(`/api/integrations/paletizado/tags/${encodeURIComponent(tagId)}/orders?${params.toString()}`);
+}
+async function fetchCubicajeOrderDetail(orderId, tagId) {
+  // Ruta real: "/tags/order/:orderId" (SINGULAR, mismo motivo que /tags/pallet/
+  // arriba -- evita colision con "/orders/:id" del resto de la app). tagId es
+  // REQUERIDO en query por el lado de Cubicaje (getOrderDetailForTag no acepta
+  // tagId opcional) -- se valida tambien en el endpoint local (ver mas abajo)
+  // para dar un error mas claro antes de llamar a Cubicaje.
+  const params = new URLSearchParams();
+  if (tagId != null) params.set('tagId', tagId);
+  return cubicajeTagsGet(`/api/integrations/paletizado/tags/order/${encodeURIComponent(orderId)}?${params.toString()}`);
+}
+async function fetchCubicajeLpnTrace(lpn) {
+  // Ruta real: "/lpn/:lpn/trace" -- fuera del namespace /tags/ (no hay
+  // ambiguedad posible que evitar aqui, a diferencia de pallet/order arriba).
+  return cubicajeTagsGet(`/api/integrations/paletizado/lpn/${encodeURIComponent(lpn)}/trace`);
+}
+
+function tagsHandleError(res, error) {
+  const status = error.status || 500;
+  res.status(status).json({ success: false, error: error.message || 'Error al consultar Cubicaje' });
+}
+
+app.get('/api/tags/catalog', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try { res.json({ success: true, data: await fetchCubicajeTagCatalog() }); }
+  catch (error) { tagsHandleError(res, error); }
+});
+
+app.get('/api/tags/source-lag', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try { res.json({ success: true, data: await fetchCubicajeSourceLag() }); }
+  catch (error) { tagsHandleError(res, error); }
+});
+
+app.get('/api/tags/summary', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  const { startDate, endDate, workCenterId } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
+  try { res.json({ success: true, data: await fetchCubicajeTagSummary(startDate, endDate, workCenterId) }); }
+  catch (error) { tagsHandleError(res, error); }
+});
+
+app.get('/api/tags/overlapping', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  const { startDate, endDate, workCenterId } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
+  try { res.json({ success: true, data: await fetchCubicajeOverlappingTags(startDate, endDate, workCenterId) }); }
+  catch (error) { tagsHandleError(res, error); }
+});
+
+app.get('/api/tags/:tagId/destinations', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  const { startDate, endDate, workCenterId } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
+  try { res.json({ success: true, data: await fetchCubicajeTagDestinations(req.params.tagId, startDate, endDate, workCenterId) }); }
+  catch (error) { tagsHandleError(res, error); }
+});
+
+app.get('/api/tags/:tagId/destinations/:destinationKey', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  const { startDate, endDate, workCenterId, page, pageSize } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
+  try { res.json({ success: true, data: await fetchCubicajeDestinationDetails(req.params.tagId, req.params.destinationKey, startDate, endDate, page, pageSize, workCenterId) }); }
+  catch (error) { tagsHandleError(res, error); }
+});
+
+app.get('/api/tags/:tagId/pallets', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  const { startDate, endDate, workCenterId } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
+  try { res.json({ success: true, data: await fetchCubicajeTagPallets(req.params.tagId, startDate, endDate, workCenterId) }); }
+  catch (error) { tagsHandleError(res, error); }
+});
+
+app.get('/api/tags/pallets/:palletBinId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  const { tagId, startDate, endDate, workCenterId } = req.query;
+  try {
+    const data = await fetchCubicajePalletDetails(req.params.palletBinId, tagId, startDate, endDate, workCenterId);
+    if (!data) return res.status(404).json({ success: false, error: 'Pallet no encontrado' });
+    res.json({ success: true, data });
+  } catch (error) { tagsHandleError(res, error); }
+});
+
+app.get('/api/tags/:tagId/orders', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  const { startDate, endDate, workCenterId } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
+  try { res.json({ success: true, data: await fetchCubicajeTagOrders(req.params.tagId, startDate, endDate, workCenterId) }); }
+  catch (error) { tagsHandleError(res, error); }
+});
+
+app.get('/api/tags/orders/:orderId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  // tagId es REQUERIDO por Cubicaje (getOrderDetailForTag no lo acepta opcional)
+  // -- se valida aqui tambien para fallar rapido con un mensaje claro.
+  if (req.query.tagId == null || req.query.tagId === '' || !Number.isFinite(Number(req.query.tagId))) {
+    return res.status(400).json({ success: false, error: 'tagId (query) requerido y numerico' });
+  }
+  try {
+    const data = await fetchCubicajeOrderDetail(req.params.orderId, req.query.tagId);
+    if (!data) return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
+    res.json({ success: true, data });
+  } catch (error) { tagsHandleError(res, error); }
+});
+
+app.get('/api/tags/lpn/:lpn/trace', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+  try { res.json({ success: true, data: await fetchCubicajeLpnTrace(req.params.lpn) }); }
+  catch (error) { tagsHandleError(res, error); }
+});
+
 // ═══════════ HEALTH ═══════════
 app.get('/api/health', async (req, res) => {
   try {
