@@ -1254,6 +1254,83 @@
         .cmp-sku-card-pallets{font-size:0.7rem;color:var(--text-muted);margin-top:0.15rem;}
         .cmp-sku-card-conds{display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.5rem;}
         .cmp-cond-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:0.68rem;font-weight:700;}
+
+        /* ── Centro de Trazabilidad TAG — MAXX (tt-*) — vista NUEVA, exclusiva
+           admin 3647. Mismo criterio de diseno ya aprobado que Dashboard Destinos
+           FFT: fondo claro y tarjetas blancas SIEMPRE (variables propias tt-*,
+           tokens ya confirmados por Roman), independiente del toggle claro/oscuro
+           del resto de la app. Vista y card NUEVAS -- no se toca #view-dashboard-
+           destinos-fft ni su card "Centro de Control de Pallets" para no arriesgar
+           ese modulo ya en produccion. ── */
+        #view-trazabilidad-tag{--tt-bg:#F5F7FB;--tt-card:#FFFFFF;--tt-border:#E2E8F0;--tt-text:#0F172A;--tt-text-muted:#64748B;--tt-accent:#1E40AF;--tt-success:#059669;--tt-warning:#D97706;--tt-danger:#DC2626;--tt-shadow:0 1px 3px rgba(15,23,42,0.07),0 1px 2px rgba(15,23,42,0.04);background:var(--tt-bg);color:var(--tt-text);border-radius:16px;padding:1.25rem 1.5rem 2rem;}
+        #view-trazabilidad-tag .back-btn{color:var(--tt-text-muted);}
+        #view-trazabilidad-tag h1,#view-trazabilidad-tag h2{color:var(--tt-text);}
+        .tt-card{background:var(--tt-card);border:1px solid var(--tt-border);border-radius:14px;box-shadow:var(--tt-shadow);}
+        .tt-header-bar{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:1.1rem;}
+        .tt-header-right{display:flex;flex-direction:column;gap:0.5rem;align-items:flex-end;}
+        .tt-btn{background:var(--tt-card);border:1px solid var(--tt-border);color:var(--tt-text);border-radius:8px;padding:0.45rem 0.8rem;font-size:0.82rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:box-shadow 0.15s ease,border-color 0.15s ease;}
+        .tt-btn:hover{box-shadow:var(--tt-shadow);border-color:#CBD5E1;}
+        .tt-btn.tt-btn-primary{background:var(--tt-accent);border-color:var(--tt-accent);color:#fff;}
+        .tt-btn.tt-btn-primary:hover{background:#1E3A8A;}
+        .tt-btn.active{background:var(--tt-accent);border-color:var(--tt-accent);color:#fff;}
+        .tt-btn:disabled{opacity:0.5;cursor:not-allowed;}
+        .tt-filters-row{display:flex;gap:0.6rem;align-items:flex-end;flex-wrap:wrap;padding:0.9rem 1rem;margin-bottom:1rem;}
+        .tt-filters-row label{display:flex;flex-direction:column;gap:0.25rem;font-size:0.72rem;font-weight:600;color:var(--tt-text-muted);text-transform:uppercase;letter-spacing:0.02em;}
+        .tt-filters-row input,.tt-filters-row select{border:1px solid var(--tt-border);border-radius:8px;padding:0.42rem 0.6rem;font-size:0.83rem;background:var(--tt-card);color:var(--tt-text);}
+        .tt-lag-row{display:flex;gap:0.9rem;align-items:center;flex-wrap:wrap;font-size:0.78rem;color:var(--tt-text-muted);}
+        .tt-lag-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;}
+        .tt-lag-dot.ok{background:var(--tt-success);}
+        .tt-lag-dot.lag{background:var(--tt-warning);}
+        .tt-lag-dot.critical{background:var(--tt-danger);}
+        .tt-lag-dot.unknown{background:#94A3B8;}
+        .tt-precision-note{font-size:0.72rem;color:var(--tt-text-muted);background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.25);border-radius:10px;padding:0.55rem 0.8rem;margin-bottom:1rem;display:flex;gap:0.5rem;align-items:flex-start;}
+        .tt-search-box{display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;padding:0.85rem 1rem;margin-bottom:1rem;border:1.5px solid var(--tt-accent);}
+        .tt-search-box input{flex:1;min-width:220px;padding:0.55rem 0.85rem;font-size:0.9rem;border:1px solid var(--tt-border);border-radius:8px;background:var(--tt-card);color:var(--tt-text);}
+        .tt-tag-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.25rem;}
+        .tt-tag-card{padding:1.15rem 1.25rem;border-top:4px solid var(--tt-accent);cursor:pointer;transition:transform 0.15s ease,box-shadow 0.15s ease;text-align:left;}
+        .tt-tag-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(15,23,42,0.1);}
+        .tt-tag-card .tt-tc-nombre{font-size:1.05rem;font-weight:800;}
+        .tt-tag-card .tt-tc-desc{font-size:0.75rem;color:var(--tt-text-muted);margin-top:0.15rem;min-height:1.1em;}
+        .tt-tag-card .tt-tc-valor{font-size:1.9rem;font-weight:800;margin-top:0.6rem;color:var(--tt-accent);}
+        .tt-tag-card .tt-tc-label{font-size:0.7rem;color:var(--tt-text-muted);text-transform:uppercase;letter-spacing:0.02em;}
+        .tt-overlap-card{padding:1.1rem 1.25rem;border-top:4px solid #8b5cf6;cursor:pointer;}
+        .tt-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem;}
+        @media (max-width:1100px){.tt-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+        @media (max-width:520px){.tt-kpi-grid{grid-template-columns:minmax(0,1fr);}}
+        .tt-kpi{padding:0.95rem 1.1rem;display:flex;flex-direction:column;gap:0.35rem;min-height:88px;justify-content:center;}
+        .tt-kpi-value{font-size:1.5rem;font-weight:800;line-height:1;}
+        .tt-kpi-label{font-size:0.7rem;color:var(--tt-text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.02em;}
+        .tt-tabs{display:flex;gap:0.4rem;overflow-x:auto;border-bottom:1px solid var(--tt-border);margin-bottom:1.1rem;}
+        .tt-tab{background:none;border:none;border-bottom:2px solid transparent;padding:0.65rem 0.9rem;font-size:0.85rem;font-weight:600;color:var(--tt-text-muted);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;}
+        .tt-tab.active{color:var(--tt-accent);border-bottom-color:var(--tt-accent);}
+        .tt-tabpanel{display:none;}
+        .tt-tabpanel.active{display:block;}
+        .tt-table-wrap{overflow-x:auto;max-height:460px;}
+        .tt-table{width:100%;border-collapse:collapse;font-size:0.83rem;}
+        .tt-table th{position:sticky;top:0;background:var(--tt-card);text-align:left;padding:0.6rem 0.75rem;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.02em;color:var(--tt-text-muted);border-bottom:1px solid var(--tt-border);cursor:pointer;user-select:none;white-space:nowrap;}
+        .tt-table td{padding:0.55rem 0.75rem;border-bottom:1px solid var(--tt-border);}
+        .tt-table tr.tt-row-clickable{cursor:pointer;}
+        .tt-table tr.tt-row-clickable:hover td{background:#F8FAFC;}
+        .tt-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:0.72rem;font-weight:700;}
+        .tt-chip.completa{background:rgba(5,150,105,0.12);color:var(--tt-success);}
+        .tt-chip.lag{background:rgba(217,119,6,0.12);color:var(--tt-warning);}
+        .tt-chip.anomalia{background:rgba(220,38,38,0.12);color:var(--tt-danger);}
+        .tt-chip.noclasificado{background:rgba(100,116,139,0.12);color:var(--tt-text-muted);}
+        .tt-chip.sinrelacion{background:rgba(100,116,139,0.12);color:var(--tt-text-muted);}
+        .tt-pagination{display:flex;gap:0.5rem;align-items:center;justify-content:flex-end;margin-top:0.75rem;font-size:0.8rem;color:var(--tt-text-muted);}
+        .tt-empty-note{padding:2rem;text-align:center;color:var(--tt-text-muted);font-size:0.85rem;}
+        .tt-breadcrumb{font-size:0.78rem;color:var(--tt-text-muted);margin-bottom:0.75rem;display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+        .tt-breadcrumb a{color:var(--tt-accent);cursor:pointer;text-decoration:none;}
+        .tt-breadcrumb a:hover{text-decoration:underline;}
+        .tt-section-title{font-size:1.02rem;font-weight:800;color:var(--tt-text);margin:0 0 0.2rem;}
+        .tt-section-sub{font-size:0.8rem;color:var(--tt-text-muted);margin:0 0 0.9rem;}
+        @media (max-width:760px){
+            .tt-table thead{display:none;}
+            .tt-table, .tt-table tbody, .tt-table tr, .tt-table td{display:block;width:100%;}
+            .tt-table tr{border-bottom:1px solid var(--tt-border);padding:0.6rem 0.9rem;}
+            .tt-table td{text-align:right !important;padding:0.2rem 0;border-bottom:none;}
+            .tt-table td::before{content:attr(data-label);float:left;font-weight:600;color:var(--tt-text-muted);font-size:0.72rem;text-transform:uppercase;}
+        }
     </style>
 </head>
 <body>
@@ -1637,6 +1714,32 @@
                         </div>
                     </button>
 
+                    <!-- K: Centro de Trazabilidad TAG (exclusivo 3647) — NUEVO, vista y
+                         card propias (no reemplaza "Centro de Control de Pallets" /
+                         Dashboard Destinos FFT, para no arriesgar ese modulo en produccion). -->
+                    <button type="button" class="hero-card hero-blue card-3647-only" onclick="switchView('trazabilidad-tag')" style="position:relative;">
+                        <span style="position:absolute;top:0.75rem;right:0.75rem;z-index:1;background:#1E40AF;color:#fff;font-size:0.6rem;font-weight:800;letter-spacing:0.03em;padding:2px 7px;border-radius:8px;">NUEVO</span>
+                        <div class="hero-illustration">
+                            <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <rect x="20" y="20" width="160" height="80" rx="8" fill="#0f1830" stroke="#1E40AF" stroke-width="2"/>
+                                <circle cx="55" cy="60" r="20" fill="none" stroke="#22c55e" stroke-width="6"/>
+                                <path d="M46 60 l6 6 l12 -13" stroke="#22c55e" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M85 60 h30" stroke="#4f7cff" stroke-width="2.5" stroke-dasharray="2 6" stroke-linecap="round"/>
+                                <rect x="120" y="34" width="52" height="16" rx="3" fill="#1a2540"/>
+                                <rect x="126" y="40" width="24" height="4" fill="#4f7cff"/>
+                                <rect x="120" y="54" width="52" height="16" rx="3" fill="#1a2540"/>
+                                <rect x="126" y="60" width="30" height="4" fill="#f59e0b"/>
+                                <rect x="120" y="74" width="52" height="16" rx="3" fill="#1a2540"/>
+                                <rect x="126" y="80" width="18" height="4" fill="#a78bfa"/>
+                            </svg>
+                        </div>
+                        <div class="hero-body">
+                            <div class="hero-title">Centro de Trazabilidad TAG — MAXX</div>
+                            <div class="hero-desc">Seguimiento de TAGs, piezas, pallets, pedidos, bines y movimientos de Monterrey MAXX</div>
+                            <div class="hero-cta">Abrir trazabilidad <i class="fa-solid fa-arrow-right"></i></div>
+                        </div>
+                    </button>
+
                 </div>
 
             </div>
@@ -1702,6 +1805,225 @@
                 <span style="font-size:0.78rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-right:0.4rem;">Desglose global por condición:</span>
                 <div id="cmp-footer-condiciones" style="display:flex;gap:0.6rem;flex-wrap:wrap;"></div>
             </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: CENTRO DE TRAZABILIDAD TAG — MAXX -->
+        <!-- (exclusivo admin 3647 — ver switchView y centroOperativoGuard).  -->
+        <!-- Vista NUEVA (auditoria 2026-08-28): NO reemplaza ni toca         -->
+        <!-- view-dashboard-destinos-fft ("Centro de Control de Pallets" /   -->
+        <!-- Dashboard Destinos FFT, protegido por restriccion explicita).   -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-trazabilidad-tag">
+            <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
+
+            <div class="tt-header-bar">
+                <div>
+                    <h1 style="font-size:1.4rem;margin:0;"><i class="fa-solid fa-tags" style="color:#1E40AF;margin-right:8px;"></i>Centro de Trazabilidad TAG — MAXX</h1>
+                    <p style="margin:0.3rem 0 0;font-size:0.85rem;color:var(--tt-text-muted);">Monterrey MAXX (WorkCenter 47) — a dónde se fueron las piezas etiquetadas (SORP, Bulky, Prioridad J, TRG Preferred), cruzando SmartControl + BinManagerRO en vivo</p>
+                </div>
+                <div class="tt-header-right">
+                    <div class="tt-lag-row" id="tt-lag-row"><span class="tt-lag-dot unknown"></span> Cargando estado de las fuentes…</div>
+                    <div style="display:flex;gap:0.5rem;align-items:center;">
+                        <label style="display:flex;align-items:center;gap:5px;font-size:0.78rem;color:var(--tt-text-muted);cursor:pointer;">
+                            <input type="checkbox" id="tt-auto-refresh" checked onchange="ttToggleAutoRefresh()"> Auto-actualizar (60s)
+                        </label>
+                        <button class="tt-btn" onclick="ttRefreshNow()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tt-card tt-filters-row">
+                <label>Ubicación
+                    <select id="tt-f-ubicacion" disabled><option>Monterrey MAXX (WorkCenter 47)</option></select>
+                </label>
+                <label>Turno
+                    <select id="tt-f-turno">
+                        <option value="">Todos</option>
+                        <option value="Día">Día (07:00–17:10)</option>
+                        <option value="Tiempo Extra">Tiempo Extra (17:10–22:00)</option>
+                        <option value="Noche">Noche (22:00–07:00)</option>
+                    </select>
+                </label>
+                <label>Fecha inicio
+                    <input type="date" id="tt-f-inicio">
+                </label>
+                <label>Fecha fin
+                    <input type="date" id="tt-f-fin">
+                </label>
+                <button class="tt-btn tt-btn-primary" onclick="ttApplyFilters()"><i class="fa-solid fa-check"></i> Aplicar</button>
+                <button class="tt-btn" onclick="ttClearFilters()"><i class="fa-solid fa-xmark"></i> Limpiar filtros</button>
+                <div id="tt-turno-warning" style="font-size:0.72rem;color:var(--tt-warning);display:none;flex-basis:100%;"><i class="fa-solid fa-triangle-exclamation"></i> El filtro de Turno solo aplica cuando Fecha inicio = Fecha fin (un turno es una ventana de horas dentro de UN día real). Con un rango de varios días, se ignora.</div>
+            </div>
+
+            <div class="tt-precision-note"><i class="fa-solid fa-circle-info" style="margin-top:2px;"></i><span>El conteo de piezas por TAG es una <b>aproximación</b> (precisión estimada 78–98% según el método) — <b>no</b> es el número exacto de la tarjeta "Sorting Dashboard Production" de BinManager (sistema .NET aparte sin código fuente accesible).</span></div>
+
+            <!-- PANEL: catálogo de tags -->
+            <div id="tt-panel-catalogo">
+                <div class="tt-section-title">Piezas por TAG</div>
+                <div class="tt-section-sub">Click en un TAG para ver a dónde se fueron sus piezas, sus pallets y pedidos relacionados.</div>
+                <div class="tt-tag-grid" id="tt-tag-grid">
+                    <div class="tt-empty-note">Cargando…</div>
+                </div>
+                <div class="tt-card tt-overlap-card" onclick="ttOpenOverlapping()" id="tt-overlap-card" style="display:none;">
+                    <div class="tt-tc-label">TAGS SUPERPUESTOS</div>
+                    <div class="tt-tc-valor" id="tt-overlap-valor" style="color:#8b5cf6;">-</div>
+                    <div class="tt-tc-desc">LPN con 2 o más TAGs al mismo tiempo en este rango — click para ver el detalle</div>
+                </div>
+            </div>
+
+            <!-- PANEL: detalle de un tag -->
+            <div id="tt-panel-tag" style="display:none;">
+                <div class="tt-breadcrumb"><a onclick="ttBackToCatalog()">Piezas por TAG</a> <i class="fa-solid fa-chevron-right" style="font-size:0.65rem;"></i> <span id="tt-tag-breadcrumb">-</span></div>
+
+                <div class="tt-search-box tt-card">
+                    <i class="fa-solid fa-magnifying-glass" style="color:#1E40AF;"></i>
+                    <input type="text" id="tt-search-input" placeholder="Buscar LPN / PalletID / Pedido / BinCode / SKU dentro de este TAG..." onkeydown="if(event.key==='Enter'){ttGlobalSearch();}">
+                    <button class="tt-btn" onclick="ttGlobalSearch()"><i class="fa-solid fa-arrow-right"></i> Buscar</button>
+                </div>
+                <div id="tt-search-empty" style="display:none;font-size:0.8rem;color:var(--tt-text-muted);margin-bottom:0.75rem;">Sin relación encontrada dentro de este TAG. Prueba "Ver trazabilidad de este LPN" si lo que buscas es un LPN.</div>
+
+                <div class="tt-kpi-grid" id="tt-kpi-grid"></div>
+
+                <div class="tt-tabs" id="tt-tabs">
+                    <button class="tt-tab active" data-tttab="destinos" onclick="ttSetTab('destinos')"><i class="fa-solid fa-route"></i> ¿A dónde se fueron?</button>
+                    <button class="tt-tab" data-tttab="pallets" onclick="ttSetTab('pallets')"><i class="fa-solid fa-pallet"></i> Pallets</button>
+                    <button class="tt-tab" data-tttab="pedidos" onclick="ttSetTab('pedidos')"><i class="fa-solid fa-file-invoice"></i> Pedidos relacionados</button>
+                </div>
+
+                <!-- TAB: destinos -->
+                <div class="tt-tabpanel active" id="tt-tabpanel-destinos">
+                    <div class="tt-card" style="padding:1rem;">
+                        <div class="tt-table-wrap">
+                            <table class="tt-table" id="tt-tabla-destinos">
+                                <thead><tr>
+                                    <th onclick="ttSortDestinos('destinationKey')">Destino real</th>
+                                    <th onclick="ttSortDestinos('piezas')">Piezas</th>
+                                    <th onclick="ttSortDestinos('pct')">%</th>
+                                    <th onclick="ttSortDestinos('palletsUnicos')">Pallets</th>
+                                    <th onclick="ttSortDestinos('pedidosUnicos')">Pedidos</th>
+                                </tr></thead>
+                                <tbody id="tt-tbody-destinos"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: pallets -->
+                <div class="tt-tabpanel" id="tt-tabpanel-pallets">
+                    <div class="tt-card" style="padding:1rem;">
+                        <div class="tt-table-wrap">
+                            <table class="tt-table" id="tt-tabla-pallets">
+                                <thead><tr>
+                                    <th onclick="ttSortPallets('palletBinCode')">Pallet</th>
+                                    <th onclick="ttSortPallets('binTypeName')">Tipo</th>
+                                    <th onclick="ttSortPallets('locationName')">Ubicación</th>
+                                    <th onclick="ttSortPallets('piezasTag')">Piezas del TAG</th>
+                                    <th onclick="ttSortPallets('piezasTotalPallet')">Piezas totales</th>
+                                    <th>Pedido</th>
+                                </tr></thead>
+                                <tbody id="tt-tbody-pallets"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: pedidos -->
+                <div class="tt-tabpanel" id="tt-tabpanel-pedidos">
+                    <div class="tt-card" style="padding:1rem;">
+                        <div class="tt-table-wrap">
+                            <table class="tt-table" id="tt-tabla-pedidos">
+                                <thead><tr>
+                                    <th onclick="ttSortOrders('webOrderId')">Pedido</th>
+                                    <th>PO</th>
+                                    <th onclick="ttSortOrders('piezas')">Piezas</th>
+                                    <th onclick="ttSortOrders('palletsUnicos')">Pallets</th>
+                                </tr></thead>
+                                <tbody id="tt-tbody-pedidos"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL: drill-down paginado de un destino -->
+            <div id="tt-panel-destino" style="display:none;">
+                <div class="tt-breadcrumb"><a onclick="ttBackToCatalog()">Piezas por TAG</a> <i class="fa-solid fa-chevron-right" style="font-size:0.65rem;"></i> <a onclick="ttBackToTag()" id="tt-destino-breadcrumb-tag">-</a> <i class="fa-solid fa-chevron-right" style="font-size:0.65rem;"></i> <span id="tt-destino-breadcrumb-nombre">-</span></div>
+                <div class="tt-card" style="padding:1rem;">
+                    <div class="tt-table-wrap">
+                        <table class="tt-table" id="tt-tabla-destino-detalle">
+                            <thead><tr><th>LPN</th><th>SKU</th><th>Fecha TAG</th><th>Estado</th><th>Bin destino</th><th>Fecha movimiento</th></tr></thead>
+                            <tbody id="tt-tbody-destino-detalle"></tbody>
+                        </table>
+                    </div>
+                    <div class="tt-pagination" id="tt-destino-paginacion"></div>
+                </div>
+            </div>
+
+            <!-- PANEL: LPN con 2+ tags (overlap) -->
+            <div id="tt-panel-overlap" style="display:none;">
+                <div class="tt-breadcrumb"><a onclick="ttBackToCatalog()">Piezas por TAG</a> <i class="fa-solid fa-chevron-right" style="font-size:0.65rem;"></i> <span>TAGs superpuestos</span></div>
+                <div class="tt-card" style="padding:1rem;">
+                    <div class="tt-table-wrap">
+                        <table class="tt-table" id="tt-tabla-overlap">
+                            <thead><tr><th>LPN</th><th>SKU</th><th>Fecha TAG</th><th>TAGs</th></tr></thead>
+                            <tbody id="tt-tbody-overlap"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: detalle de pallet (reutiliza .co-pallet-modal-*, mismo patron que Comparador/Reporte Semanal) -->
+        <div class="co-pallet-modal-backdrop" id="tt-pallet-modal-backdrop" onclick="ttCerrarPalletModal()"></div>
+        <div class="co-pallet-modal" id="tt-pallet-modal" role="dialog" aria-modal="true">
+            <div class="co-pallet-modal-header">
+                <div class="co-pallet-modal-header-row">
+                    <div><i class="fa-solid fa-pallet" style="color:#1E40AF;"></i> <strong id="tt-pallet-modal-titulo">Pallet</strong></div>
+                    <div class="co-pallet-modal-actions">
+                        <button class="co-pallet-modal-close-x" onclick="ttCerrarPalletModal()"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+                <div class="co-pallet-modal-meta" id="tt-pallet-modal-meta"></div>
+            </div>
+            <div class="co-pallet-modal-body">
+                <div class="tt-table-wrap">
+                    <table class="tt-table" id="tt-pallet-modal-tabla">
+                        <thead><tr><th>LPN</th><th>SKU</th><th>Condición</th><th>TAGs</th><th>Fecha TAG</th><th>Último movimiento</th></tr></thead>
+                        <tbody id="tt-pallet-modal-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: detalle de pedido -->
+        <div class="co-pallet-modal-backdrop" id="tt-orden-modal-backdrop" onclick="ttCerrarOrdenModal()"></div>
+        <div class="co-pallet-modal" id="tt-orden-modal" role="dialog" aria-modal="true">
+            <div class="co-pallet-modal-header">
+                <div class="co-pallet-modal-header-row">
+                    <div><i class="fa-solid fa-file-invoice" style="color:#1E40AF;"></i> <strong id="tt-orden-modal-titulo">Pedido</strong></div>
+                    <div class="co-pallet-modal-actions">
+                        <button class="co-pallet-modal-close-x" onclick="ttCerrarOrdenModal()"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+                <div class="co-pallet-modal-meta" id="tt-orden-modal-meta"></div>
+            </div>
+            <div class="co-pallet-modal-body" id="tt-orden-modal-body"></div>
+        </div>
+
+        <!-- Modal: timeline de un LPN (getLpnTagTrace) -->
+        <div class="co-pallet-modal-backdrop" id="tt-lpn-modal-backdrop" onclick="ttCerrarLpnModal()"></div>
+        <div class="co-pallet-modal" id="tt-lpn-modal" role="dialog" aria-modal="true">
+            <div class="co-pallet-modal-header">
+                <div class="co-pallet-modal-header-row">
+                    <div><i class="fa-solid fa-timeline" style="color:#1E40AF;"></i> <strong id="tt-lpn-modal-titulo">LPN</strong></div>
+                    <div class="co-pallet-modal-actions">
+                        <button class="co-pallet-modal-close-x" onclick="ttCerrarLpnModal()"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+                <div class="co-pallet-modal-meta" id="tt-lpn-modal-meta"></div>
+            </div>
+            <div class="co-pallet-modal-body" id="tt-lpn-modal-body"></div>
         </div>
 
         <!-- ══════════════════════════════════════ -->
@@ -5101,7 +5423,7 @@ function switchView(viewName) {
     // Los administradores (y siempre 3647) quedan exentos: nunca deben perder acceso a "inicio" o al Centro de Control.
     if (currentUser && currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras') && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
     // Centro de Control, Monitor en Vivo y LPN Duplicados: exclusivos del administrador 3647
-    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn' || viewName === 'centro-operativo' || viewName === 'reporte-semanal' || viewName === 'dashboard-destinos-fft' || viewName === 'fft-area-detalle' || viewName === 'fft-bin-detalle' || viewName === 'comparador-pallets') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
+    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn' || viewName === 'centro-operativo' || viewName === 'reporte-semanal' || viewName === 'dashboard-destinos-fft' || viewName === 'fft-area-detalle' || viewName === 'fft-bin-detalle' || viewName === 'comparador-pallets' || viewName === 'trazabilidad-tag') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
     // Operaciones y Pedidos (Retrabajo + Gestionar Pedidos): cualquier admin.
     // La pestaña "Gestionar Pedidos" adentro sigue siendo exclusiva de 3647.
     if (viewName === 'operaciones' && (!currentUser || currentUser.role !== 'admin')) { switchView('home'); return; }
@@ -5149,6 +5471,8 @@ function switchView(viewName) {
     if (viewName === 'fft-area-detalle') initFftAreaDetalle();
     if (viewName === 'fft-bin-detalle') initFftBinDetalle();
     if (viewName === 'comparador-pallets') initComparadorPallets();
+    if (viewName === 'trazabilidad-tag') initTrazabilidadTag();
+    else ttPauseAutoRefresh();
 }
 
 // ══════════════════════════════════════════════
@@ -14297,6 +14621,563 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').then(() => {
         console.log('[PWA] Service Worker registrado');
     }).catch(e => console.warn('[PWA] SW error:', e.message));
+}
+
+// ══════════════════════════════════════════════
+// CENTRO DE TRAZABILIDAD TAG — MAXX (tt-*) — vista NUEVA (auditoria 2026-08-28).
+// Consume /api/tags/* (proxy server-a-servidor de este mismo backend hacia
+// Cubicaje) -- ver api/index.js. Shapes exactos tomados directo de
+// cubicaje/server/services/tagTraceSql.ts (TagSummaryResult, TagDestinationsResult,
+// TagPalletGroup, PalletDetailsResult, TagOrderGroup, OrderDetailForTag,
+// LpnTagTraceResult, OverlappingLpnRow) -- nunca inventados.
+// ══════════════════════════════════════════════
+let ttState = {
+    startDate: null, endDate: null, turno: '',
+    catalog: [], summary: null, lag: null, overlapping: [],
+    currentTagId: null, currentTagMeta: null,
+    destinos: null, pallets: [], orders: [],
+    sortDestinos: { key: 'piezas', dir: 'desc' },
+    sortPallets: { key: 'piezasTag', dir: 'desc' },
+    sortOrders: { key: 'piezas', dir: 'desc' },
+    currentDestinoKey: null, destinoPage: 1, destinoPageSize: 50, destinoTotal: 0,
+    autoTimer: null, modalOpen: false,
+};
+
+// Escapa para insertar dentro de un literal JS de comillas simples embebido en
+// un atributo onclick="..." -- mismo criterio ya usado en el resto del archivo
+// (ej. deleteUser/ctrlRemoveCat: .replace(/'/g,"\\'")), NO escapeHtml (que
+// escaparia las comillas a entidades HTML que el navegador vuelve a decodificar
+// a comillas literales ANTES de que el JS inline las lea, reintroduciendo el
+// problema). escapeHtml se sigue usando aparte para el TEXTO visible de la celda.
+function ttJsStr(s) {
+    return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function ttIsoDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function ttDefaultDates() {
+    const hoy = new Date();
+    const hace7 = new Date(); hace7.setDate(hoy.getDate() - 6);
+    return { inicio: ttIsoDate(hace7), fin: ttIsoDate(hoy) };
+}
+
+async function initTrazabilidadTag() {
+    if (!document.getElementById('tt-f-inicio').value) {
+        const d = ttDefaultDates();
+        document.getElementById('tt-f-inicio').value = d.inicio;
+        document.getElementById('tt-f-fin').value = d.fin;
+    }
+    ttState.startDate = document.getElementById('tt-f-inicio').value;
+    ttState.endDate = document.getElementById('tt-f-fin').value;
+    ttShowPanel('catalogo');
+    await ttLoadCatalogo();
+    ttStartAutoRefresh();
+}
+
+// Turno = ventana de horas DENTRO de un dia real (mismos limites que
+// calcTurnoFromHour en api/index.js: Dia 07:00-17:10, Tiempo Extra 17:10-22:00,
+// Noche 22:00-07:00 del dia siguiente). Solo se aplica con precision cuando
+// Fecha inicio = Fecha fin -- con un rango de varios dias se ignora (advertencia
+// visible en tt-turno-warning) en vez de fabricar un merge de N dias que
+// arriesgaria doble-contar un mismo LPN si aparece en mas de un dia.
+function ttEffectiveRangeIso() {
+    const inicio = ttState.startDate, fin = ttState.endDate;
+    const endExclusive = new Date(fin + 'T00:00:00'); endExclusive.setDate(endExclusive.getDate() + 1);
+    if (!ttState.turno || inicio !== fin) {
+        return { startIso: new Date(inicio + 'T00:00:00').toISOString(), endIso: endExclusive.toISOString() };
+    }
+    const base = new Date(inicio + 'T00:00:00');
+    if (ttState.turno === 'Noche') {
+        const start = new Date(base); start.setHours(22, 0, 0, 0);
+        const end = new Date(base); end.setDate(end.getDate() + 1); end.setHours(7, 0, 0, 0);
+        return { startIso: start.toISOString(), endIso: end.toISOString() };
+    }
+    const [startH, startM] = ttState.turno === 'Día' ? [7, 0] : [17, 10];
+    const [endH, endM] = ttState.turno === 'Día' ? [17, 10] : [22, 0];
+    const start = new Date(base); start.setHours(startH, startM, 0, 0);
+    const end = new Date(base); end.setHours(endH, endM, 0, 0);
+    return { startIso: start.toISOString(), endIso: end.toISOString() };
+}
+
+function ttStartAutoRefresh() {
+    ttPauseAutoRefresh();
+    const chk = document.getElementById('tt-auto-refresh');
+    if (!chk || !chk.checked) return;
+    ttState.autoTimer = setInterval(() => {
+        if (!document.getElementById('view-trazabilidad-tag')?.classList.contains('active')) return;
+        if (ttState.modalOpen) return; // pausado mientras hay un modal/drill-down abierto
+        ttRefreshNow(true);
+    }, 60000);
+}
+function ttPauseAutoRefresh() {
+    if (ttState.autoTimer) { clearInterval(ttState.autoTimer); ttState.autoTimer = null; }
+}
+function ttToggleAutoRefresh() {
+    const chk = document.getElementById('tt-auto-refresh');
+    if (chk && chk.checked) ttStartAutoRefresh(); else ttPauseAutoRefresh();
+}
+function ttRefreshNow(silencioso) {
+    if (ttState.modalOpen) return;
+    if (document.getElementById('tt-panel-catalogo').style.display !== 'none') {
+        ttLoadCatalogo(silencioso);
+    } else if (ttState.currentTagId != null && document.getElementById('tt-panel-tag').style.display !== 'none') {
+        ttOpenTag(ttState.currentTagId, silencioso);
+    }
+}
+
+function ttApplyFilters() {
+    const inicio = document.getElementById('tt-f-inicio').value;
+    const fin = document.getElementById('tt-f-fin').value;
+    if (!inicio || !fin) { showToast('Selecciona fecha de inicio y fin.', 'error'); return; }
+    if (inicio > fin) { showToast('La fecha de inicio no puede ser posterior a la fecha fin.', 'error'); return; }
+    ttState.startDate = inicio;
+    ttState.endDate = fin;
+    ttState.turno = document.getElementById('tt-f-turno').value;
+    document.getElementById('tt-turno-warning').style.display = (ttState.turno && inicio !== fin) ? 'flex' : 'none';
+    ttShowPanel('catalogo');
+    ttLoadCatalogo();
+}
+function ttClearFilters() {
+    const d = ttDefaultDates();
+    document.getElementById('tt-f-inicio').value = d.inicio;
+    document.getElementById('tt-f-fin').value = d.fin;
+    document.getElementById('tt-f-turno').value = '';
+    document.getElementById('tt-turno-warning').style.display = 'none';
+    ttState.startDate = d.inicio; ttState.endDate = d.fin; ttState.turno = '';
+    ttShowPanel('catalogo');
+    ttLoadCatalogo();
+}
+
+function ttShowPanel(name) {
+    ['catalogo', 'tag', 'destino', 'overlap'].forEach(n => {
+        const el = document.getElementById('tt-panel-' + n);
+        if (el) el.style.display = (n === name) ? '' : 'none';
+    });
+}
+function ttBackToCatalog() { ttShowPanel('catalogo'); }
+function ttBackToTag() { ttShowPanel('tag'); }
+
+async function ttLoadCatalogo(silencioso) {
+    if (!silencioso) document.getElementById('tt-tag-grid').innerHTML = '<div class="tt-empty-note">Cargando…</div>';
+    try {
+        const { startIso, endIso } = ttEffectiveRangeIso();
+        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}`;
+        const [catRes, sumRes] = await Promise.all([
+            apiFetch(`${API}/api/tags/catalog`),
+            apiFetch(`${API}/api/tags/summary?${qs}`),
+        ]);
+        if (!catRes.success) throw new Error(catRes.error || 'No se pudo cargar el catálogo de TAGs');
+        if (!sumRes.success) throw new Error(sumRes.error || 'No se pudo cargar el resumen de TAGs');
+        ttState.catalog = catRes.data || [];
+        ttState.summary = sumRes.data;
+        ttState.lag = sumRes.data?.lag || null; // getTagSummary ya incluye getSourceLag() -- no se duplica la llamada
+        ttRenderLag();
+        ttRenderTagGrid();
+    } catch (e) {
+        document.getElementById('tt-tag-grid').innerHTML = `<div class="tt-empty-note">No se pudo cargar: ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+function ttRenderLag() {
+    const el = document.getElementById('tt-lag-row');
+    if (!el) return;
+    if (!ttState.lag) { el.innerHTML = '<span class="tt-lag-dot unknown"></span> Estado de las fuentes no disponible.'; return; }
+    const fmt = (s, nombre) => {
+        const label = { ok: 'Al día', lag: 'Con retraso', critical: 'Retraso crítico', unknown: 'Desconocido' }[s?.status] || 'Desconocido';
+        const ultimo = s?.lastRecordAt ? new Date(s.lastRecordAt).toLocaleString('es-MX') : '—';
+        return `<span><span class="tt-lag-dot ${s?.status || 'unknown'}"></span>${nombre}: ${label} · último movimiento disponible: ${ultimo}</span>`;
+    };
+    el.innerHTML = `${fmt(ttState.lag.smartControl, 'SmartControl')} <span>·</span> ${fmt(ttState.lag.binManager, 'BinManagerRO')} <span>·</span> <span>Dashboard actualizado: ${new Date().toLocaleTimeString('es-MX')}</span>`;
+}
+
+function ttRenderTagGrid() {
+    const grid = document.getElementById('tt-tag-grid');
+    // "oculta SORP si es 0" -- pedido explicito, el resto de tags SI se muestran aunque esten en 0.
+    const tags = (ttState.summary?.tags || []).filter(t => !(t.tag === 'SORP' && (t.lpnCount || 0) === 0));
+    if (!tags.length) {
+        grid.innerHTML = '<div class="tt-empty-note">Sin TAGs con piezas en este rango.</div>';
+    } else {
+        grid.innerHTML = tags.map(t => `
+            <div class="tt-card tt-tag-card" onclick="ttOpenTag(${t.tagId})">
+                <div class="tt-tc-nombre">${escapeHtml(t.tag)}</div>
+                <div class="tt-tc-desc">${escapeHtml(t.tagDescriptionSpanish || '')}</div>
+                <div class="tt-tc-valor">${(t.lpnCount || 0).toLocaleString('es-MX')}</div>
+                <div class="tt-tc-label">Piezas (LPN)</div>
+            </div>`).join('');
+    }
+    const overlapCard = document.getElementById('tt-overlap-card');
+    const overlapCount = ttState.summary?.overlapCount || 0;
+    if (overlapCount > 0) {
+        overlapCard.style.display = '';
+        document.getElementById('tt-overlap-valor').textContent = overlapCount.toLocaleString('es-MX');
+    } else {
+        overlapCard.style.display = 'none';
+    }
+}
+
+async function ttOpenTag(tagId, silencioso) {
+    ttState.currentTagId = tagId;
+    ttState.currentTagMeta = (ttState.catalog || []).find(t => t.id === tagId) ||
+        (ttState.summary?.tags || []).find(t => t.tagId === tagId) || null;
+    ttShowPanel('tag');
+    const nombre = ttState.currentTagMeta?.tag || ('TAG ' + tagId);
+    document.getElementById('tt-tag-breadcrumb').textContent = nombre;
+    document.getElementById('tt-search-empty').style.display = 'none';
+    if (!silencioso) document.getElementById('tt-kpi-grid').innerHTML = '<div class="tt-empty-note">Cargando…</div>';
+    try {
+        const { startIso, endIso } = ttEffectiveRangeIso();
+        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}`;
+        const [destRes, palRes, ordRes] = await Promise.all([
+            apiFetch(`${API}/api/tags/${tagId}/destinations?${qs}`),
+            apiFetch(`${API}/api/tags/${tagId}/pallets?${qs}`),
+            apiFetch(`${API}/api/tags/${tagId}/orders?${qs}`),
+        ]);
+        if (!destRes.success) throw new Error(destRes.error || 'No se pudieron cargar los destinos');
+        ttState.destinos = destRes.data;
+        ttState.pallets = palRes.success ? (palRes.data || []) : [];
+        ttState.orders = ordRes.success ? (ordRes.data || []) : [];
+        ttRenderTagKpis();
+        ttRenderDestinosTable();
+        ttRenderPalletsTable();
+        ttRenderOrdersTable();
+    } catch (e) {
+        document.getElementById('tt-kpi-grid').innerHTML = `<div class="tt-empty-note">No se pudo cargar: ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+function ttRenderTagKpis() {
+    const d = ttState.destinos;
+    const detail = d?.detail || [];
+    const total = d?.totalLpns || 0;
+    const conMovimiento = detail.filter(x => x.status === 'con_movimiento').length;
+    const esperandoLag = detail.filter(x => x.status === 'esperando_lag').length;
+    const anomalias = detail.filter(x => x.status === 'anomalia_sin_movimiento').length;
+    const sinMovimiento = esperandoLag + anomalias;
+    const pallets = ttState.pallets.length;
+    const pedidos = ttState.orders.length;
+    const lagInfo = ttState.lag?.binManager;
+    const ultimaAct = lagInfo?.lastRecordAt ? new Date(lagInfo.lastRecordAt).toLocaleString('es-MX') : '—';
+    const kpis = [
+        ['Total piezas (LPN)', total, '#1E40AF', false],
+        ['Trazabilidad completa', conMovimiento, '#059669', false],
+        ['Esperando lag', esperandoLag, '#D97706', false],
+        ['Sin movimiento posterior', sinMovimiento, '#64748B', false],
+        ['Anomalías reales', anomalias, '#DC2626', false],
+        ['Pallets', pallets, '#1E40AF', false],
+        ['Pedidos', pedidos, '#1E40AF', false],
+        ['Última actualización (BinManagerRO)', ultimaAct, '#64748B', true],
+    ];
+    document.getElementById('tt-kpi-grid').innerHTML = kpis.map(([label, val, color, isText]) => `
+        <div class="tt-card tt-kpi">
+            <div class="tt-kpi-value" style="color:${color};${isText ? 'font-size:0.95rem;' : ''}">${isText ? escapeHtml(String(val)) : Number(val).toLocaleString('es-MX')}</div>
+            <div class="tt-kpi-label">${escapeHtml(label)}</div>
+        </div>`).join('');
+}
+
+function ttSetTab(tab) {
+    document.querySelectorAll('#tt-tabs .tt-tab').forEach(b => b.classList.toggle('active', b.dataset.tttab === tab));
+    ['destinos', 'pallets', 'pedidos'].forEach(n => {
+        const panel = document.getElementById('tt-tabpanel-' + n);
+        if (panel) panel.classList.toggle('active', n === tab);
+    });
+}
+
+function ttStatusChip(status) {
+    const map = {
+        con_movimiento: ['completa', 'Trazabilidad completa'],
+        esperando_lag: ['lag', 'Esperando datos por lag'],
+        anomalia_sin_movimiento: ['anomalia', 'Anomalía real'],
+    };
+    const [cls, label] = map[status] || ['noclasificado', 'No clasificado'];
+    return `<span class="tt-chip ${cls}">${escapeHtml(label)}</span>`;
+}
+function ttDestinoLabel(key) {
+    if (key === 'esperando_lag') return 'Esperando datos por lag';
+    if (key === 'anomalia_sin_movimiento') return 'Anomalía real (sin movimiento posterior)';
+    if (/^BinID_\d+$/.test(key)) return `No clasificado (${key})`;
+    return key;
+}
+function ttSortArr(arr, sortState) {
+    const { key, dir } = sortState;
+    return [...arr].sort((a, b) => {
+        let av = a[key], bv = b[key];
+        if (typeof av === 'string') av = av.toLowerCase();
+        if (typeof bv === 'string') bv = bv.toLowerCase();
+        if (av == null) av = '';
+        if (bv == null) bv = '';
+        if (av < bv) return dir === 'asc' ? -1 : 1;
+        if (av > bv) return dir === 'asc' ? 1 : -1;
+        return 0;
+    });
+}
+function ttSortDestinos(key) { const s = ttState.sortDestinos; s.dir = (s.key === key && s.dir === 'desc') ? 'asc' : 'desc'; s.key = key; ttRenderDestinosTable(); }
+function ttSortPallets(key) { const s = ttState.sortPallets; s.dir = (s.key === key && s.dir === 'desc') ? 'asc' : 'desc'; s.key = key; ttRenderPalletsTable(); }
+function ttSortOrders(key) { const s = ttState.sortOrders; s.dir = (s.key === key && s.dir === 'desc') ? 'asc' : 'desc'; s.key = key; ttRenderOrdersTable(); }
+
+function ttRenderDestinosTable() {
+    const rows = ttSortArr(ttState.destinos?.destinations || [], ttState.sortDestinos);
+    const tbody = document.getElementById('tt-tbody-destinos');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5"><div class="tt-empty-note">Sin destinos en este rango.</div></td></tr>'; return; }
+    tbody.innerHTML = rows.map(r => `
+        <tr class="tt-row-clickable" onclick="ttOpenDestinoDetalle('${ttJsStr(r.destinationKey)}')">
+            <td data-label="Destino">${escapeHtml(ttDestinoLabel(r.destinationKey))}</td>
+            <td data-label="Piezas">${r.piezas.toLocaleString('es-MX')}</td>
+            <td data-label="%">${r.pct}%</td>
+            <td data-label="Pallets">${r.palletsUnicos}</td>
+            <td data-label="Pedidos">${r.pedidosUnicos}</td>
+        </tr>`).join('');
+}
+
+function ttRenderPalletsTable() {
+    const rows = ttSortArr(ttState.pallets || [], ttState.sortPallets);
+    const tbody = document.getElementById('tt-tbody-pallets');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6"><div class="tt-empty-note">Sin pallets encontrados para este TAG en este rango.</div></td></tr>'; return; }
+    tbody.innerHTML = rows.map(r => `
+        <tr class="tt-row-clickable" onclick="ttOpenPalletModal(${r.palletBinId})">
+            <td data-label="Pallet">${escapeHtml(r.palletBinCode || ('BinID ' + r.palletBinId))}</td>
+            <td data-label="Tipo">${escapeHtml(r.binTypeName || '—')}</td>
+            <td data-label="Ubicación">${escapeHtml(r.locationName || '—')}</td>
+            <td data-label="Piezas del TAG">${r.piezasTag}</td>
+            <td data-label="Piezas totales">${r.piezasTotalPallet}</td>
+            <td data-label="Pedido">${r.orderId ? `<span class="tt-chip completa" style="cursor:pointer;" onclick="event.stopPropagation();ttOpenOrdenModal(${r.orderId})">${escapeHtml(r.orderWebOrderId || ('#' + r.orderId))}</span>` : '<span class="tt-chip sinrelacion">Sin relación a pedido</span>'}</td>
+        </tr>`).join('');
+}
+
+function ttRenderOrdersTable() {
+    const rows = ttSortArr(ttState.orders || [], ttState.sortOrders);
+    const tbody = document.getElementById('tt-tbody-pedidos');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="4"><div class="tt-empty-note">Sin pedidos relacionados para este TAG en este rango.</div></td></tr>'; return; }
+    tbody.innerHTML = rows.map(r => `
+        <tr class="tt-row-clickable" onclick="ttOpenOrdenModal(${r.orderId})">
+            <td data-label="Pedido">${escapeHtml(r.webOrderId || ('#' + r.orderId))}</td>
+            <td data-label="PO">${escapeHtml(r.poNumber || '—')}</td>
+            <td data-label="Piezas">${r.piezas}</td>
+            <td data-label="Pallets">${r.palletsUnicos}</td>
+        </tr>`).join('');
+}
+
+async function ttOpenDestinoDetalle(destinoKey, page) {
+    ttState.currentDestinoKey = destinoKey;
+    ttState.destinoPage = page || 1;
+    ttShowPanel('destino');
+    document.getElementById('tt-destino-breadcrumb-tag').textContent = ttState.currentTagMeta?.tag || ('TAG ' + ttState.currentTagId);
+    document.getElementById('tt-destino-breadcrumb-nombre').textContent = ttDestinoLabel(destinoKey);
+    const tbody = document.getElementById('tt-tbody-destino-detalle');
+    tbody.innerHTML = '<tr><td colspan="6"><div class="tt-empty-note">Cargando…</div></td></tr>';
+    try {
+        const { startIso, endIso } = ttEffectiveRangeIso();
+        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&page=${ttState.destinoPage}&pageSize=${ttState.destinoPageSize}`;
+        const res = await apiFetch(`${API}/api/tags/${ttState.currentTagId}/destinations/${encodeURIComponent(destinoKey)}?${qs}`);
+        if (!res.success) throw new Error(res.error || 'No se pudo cargar el detalle');
+        const data = res.data;
+        ttState.destinoTotal = data.total;
+        if (!data.rows.length) {
+            tbody.innerHTML = '<tr><td colspan="6"><div class="tt-empty-note">Sin registros en esta página.</div></td></tr>';
+        } else {
+            tbody.innerHTML = data.rows.map(r => `
+                <tr class="tt-row-clickable" onclick="ttOpenLpnModal('${ttJsStr(r.lpn)}')">
+                    <td data-label="LPN">${escapeHtml(r.lpn)}</td>
+                    <td data-label="SKU">${escapeHtml(r.sku)}</td>
+                    <td data-label="Fecha TAG">${new Date(r.tagDate).toLocaleString('es-MX')}</td>
+                    <td data-label="Estado">${ttStatusChip(r.status)}</td>
+                    <td data-label="Bin destino">${escapeHtml(r.binCode || '—')}</td>
+                    <td data-label="Fecha movimiento">${r.movementDate ? new Date(r.movementDate).toLocaleString('es-MX') : '—'}</td>
+                </tr>`).join('');
+        }
+        ttRenderDestinoPaginacion();
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6"><div class="tt-empty-note">No se pudo cargar: ${escapeHtml(e.message)}</div></td></tr>`;
+    }
+}
+function ttRenderDestinoPaginacion() {
+    const totalPages = Math.max(1, Math.ceil(ttState.destinoTotal / ttState.destinoPageSize));
+    const el = document.getElementById('tt-destino-paginacion');
+    el.innerHTML = `
+        <button class="tt-btn" ${ttState.destinoPage <= 1 ? 'disabled' : ''} onclick="ttOpenDestinoDetalle('${ttJsStr(ttState.currentDestinoKey)}', ${ttState.destinoPage - 1})"><i class="fa-solid fa-chevron-left"></i></button>
+        <span>Página ${ttState.destinoPage} de ${totalPages} · ${ttState.destinoTotal} registros</span>
+        <button class="tt-btn" ${ttState.destinoPage >= totalPages ? 'disabled' : ''} onclick="ttOpenDestinoDetalle('${ttJsStr(ttState.currentDestinoKey)}', ${ttState.destinoPage + 1})"><i class="fa-solid fa-chevron-right"></i></button>`;
+}
+
+async function ttOpenOverlapping() {
+    ttShowPanel('overlap');
+    const tbody = document.getElementById('tt-tbody-overlap');
+    tbody.innerHTML = '<tr><td colspan="4"><div class="tt-empty-note">Cargando…</div></td></tr>';
+    try {
+        const { startIso, endIso } = ttEffectiveRangeIso();
+        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}`;
+        const res = await apiFetch(`${API}/api/tags/overlapping?${qs}`);
+        if (!res.success) throw new Error(res.error || 'No se pudo cargar');
+        ttState.overlapping = res.data || [];
+        if (!ttState.overlapping.length) { tbody.innerHTML = '<tr><td colspan="4"><div class="tt-empty-note">Sin LPN superpuestos en este rango.</div></td></tr>'; return; }
+        tbody.innerHTML = ttState.overlapping.map(r => `
+            <tr class="tt-row-clickable" onclick="ttOpenLpnModal('${ttJsStr(r.lpn)}')">
+                <td data-label="LPN">${escapeHtml(r.lpn)}</td>
+                <td data-label="SKU">${escapeHtml(r.sku)}</td>
+                <td data-label="Fecha TAG">${new Date(r.tagDate).toLocaleString('es-MX')}</td>
+                <td data-label="TAGs">${r.tags.map(t => `<span class="tt-chip completa">${escapeHtml(t)}</span>`).join(' ')}</td>
+            </tr>`).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="4"><div class="tt-empty-note">No se pudo cargar: ${escapeHtml(e.message)}</div></td></tr>`;
+    }
+}
+
+async function ttOpenPalletModal(palletBinId) {
+    ttState.modalOpen = true;
+    document.getElementById('tt-pallet-modal-titulo').textContent = 'Pallet ' + palletBinId;
+    document.getElementById('tt-pallet-modal-meta').textContent = 'Cargando…';
+    document.getElementById('tt-pallet-modal-tbody').innerHTML = '';
+    document.getElementById('tt-pallet-modal-backdrop').classList.add('open');
+    document.getElementById('tt-pallet-modal').classList.add('open');
+    try {
+        const { startIso, endIso } = ttEffectiveRangeIso();
+        const params = new URLSearchParams({ startDate: startIso, endDate: endIso });
+        if (ttState.currentTagId != null) params.set('tagId', ttState.currentTagId);
+        const res = await apiFetch(`${API}/api/tags/pallets/${palletBinId}?${params.toString()}`);
+        if (!res.success) throw new Error(res.error || 'No se pudo cargar el pallet');
+        const d = res.data;
+        document.getElementById('tt-pallet-modal-titulo').textContent = d.palletBinCode || ('Pallet ' + d.palletBinId);
+        document.getElementById('tt-pallet-modal-meta').textContent = `${d.binTypeName || 'Tipo desconocido'} · ${d.locationName || 'Ubicación desconocida'}`;
+        const tbody = document.getElementById('tt-pallet-modal-tbody');
+        if (!d.lpns.length) {
+            tbody.innerHTML = '<tr><td colspan="6"><div class="tt-empty-note">Sin LPNs del TAG en este pallet.</div></td></tr>';
+        } else {
+            tbody.innerHTML = d.lpns.map(l => `
+                <tr class="tt-row-clickable" onclick="ttOpenLpnModal('${ttJsStr(l.serialNumber)}')">
+                    <td data-label="LPN">${escapeHtml(l.serialNumber)}</td>
+                    <td data-label="SKU">${escapeHtml(l.productSku)}</td>
+                    <td data-label="Condición">${escapeHtml(l.skuCondition || '—')}</td>
+                    <td data-label="TAGs">${(l.tags || []).length ? l.tags.map(t => `<span class="tt-chip completa">${escapeHtml(t)}</span>`).join(' ') : '<span class="tt-chip noclasificado">Sin TAG</span>'}</td>
+                    <td data-label="Fecha TAG">${l.tagDate ? new Date(l.tagDate).toLocaleString('es-MX') : '—'}</td>
+                    <td data-label="Último movimiento">${l.lastMovementDate ? new Date(l.lastMovementDate).toLocaleString('es-MX') : '—'}</td>
+                </tr>`).join('');
+        }
+    } catch (e) {
+        document.getElementById('tt-pallet-modal-meta').textContent = 'Error: ' + e.message;
+    }
+}
+function ttCerrarPalletModal() {
+    document.getElementById('tt-pallet-modal-backdrop').classList.remove('open');
+    document.getElementById('tt-pallet-modal').classList.remove('open');
+    ttState.modalOpen = false;
+}
+
+async function ttOpenOrdenModal(orderId) {
+    if (ttState.currentTagId == null) { showToast('Abre un TAG primero para ver el detalle de este pedido.', 'error'); return; }
+    ttState.modalOpen = true;
+    document.getElementById('tt-orden-modal-titulo').textContent = 'Pedido ' + orderId;
+    document.getElementById('tt-orden-modal-meta').textContent = 'Cargando…';
+    document.getElementById('tt-orden-modal-body').innerHTML = '';
+    document.getElementById('tt-orden-modal-backdrop').classList.add('open');
+    document.getElementById('tt-orden-modal').classList.add('open');
+    try {
+        const res = await apiFetch(`${API}/api/tags/orders/${orderId}?tagId=${ttState.currentTagId}`);
+        if (!res.success) throw new Error(res.error || 'No se pudo cargar el pedido');
+        const d = res.data;
+        const order = d.order || {};
+        document.getElementById('tt-orden-modal-titulo').textContent = order.webOrderId || ('Pedido ' + orderId);
+        document.getElementById('tt-orden-modal-meta').textContent = `PO: ${order.poNumber || '—'} · Estado: ${order.bucket || '—'} · Cliente: ${(order.customer && (order.customer.fullName || order.customer.companyName)) || '—'}`;
+        const items = Array.isArray(order.items) ? order.items : [];
+        const taggedSet = new Set(d.taggedLpns || []);
+        const body = document.getElementById('tt-orden-modal-body');
+        if (!items.length) {
+            body.innerHTML = '<div class="tt-empty-note">Sin líneas de detalle disponibles para este pedido.</div>';
+        } else {
+            body.innerHTML = `<div class="tt-table-wrap"><table class="tt-table">
+                <thead><tr><th>LPN</th><th>SKU</th><th>Cant.</th><th>¿Del TAG actual?</th></tr></thead>
+                <tbody>${items.map(it => `
+                    <tr ${it.lpn ? `class="tt-row-clickable" onclick="ttOpenLpnModal('${ttJsStr(it.lpn)}')"` : ''}>
+                        <td data-label="LPN">${escapeHtml(it.lpn || '—')}</td>
+                        <td data-label="SKU">${escapeHtml(it.sku || '—')}</td>
+                        <td data-label="Cant.">${it.qty ?? '—'}</td>
+                        <td data-label="¿Del TAG actual?">${it.lpn && taggedSet.has(it.lpn) ? '<span class="tt-chip completa">Sí</span>' : '<span class="tt-chip sinrelacion">No</span>'}</td>
+                    </tr>`).join('')}</tbody>
+            </table></div>`;
+        }
+    } catch (e) {
+        document.getElementById('tt-orden-modal-meta').textContent = 'Error: ' + e.message;
+    }
+}
+function ttCerrarOrdenModal() {
+    document.getElementById('tt-orden-modal-backdrop').classList.remove('open');
+    document.getElementById('tt-orden-modal').classList.remove('open');
+    ttState.modalOpen = false;
+}
+
+async function ttOpenLpnModal(lpn) {
+    ttState.modalOpen = true;
+    document.getElementById('tt-lpn-modal-titulo').textContent = lpn;
+    document.getElementById('tt-lpn-modal-meta').textContent = 'Cargando…';
+    document.getElementById('tt-lpn-modal-body').innerHTML = '';
+    document.getElementById('tt-lpn-modal-backdrop').classList.add('open');
+    document.getElementById('tt-lpn-modal').classList.add('open');
+    try {
+        const res = await apiFetch(`${API}/api/tags/lpn/${encodeURIComponent(lpn)}/trace`);
+        if (!res.success) throw new Error(res.error || 'No se pudo cargar el LPN');
+        const d = res.data;
+        const tagsTxt = d.hasTag ? d.tags.map(t => t.tag).join(', ') : 'Sin TAG asignado';
+        const fecha = d.tagDate ? new Date(d.tagDate).toLocaleString('es-MX') : '—';
+        document.getElementById('tt-lpn-modal-meta').textContent = `TAG(s): ${tagsTxt} · Fecha TAG: ${fecha}`;
+        const tl = d.timeline || {};
+        const cur = tl.currentLocation;
+        const so = tl.salesOrder;
+        const events = tl.timeline || [];
+        let html = '';
+        html += `<div class="tt-card" style="padding:0.85rem 1rem;display:flex;gap:1.5rem;flex-wrap:wrap;">
+            <div><div class="tt-kpi-label">Ubicación actual</div><div style="font-weight:700;">${cur ? escapeHtml(cur.binCode || ('BinID ' + cur.binId)) : 'Desconocida'}</div></div>
+            <div><div class="tt-kpi-label">Pedido de venta</div><div style="font-weight:700;">${so ? escapeHtml(so.webOrderId || ('#' + so.orderId)) : 'Sin relación a pedido'}</div></div>
+        </div>`;
+        if (!events.length) {
+            html += '<div class="tt-empty-note" style="margin-top:0.75rem;">Sin movimientos registrados para este LPN (solo se muestran eventos demostrables).</div>';
+        } else {
+            html += `<div class="tt-table-wrap" style="margin-top:0.75rem;"><table class="tt-table"><thead><tr><th>Fecha</th><th>Fuente</th><th>De</th><th>A</th><th>Quién</th><th>Detalle</th></tr></thead><tbody>`;
+            html += events.map(ev => `<tr>
+                <td data-label="Fecha">${new Date(ev.fecha).toLocaleString('es-MX')}</td>
+                <td data-label="Fuente">${escapeHtml(ev.fuente)}</td>
+                <td data-label="De">${escapeHtml(ev.binOrigen || ev.areaOrigen || '—')}</td>
+                <td data-label="A">${escapeHtml(ev.binDestino || ev.areaDestino || '—')}</td>
+                <td data-label="Quién">${escapeHtml(ev.quien || '—')}</td>
+                <td data-label="Detalle">${escapeHtml(ev.detalle || '—')}</td>
+            </tr>`).join('');
+            html += '</tbody></table></div>';
+        }
+        document.getElementById('tt-lpn-modal-body').innerHTML = html;
+    } catch (e) {
+        document.getElementById('tt-lpn-modal-meta').textContent = 'Error: ' + e.message;
+        document.getElementById('tt-lpn-modal-body').innerHTML = `<div class="tt-empty-note">Sin relación encontrada: ${escapeHtml(e.message)}</div>`;
+    }
+}
+function ttCerrarLpnModal() {
+    document.getElementById('tt-lpn-modal-backdrop').classList.remove('open');
+    document.getElementById('tt-lpn-modal').classList.remove('open');
+    ttState.modalOpen = false;
+}
+
+// Busqueda "dentro del modulo": el TAG abierto no tiene un indice unico
+// server-side por LPN/PalletID/Pedido/BinCode/SKU (las funciones de
+// tagTraceSql.ts estan todas acotadas por tagId+rango de fechas) -- se busca
+// primero en los 3 datasets YA CARGADOS del TAG actual (destinos.detail,
+// pallets, orders) y, si no hay match ahi, se intenta como ultimo recurso una
+// trazabilidad directa de LPN (funciona para CUALQUIER LPN, pertenezca o no a
+// este TAG/rango -- getLpnTagTrace nunca requiere que el LPN este etiquetado).
+function ttGlobalSearch() {
+    const raw = (document.getElementById('tt-search-input').value || '').trim();
+    const term = raw.toLowerCase();
+    document.getElementById('tt-search-empty').style.display = 'none';
+    if (!term) return;
+    if (ttState.currentTagId == null) { showToast('Abre un TAG primero para buscar dentro de él.', 'error'); return; }
+    const detail = ttState.destinos?.detail || [];
+    const lpnHit = detail.find(d => d.lpn.toLowerCase() === term);
+    if (lpnHit) return ttOpenLpnModal(lpnHit.lpn);
+    const binHit = detail.find(d => (d.binCode || '').toLowerCase() === term);
+    if (binHit) return ttOpenLpnModal(binHit.lpn);
+    const skuHit = detail.find(d => d.sku.toLowerCase() === term);
+    if (skuHit) { ttSetTab('destinos'); return ttOpenDestinoDetalle(skuHit.destinationKey); }
+    const palletHit = (ttState.pallets || []).find(p => (p.palletBinCode || '').toLowerCase() === term || String(p.palletBinId) === term);
+    if (palletHit) { ttSetTab('pallets'); return ttOpenPalletModal(palletHit.palletBinId); }
+    const orderHit = (ttState.orders || []).find(o => (o.webOrderId || '').toLowerCase() === term || String(o.orderId) === term || (o.poNumber || '').toLowerCase() === term);
+    if (orderHit) { ttSetTab('pedidos'); return ttOpenOrdenModal(orderHit.orderId); }
+    // Ultimo recurso: trazabilidad directa del LPN, honesta aunque no exista relacion.
+    document.getElementById('tt-search-empty').style.display = 'block';
+    ttOpenLpnModal(raw);
 }
 </script>
 </body>
