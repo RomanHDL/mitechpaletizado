@@ -1838,11 +1838,11 @@
                     <select id="tt-f-ubicacion" disabled><option>Monterrey MAXX (WorkCenter 47)</option></select>
                 </label>
                 <label>Turno
-                    <select id="tt-f-turno">
-                        <option value="">Todos</option>
-                        <option value="Día">Día (07:00–17:10)</option>
-                        <option value="Tiempo Extra">Tiempo Extra (17:10–22:00)</option>
-                        <option value="Noche">Noche (22:00–07:00)</option>
+                    <select id="tt-f-turno" title="Aproximación por hora del día — no es un dato oficial de turno">
+                        <option value="todos">Todos</option>
+                        <option value="actual">Turno actual</option>
+                        <option value="turno1">Turno 1</option>
+                        <option value="turno2">Turno 2</option>
                     </select>
                 </label>
                 <label>Fecha inicio
@@ -1853,7 +1853,7 @@
                 </label>
                 <button class="tt-btn tt-btn-primary" onclick="ttApplyFilters()"><i class="fa-solid fa-check"></i> Aplicar</button>
                 <button class="tt-btn" onclick="ttClearFilters()"><i class="fa-solid fa-xmark"></i> Limpiar filtros</button>
-                <div id="tt-turno-warning" style="font-size:0.72rem;color:var(--tt-warning);display:none;flex-basis:100%;"><i class="fa-solid fa-triangle-exclamation"></i> El filtro de Turno solo aplica cuando Fecha inicio = Fecha fin (un turno es una ventana de horas dentro de UN día real). Con un rango de varios días, se ignora.</div>
+                <div id="tt-turno-note" style="font-size:0.72rem;color:var(--tt-text-muted);flex-basis:100%;"><i class="fa-solid fa-circle-info"></i> "Turno" es una <b>aproximación</b> por hora del día calculada por Cubicaje al momento de la consulta — <b>no</b> es un dato oficial de turno.</div>
             </div>
 
             <div class="tt-precision-note"><i class="fa-solid fa-circle-info" style="margin-top:2px;"></i><span>El conteo de piezas por TAG es una <b>aproximación</b> (precisión estimada 78–98% según el método) — <b>no</b> es el número exacto de la tarjeta "Sorting Dashboard Production" de BinManager (sistema .NET aparte sin código fuente accesible).</span></div>
@@ -14656,7 +14656,7 @@ if ('serviceWorker' in navigator) {
 // LpnTagTraceResult, OverlappingLpnRow) -- nunca inventados.
 // ══════════════════════════════════════════════
 let ttState = {
-    startDate: null, endDate: null, turno: '',
+    startDate: null, endDate: null, turno: 'todos',
     catalog: [], summary: null, lag: null, overlapping: [],
     currentTagId: null, currentTagMeta: null,
     destinos: null, pallets: [], orders: [],
@@ -14762,29 +14762,29 @@ async function initTrazabilidadTag() {
     ttStartAutoRefresh();
 }
 
-// Turno = ventana de horas DENTRO de un dia real (mismos limites que
-// calcTurnoFromHour en api/index.js: Dia 07:00-17:10, Tiempo Extra 17:10-22:00,
-// Noche 22:00-07:00 del dia siguiente). Solo se aplica con precision cuando
-// Fecha inicio = Fecha fin -- con un rango de varios dias se ignora (advertencia
-// visible en tt-turno-warning) en vez de fabricar un merge de N dias que
-// arriesgaria doble-contar un mismo LPN si aparece en mas de un dia.
+// Rango de fechas completo (dia calendario inicio -> dia calendario fin,
+// exclusivo al final) tal cual lo eligio el usuario -- SIN recortar horas
+// aqui. El filtro de Turno YA NO se aproxima en el cliente: Cubicaje
+// (repo hermano) acepta ahora un query param real "shift" en sus endpoints
+// /tags/* (ver ttShiftQs mas abajo) y hace ahi la aproximacion por hora, por
+// lo que aqui solo se arma el rango de fechas crudo, aplicable a cualquier
+// numero de dias (a diferencia del hack anterior, que solo recortaba horas
+// cuando Fecha inicio = Fecha fin).
 function ttEffectiveRangeIso() {
     const inicio = ttState.startDate, fin = ttState.endDate;
     const endExclusive = new Date(fin + 'T00:00:00'); endExclusive.setDate(endExclusive.getDate() + 1);
-    if (!ttState.turno || inicio !== fin) {
-        return { startIso: new Date(inicio + 'T00:00:00').toISOString(), endIso: endExclusive.toISOString() };
-    }
-    const base = new Date(inicio + 'T00:00:00');
-    if (ttState.turno === 'Noche') {
-        const start = new Date(base); start.setHours(22, 0, 0, 0);
-        const end = new Date(base); end.setDate(end.getDate() + 1); end.setHours(7, 0, 0, 0);
-        return { startIso: start.toISOString(), endIso: end.toISOString() };
-    }
-    const [startH, startM] = ttState.turno === 'Día' ? [7, 0] : [17, 10];
-    const [endH, endM] = ttState.turno === 'Día' ? [17, 10] : [22, 0];
-    const start = new Date(base); start.setHours(startH, startM, 0, 0);
-    const end = new Date(base); end.setHours(endH, endM, 0, 0);
-    return { startIso: start.toISOString(), endIso: end.toISOString() };
+    return { startIso: new Date(inicio + 'T00:00:00').toISOString(), endIso: endExclusive.toISOString() };
+}
+
+// Querystring del filtro de Turno para las llamadas a /api/tags/* que aceptan
+// rango (summary, overlapping, destinations, destinations/:key, pallets,
+// orders) -- NUNCA para catalog/source-lag (no tienen ese concepto) ni para
+// lpn/:lpn/trace (traza un LPN puntual, no una lista acotada por rango).
+// Cubicaje documenta "shift" con exactamente 4 valores (minusculas,
+// case-sensitive): "todos" | "actual" | "turno1" | "turno2" -- una
+// aproximacion por hora del dia, NO un dato oficial de turno.
+function ttShiftQs() {
+    return `shift=${encodeURIComponent(ttState.turno || 'todos')}`;
 }
 
 function ttStartAutoRefresh() {
@@ -14821,7 +14821,6 @@ function ttApplyFilters() {
     ttState.startDate = inicio;
     ttState.endDate = fin;
     ttState.turno = document.getElementById('tt-f-turno').value;
-    document.getElementById('tt-turno-warning').style.display = (ttState.turno && inicio !== fin) ? 'flex' : 'none';
     ttShowPanel('catalogo');
     ttLoadCatalogo();
 }
@@ -14829,9 +14828,8 @@ function ttClearFilters() {
     const d = ttDefaultDates();
     document.getElementById('tt-f-inicio').value = d.inicio;
     document.getElementById('tt-f-fin').value = d.fin;
-    document.getElementById('tt-f-turno').value = '';
-    document.getElementById('tt-turno-warning').style.display = 'none';
-    ttState.startDate = d.inicio; ttState.endDate = d.fin; ttState.turno = '';
+    document.getElementById('tt-f-turno').value = 'todos';
+    ttState.startDate = d.inicio; ttState.endDate = d.fin; ttState.turno = 'todos';
     ttShowPanel('catalogo');
     ttLoadCatalogo();
 }
@@ -14849,7 +14847,7 @@ async function ttLoadCatalogo(silencioso) {
     if (!silencioso) document.getElementById('tt-tag-grid').innerHTML = '<div class="tt-empty-note">Cargando…</div>';
     try {
         const { startIso, endIso } = ttEffectiveRangeIso();
-        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}`;
+        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&${ttShiftQs()}`;
         const [catRes, sumRes] = await Promise.all([
             apiFetch(`${API}/api/tags/catalog`),
             apiFetch(`${API}/api/tags/summary?${qs}`),
@@ -14947,7 +14945,7 @@ async function ttOpenTag(tagId, silencioso) {
     if (!silencioso) document.getElementById('tt-kpi-grid').innerHTML = '<div class="tt-empty-note">Cargando…</div>';
     try {
         const { startIso, endIso } = ttEffectiveRangeIso();
-        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}`;
+        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&${ttShiftQs()}`;
         const [destRes, palRes, ordRes] = await Promise.all([
             apiFetch(`${API}/api/tags/${tagId}/destinations?${qs}`),
             apiFetch(`${API}/api/tags/${tagId}/pallets?${qs}`),
@@ -15119,7 +15117,7 @@ async function ttOpenDestinoDetalle(destinoKey, page) {
     tbody.innerHTML = '<tr><td colspan="6"><div class="tt-empty-note">Cargando…</div></td></tr>';
     try {
         const { startIso, endIso } = ttEffectiveRangeIso();
-        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&page=${ttState.destinoPage}&pageSize=${ttState.destinoPageSize}`;
+        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&page=${ttState.destinoPage}&pageSize=${ttState.destinoPageSize}&${ttShiftQs()}`;
         const res = await apiFetch(`${API}/api/tags/${ttState.currentTagId}/destinations/${encodeURIComponent(destinoKey)}?${qs}`);
         if (!res.success) throw new Error(res.error || 'No se pudo cargar el detalle');
         const data = res.data;
@@ -15157,7 +15155,7 @@ async function ttOpenOverlapping() {
     tbody.innerHTML = '<tr><td colspan="4"><div class="tt-empty-note">Cargando…</div></td></tr>';
     try {
         const { startIso, endIso } = ttEffectiveRangeIso();
-        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}`;
+        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&${ttShiftQs()}`;
         const res = await apiFetch(`${API}/api/tags/overlapping?${qs}`);
         if (!res.success) throw new Error(res.error || 'No se pudo cargar');
         ttState.overlapping = res.data || [];
