@@ -1865,6 +1865,22 @@
                 <div class="tt-tag-grid" id="tt-tag-grid">
                     <div class="tt-empty-note">Cargando…</div>
                 </div>
+                <div class="tt-card" style="padding:1.1rem 1.25rem;margin-bottom:1.25rem;">
+                    <div class="tt-section-title" style="font-size:0.92rem;">Distribución de piezas por TAG</div>
+                    <div class="tt-section-sub" style="margin-bottom:0.85rem;">Proporción de piezas (LPN) entre los TAGs con actividad en este rango</div>
+                    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center;">
+                        <div style="flex:1 1 220px;max-width:250px;position:relative;height:230px;margin:0 auto;">
+                            <canvas id="tt-chart-tags"></canvas>
+                            <div id="tt-tags-donut-centro" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;"></div>
+                        </div>
+                        <div style="flex:2 1 260px;min-width:0;overflow-x:auto;">
+                            <table class="tt-table">
+                                <thead><tr><th>TAG</th><th>Piezas</th><th>%</th></tr></thead>
+                                <tbody id="tt-tags-legend-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
                 <div class="tt-card tt-overlap-card" onclick="ttOpenOverlapping()" id="tt-overlap-card" style="display:none;">
                     <div class="tt-tc-label">TAGS SUPERPUESTOS</div>
                     <div class="tt-tc-valor" id="tt-overlap-valor" style="color:#8b5cf6;">-</div>
@@ -1894,17 +1910,25 @@
                 <!-- TAB: destinos -->
                 <div class="tt-tabpanel active" id="tt-tabpanel-destinos">
                     <div class="tt-card" style="padding:1rem;">
-                        <div class="tt-table-wrap">
-                            <table class="tt-table" id="tt-tabla-destinos">
-                                <thead><tr>
-                                    <th onclick="ttSortDestinos('destinationKey')">Destino real</th>
-                                    <th onclick="ttSortDestinos('piezas')">Piezas</th>
-                                    <th onclick="ttSortDestinos('pct')">%</th>
-                                    <th onclick="ttSortDestinos('palletsUnicos')">Pallets</th>
-                                    <th onclick="ttSortDestinos('pedidosUnicos')">Pedidos</th>
-                                </tr></thead>
-                                <tbody id="tt-tbody-destinos"></tbody>
-                            </table>
+                        <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:flex-start;">
+                            <div style="flex:1 1 220px;max-width:250px;position:relative;height:230px;margin:0 auto;">
+                                <canvas id="tt-chart-destinos"></canvas>
+                                <div id="tt-destinos-donut-centro" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;"></div>
+                            </div>
+                            <div style="flex:3 1 380px;min-width:0;">
+                                <div class="tt-table-wrap">
+                                    <table class="tt-table" id="tt-tabla-destinos">
+                                        <thead><tr>
+                                            <th onclick="ttSortDestinos('destinationKey')">Destino real</th>
+                                            <th onclick="ttSortDestinos('piezas')">Piezas</th>
+                                            <th onclick="ttSortDestinos('pct')">%</th>
+                                            <th onclick="ttSortDestinos('palletsUnicos')">Pallets</th>
+                                            <th onclick="ttSortDestinos('pedidosUnicos')">Pedidos</th>
+                                        </tr></thead>
+                                        <tbody id="tt-tbody-destinos"></tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -14642,6 +14666,71 @@ let ttState = {
     currentDestinoKey: null, destinoPage: 1, destinoPageSize: 50, destinoTotal: 0,
     autoTimer: null, modalOpen: false,
 };
+let ttCharts = {}; // instancias Chart.js de este modulo (mismo patron que fftCharts) -- se destruyen/recrean en cada render, nunca se acumulan.
+
+// Reutiliza Chart.js (ya cargado via CDN, ya usado en TODO el resto de la app --
+// Dashboard Destinos FFT/Comparador/Reporte Semanal/etc, ver fftMakeChart/
+// fftDonutBase) -- NO se agrega una libreria nueva ni un canvas a mano.
+function ttMakeChart(key, canvasId, config) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    if (ttCharts[key]) { ttCharts[key].destroy(); }
+    ttCharts[key] = new Chart(canvas.getContext('2d'), config);
+}
+
+// Dona con leyenda EXTERNA (tabla propia) + numero grande al centro -- mismo
+// patron ya establecido en Dashboard Destinos FFT para este caso exacto (ver
+// fft-chart-destinos-unificado: legend:false + cutout:'68%', nunca la
+// leyenda-al-pie de fftDonutBase, que quedaria duplicada con la tabla de al
+// lado).
+function ttDonutBase(labels, data, colors) {
+    return {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#FFFFFF' }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { display: false }, datalabels: { display: false } } },
+    };
+}
+
+// Paleta de este modulo: los 4 tokens de diseno ya confirmados por Roman
+// (--tt-accent/--tt-success/--tt-warning/--tt-danger, mismos valores que
+// --accent/--success/--warning/--danger del resto de la app) + 2 tonos
+// adicionales profesionales (violeta/cian) para cuando hay mas de 4
+// categorias -- nunca colores saturados random.
+const TT_PALETTE = ['#1E40AF', '#059669', '#D97706', '#DC2626', '#8B5CF6', '#0891B2'];
+function ttColorIdx(i) { return TT_PALETTE[i % TT_PALETTE.length]; }
+
+// Color de un destino en la dona de "¿A donde se fueron?": los 2 estados
+// especiales (esperando_lag/anomalia_sin_movimiento) SIEMPRE usan su color
+// semantico fijo (naranja/rojo, pedido explicito de Roman) -- un destino
+// real con movimiento nunca puede pintarse de esos 2 colores (se
+// confundiria con una alerta). Los destinos reales rotan sobre una paleta
+// separada (azul/verde/violeta/cian), nunca naranja/rojo.
+const TT_DESTINO_REAL_PALETTE = ['#1E40AF', '#059669', '#8B5CF6', '#0891B2', '#0F766E', '#4338CA'];
+function ttDestinoColor(destinationKey, idx) {
+    if (destinationKey === 'esperando_lag') return '#D97706'; // --tt-warning
+    if (destinationKey === 'anomalia_sin_movimiento') return '#DC2626'; // --tt-danger
+    return TT_DESTINO_REAL_PALETTE[idx % TT_DESTINO_REAL_PALETTE.length];
+}
+
+// Resuelve el nombre real de un TAG SIEMPRE contra el catalogo (/api/tags/catalog
+// -> PRO.Tags en Cubicaje, fuente de verdad) -- nunca confia ciegamente en el
+// campo `tag` que trae /api/tags/summary. Bug real visto por Roman: el TAG
+// id 39 ("TRG Preferred") se mostraba como "39" (el ID crudo) en la card de
+// "Piezas por TAG" porque ttRenderTagGrid usaba t.tag de /api/tags/summary
+// directo, sin cruzar contra el catalogo -- y para ese tag en particular,
+// summary trae el ID como string en vez del nombre (falla del lado de
+// Cubicaje, fuera de este repo). Con esta funcion: 1) se prefiere SIEMPRE el
+// catalogo (fuente correcta), 2) si el catalogo tampoco lo tiene, se acepta el
+// nombre de summary SOLO si no es literalmente el ID disfrazado de string,
+// 3) si de verdad no hay nombre en ningun lado, se muestra explicito "Tag #N
+// (sin nombre)" -- nunca el ID pelón como si fuera el nombre.
+function ttResolveTagName(tagId, fallbackTag) {
+    const catEntry = (ttState.catalog || []).find(c => c.id === tagId);
+    if (catEntry && catEntry.tag) return catEntry.tag;
+    const fb = fallbackTag == null ? '' : String(fallbackTag).trim();
+    if (fb && fb !== String(tagId)) return fb;
+    return `Tag #${tagId} (sin nombre)`;
+}
 
 // Escapa para insertar dentro de un literal JS de comillas simples embebido en
 // un atributo onclick="..." -- mismo criterio ya usado en el resto del archivo
@@ -14798,7 +14887,7 @@ function ttRenderTagGrid() {
     } else {
         grid.innerHTML = tags.map(t => `
             <div class="tt-card tt-tag-card" onclick="ttOpenTag(${t.tagId})">
-                <div class="tt-tc-nombre">${escapeHtml(t.tag)}</div>
+                <div class="tt-tc-nombre">${escapeHtml(ttResolveTagName(t.tagId, t.tag))}</div>
                 <div class="tt-tc-desc">${escapeHtml(t.tagDescriptionSpanish || '')}</div>
                 <div class="tt-tc-valor">${(t.lpnCount || 0).toLocaleString('es-MX')}</div>
                 <div class="tt-tc-label">Piezas (LPN)</div>
@@ -14812,6 +14901,39 @@ function ttRenderTagGrid() {
     } else {
         overlapCard.style.display = 'none';
     }
+    ttRenderTagsChart(tags);
+}
+
+// Dona "Piezas por TAG" -- misma lista ya filtrada (SORP oculto si es 0) que
+// alimenta las cards de arriba, nunca un dato aparte. Nombre SIEMPRE resuelto
+// via ttResolveTagName (mismo criterio que las cards, ver comentario ahi).
+function ttRenderTagsChart(tags) {
+    const centro = document.getElementById('tt-tags-donut-centro');
+    const legendBody = document.getElementById('tt-tags-legend-body');
+    if (!tags || !tags.length) {
+        if (ttCharts.tags) { ttCharts.tags.destroy(); delete ttCharts.tags; }
+        if (centro) centro.innerHTML = '<div style="font-size:0.7rem;color:var(--tt-text-muted);">Sin datos</div>';
+        if (legendBody) legendBody.innerHTML = '<tr><td colspan="3"><div class="tt-empty-note">Sin TAGs con piezas en este rango.</div></td></tr>';
+        return;
+    }
+    const nombres = tags.map(t => ttResolveTagName(t.tagId, t.tag));
+    const valores = tags.map(t => t.lpnCount || 0);
+    const colores = tags.map((t, i) => ttColorIdx(i));
+    ttMakeChart('tags', 'tt-chart-tags', ttDonutBase(nombres, valores, colores));
+    const total = valores.reduce((s, v) => s + v, 0);
+    if (centro) {
+        centro.innerHTML = `
+            <div style="font-size:1.4rem;font-weight:800;color:var(--tt-text);">${total.toLocaleString('es-MX')}</div>
+            <div style="font-size:0.62rem;color:var(--tt-text-muted);font-weight:700;letter-spacing:0.03em;">PIEZAS TOTALES</div>`;
+    }
+    if (legendBody) {
+        legendBody.innerHTML = tags.map((t, i) => {
+            const val = valores[i];
+            const pct = total > 0 ? (val / total * 100) : 0;
+            const dot = `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${ttColorIdx(i)};margin-right:6px;"></span>`;
+            return `<tr><td data-label="TAG">${dot}${escapeHtml(nombres[i])}</td><td data-label="Piezas">${val.toLocaleString('es-MX')}</td><td data-label="%">${pct.toFixed(1)}%</td></tr>`;
+        }).join('');
+    }
 }
 
 async function ttOpenTag(tagId, silencioso) {
@@ -14819,7 +14941,7 @@ async function ttOpenTag(tagId, silencioso) {
     ttState.currentTagMeta = (ttState.catalog || []).find(t => t.id === tagId) ||
         (ttState.summary?.tags || []).find(t => t.tagId === tagId) || null;
     ttShowPanel('tag');
-    const nombre = ttState.currentTagMeta?.tag || ('TAG ' + tagId);
+    const nombre = ttResolveTagName(tagId, ttState.currentTagMeta?.tag);
     document.getElementById('tt-tag-breadcrumb').textContent = nombre;
     document.getElementById('tt-search-empty').style.display = 'none';
     if (!silencioso) document.getElementById('tt-kpi-grid').innerHTML = '<div class="tt-empty-note">Cargando…</div>';
@@ -14916,15 +15038,47 @@ function ttSortOrders(key) { const s = ttState.sortOrders; s.dir = (s.key === ke
 function ttRenderDestinosTable() {
     const rows = ttSortArr(ttState.destinos?.destinations || [], ttState.sortDestinos);
     const tbody = document.getElementById('tt-tbody-destinos');
-    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5"><div class="tt-empty-note">Sin destinos en este rango.</div></td></tr>'; return; }
-    tbody.innerHTML = rows.map(r => `
+    if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="tt-empty-note">Sin destinos en este rango.</div></td></tr>';
+        ttRenderDestinosChart([]);
+        return;
+    }
+    tbody.innerHTML = rows.map((r, i) => `
         <tr class="tt-row-clickable" onclick="ttOpenDestinoDetalle('${ttJsStr(r.destinationKey)}')">
-            <td data-label="Destino">${escapeHtml(ttDestinoLabel(r.destinationKey))}</td>
+            <td data-label="Destino"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${ttDestinoColor(r.destinationKey, i)};margin-right:6px;"></span>${escapeHtml(ttDestinoLabel(r.destinationKey))}</td>
             <td data-label="Piezas">${r.piezas.toLocaleString('es-MX')}</td>
             <td data-label="%">${r.pct}%</td>
             <td data-label="Pallets">${r.palletsUnicos}</td>
             <td data-label="Pedidos">${r.pedidosUnicos}</td>
         </tr>`).join('');
+    // Misma fila (mismo orden ya aplicado por el sort activo) alimenta la
+    // dona -- nunca un dato aparte, y los colores de la fila y de la dona
+    // quedan garantizados 1:1 (mismo indice i en ambos).
+    ttRenderDestinosChart(rows);
+}
+
+// Dona "¿A donde se fueron?" -- mismo dato que ya alimenta la tabla de
+// destinos (getTagDestinations vía ttState.destinos), pedido explicito de
+// Roman. Colores semanticos: esperando_lag=naranja, anomalia_sin_movimiento=
+// rojo (ver ttDestinoColor), destinos reales con movimiento rotan sobre una
+// paleta separada azul/verde/violeta/cian.
+function ttRenderDestinosChart(rows) {
+    const centro = document.getElementById('tt-destinos-donut-centro');
+    if (!rows || !rows.length) {
+        if (ttCharts.destinos) { ttCharts.destinos.destroy(); delete ttCharts.destinos; }
+        if (centro) centro.innerHTML = '<div style="font-size:0.7rem;color:var(--tt-text-muted);">Sin datos</div>';
+        return;
+    }
+    const labels = rows.map(r => ttDestinoLabel(r.destinationKey));
+    const valores = rows.map(r => r.piezas || 0);
+    const colores = rows.map((r, i) => ttDestinoColor(r.destinationKey, i));
+    ttMakeChart('destinos', 'tt-chart-destinos', ttDonutBase(labels, valores, colores));
+    const total = valores.reduce((s, v) => s + v, 0);
+    if (centro) {
+        centro.innerHTML = `
+            <div style="font-size:1.4rem;font-weight:800;color:var(--tt-text);">${total.toLocaleString('es-MX')}</div>
+            <div style="font-size:0.62rem;color:var(--tt-text-muted);font-weight:700;letter-spacing:0.03em;">PIEZAS (LPN)</div>`;
+    }
 }
 
 function ttRenderPalletsTable() {
@@ -14959,7 +15113,7 @@ async function ttOpenDestinoDetalle(destinoKey, page) {
     ttState.currentDestinoKey = destinoKey;
     ttState.destinoPage = page || 1;
     ttShowPanel('destino');
-    document.getElementById('tt-destino-breadcrumb-tag').textContent = ttState.currentTagMeta?.tag || ('TAG ' + ttState.currentTagId);
+    document.getElementById('tt-destino-breadcrumb-tag').textContent = ttResolveTagName(ttState.currentTagId, ttState.currentTagMeta?.tag);
     document.getElementById('tt-destino-breadcrumb-nombre').textContent = ttDestinoLabel(destinoKey);
     const tbody = document.getElementById('tt-tbody-destino-detalle');
     tbody.innerHTML = '<tr><td colspan="6"><div class="tt-empty-note">Cargando…</div></td></tr>';
