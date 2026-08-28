@@ -5216,11 +5216,18 @@ async function cubicajeTagsGet(path, timeoutMs = 15000) {
 // startDate/endDate SIEMPRE vienen del filtro libre que elige el usuario en el
 // frontend (nunca una fecha fija de este archivo) — este helper solo arma el
 // querystring, nunca decide un rango por defecto.
-function tagsRangeParams(startDate, endDate, workCenterId) {
+// shift: filtro de "Turno" que Cubicaje aplica del lado del servidor -- 4
+// valores exactos, minusculas, case-sensitive: "todos" | "actual" | "turno1" |
+// "turno2". Es una aproximacion por hora del dia (NO un dato oficial de
+// turno), documentada asi en el propio backend de Cubicaje. Cualquier otro
+// valor se ignora aqui mismo (nunca se reenvia basura upstream).
+const TAGS_VALID_SHIFTS = new Set(['todos', 'actual', 'turno1', 'turno2']);
+function tagsRangeParams(startDate, endDate, workCenterId, shift) {
   const params = new URLSearchParams();
   if (startDate) params.set('startDate', startDate);
   if (endDate) params.set('endDate', endDate);
   if (workCenterId) params.set('workCenterId', workCenterId);
+  if (shift && TAGS_VALID_SHIFTS.has(shift)) params.set('shift', shift);
   return params;
 }
 
@@ -5230,26 +5237,26 @@ async function fetchCubicajeTagCatalog() {
 async function fetchCubicajeSourceLag() {
   return cubicajeTagsGet('/api/integrations/paletizado/source-lag');
 }
-async function fetchCubicajeTagSummary(startDate, endDate, workCenterId) {
-  const params = tagsRangeParams(startDate, endDate, workCenterId);
+async function fetchCubicajeTagSummary(startDate, endDate, workCenterId, shift) {
+  const params = tagsRangeParams(startDate, endDate, workCenterId, shift);
   return cubicajeTagsGet(`/api/integrations/paletizado/tags/summary?${params.toString()}`);
 }
-async function fetchCubicajeOverlappingTags(startDate, endDate, workCenterId) {
-  const params = tagsRangeParams(startDate, endDate, workCenterId);
+async function fetchCubicajeOverlappingTags(startDate, endDate, workCenterId, shift) {
+  const params = tagsRangeParams(startDate, endDate, workCenterId, shift);
   return cubicajeTagsGet(`/api/integrations/paletizado/tags/overlap?${params.toString()}`);
 }
-async function fetchCubicajeTagDestinations(tagId, startDate, endDate, workCenterId) {
-  const params = tagsRangeParams(startDate, endDate, workCenterId);
+async function fetchCubicajeTagDestinations(tagId, startDate, endDate, workCenterId, shift) {
+  const params = tagsRangeParams(startDate, endDate, workCenterId, shift);
   return cubicajeTagsGet(`/api/integrations/paletizado/tags/${encodeURIComponent(tagId)}/destinations?${params.toString()}`);
 }
-async function fetchCubicajeDestinationDetails(tagId, destinationKey, startDate, endDate, page, pageSize, workCenterId) {
-  const params = tagsRangeParams(startDate, endDate, workCenterId);
+async function fetchCubicajeDestinationDetails(tagId, destinationKey, startDate, endDate, page, pageSize, workCenterId, shift) {
+  const params = tagsRangeParams(startDate, endDate, workCenterId, shift);
   if (page) params.set('page', page);
   if (pageSize) params.set('pageSize', pageSize);
   return cubicajeTagsGet(`/api/integrations/paletizado/tags/${encodeURIComponent(tagId)}/destinations/${encodeURIComponent(destinationKey)}?${params.toString()}`);
 }
-async function fetchCubicajeTagPallets(tagId, startDate, endDate, workCenterId) {
-  const params = tagsRangeParams(startDate, endDate, workCenterId);
+async function fetchCubicajeTagPallets(tagId, startDate, endDate, workCenterId, shift) {
+  const params = tagsRangeParams(startDate, endDate, workCenterId, shift);
   return cubicajeTagsGet(`/api/integrations/paletizado/tags/${encodeURIComponent(tagId)}/pallets?${params.toString()}`);
 }
 async function fetchCubicajePalletDetails(palletBinId, tagId, startDate, endDate, workCenterId) {
@@ -5262,8 +5269,8 @@ async function fetchCubicajePalletDetails(palletBinId, tagId, startDate, endDate
   if (tagId != null) params.set('tagId', tagId);
   return cubicajeTagsGet(`/api/integrations/paletizado/tags/pallet/${encodeURIComponent(palletBinId)}?${params.toString()}`);
 }
-async function fetchCubicajeTagOrders(tagId, startDate, endDate, workCenterId) {
-  const params = tagsRangeParams(startDate, endDate, workCenterId);
+async function fetchCubicajeTagOrders(tagId, startDate, endDate, workCenterId, shift) {
+  const params = tagsRangeParams(startDate, endDate, workCenterId, shift);
   return cubicajeTagsGet(`/api/integrations/paletizado/tags/${encodeURIComponent(tagId)}/orders?${params.toString()}`);
 }
 async function fetchCubicajeOrderDetail(orderId, tagId) {
@@ -5298,37 +5305,37 @@ app.get('/api/tags/source-lag', auth, roleGuard('admin'), centroOperativoGuard, 
 });
 
 app.get('/api/tags/summary', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
-  const { startDate, endDate, workCenterId } = req.query;
+  const { startDate, endDate, workCenterId, shift } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
-  try { res.json({ success: true, data: await fetchCubicajeTagSummary(startDate, endDate, workCenterId) }); }
+  try { res.json({ success: true, data: await fetchCubicajeTagSummary(startDate, endDate, workCenterId, shift) }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
 app.get('/api/tags/overlapping', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
-  const { startDate, endDate, workCenterId } = req.query;
+  const { startDate, endDate, workCenterId, shift } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
-  try { res.json({ success: true, data: await fetchCubicajeOverlappingTags(startDate, endDate, workCenterId) }); }
+  try { res.json({ success: true, data: await fetchCubicajeOverlappingTags(startDate, endDate, workCenterId, shift) }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
 app.get('/api/tags/:tagId/destinations', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
-  const { startDate, endDate, workCenterId } = req.query;
+  const { startDate, endDate, workCenterId, shift } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
-  try { res.json({ success: true, data: await fetchCubicajeTagDestinations(req.params.tagId, startDate, endDate, workCenterId) }); }
+  try { res.json({ success: true, data: await fetchCubicajeTagDestinations(req.params.tagId, startDate, endDate, workCenterId, shift) }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
 app.get('/api/tags/:tagId/destinations/:destinationKey', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
-  const { startDate, endDate, workCenterId, page, pageSize } = req.query;
+  const { startDate, endDate, workCenterId, page, pageSize, shift } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
-  try { res.json({ success: true, data: await fetchCubicajeDestinationDetails(req.params.tagId, req.params.destinationKey, startDate, endDate, page, pageSize, workCenterId) }); }
+  try { res.json({ success: true, data: await fetchCubicajeDestinationDetails(req.params.tagId, req.params.destinationKey, startDate, endDate, page, pageSize, workCenterId, shift) }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
 app.get('/api/tags/:tagId/pallets', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
-  const { startDate, endDate, workCenterId } = req.query;
+  const { startDate, endDate, workCenterId, shift } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
-  try { res.json({ success: true, data: await fetchCubicajeTagPallets(req.params.tagId, startDate, endDate, workCenterId) }); }
+  try { res.json({ success: true, data: await fetchCubicajeTagPallets(req.params.tagId, startDate, endDate, workCenterId, shift) }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
@@ -5342,9 +5349,9 @@ app.get('/api/tags/pallets/:palletBinId', auth, roleGuard('admin'), centroOperat
 });
 
 app.get('/api/tags/:tagId/orders', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
-  const { startDate, endDate, workCenterId } = req.query;
+  const { startDate, endDate, workCenterId, shift } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
-  try { res.json({ success: true, data: await fetchCubicajeTagOrders(req.params.tagId, startDate, endDate, workCenterId) }); }
+  try { res.json({ success: true, data: await fetchCubicajeTagOrders(req.params.tagId, startDate, endDate, workCenterId, shift) }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
