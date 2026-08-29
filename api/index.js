@@ -35,6 +35,7 @@ const {
   ALL_MODULE_IDS,
   userHasModuleAccess,
   getUserModules,
+  getNewestVisibleModules,
 } = require('./services/permissions');
 
 const app = express();
@@ -374,7 +375,7 @@ app.post('/api/auth/login', async (req, res) => {
     const sc = await checkAndSetSession(user, deviceId);
     if (!sc.allowed) return res.status(403).json({ success: false, error: sc.error, sessionConflict: true });
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
-    res.json({ success: true, token, deviceId: sc.deviceId, user: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role, modulosCustom: user.modulosCustom ?? null, modules: getUserModules(user) } });
+    res.json({ success: true, token, deviceId: sc.deviceId, user: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role, modulosCustom: user.modulosCustom ?? null, modules: getUserModules(user), newestModules: getNewestVisibleModules(user) } });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -392,7 +393,7 @@ app.post('/api/auth/nfc', async (req, res) => {
     if (!sc.allowed) return res.status(403).json({ success: false, error: sc.error, sessionConflict: true });
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
     await db.collection('nfc_cards').updateOne({ _id: card._id }, { $set: { lastUsed: new Date() }, $inc: { useCount: 1 } });
-    res.json({ success: true, token, deviceId: sc.deviceId, user: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role, modulosCustom: user.modulosCustom ?? null, modules: getUserModules(user) }, nfc: { serial: card.serialNumber, role: card.role } });
+    res.json({ success: true, token, deviceId: sc.deviceId, user: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role, modulosCustom: user.modulosCustom ?? null, modules: getUserModules(user), newestModules: getNewestVisibleModules(user) }, nfc: { serial: card.serialNumber, role: card.role } });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -409,7 +410,7 @@ app.get('/api/auth/me', auth, async (req, res) => {
     const session = await sessionsCol().findOne({ userId: req.user._id.toString() });
     if (session && session.deviceId !== deviceId) return res.status(401).json({ success: false, error: 'Sesion invalida para este dispositivo' });
   }
-  res.json({ success: true, user: { id: req.user._id, nombre: req.user.nombre, usuario: req.user.usuario, role: req.user.role, modulosCustom: req.user.modulosCustom ?? null, modules: getUserModules(req.user) } });
+  res.json({ success: true, user: { id: req.user._id, nombre: req.user.nombre, usuario: req.user.usuario, role: req.user.role, modulosCustom: req.user.modulosCustom ?? null, modules: getUserModules(req.user), newestModules: getNewestVisibleModules(req.user) } });
 });
 
 // Cambio de password AUTOSERVICIO (cualquier usuario autenticado, sobre su

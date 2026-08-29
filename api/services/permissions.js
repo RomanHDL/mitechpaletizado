@@ -33,6 +33,8 @@ const MODULES = [
     name: 'Escaneadoras',
     viewTarget: 'openEscaneadorasModule',
     category: 'Operación',
+    homeCategory: 'Operación diaria',
+    releaseDate: '2026-03-24',
     icon: 'fa-barcode',
     // Hoy: gobernado por ROLE_MODULES (admin/lider/escaneadora lo tienen, viewer no).
     defaultAccess: (user) => (LEGACY_ROLE_MODULES[user.role] || []).includes('escaneadoras'),
@@ -42,6 +44,8 @@ const MODULES = [
     name: 'Resumen Turno',
     viewTarget: 'resumen',
     category: 'Operación',
+    homeCategory: 'Operación diaria',
+    releaseDate: '2026-03-24',
     icon: 'fa-clipboard-list',
     // Hoy NO tiene guard propio: switchView('resumen') y /api/resumen dependen
     // de hasModule('escaneadoras')/moduleGuard('escaneadoras') -- se reproduce
@@ -55,6 +59,8 @@ const MODULES = [
     name: 'Dashboard',
     viewTarget: 'dashboard',
     category: 'Operación',
+    homeCategory: 'Operación diaria',
+    releaseDate: '2026-03-24',
     icon: 'fa-gauge',
     // Hoy: gobernado por ROLE_MODULES (admin/lider/viewer lo tienen, escaneadora no).
     defaultAccess: (user) => (LEGACY_ROLE_MODULES[user.role] || []).includes('dashboard'),
@@ -64,6 +70,8 @@ const MODULES = [
     name: 'Configuración',
     viewTarget: 'config',
     category: 'Administración',
+    homeCategory: 'Control y validación',
+    releaseDate: '2026-03-24',
     icon: 'fa-gear',
     // Siempre visible para cualquier usuario logueado. Aparece en el catalogo
     // solo como referencia (perfil/preferencias/seguridad propios) -- NO se
@@ -76,6 +84,8 @@ const MODULES = [
     name: 'LPN Duplicados',
     viewTarget: 'lpn',
     category: 'FFT/Almacén',
+    homeCategory: 'Control y validación',
+    releaseDate: '2026-07-28',
     icon: 'fa-copy',
     defaultAccess: (user) => String(user.usuario) === '3647',
   },
@@ -84,6 +94,8 @@ const MODULES = [
     name: 'Operaciones y Pedidos',
     viewTarget: 'operaciones',
     category: 'Pedidos/Producción',
+    homeCategory: 'Control y validación',
+    releaseDate: '2026-07-28',
     icon: 'fa-boxes-stacked',
     // Hoy: roleGuard('admin') -- por ROL, no por username. Se deja asi
     // (decision explicita, ver auditoria en el reporte final).
@@ -94,6 +106,8 @@ const MODULES = [
     name: 'Centro Operativo API',
     viewTarget: 'centro-operativo',
     category: 'FFT/Almacén',
+    homeCategory: 'Reportes y análisis',
+    releaseDate: '2026-07-30',
     icon: 'fa-server',
     defaultAccess: (user) => String(user.usuario) === '3647',
   },
@@ -102,6 +116,8 @@ const MODULES = [
     name: 'Reporte Semanal de Producción',
     viewTarget: 'reporte-semanal',
     category: 'Pedidos/Producción',
+    homeCategory: 'Reportes y análisis',
+    releaseDate: '2026-08-05',
     icon: 'fa-file-excel',
     defaultAccess: (user) => String(user.usuario) === '3647',
   },
@@ -110,6 +126,8 @@ const MODULES = [
     name: 'Centro de Control de Pallets — MAXX',
     viewTarget: 'dashboard-destinos-fft',
     category: 'FFT/Almacén',
+    homeCategory: 'Reportes y análisis',
+    releaseDate: '2026-08-06',
     icon: 'fa-warehouse',
     defaultAccess: (user) => String(user.usuario) === '3647',
   },
@@ -118,6 +136,8 @@ const MODULES = [
     name: 'Comparador de Pallets',
     viewTarget: 'comparador-pallets',
     category: 'FFT/Almacén',
+    homeCategory: 'Administración y herramientas',
+    releaseDate: '2026-08-21',
     icon: 'fa-code-compare',
     defaultAccess: (user) => String(user.usuario) === '3647',
   },
@@ -126,6 +146,8 @@ const MODULES = [
     name: 'Centro de Trazabilidad TAG — MAXX',
     viewTarget: 'trazabilidad-tag',
     category: 'FFT/Almacén',
+    homeCategory: 'Administración y herramientas',
+    releaseDate: '2026-08-28',
     icon: 'fa-tags',
     defaultAccess: (user) => String(user.usuario) === '3647',
   },
@@ -165,6 +187,22 @@ function getUserModules(user) {
   return MODULES.filter((m) => userHasModuleAccess(user, m.id)).map((m) => m.id);
 }
 
+// Fecha de release mas reciente entre los ids dados (para el badge "NUEVO" de Home).
+function getNewestReleaseDate(moduleIds) {
+  const dates = MODULES.filter((m) => moduleIds.includes(m.id) && m.releaseDate).map((m) => m.releaseDate);
+  if (!dates.length) return null;
+  return dates.reduce((a, b) => (b > a ? b : a));
+}
+
+// Ids de modulo visibles para el usuario que comparten la fecha de release mas
+// reciente entre los que el usuario puede ver (para marcarlos con "NUEVO").
+function getNewestVisibleModules(user) {
+  const visible = getUserModules(user);
+  const newest = getNewestReleaseDate(visible);
+  if (!newest) return [];
+  return MODULES.filter((m) => visible.includes(m.id) && m.releaseDate === newest).map((m) => m.id);
+}
+
 module.exports = {
   MODULES,
   ALL_MODULE_IDS,
@@ -173,4 +211,6 @@ module.exports = {
   getModule,
   userHasModuleAccess,
   getUserModules,
+  getNewestReleaseDate,
+  getNewestVisibleModules,
 };
