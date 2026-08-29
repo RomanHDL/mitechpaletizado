@@ -813,6 +813,20 @@
             /* Reset de <button>: la card entera es el control clicable */
             font:inherit; text-align:left; width:100%; padding:0; margin:0; cursor:pointer;
             -webkit-appearance:none; appearance:none;
+            /* position:relative para que .hero-badge-nuevo (absolute) se ancle a la card */
+            position:relative;
+        }
+
+        /* Badge "NUEVO" centralizado (2026-08-28): antes eran 2 <span> hardcodeados
+           por card con el color de acento fijo de un solo tema; ahora es 1 badge
+           generico por card (oculto por defecto) que JS muestra segun
+           currentUser.newestModules (ver applyNuevoBadges()). Mismo
+           posicionamiento visual que los 2 badges viejos, pero con var(--accent)
+           para que se vea correcto en ambos temas. */
+        .hero-badge-nuevo {
+            position:absolute; top:0.75rem; right:0.75rem; z-index:1;
+            background:var(--accent); color:#fff; font-size:0.6rem; font-weight:800;
+            letter-spacing:0.03em; padding:2px 7px; border-radius:8px;
         }
         .hero-card:hover { transform:translateY(-3px); box-shadow:0 10px 28px rgba(15,23,42,0.13); }
         .hero-card:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
@@ -846,6 +860,16 @@
         .hero-red .hero-cta { background:linear-gradient(90deg, #ef4444, #dc2626); }
         .hero-teal .hero-illustration { background:linear-gradient(160deg, rgba(20,184,166,0.14), rgba(13,148,136,0.06)); }
         .hero-teal .hero-cta { background:linear-gradient(90deg, #14b8a6, #0d9488); }
+
+        /* Secciones visuales de Home agrupando las hero-cards por homeCategory
+           (2026-08-28). Cada seccion reutiliza .hero-grid tal cual (mismas
+           columnas/gap/breakpoints) -- esto solo agrega el encabezado y el
+           espaciado entre grupos. */
+        .home-cat-section { display:flex; flex-direction:column; gap:0.9rem; margin-bottom:1.75rem; }
+        .home-cat-section:last-child { margin-bottom:0; }
+        .home-cat-header { display:flex; align-items:center; gap:0.55rem; font-size:0.95rem; font-weight:700; color:var(--text-main); padding-top:1.25rem; border-top:1px solid var(--border); }
+        .home-cat-section:first-child .home-cat-header { border-top:none; padding-top:0; }
+        .home-cat-header i { color:var(--accent); font-size:0.9rem; }
 
         /* Sub-bloques reutilizados dentro del modal de Escaneadoras y de la
            vista Operaciones y Pedidos (ya NO viven dentro de una hero-card,
@@ -1604,12 +1628,16 @@
                 <!-- Cada card es un <button> real (accesible por teclado, focus visible) con
                      UNA sola accion. El contenido detallado (formularios/listas) vive en el
                      modulo/modal correspondiente, no aqui. -->
-                <div class="hero-grid home-section">
+                <!-- ═══ Seccion 1/4: Operacion diaria ═══ -->
+                <div class="home-section home-cat-section" data-cat="operacion-diaria">
+                    <div class="home-cat-header"><i class="fa-solid fa-bolt"></i><span>Operación diaria</span></div>
+                    <div class="hero-grid">
 
                     <!-- A: Escaneadoras. No-admin -> switchView('escaneadoras') directo (su ruta
                          de siempre). Admin -> modal con acceso a esa misma ruta + Acceder como
                          Escaneadora + Gestionar Escaneadoras (ver #esc-hub-modal). -->
-                    <button type="button" class="hero-card hero-blue mod-esc" onclick="openEscaneadorasModule()">
+                    <button type="button" class="hero-card hero-blue mod-esc" data-module="escaneadoras" onclick="openEscaneadorasModule()">
+                        <span class="hero-badge-nuevo" style="display:none;">NUEVO</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="118" y="34" width="62" height="52" rx="10" fill="#ffffff" stroke="#bfdbfe" stroke-width="2"/>
@@ -1634,7 +1662,8 @@
                     </button>
 
                     <!-- B: Resumen Turno -->
-                    <button type="button" class="hero-card hero-orange mod-resumen" onclick="switchView('resumen')">
+                    <button type="button" class="hero-card hero-orange mod-resumen" data-module="resumen" onclick="switchView('resumen')">
+                        <span class="hero-badge-nuevo" style="display:none;">NUEVO</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="60" y="18" width="80" height="96" rx="12" fill="#ffffff" stroke="#fed7aa" stroke-width="2"/>
@@ -1660,7 +1689,8 @@
                     <!-- C: Dashboard. Monitor en Vivo (misma ruta de siempre, view-monitor) ahora
                          se abre desde un boton dentro del propio Dashboard (3647-only), no desde
                          la homepage. -->
-                    <button type="button" class="hero-card hero-green" onclick="switchView('dashboard')" id="home-dash-card">
+                    <button type="button" class="hero-card hero-green" data-module="dashboard" onclick="switchView('dashboard')" id="home-dash-card">
+                        <span class="hero-badge-nuevo" style="display:none;">NUEVO</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <circle cx="62" cy="60" r="34" fill="none" stroke="#bbf7d0" stroke-width="14"/>
@@ -1678,9 +1708,18 @@
                         </div>
                     </button>
 
+                    </div>
+                </div>
+
+                <!-- ═══ Seccion 2/4: Control y validacion ═══ -->
+                <div class="home-section home-cat-section" data-cat="control-validacion">
+                    <div class="home-cat-header"><i class="fa-solid fa-shield-halved"></i><span>Control y validación</span></div>
+                    <div class="hero-grid">
+
                     <!-- D: Configuracion. Centro de Control (misma ruta de siempre, view-control)
                          ahora se abre desde un boton dentro de Configuracion (3647-only). -->
-                    <button type="button" class="hero-card hero-purple" onclick="switchView('config')" id="home-config-card">
+                    <button type="button" class="hero-card hero-purple" data-module="config" onclick="switchView('config')" id="home-config-card">
+                        <span class="hero-badge-nuevo" style="display:none;">NUEVO</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <g transform="translate(126 46)">
@@ -1721,8 +1760,9 @@
                     </button>
 
                     <!-- E: LPN Duplicados (ruta directa, sin cambios) -->
-                    <button type="button" class="hero-card hero-red card-3647-only mod-gated" data-module="lpn-duplicados" id="lpn-access-card" onclick="switchView('lpn')" style="position:relative;">
+                    <button type="button" class="hero-card hero-red card-3647-only mod-gated" data-module="lpn-duplicados" id="lpn-access-card" onclick="switchView('lpn')">
                         <span id="lpn-badge" style="display:none;position:absolute;top:0.75rem;right:0.75rem;z-index:1;background:#ef4444;color:#fff;font-size:0.7rem;font-weight:700;min-width:20px;height:20px;border-radius:10px;align-items:center;justify-content:center;padding:0 5px;">0</span>
+                        <span class="hero-badge-nuevo" style="display:none;">NUEVO</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="45" y="28" width="70" height="50" rx="10" fill="#fee2e2" stroke="#fca5a5" stroke-width="2" opacity="0.7"/>
@@ -1749,7 +1789,8 @@
 
                     <!-- F: Operaciones y Pedidos = Retrabajo de Pallet + Gestionar Pedidos,
                          ahora en su propia vista con pestañas (view-operaciones) -->
-                    <button type="button" class="hero-card hero-teal admin-only" onclick="switchView('operaciones')">
+                    <button type="button" class="hero-card hero-teal admin-only" data-module="operaciones" onclick="switchView('operaciones')">
+                        <span class="hero-badge-nuevo" style="display:none;">NUEVO</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="40" y="88" width="120" height="10" rx="3" fill="#5eead4"/>
@@ -1770,9 +1811,17 @@
                         </div>
                     </button>
 
+                    </div>
+                </div>
+
+                <!-- ═══ Seccion 3/4: Reportes y analisis ═══ -->
+                <div class="home-section home-cat-section" data-cat="reportes-analisis">
+                    <div class="home-cat-header"><i class="fa-solid fa-chart-column"></i><span>Reportes y análisis</span></div>
+                    <div class="hero-grid">
+
                     <!-- G: Centro Operativo API (exclusivo 3647, ruta directa) -->
-                    <button type="button" class="hero-card hero-blue card-3647-only mod-gated" data-module="centro-operativo" onclick="switchView('centro-operativo')" style="position:relative;">
-                        <span style="position:absolute;top:0.75rem;right:0.75rem;z-index:1;background:#4f7cff;color:#fff;font-size:0.6rem;font-weight:800;letter-spacing:0.03em;padding:2px 7px;border-radius:8px;">NUEVO</span>
+                    <button type="button" class="hero-card hero-blue card-3647-only mod-gated" data-module="centro-operativo" onclick="switchView('centro-operativo')">
+                        <span class="hero-badge-nuevo" style="display:none;">NUEVO</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="20" y="20" width="160" height="80" rx="8" fill="#0f1830" stroke="#4f7cff" stroke-width="2"/>
@@ -1799,7 +1848,8 @@
                     </button>
 
                     <!-- H: Reporte Semanal de Produccion (exclusivo 3647) -->
-                    <button type="button" class="hero-card hero-teal card-3647-only mod-gated" data-module="reporte-semanal" onclick="switchView('reporte-semanal')" style="position:relative;">
+                    <button type="button" class="hero-card hero-teal card-3647-only mod-gated" data-module="reporte-semanal" onclick="switchView('reporte-semanal')">
+                        <span class="hero-badge-nuevo" style="display:none;">NUEVO</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="20" y="16" width="160" height="88" rx="8" fill="#0f1830" stroke="#2dd4bf" stroke-width="2"/>
@@ -1820,7 +1870,8 @@
                     </button>
 
                     <!-- I: Dashboard Destinos FFT (exclusivo 3647) -->
-                    <button type="button" class="hero-card hero-orange card-3647-only mod-gated" data-module="dashboard-destinos-fft" onclick="switchView('dashboard-destinos-fft')" style="position:relative;">
+                    <button type="button" class="hero-card hero-orange card-3647-only mod-gated" data-module="dashboard-destinos-fft" onclick="switchView('dashboard-destinos-fft')">
+                        <span class="hero-badge-nuevo" style="display:none;">NUEVO</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="20" y="16" width="160" height="88" rx="8" fill="#0f1830" stroke="#f59e0b" stroke-width="2"/>
@@ -1845,8 +1896,17 @@
                         </div>
                     </button>
 
+                    </div>
+                </div>
+
+                <!-- ═══ Seccion 4/4: Administracion y herramientas ═══ -->
+                <div class="home-section home-cat-section" data-cat="admin-herramientas">
+                    <div class="home-cat-header"><i class="fa-solid fa-toolbox"></i><span>Administración y herramientas</span></div>
+                    <div class="hero-grid">
+
                     <!-- J: Comparador de Pallets (exclusivo 3647) -->
-                    <button type="button" class="hero-card hero-purple card-3647-only mod-gated" data-module="comparador-pallets" onclick="switchView('comparador-pallets')" style="position:relative;">
+                    <button type="button" class="hero-card hero-purple card-3647-only mod-gated" data-module="comparador-pallets" onclick="switchView('comparador-pallets')">
+                        <span class="hero-badge-nuevo" style="display:none;">NUEVO</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="14" y="20" width="70" height="80" rx="8" fill="#0f1830" stroke="#a855f7" stroke-width="2"/>
@@ -1868,11 +1928,11 @@
                         </div>
                     </button>
 
-                    <!-- K: Centro de Trazabilidad TAG (exclusivo 3647) — NUEVO, vista y
-                         card propias (no reemplaza "Centro de Control de Pallets" /
-                         Dashboard Destinos FFT, para no arriesgar ese modulo en produccion). -->
-                    <button type="button" class="hero-card hero-blue card-3647-only mod-gated" data-module="trazabilidad-tag" onclick="switchView('trazabilidad-tag')" style="position:relative;">
-                        <span style="position:absolute;top:0.75rem;right:0.75rem;z-index:1;background:#1E40AF;color:#fff;font-size:0.6rem;font-weight:800;letter-spacing:0.03em;padding:2px 7px;border-radius:8px;">NUEVO</span>
+                    <!-- K: Centro de Trazabilidad TAG (exclusivo 3647) — vista y card propias
+                         (no reemplaza "Centro de Control de Pallets" / Dashboard Destinos FFT,
+                         para no arriesgar ese modulo en produccion). -->
+                    <button type="button" class="hero-card hero-blue card-3647-only mod-gated" data-module="trazabilidad-tag" onclick="switchView('trazabilidad-tag')">
+                        <span class="hero-badge-nuevo" style="display:none;">NUEVO</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="20" y="20" width="160" height="80" rx="8" fill="#0f1830" stroke="#1E40AF" stroke-width="2"/>
@@ -1894,6 +1954,7 @@
                         </div>
                     </button>
 
+                    </div>
                 </div>
 
             </div>
@@ -4867,6 +4928,31 @@ async function checkSession() {
     }
 }
 
+// Badge "NUEVO" centralizado en Home (2026-08-28): currentUser.newestModules
+// llega del backend (getNewestVisibleModules) con los ids de modulo que
+// comparten la fecha de release mas reciente ENTRE los que ese usuario puede
+// ver. No requiere caso especial para 3647 (ve todo el catalogo, asi que le
+// cae naturalmente en el modulo mas reciente de todos).
+function applyNuevoBadges() {
+    const newest = (currentUser && Array.isArray(currentUser.newestModules)) ? currentUser.newestModules : [];
+    document.querySelectorAll('.hero-card[data-module]').forEach(card => {
+        const badge = card.querySelector('.hero-badge-nuevo');
+        if (badge) badge.style.display = newest.includes(card.dataset.module) ? '' : 'none';
+    });
+}
+
+// Oculta el encabezado + grid de una seccion de Home (.home-cat-section) si,
+// despues de todo el gating de arriba, ninguna de sus cards quedo visible.
+// Se apoya en getComputedStyle (no en las clases que la ocultaron) para que
+// funcione sin importar el mecanismo: admin-only/card-3647-only/mod-gated/
+// mod-esc/mod-resumen.
+function refreshHomeCategorySections() {
+    document.querySelectorAll('.home-cat-section').forEach(section => {
+        const anyVisible = Array.from(section.querySelectorAll('.hero-card')).some(card => getComputedStyle(card).display !== 'none');
+        section.style.display = anyVisible ? '' : 'none';
+    });
+}
+
 function enterApp() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').classList.add('active');
@@ -4919,6 +5005,13 @@ function enterApp() {
         if (escCard) escCard.style.display = '';
         if (resCard) resCard.style.display = '';
     }
+
+    // Badge "NUEVO" centralizado + ocultar encabezados de secciones vacias:
+    // se aplican DESPUES de todo el bloque de gating de arriba (admin-only,
+    // card-3647-only, mod-gated, mod-esc/mod-resumen) para que currentUser y
+    // la visibilidad final de cada card ya esten resueltas.
+    applyNuevoBadges();
+    refreshHomeCategorySections();
 
     // Solo dashboard, sin escaneadoras (ej. viewer): ir directo al dashboard
     if (currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras')) {
