@@ -688,6 +688,79 @@
         .config-row:last-child{border-bottom:none;}
         .config-row > span:first-child{color:var(--text-muted);}
 
+        /* Grid de 4 cards de Configuracion (Perfil/Preferencias/Aplicacion/Seguridad)
+           -- propia, NO reutiliza .home-admin-grid (esa sigue fija a 3 columnas y
+           se usa en otras partes del home). */
+        .config-cards-grid{display:grid;grid-template-columns:repeat(4, 1fr);gap:1rem;width:100%;}
+        .config-cards-grid > .card{display:flex;flex-direction:column;}
+        @media (max-width:1100px){ .config-cards-grid{grid-template-columns:repeat(2, 1fr);} }
+        @media (max-width:700px){ .config-cards-grid{grid-template-columns:1fr;} }
+
+        /* ══════════════════════════════════════════════
+           ADMINISTRACION DE ACCESOS (auditoria 2026-08-28) — panel dentro de
+           Configuracion, visible SOLO para usuario 3647 (inyectado desde un
+           <template>, ver renderAdminAccessSection()). Mismo patron ya usado
+           por #view-dashboard-destinos-fft / #view-trazabilidad-tag: colores
+           forzados a claro via variables propias, INDEPENDIENTE del toggle
+           oscuro/claro del resto de la app (decision de diseno ya establecida
+           en este codebase, no una excepcion nueva).
+           ══════════════════════════════════════════════ */
+        #admin-access-panel{
+            --aa-bg:#F4F6FB; --aa-card:#FFFFFF; --aa-border:#E2E8F0; --aa-text:#0F172A;
+            --aa-text-muted:#64748B; --aa-accent:#1E40AF; --aa-accent-soft:rgba(30,64,175,0.08);
+            --aa-success:#059669; --aa-danger:#DC2626;
+            --aa-shadow:0 1px 3px rgba(15,23,42,0.07),0 1px 2px rgba(15,23,42,0.04);
+            background:var(--aa-bg); color:var(--aa-text); border-radius:16px; padding:1.25rem 1.5rem 1.5rem;
+        }
+        .aa-header{display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem;}
+        .aa-header-title{font-size:1.05rem;font-weight:700;color:var(--aa-text);display:flex;align-items:center;gap:0.5rem;}
+        .aa-header-title i{color:var(--aa-accent);}
+        .aa-badge{background:var(--aa-accent-soft);color:var(--aa-accent);font-size:0.7rem;font-weight:700;padding:0.3rem 0.7rem;border-radius:999px;letter-spacing:0.02em;}
+        .aa-body{display:grid;grid-template-columns:300px 1fr;gap:1rem;align-items:start;}
+        @media (max-width:900px){ .aa-body{grid-template-columns:1fr;} }
+        .aa-col{background:var(--aa-card);border:1px solid var(--aa-border);border-radius:12px;box-shadow:var(--aa-shadow);padding:1rem;}
+        .aa-col-title{font-size:0.78rem;font-weight:700;color:var(--aa-text-muted);text-transform:uppercase;letter-spacing:0.03em;margin-bottom:0.6rem;}
+        .aa-search{width:100%;padding:0.55rem 0.7rem;border:1px solid var(--aa-border);border-radius:8px;font-size:0.85rem;margin-bottom:0.7rem;background:#fff;color:var(--aa-text);}
+        .aa-search:focus{outline:none;border-color:var(--aa-accent);}
+        .aa-user-list{display:flex;flex-direction:column;gap:0.35rem;max-height:520px;overflow-y:auto;}
+        .aa-user-row{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.6rem;border-radius:8px;cursor:pointer;border:1px solid transparent;transition:all 0.15s;text-align:left;background:none;width:100%;}
+        .aa-user-row:hover{background:var(--aa-accent-soft);}
+        .aa-user-row.active{background:var(--aa-accent-soft);border-color:var(--aa-accent);}
+        .aa-user-row.inactive{opacity:0.55;}
+        .aa-avatar{flex:0 0 auto;width:34px;height:34px;border-radius:50%;background:var(--aa-accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;}
+        .aa-avatar.super{background:linear-gradient(135deg,#1E40AF,#0891B2);}
+        .aa-user-meta{flex:1;min-width:0;}
+        .aa-user-name{font-size:0.84rem;font-weight:600;color:var(--aa-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .aa-user-sub{font-size:0.72rem;color:var(--aa-text-muted);display:flex;align-items:center;gap:0.4rem;}
+        .aa-role-chip{font-size:0.62rem;font-weight:700;padding:0.1rem 0.4rem;border-radius:999px;background:#EEF2FF;color:#4338CA;text-transform:uppercase;}
+        .aa-empty-state{color:var(--aa-text-muted);font-size:0.85rem;text-align:center;padding:2.5rem 1rem;}
+        .aa-empty-state i{display:block;font-size:1.6rem;margin-bottom:0.6rem;color:var(--aa-border);}
+        .aa-perm-header{display:flex;align-items:center;gap:0.75rem;padding-bottom:0.9rem;border-bottom:1px solid var(--aa-border);margin-bottom:0.9rem;flex-wrap:wrap;}
+        .aa-perm-header .aa-avatar{width:44px;height:44px;font-size:0.95rem;}
+        .aa-perm-header-name{font-size:0.95rem;font-weight:700;color:var(--aa-text);}
+        .aa-perm-header-sub{font-size:0.75rem;color:var(--aa-text-muted);}
+        .aa-perm-actions{display:flex;gap:0.4rem;margin-left:auto;flex-wrap:wrap;}
+        .aa-link-btn{background:none;border:1px solid var(--aa-border);color:var(--aa-text-muted);font-size:0.72rem;padding:0.3rem 0.6rem;border-radius:6px;cursor:pointer;white-space:nowrap;}
+        .aa-link-btn:hover{border-color:var(--aa-accent);color:var(--aa-accent);}
+        .aa-category-block{margin-bottom:1rem;}
+        .aa-category-title{font-size:0.72rem;font-weight:700;color:var(--aa-text-muted);text-transform:uppercase;letter-spacing:0.03em;margin-bottom:0.5rem;}
+        .aa-module-row{display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:0.55rem 0;border-bottom:1px solid var(--aa-border);}
+        .aa-module-row:last-child{border-bottom:none;}
+        .aa-module-label{display:flex;align-items:center;gap:0.55rem;font-size:0.84rem;color:var(--aa-text);}
+        .aa-module-label i{color:var(--aa-accent);width:16px;text-align:center;}
+        .aa-switch{position:relative;display:inline-block;width:40px;height:22px;flex:0 0 auto;}
+        .aa-switch input{opacity:0;width:0;height:0;}
+        .aa-switch-slider{position:absolute;inset:0;background:#CBD5E1;border-radius:999px;cursor:pointer;transition:0.15s;}
+        .aa-switch-slider::before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:0.15s;box-shadow:0 1px 2px rgba(0,0,0,0.25);}
+        .aa-switch input:checked + .aa-switch-slider{background:var(--aa-accent);}
+        .aa-switch input:checked + .aa-switch-slider::before{transform:translateX(18px);}
+        .aa-switch input:disabled + .aa-switch-slider{cursor:not-allowed;opacity:0.5;}
+        .aa-perm-footer{display:flex;justify-content:space-between;align-items:center;gap:0.75rem;margin-top:1rem;padding-top:0.9rem;border-top:1px solid var(--aa-border);flex-wrap:wrap;}
+        .aa-dirty-indicator{font-size:0.75rem;color:#B45309;display:flex;align-items:center;gap:0.4rem;}
+        .aa-dirty-indicator i{color:#D97706;}
+        .aa-superadmin-card{text-align:center;padding:2rem 1rem;background:var(--aa-accent-soft);border-radius:10px;color:var(--aa-text);}
+        .aa-superadmin-card i{font-size:1.8rem;color:var(--aa-accent);margin-bottom:0.6rem;display:block;}
+
         /* ══════════════════════════════════════════════
            HOME REDESIGN (2026-07-28) — solo afecta #view-home. Ningun id,
            onclick, clase compartida (.card/.btn/.admin-only/.card-3647-only/
@@ -1577,7 +1650,7 @@
                     </button>
 
                     <!-- E: LPN Duplicados (ruta directa, sin cambios) -->
-                    <button type="button" class="hero-card hero-red card-3647-only" id="lpn-access-card" onclick="switchView('lpn')" style="position:relative;">
+                    <button type="button" class="hero-card hero-red card-3647-only mod-gated" data-module="lpn-duplicados" id="lpn-access-card" onclick="switchView('lpn')" style="position:relative;">
                         <span id="lpn-badge" style="display:none;position:absolute;top:0.75rem;right:0.75rem;z-index:1;background:#ef4444;color:#fff;font-size:0.7rem;font-weight:700;min-width:20px;height:20px;border-radius:10px;align-items:center;justify-content:center;padding:0 5px;">0</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -1627,7 +1700,7 @@
                     </button>
 
                     <!-- G: Centro Operativo API (exclusivo 3647, ruta directa) -->
-                    <button type="button" class="hero-card hero-blue card-3647-only" onclick="switchView('centro-operativo')" style="position:relative;">
+                    <button type="button" class="hero-card hero-blue card-3647-only mod-gated" data-module="centro-operativo" onclick="switchView('centro-operativo')" style="position:relative;">
                         <span style="position:absolute;top:0.75rem;right:0.75rem;z-index:1;background:#4f7cff;color:#fff;font-size:0.6rem;font-weight:800;letter-spacing:0.03em;padding:2px 7px;border-radius:8px;">NUEVO</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -1655,7 +1728,7 @@
                     </button>
 
                     <!-- H: Reporte Semanal de Produccion (exclusivo 3647) -->
-                    <button type="button" class="hero-card hero-teal card-3647-only" onclick="switchView('reporte-semanal')" style="position:relative;">
+                    <button type="button" class="hero-card hero-teal card-3647-only mod-gated" data-module="reporte-semanal" onclick="switchView('reporte-semanal')" style="position:relative;">
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="20" y="16" width="160" height="88" rx="8" fill="#0f1830" stroke="#2dd4bf" stroke-width="2"/>
@@ -1676,7 +1749,7 @@
                     </button>
 
                     <!-- I: Dashboard Destinos FFT (exclusivo 3647) -->
-                    <button type="button" class="hero-card hero-orange card-3647-only" onclick="switchView('dashboard-destinos-fft')" style="position:relative;">
+                    <button type="button" class="hero-card hero-orange card-3647-only mod-gated" data-module="dashboard-destinos-fft" onclick="switchView('dashboard-destinos-fft')" style="position:relative;">
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="20" y="16" width="160" height="88" rx="8" fill="#0f1830" stroke="#f59e0b" stroke-width="2"/>
@@ -1702,7 +1775,7 @@
                     </button>
 
                     <!-- J: Comparador de Pallets (exclusivo 3647) -->
-                    <button type="button" class="hero-card hero-purple card-3647-only" onclick="switchView('comparador-pallets')" style="position:relative;">
+                    <button type="button" class="hero-card hero-purple card-3647-only mod-gated" data-module="comparador-pallets" onclick="switchView('comparador-pallets')" style="position:relative;">
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <rect x="14" y="20" width="70" height="80" rx="8" fill="#0f1830" stroke="#a855f7" stroke-width="2"/>
@@ -1727,7 +1800,7 @@
                     <!-- K: Centro de Trazabilidad TAG (exclusivo 3647) — NUEVO, vista y
                          card propias (no reemplaza "Centro de Control de Pallets" /
                          Dashboard Destinos FFT, para no arriesgar ese modulo en produccion). -->
-                    <button type="button" class="hero-card hero-blue card-3647-only" onclick="switchView('trazabilidad-tag')" style="position:relative;">
+                    <button type="button" class="hero-card hero-blue card-3647-only mod-gated" data-module="trazabilidad-tag" onclick="switchView('trazabilidad-tag')" style="position:relative;">
                         <span style="position:absolute;top:0.75rem;right:0.75rem;z-index:1;background:#1E40AF;color:#fff;font-size:0.6rem;font-weight:800;letter-spacing:0.03em;padding:2px 7px;border-radius:8px;">NUEVO</span>
                         <div class="hero-illustration">
                             <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -2790,11 +2863,11 @@
         <div class="view" id="view-config">
             <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
             <div class="page-header" style="text-align:center;">
-                <h1 style="font-size:1.3rem;margin:0;"><i class="fa-solid fa-gear" style="color:var(--accent);margin-right:6px;"></i>Configuracion</h1>
-                <p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--text-muted);">Perfil, sesion y preferencias de la aplicacion</p>
+                <h1 style="font-size:1.3rem;margin:0;"><i class="fa-solid fa-gear" style="color:var(--accent);margin-right:6px;"></i>Configuración</h1>
+                <p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--text-muted);">Perfil, sesión, preferencias y permisos del sistema.</p>
             </div>
 
-            <div class="home-admin-grid" style="margin-top:1.25rem;">
+            <div class="config-cards-grid" style="margin-top:1.25rem;">
                 <!-- Perfil -->
                 <div class="card" style="padding:1.25rem;">
                     <div class="card-title" style="font-size:0.9rem;margin-bottom:0.9rem;"><i class="fa-solid fa-id-badge"></i> Perfil</div>
@@ -2816,11 +2889,11 @@
 
                 <!-- App / Acciones -->
                 <div class="card" style="padding:1.25rem;">
-                    <div class="card-title" style="font-size:0.9rem;margin-bottom:0.9rem;"><i class="fa-solid fa-circle-info"></i> Aplicacion</div>
+                    <div class="card-title" style="font-size:0.9rem;margin-bottom:0.9rem;"><i class="fa-solid fa-circle-info"></i> Aplicación</div>
                     <div class="config-row"><span>Version</span><strong id="cfg-version">3.0.0</strong></div>
                     <div class="config-row"><span>Conexion</span><strong id="cfg-online">-</strong></div>
                     <div id="cfg-admin-actions" style="display:none;border-top:1px solid var(--border);padding-top:0.75rem;margin-top:0.75rem;">
-                        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;">Acciones rapidas</div>
+                        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;">Accesos rápidos</div>
                         <button class="btn btn-secondary btn-sm" onclick="switchView('dashboard')" style="width:100%;margin-bottom:0.4rem;"><i class="fa-solid fa-chart-pie" style="margin-right:6px;"></i>Ir al Dashboard</button>
                         <button class="btn btn-secondary btn-sm" onclick="openEscaneadorasModule()" style="width:100%;margin-bottom:0.4rem;"><i class="fa-solid fa-users-gear" style="margin-right:6px;"></i>Gestionar escaneadoras</button>
                         <!-- Centro de Control: misma ruta de siempre (view-control), ahora se
@@ -2828,10 +2901,79 @@
                              (2026-07-28 v4). -->
                         <button class="btn btn-secondary btn-sm card-3647-only" onclick="switchView('control')" style="width:100%;"><i class="fa-solid fa-sliders" style="margin-right:6px;"></i>Centro de Control</button>
                     </div>
-                    <button class="btn btn-danger btn-sm" onclick="handleLogout()" style="width:100%;margin-top:0.75rem;"><i class="fa-solid fa-right-from-bracket" style="margin-right:6px;"></i>Cerrar sesion</button>
+                </div>
+
+                <!-- Seguridad (NUEVA): cambiar contraseña, indicador de sesion activa,
+                     y el boton de cerrar sesion que antes vivia en "Aplicación". -->
+                <div class="card" style="padding:1.25rem;">
+                    <div class="card-title" style="font-size:0.9rem;margin-bottom:0.9rem;"><i class="fa-solid fa-shield-halved"></i> Seguridad</div>
+                    <div class="config-row"><span>Sesión activa</span><strong id="cfg-session-status" style="color:var(--success);font-size:0.82rem;">Este dispositivo</strong></div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="toggleChangePasswordForm()" style="width:100%;margin-top:0.75rem;"><i class="fa-solid fa-key" style="margin-right:6px;"></i>Cambiar contraseña</button>
+                    <div id="change-password-form" style="display:none;margin-top:0.75rem;border-top:1px solid var(--border);padding-top:0.75rem;">
+                        <div class="form-group" style="margin-bottom:0.55rem;">
+                            <label style="font-size:0.7rem;color:var(--text-muted);">Contraseña actual</label>
+                            <input type="password" class="form-input" id="cp-current" style="padding:0.5rem 0.6rem;font-size:0.85rem;" autocomplete="current-password">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.55rem;">
+                            <label style="font-size:0.7rem;color:var(--text-muted);">Nueva contraseña (6 dígitos)</label>
+                            <input type="password" inputmode="numeric" maxlength="6" class="form-input" id="cp-new" style="padding:0.5rem 0.6rem;font-size:0.85rem;" autocomplete="new-password">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0.55rem;">
+                            <label style="font-size:0.7rem;color:var(--text-muted);">Confirmar nueva contraseña</label>
+                            <input type="password" inputmode="numeric" maxlength="6" class="form-input" id="cp-confirm" style="padding:0.5rem 0.6rem;font-size:0.85rem;" autocomplete="new-password">
+                        </div>
+                        <div id="cp-error" style="display:none;color:var(--danger);font-size:0.74rem;margin-bottom:0.5rem;"></div>
+                        <div style="display:flex;gap:0.5rem;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="toggleChangePasswordForm(false)" style="flex:1;justify-content:center;">Cancelar</button>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="submitChangePassword()" id="cp-submit-btn" style="flex:1;">Guardar</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-danger btn-sm" onclick="handleLogout()" style="width:100%;margin-top:0.75rem;"><i class="fa-solid fa-right-from-bracket" style="margin-right:6px;"></i>Cerrar sesión</button>
                 </div>
             </div>
+
+            <!-- Administración de accesos: SOLO se inyecta en el DOM si
+                 currentUser.usuario === '3647' (ver renderAdminAccessSection() en
+                 el script) -- el <template> de abajo nunca es parte del arbol
+                 vivo del documento hasta que se clona, asi que para cualquier
+                 otro usuario esta seccion simplemente no existe en el DOM. El
+                 backend protege los mismos endpoints por separado (superAdminOnly
+                 en /api/admin/users*), asi que esto es una segunda capa, no la unica. -->
+            <div id="admin-access-container" style="margin-top:1.5rem;"></div>
+
+            <template id="tpl-admin-access">
+                <div id="admin-access-panel" class="aa-panel">
+                    <div class="aa-header">
+                        <div class="aa-header-title"><i class="fa-solid fa-shield-halved"></i> Administración de accesos</div>
+                        <span class="aa-badge">Solo administrador 3647</span>
+                    </div>
+                    <div class="aa-body">
+                        <div class="aa-col aa-col-users">
+                            <div class="aa-col-title">Usuarios</div>
+                            <input type="text" class="aa-search" id="aa-user-search" placeholder="Buscar por nombre o usuario..." oninput="renderAaUserList()">
+                            <div class="aa-user-list" id="aa-user-list"></div>
+                        </div>
+                        <div class="aa-col aa-col-perms" id="aa-perms-col">
+                            <div class="aa-empty-state"><i class="fa-solid fa-hand-pointer"></i> Selecciona un usuario de la lista para ver y editar sus permisos.</div>
+                        </div>
+                    </div>
+                </div>
+            </template>
         </div><!-- /view-config -->
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: ACCESO RESTRINGIDO (nivel 2 de proteccion de navegacion:  -->
+        <!-- se muestra en vez de la vista real si alguien fuerza a mano un -->
+        <!-- switchView('modulo-sin-permiso'), ver showRestrictedAccess())  -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-restricted">
+            <div style="max-width:420px;margin:4rem auto 0;text-align:center;">
+                <div style="font-size:3rem;color:var(--danger);margin-bottom:1rem;"><i class="fa-solid fa-lock"></i></div>
+                <h1 style="font-size:1.3rem;margin:0 0 0.5rem;">Acceso restringido</h1>
+                <p style="font-size:0.88rem;color:var(--text-muted);margin:0 0 1.5rem;">No tienes permiso para ver este módulo. Si crees que deberías tener acceso, contacta al administrador.</p>
+                <button type="button" class="btn btn-primary" onclick="switchView('home')"><i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i>Volver al inicio</button>
+            </div>
+        </div><!-- /view-restricted -->
 
         <!-- ══════════════════════════════════════ -->
         <!-- VIEW: CENTRO DE CONTROL (solo 3647)    -->
@@ -4303,19 +4445,28 @@ let currentUser = null;
 let authToken = localStorage.getItem('mitech_token');
 let chartAudit = null;
 
-// Permisos por modulo — debe reflejar exactamente ROLE_MODULES en api/index.js
-const ROLE_MODULES = {
-    admin: ['dashboard', 'escaneadoras'],
-    lider: ['dashboard', 'escaneadoras'],
-    escaneadora: ['escaneadoras'],
-    viewer: ['dashboard'],
+// Catalogo de modulos (espejo minimo del real en api/services/permissions.js —
+// usado SOLO como fallback offline/degradado; en linea, currentUser.modules
+// (calculado por el backend con el catalogo completo de 11 modulos) es la
+// fuente de verdad real, ver hasModule()).
+const ROLE_MODULES_FALLBACK = {
+    admin: ['dashboard', 'escaneadoras', 'config', 'operaciones'],
+    lider: ['dashboard', 'escaneadoras', 'config'],
+    escaneadora: ['escaneadoras', 'resumen', 'config'],
+    viewer: ['dashboard', 'config'],
 };
 function hasModule(m) {
     if (!currentUser) return false;
-    // El 3647 nunca debe depender de modulosCustom (mismo criterio que
-    // getUserModules() en api/index.js) — es superusuario en todo lo demas.
-    if (String(currentUser.usuario) === '3647') return ['dashboard', 'escaneadoras'].includes(m);
-    const mods = Array.isArray(currentUser.modulosCustom) ? currentUser.modulosCustom : (ROLE_MODULES[currentUser.role] || []);
+    // El 3647 nunca debe depender de modulosCustom ni de datos cacheados —
+    // es superusuario en TODOS los modulos, siempre.
+    if (String(currentUser.usuario) === '3647') return true;
+    // Fuente de verdad: el arreglo `modules` que ahora manda el backend
+    // (login/nfc/auth-me), calculado sobre el catalogo completo de 11 modulos
+    // via getUserModules(). Si por alguna razon no esta presente (sesion
+    // vieja cacheada, o el fallback offline de checkSession()), se usa un
+    // mapa local reducido para no dejar a nadie sin absolutamente nada.
+    if (Array.isArray(currentUser.modules)) return currentUser.modules.includes(m);
+    const mods = Array.isArray(currentUser.modulosCustom) ? currentUser.modulosCustom : (ROLE_MODULES_FALLBACK[currentUser.role] || []);
     return mods.includes(m);
 }
 
@@ -4552,12 +4703,24 @@ function enterApp() {
         document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('visible'));
     }
 
-    // Cards exclusivas del admin 3647 (Centro de Control, gestion de pedidos, etc.)
+    // Cards exclusivas del admin 3647 SIN modulo propio en el catalogo (Centro
+    // de Control, gestion de pedidos, marcas/pulgadas TV en Dashboard, etc.) —
+    // siguen 100% hardcoded a usuario 3647.
     if (String(currentUser.usuario) === '3647') {
         document.querySelectorAll('.card-3647-only').forEach(el => el.classList.add('visible'));
     } else {
         document.querySelectorAll('.card-3647-only').forEach(el => el.classList.remove('visible'));
     }
+    // Cards de los 6 modulos que SI tienen su propio id en el catalogo
+    // (lpn-duplicados, centro-operativo, reporte-semanal, dashboard-destinos-fft,
+    // comparador-pallets, trazabilidad-tag): la visibilidad real depende de
+    // hasModule(), NO solo de ser 3647 -- esto es lo que permite que 3647
+    // otorgue uno de estos modulos a otro usuario via el panel de permisos y
+    // esa persona vea la card en su home. Se aplica DESPUES del bloque de
+    // arriba para sobreescribir el valor por-defecto en estos 6 casos puntuales.
+    document.querySelectorAll('.mod-gated[data-module]').forEach(el => {
+        el.classList.toggle('visible', hasModule(el.dataset.module));
+    });
 
     // Tema claro/oscuro: disponible para todos los usuarios
     applyTheme();
@@ -5447,26 +5610,53 @@ function returnToAdmin() {
 // NAVIGATION
 // ══════════════════════════════════════════════
 
+// Vista -> modulo del catalogo que la protege (ver MODULES en
+// api/services/permissions.js). Las sub-vistas de detalle heredan el permiso
+// de su modulo padre. 'control'/'monitor' NO estan aqui a proposito: son
+// paneles legados fuera del catalogo, siguen exclusivos de usuario 3647 sin
+// pasar por modulosCustom (ver switchView).
+const VIEW_MODULE_MAP = {
+    dashboard: 'dashboard',
+    escaneadoras: 'escaneadoras',
+    resumen: 'resumen',
+    operaciones: 'operaciones',
+    lpn: 'lpn-duplicados',
+    'centro-operativo': 'centro-operativo',
+    'reporte-semanal': 'reporte-semanal',
+    'dashboard-destinos-fft': 'dashboard-destinos-fft',
+    'fft-area-detalle': 'dashboard-destinos-fft',
+    'fft-bin-detalle': 'dashboard-destinos-fft',
+    'comparador-pallets': 'comparador-pallets',
+    'trazabilidad-tag': 'trazabilidad-tag',
+};
+
+// Nivel 2 de proteccion de navegacion (nivel 1 = cards ocultas en home, nivel
+// 3 = backend): si alguien fuerza switchView('modulo-sin-permiso') a mano
+// (consola, hash manual), se muestra esta pantalla en vez de la vista real.
+function showRestrictedAccess() {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const v = document.getElementById('view-restricted');
+    if (v) v.classList.add('active');
+    const topbar = document.querySelector('.topbar');
+    if (topbar) topbar.style.display = '';
+    stopPolling();
+}
+
 function switchView(viewName) {
-    // Permisos por modulo
-    if (viewName === 'dashboard' && !hasModule('dashboard')) {
-        showToast('Acceso denegado: no tienes permiso para ver este modulo.', 'error');
-        switchView('home');
-        return;
-    }
-    if ((viewName === 'escaneadoras' || viewName === 'resumen') && !hasModule('escaneadoras')) {
-        showToast('Acceso denegado: no tienes permiso para ver este modulo.', 'error');
-        switchView('home');
+    // Centro de Control y Monitor en Vivo: paneles legados FUERA del catalogo
+    // de modulos (no tienen id propio, no son overridables via modulosCustom)
+    // — exclusivos del administrador 3647, sin cambios.
+    if ((viewName === 'control' || viewName === 'monitor') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
+
+    // Permisos por modulo (catalogo central, ver VIEW_MODULE_MAP arriba).
+    const requiredModule = VIEW_MODULE_MAP[viewName];
+    if (requiredModule && !hasModule(requiredModule)) {
+        showRestrictedAccess();
         return;
     }
     // Usuarios con dashboard pero sin escaneadoras (ej. viewer): limitados a dashboard/config
     // Los administradores (y siempre 3647) quedan exentos: nunca deben perder acceso a "inicio" o al Centro de Control.
     if (currentUser && currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras') && viewName !== 'dashboard' && viewName !== 'config') { switchView('dashboard'); return; }
-    // Centro de Control, Monitor en Vivo y LPN Duplicados: exclusivos del administrador 3647
-    if ((viewName === 'control' || viewName === 'monitor' || viewName === 'lpn' || viewName === 'centro-operativo' || viewName === 'reporte-semanal' || viewName === 'dashboard-destinos-fft' || viewName === 'fft-area-detalle' || viewName === 'fft-bin-detalle' || viewName === 'comparador-pallets' || viewName === 'trazabilidad-tag') && (!currentUser || String(currentUser.usuario) !== '3647')) { switchView('home'); return; }
-    // Operaciones y Pedidos (Retrabajo + Gestionar Pedidos): cualquier admin.
-    // La pestaña "Gestionar Pedidos" adentro sigue siendo exclusiva de 3647.
-    if (viewName === 'operaciones' && (!currentUser || currentUser.role !== 'admin')) { switchView('home'); return; }
     // Save current view for restore on refresh
     sessionStorage.setItem('mitech_view', viewName);
 
@@ -5537,6 +5727,248 @@ function loadConfig() {
 
     const adminActions = document.getElementById('cfg-admin-actions');
     if (adminActions) adminActions.style.display = currentUser.role === 'admin' ? '' : 'none';
+
+    // Seguridad: cerrar el formulario de cambio de password cada vez que se
+    // entra a Configuracion (nunca dejarlo abierto con datos de una visita anterior).
+    toggleChangePasswordForm(false);
+
+    renderAdminAccessSection();
+}
+
+/* ══════════════════════════════════════════════
+   SEGURIDAD — cambio de password autoservicio
+   ══════════════════════════════════════════════ */
+function toggleChangePasswordForm(show) {
+    const form = document.getElementById('change-password-form');
+    if (!form) return;
+    const willShow = show === undefined ? form.style.display === 'none' : !!show;
+    form.style.display = willShow ? 'block' : 'none';
+    if (!willShow) {
+        ['cp-current', 'cp-new', 'cp-confirm'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        const err = document.getElementById('cp-error');
+        if (err) { err.style.display = 'none'; err.textContent = ''; }
+    }
+}
+
+async function submitChangePassword() {
+    const currentPassword = document.getElementById('cp-current').value;
+    const newPassword = document.getElementById('cp-new').value.trim();
+    const confirmPassword = document.getElementById('cp-confirm').value.trim();
+    const errEl = document.getElementById('cp-error');
+    const showErr = (msg) => { errEl.textContent = msg; errEl.style.display = 'block'; };
+    errEl.style.display = 'none';
+
+    if (!currentPassword) { showErr('Ingresa tu contraseña actual.'); return; }
+    if (!/^\d{6}$/.test(newPassword)) { showErr('La nueva contraseña debe ser exactamente 6 dígitos.'); return; }
+    if (newPassword !== confirmPassword) { showErr('La confirmación no coincide con la nueva contraseña.'); return; }
+
+    const btn = document.getElementById('cp-submit-btn');
+    btn.disabled = true;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    try {
+        const data = await apiFetch(`${API}/api/auth/change-password`, {
+            method: 'PUT',
+            body: JSON.stringify({ currentPassword, newPassword }),
+        });
+        if (!data.success) throw new Error(data.error);
+        showToast('Contraseña actualizada correctamente', 'success');
+        toggleChangePasswordForm(false);
+    } catch (e) {
+        showErr(e.message || 'No se pudo cambiar la contraseña.');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+}
+
+/* ══════════════════════════════════════════════
+   ADMINISTRACION DE ACCESOS (solo usuario 3647) — panel dentro de
+   Configuracion. Consume /api/admin/users* (nuevos, superAdminOnly en el
+   backend). El <template id="tpl-admin-access"> nunca es parte del DOM vivo
+   hasta que se clona aqui -- para cualquier usuario que no sea 3647,
+   #admin-access-container se deja vacio y esta seccion simplemente no existe
+   en la pagina (doble capa junto con la proteccion del backend).
+   ══════════════════════════════════════════════ */
+let aaUsers = [];               // cache de GET /api/admin/users
+let aaSelectedUserId = null;
+let aaCurrentPermData = null;   // ultima respuesta de GET /api/admin/users/:id/permissions (para Cancelar sin refetch)
+
+function renderAdminAccessSection() {
+    const container = document.getElementById('admin-access-container');
+    if (!container) return;
+    if (!currentUser || String(currentUser.usuario) !== '3647') {
+        container.innerHTML = '';
+        return;
+    }
+    if (!document.getElementById('admin-access-panel')) {
+        const tpl = document.getElementById('tpl-admin-access');
+        container.innerHTML = '';
+        container.appendChild(tpl.content.cloneNode(true));
+    }
+    loadAaUsers();
+}
+
+function aaInitials(nombre) {
+    const parts = String(nombre || '?').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+}
+
+async function loadAaUsers() {
+    const list = document.getElementById('aa-user-list');
+    if (!list) return;
+    list.innerHTML = '<div class="aa-empty-state" style="padding:1rem;">Cargando...</div>';
+    try {
+        const data = await apiFetch(`${API}/api/admin/users`);
+        if (!data.success) throw new Error(data.error);
+        aaUsers = data.data;
+        renderAaUserList();
+    } catch (e) {
+        list.innerHTML = `<div class="aa-empty-state" style="color:var(--aa-danger);padding:1rem;">${ctrlEsc(e.message)}</div>`;
+    }
+}
+
+function renderAaUserList() {
+    const list = document.getElementById('aa-user-list');
+    if (!list) return;
+    const q = (document.getElementById('aa-user-search')?.value || '').trim().toLowerCase();
+    const filtered = aaUsers.filter(u => !q || u.nombre.toLowerCase().includes(q) || u.usuario.toLowerCase().includes(q));
+    if (!filtered.length) { list.innerHTML = '<div class="aa-empty-state" style="padding:1rem;">Sin resultados.</div>'; return; }
+    const roleLabels = { admin: 'Admin', lider: 'Líder', escaneadora: 'Escaneadora', viewer: 'Dashboard' };
+    list.innerHTML = filtered.map(u => `
+        <button type="button" class="aa-user-row ${u.id === aaSelectedUserId ? 'active' : ''} ${u.isActive ? '' : 'inactive'}" onclick="selectAaUser('${u.id}')">
+            <span class="aa-avatar ${u.isSuperadmin ? 'super' : ''}">${aaInitials(u.nombre)}</span>
+            <span class="aa-user-meta">
+                <span class="aa-user-name">${ctrlEsc(u.nombre)}</span>
+                <span class="aa-user-sub">${ctrlEsc(u.usuario)} <span class="aa-role-chip">${roleLabels[u.role] || u.role}</span>${u.isActive ? '' : ' · inactivo'}</span>
+            </span>
+        </button>
+    `).join('');
+}
+
+async function selectAaUser(id) {
+    aaSelectedUserId = id;
+    renderAaUserList();
+    const col = document.getElementById('aa-perms-col');
+    col.innerHTML = '<div class="aa-empty-state">Cargando permisos...</div>';
+    try {
+        const data = await apiFetch(`${API}/api/admin/users/${id}/permissions`);
+        if (!data.success) throw new Error(data.error);
+        aaCurrentPermData = data.data;
+        renderAaPermPanel(data.data);
+    } catch (e) {
+        col.innerHTML = `<div class="aa-empty-state" style="color:var(--aa-danger);">${ctrlEsc(e.message)}</div>`;
+    }
+}
+
+function renderAaPermPanel(data) {
+    const col = document.getElementById('aa-perms-col');
+    const roleLabels = { admin: 'Administrador', lider: 'Líder', escaneadora: 'Escaneadora', viewer: 'Dashboard' };
+    const header = `
+        <div class="aa-perm-header">
+            <span class="aa-avatar ${data.isSuperadmin ? 'super' : ''}" style="width:44px;height:44px;font-size:0.95rem;">${aaInitials(data.nombre)}</span>
+            <div>
+                <div class="aa-perm-header-name">${ctrlEsc(data.nombre)}</div>
+                <div class="aa-perm-header-sub">${ctrlEsc(data.usuario)} · ${roleLabels[data.role] || data.role} · ${data.isActive ? 'Activo' : 'Inactivo'}</div>
+            </div>
+        </div>`;
+
+    if (data.isSuperadmin) {
+        col.innerHTML = header + `
+            <div class="aa-superadmin-card">
+                <i class="fa-solid fa-lock"></i>
+                <div style="font-weight:700;margin-bottom:0.3rem;">Superadministrador protegido</div>
+                <div style="font-size:0.82rem;color:var(--aa-text-muted);">El usuario 3647 siempre tiene acceso total a todos los módulos.<br>Sus permisos no pueden editarse desde este panel.</div>
+            </div>`;
+        return;
+    }
+
+    const byCategory = {};
+    data.modules.forEach(m => { (byCategory[m.category] = byCategory[m.category] || []).push(m); });
+    const categoriesHtml = Object.keys(byCategory).map(cat => `
+        <div class="aa-category-block">
+            <div class="aa-category-title">${ctrlEsc(cat)}</div>
+            ${byCategory[cat].map(m => `
+                <div class="aa-module-row">
+                    <span class="aa-module-label"><i class="fa-solid ${m.icon || 'fa-cube'}"></i> ${ctrlEsc(m.name)}</span>
+                    <label class="aa-switch">
+                        <input type="checkbox" data-aa-mod="${m.id}" ${m.enabled ? 'checked' : ''} ${m.toggleable ? '' : 'disabled'} onchange="aaMarkDirty()">
+                        <span class="aa-switch-slider"></span>
+                    </label>
+                </div>
+            `).join('')}
+        </div>
+    `).join('');
+
+    const sourceLabel = { 'role-default': 'usando el default de su rol', 'custom': 'con permisos personalizados' }[data.permissionSource] || '';
+
+    col.innerHTML = header + `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.7rem;flex-wrap:wrap;gap:0.5rem;">
+            <span style="font-size:0.74rem;color:var(--aa-text-muted);">${sourceLabel}</span>
+            <div class="aa-perm-actions">
+                <button type="button" class="aa-link-btn" onclick="aaSetAll(true)">Seleccionar todos</button>
+                <button type="button" class="aa-link-btn" onclick="aaSetAll(false)">Quitar todos</button>
+                <button type="button" class="aa-link-btn" onclick="aaRestoreDefaults('${data.id}')"><i class="fa-solid fa-rotate-left"></i> Restaurar perfil</button>
+            </div>
+        </div>
+        ${categoriesHtml}
+        <div class="aa-perm-footer">
+            <span class="aa-dirty-indicator" id="aa-dirty-indicator" style="display:none;"><i class="fa-solid fa-circle-exclamation"></i> Cambios sin guardar</span>
+            <div style="display:flex;gap:0.5rem;margin-left:auto;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="aaCancelEdits()">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm" id="aa-save-btn" onclick="aaSavePermissions('${data.id}')">Guardar cambios</button>
+            </div>
+        </div>`;
+}
+
+function aaModuleSwitches() {
+    return Array.from(document.querySelectorAll('#aa-perms-col input[data-aa-mod]'));
+}
+
+function aaMarkDirty() {
+    if (!aaCurrentPermData) return;
+    const original = new Set(aaCurrentPermData.modules.filter(m => m.enabled).map(m => m.id));
+    const current = new Set(aaModuleSwitches().filter(c => c.checked).map(c => c.dataset.aaMod));
+    const dirty = original.size !== current.size || [...original].some(id => !current.has(id));
+    const ind = document.getElementById('aa-dirty-indicator');
+    if (ind) ind.style.display = dirty ? '' : 'none';
+}
+
+function aaSetAll(enabled) {
+    aaModuleSwitches().forEach(c => { if (!c.disabled) c.checked = enabled; });
+    aaMarkDirty();
+}
+
+function aaCancelEdits() {
+    if (aaCurrentPermData) renderAaPermPanel(aaCurrentPermData);
+}
+
+async function aaRestoreDefaults(id) {
+    try {
+        const data = await apiFetch(`${API}/api/admin/users/${id}/permissions`, { method: 'PUT', body: JSON.stringify({ modules: null }) });
+        if (!data.success) throw new Error(data.error);
+        showToast('Permisos restablecidos al default de su rol', 'success');
+        selectAaUser(id);
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function aaSavePermissions(id) {
+    const modules = aaModuleSwitches().filter(c => c.checked).map(c => c.dataset.aaMod);
+    const btn = document.getElementById('aa-save-btn');
+    btn.disabled = true;
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    try {
+        const data = await apiFetch(`${API}/api/admin/users/${id}/permissions`, { method: 'PUT', body: JSON.stringify({ modules }) });
+        if (!data.success) throw new Error(data.error);
+        showToast('Permisos guardados correctamente', 'success');
+        selectAaUser(id);
+    } catch (e) {
+        showToast(e.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = original;
+    }
 }
 
 function setDefaultDate() {
@@ -6579,6 +7011,11 @@ function setOperacionesTab(tab) {
 
 // ── Escaneadoras: menu -> ruta directa (no-admin) o hub modal (admin) ──
 function openEscaneadorasModule() {
+    // Defensivo: un admin con modulosCustom que explicitamente le quito
+    // 'escaneadoras' (caso raro, pero posible desde el panel de permisos)
+    // tampoco debe poder abrir el hub. switchView('escaneadoras') ya valida
+    // el permiso (VIEW_MODULE_MAP) y muestra "Acceso restringido" si no lo tiene.
+    if (!hasModule('escaneadoras')) { switchView('escaneadoras'); return; }
     if (currentUser && currentUser.role === 'admin') {
         document.getElementById('esc-hub-modal').style.display = 'block';
         document.body.style.overflow = 'hidden';
