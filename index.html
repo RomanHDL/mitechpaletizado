@@ -1142,6 +1142,77 @@
             }
             .pc-acciones{justify-content:flex-end;}
         }
+        .pedidos-row.selected:not(.pedidos-row-head){border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow);}
+        .pedido-nombre-clickable{cursor:pointer;}
+        .pedidos-pager{display:flex;justify-content:center;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;}
+        .pedidos-pager-label{font-size:0.76rem;color:var(--text-muted);}
+
+        /* ── Operaciones y Pedidos: rediseno visual (2026-08-28). Reutiliza
+           variables de tema, .card/.btn*/.form-input, coSkeleton y el patron ya
+           probado de .fft-kpi (icono+valor+delta) pero con vars globales (no las
+           fft-* que fuerzan tema claro) para que respete el toggle oscuro/claro. ── */
+        .ops-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem;}
+        .ops-header-actions{display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;}
+        @media (max-width:640px){
+            .ops-header{justify-content:center;text-align:center;}
+            .ops-header-actions{justify-content:center;width:100%;}
+        }
+        .ops-date-input{width:130px;padding:0.45rem 0.6rem;font-size:0.82rem;}
+        .ops-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem;}
+        @media (max-width:1100px){.ops-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+        @media (max-width:480px){.ops-kpi-grid{grid-template-columns:minmax(0,1fr);}}
+        .ops-kpi{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.25rem;display:flex;flex-direction:column;gap:0.5rem;min-height:104px;box-sizing:border-box;}
+        .ops-kpi-top{display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;}
+        .ops-kpi-icon{width:34px;height:34px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;}
+        .ops-kpi-label{font-size:0.74rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.02em;}
+        .ops-kpi-value{font-size:1.7rem;font-weight:800;line-height:1;color:var(--text-main);}
+        .ops-kpi-delta{font-size:0.75rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;}
+        .ops-kpi-delta.up{color:var(--success);}
+        .ops-kpi-delta.down{color:var(--danger);}
+        .ops-kpi-delta.neutral{color:var(--text-muted);font-weight:600;}
+        .ops-kpi.skeleton .ops-kpi-value{background:var(--inset-bg);color:transparent;border-radius:4px;animation:coSkeleton 1.2s ease-in-out infinite;}
+        .ops-kpi.skeleton .ops-kpi-delta{background:var(--inset-bg);color:transparent;border-radius:4px;animation:coSkeleton 1.2s ease-in-out infinite;width:80px;}
+        .ops-kpi-error{grid-column:1/-1;padding:0.9rem 1.1rem;border:1px dashed var(--border);border-radius:10px;color:var(--text-muted);font-size:0.85rem;text-align:center;}
+
+        .ops-split{display:grid;grid-template-columns:3fr 1fr;gap:1.1rem;align-items:start;}
+        @media (max-width:1100px){.ops-split{grid-template-columns:minmax(0,1fr);}}
+        .ops-split-main{display:flex;flex-direction:column;gap:1rem;min-width:0;}
+        .ops-split-aside{display:flex;flex-direction:column;gap:1rem;min-width:0;}
+
+        .ops-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.75rem;margin-bottom:0.25rem;}
+        .ops-summary-tile{background:var(--inset-bg);border:1px solid var(--border);border-radius:10px;padding:0.75rem 0.9rem;}
+        .ops-summary-tile .ops-summary-label{font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.02em;font-weight:700;}
+        .ops-summary-tile .ops-summary-value{font-size:1.25rem;font-weight:800;color:var(--text-main);margin-top:0.2rem;}
+        .ops-summary-tile .ops-summary-sub{font-size:0.7rem;color:var(--text-muted);margin-top:0.15rem;}
+
+        .ops-toolbar-filters{display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;}
+        .ops-filter-select{padding:0.45rem 0.6rem;font-size:0.82rem;width:auto;min-width:130px;}
+
+        .ops-detail-empty{padding:1rem 0.25rem;color:var(--text-muted);font-size:0.82rem;text-align:center;}
+        .ops-detail-head{display:flex;align-items:center;gap:0.6rem;margin-bottom:0.75rem;}
+        .ops-detail-swatch{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);flex-shrink:0;}
+        .ops-detail-name{font-weight:700;font-size:0.95rem;color:var(--text-main);word-break:break-word;}
+
+        .ops-recent-item{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.1rem;border-bottom:1px solid var(--border);}
+        .ops-recent-item:last-child{border-bottom:none;}
+        .ops-recent-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+        .ops-recent-name{font-size:0.85rem;font-weight:600;color:var(--text-main);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .ops-recent-time{font-size:0.7rem;color:var(--text-muted);white-space:nowrap;}
+        .ops-recent-empty{padding:0.75rem 0.25rem;color:var(--text-muted);font-size:0.8rem;text-align:center;}
+
+        /* ── Componente generico de confirmacion (reemplaza confirm() nativo en
+           acciones destructivas/importantes). Sin libreria nueva, mismo patron
+           overlay+panel que .kpi-modal-overlay ya usado en el proyecto. Pensado
+           para ser reutilizado por otros modulos via showConfirmDialog(). ── */
+        .confirm-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:2600;justify-content:center;align-items:center;padding:1rem;}
+        .confirm-modal-overlay.open{display:flex;}
+        .confirm-modal{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;width:100%;max-width:400px;padding:1.5rem;box-shadow:0 20px 60px rgba(0,0,0,0.5);text-align:center;}
+        .confirm-modal-icon{width:48px;height:48px;border-radius:50%;background:rgba(239,68,68,0.12);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:1.3rem;margin:0 auto 0.85rem;}
+        .confirm-modal-icon.info{background:var(--accent-glow);color:var(--accent);}
+        .confirm-modal h3{font-size:1.05rem;margin-bottom:0.5rem;color:var(--text-main);}
+        .confirm-modal p{font-size:0.85rem;color:var(--text-muted);margin-bottom:1.25rem;white-space:pre-line;}
+        .confirm-modal-actions{display:flex;gap:0.6rem;justify-content:center;}
+        .confirm-modal-actions .btn{flex:1;justify-content:center;}
 
         /* ── Reporte Semanal de Produccion (admin 3647 only). Reutiliza variables
            CSS globales, .card/.btn*/.badge*, .co-pallet-modal-* (detalle de
@@ -3208,19 +3279,32 @@
 
         <!-- ══════════════════════════════════════ -->
         <!-- VIEW: OPERACIONES Y PEDIDOS (admin)     -->
-        <!-- Retrabajo de Pallet + Gestionar Pedidos, exactamente el mismo -->
-        <!-- HTML/ids/handlers que antes vivian en la card de la homepage -->
-        <!-- (2026-07-28 v4) — ahora con pestañas propias (.ops-tab/.ops-panel, -->
-        <!-- clases NUEVAS y no .ctrl-tab/.ctrl-panel a proposito: setControlTab() -->
-        <!-- hace querySelectorAll('.ctrl-panel') GLOBAL, reusar esa clase aqui -->
-        <!-- rompería/seria roto por Centro de Control). -->
+        <!-- Retrabajo de Pallet + Gestionar Pedidos.                        -->
+        <!-- (2026-08-28 v5 — rediseno VISUAL: KPIs reales via                -->
+        <!-- GET /api/operaciones/kpis (nuevo, solo lectura), panel lateral   -->
+        <!-- 75/25 en "Gestionar Pedidos", filtro por tipo + paginacion       -->
+        <!-- cliente-side, confirmaciones con el componente generico          -->
+        <!-- showConfirmDialog(). Misma logica/endpoints de negocio de antes: -->
+        <!-- buscarRetrabajo/crearRetrabajo y CRUD de /api/clasificaciones no  -->
+        <!-- cambiaron. Pestañas siguen usando .ops-tab/.ops-panel a proposito -->
+        <!-- (setControlTab() hace querySelectorAll('.ctrl-panel') GLOBAL,    -->
+        <!-- reusar esa clase aqui rompería/seria roto por Centro de Control). -->
         <!-- ══════════════════════════════════════ -->
         <div class="view" id="view-operaciones">
             <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
-            <div class="page-header" style="text-align:center;">
-                <h1 style="font-size:1.3rem;margin:0;"><i class="fa-solid fa-boxes-packing" style="color:#0d9488;margin-right:6px;"></i>Operaciones y Pedidos</h1>
-                <p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--text-muted);">Retrabajo de pallets y gestion de pedidos</p>
+            <div class="page-header ops-header">
+                <div>
+                    <h1 style="font-size:1.3rem;margin:0;"><i class="fa-solid fa-boxes-packing" style="color:#0d9488;margin-right:6px;"></i>Operaciones y Pedidos</h1>
+                    <p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--text-muted);">Retrabajo de pallets y gestion de pedidos del sistema de paletizado FFT.</p>
+                </div>
+                <div class="ops-header-actions">
+                    <input type="text" class="form-input ops-date-input" id="ops-kpi-fecha" placeholder="Fecha" title="Dia para el KPI 'Retrabajos hoy' (por defecto, hoy)" autocomplete="off">
+                    <button class="btn btn-secondary btn-sm" onclick="loadOperacionesKpis()" title="Actualizar KPIs" aria-label="Actualizar KPIs"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                </div>
             </div>
+
+            <!-- KPIs reales: GET /api/operaciones/kpis (nuevo, roleGuard admin, solo lectura) -->
+            <div class="ops-kpi-grid" id="ops-kpi-grid"></div>
 
             <div class="ctrl-tabs" id="operaciones-tabs">
                 <button class="ctrl-tab ops-tab active" data-tab="retrabajo" onclick="setOperacionesTab('retrabajo')"><i class="fa-solid fa-copy"></i> Retrabajo de Pallet</button>
@@ -3232,8 +3316,8 @@
                 <div class="card" id="retrabajo-panel">
                     <div class="card-title" style="font-size:0.9rem;"><i class="fa-solid fa-copy" style="color:#22c55e;"></i> Retrabajo de Pallet</div>
                     <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.9rem;">Busca un pallet de dias anteriores y crealo como retrabajo para hoy. El original no se modifica.</p>
-                    <div style="display:flex;gap:0.5rem;align-items:center;max-width:420px;">
-                        <input type="text" class="form-input" id="retrabajo-search" placeholder="Pallet ID (6 digitos)" inputmode="numeric" maxlength="6" oninput="this.value=this.value.replace(/\D/g,'')">
+                    <div style="display:flex;gap:0.5rem;align-items:center;max-width:420px;flex-wrap:wrap;">
+                        <input type="text" class="form-input" id="retrabajo-search" placeholder="Pallet ID (6 digitos)" inputmode="numeric" maxlength="6" oninput="this.value=this.value.replace(/\D/g,'')" onkeydown="if(event.key==='Enter')buscarRetrabajo();" aria-label="Pallet ID a buscar">
                         <button class="btn btn-primary btn-sm" onclick="buscarRetrabajo()" style="white-space:nowrap;"><i class="fa-solid fa-search" style="margin-right:4px;"></i> Buscar</button>
                     </div>
                     <div id="retrabajo-result" style="margin-top:0.75rem;"></div>
@@ -3244,45 +3328,84 @@
                  boton de la pestaña de arriba, que es card-3647-only; este div
                  NO lleva esa clase para no pelear con .ops-panel.active) -->
             <div class="ops-panel" id="ops-panel-pedidos">
-                <div class="card" id="pedidos-mgmt-panel">
-                    <div class="card-title" style="font-size:0.9rem;"><i class="fa-solid fa-tags" style="color:#0d9488;"></i> Gestionar Pedidos</div>
-                    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">Crea o renombra los pedidos que aparecen en la clasificacion del formulario. Renombrar actualiza todos los registros existentes.</p>
-
-                    <!-- Barra de herramientas: buscador + contador + nuevo pedido -->
-                    <div class="pedidos-toolbar">
-                        <div class="pedidos-search-box">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" id="pedidos-search" placeholder="Buscar pedido..." oninput="filterPedidosAdmin()">
-                            <button type="button" class="pedidos-search-clear" id="pedidos-search-clear" onclick="clearPedidosSearch()" title="Limpiar busqueda" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+                <div class="ops-split">
+                    <div class="ops-split-main">
+                        <!-- Resumen: calculado en cliente desde clasificacionesData +
+                             pedidosCounts (ambos ya cargados via los endpoints existentes
+                             GET /api/clasificaciones y GET /api/clasificaciones/counts) —
+                             independiente del endpoint nuevo de KPIs de arriba. -->
+                        <div class="card" id="pedidos-summary-panel">
+                            <div class="card-title" style="font-size:0.85rem;"><i class="fa-solid fa-chart-simple"></i> Resumen de pedidos</div>
+                            <div class="ops-summary-grid" id="pedidos-summary-grid"></div>
                         </div>
-                        <div class="pedidos-toolbar-right">
-                            <span class="pedidos-count-label" id="pedidos-count-label">0 pedidos registrados</span>
-                            <button class="btn btn-primary btn-sm" onclick="toggleNuevoPedidoForm()"><i class="fa-solid fa-plus"></i> Nuevo pedido</button>
+
+                        <div class="card" id="pedidos-mgmt-panel">
+                            <div class="card-title" style="font-size:0.9rem;"><i class="fa-solid fa-tags" style="color:#0d9488;"></i> Listado de pedidos</div>
+                            <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">Crea o renombra los pedidos que aparecen en la clasificacion del formulario. Renombrar actualiza todos los registros existentes.</p>
+
+                            <!-- Barra de herramientas: buscador + filtro tipo + contador + nuevo pedido -->
+                            <div class="pedidos-toolbar">
+                                <div class="ops-toolbar-filters">
+                                    <div class="pedidos-search-box">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                        <input type="text" id="pedidos-search" placeholder="Buscar por nombre..." oninput="filterPedidosAdmin()" aria-label="Buscar pedido por nombre">
+                                        <button type="button" class="pedidos-search-clear" id="pedidos-search-clear" onclick="clearPedidosSearch()" title="Limpiar busqueda" aria-label="Limpiar busqueda" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                    <select class="form-input ops-filter-select" id="pedidos-filter-tipo" onchange="filterPedidosAdmin()" aria-label="Filtrar por tipo de pedido">
+                                        <option value="">Todos los tipos</option>
+                                        <option value="base">Solo Base</option>
+                                        <option value="custom">Solo Personalizado</option>
+                                    </select>
+                                </div>
+                                <div class="pedidos-toolbar-right">
+                                    <span class="pedidos-count-label" id="pedidos-count-label">0 pedidos registrados</span>
+                                    <button class="btn btn-primary btn-sm" onclick="toggleNuevoPedidoForm()"><i class="fa-solid fa-plus"></i> Nuevo pedido</button>
+                                </div>
+                            </div>
+
+                            <!-- Encabezado de columnas (fuera del area de scroll) -->
+                            <div class="pedidos-row pedidos-row-head">
+                                <div class="pc-color">Color</div>
+                                <div class="pc-nombre">Nombre del pedido</div>
+                                <div class="pc-tipo">Tipo</div>
+                                <div class="pc-registros">Registros</div>
+                                <div class="pc-acciones">Acciones</div>
+                            </div>
+
+                            <!-- Lista de pedidos, scroll interno unicamente aqui -->
+                            <div id="pedidos-mgmt-list" class="pedidos-list"></div>
+
+                            <!-- Paginacion cliente-side (la lista completa ya se carga hoy
+                                 via GET /api/clasificaciones, sin paginacion en backend) -->
+                            <div class="pedidos-pager" id="pedidos-pager" style="display:none;">
+                                <button class="btn btn-secondary btn-sm" id="pedidos-pager-prev" onclick="pedidosPagerGoto(pedidosPage-1)"><i class="fa-solid fa-chevron-left"></i> Anterior</button>
+                                <span class="pedidos-pager-label" id="pedidos-pager-label"></span>
+                                <button class="btn btn-secondary btn-sm" id="pedidos-pager-next" onclick="pedidosPagerGoto(pedidosPage+1)">Siguiente <i class="fa-solid fa-chevron-right"></i></button>
+                            </div>
+
+                            <!-- Formulario de creacion, oculto hasta presionar "+ Nuevo pedido" -->
+                            <div id="pedidos-new-form" class="pedidos-new-form" style="display:none;">
+                                <div class="pedidos-new-form-title"><i class="fa-solid fa-plus"></i>Crear nuevo pedido</div>
+                                <div class="pedidos-new-form-row">
+                                    <input type="text" class="form-input" id="new-pedido-nombre" placeholder="Nombre del pedido" style="flex:1;min-width:160px;" maxlength="40" oninput="updateCrearPedidoBtnState()">
+                                    <input type="color" class="form-input" id="new-pedido-color" value="#0d9488" title="Color de identificacion" style="width:48px;height:36px;padding:2px;cursor:pointer;">
+                                    <button class="btn btn-secondary btn-sm" onclick="toggleNuevoPedidoForm(false)">Cancelar</button>
+                                    <button class="btn btn-primary btn-sm" id="crear-pedido-btn" onclick="createPedido()" disabled><i class="fa-solid fa-plus" style="margin-right:4px;"></i>Crear pedido</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Encabezado de columnas (fuera del area de scroll) -->
-                    <div class="pedidos-row pedidos-row-head">
-                        <div class="pc-color">Color</div>
-                        <div class="pc-nombre">Nombre del pedido</div>
-                        <div class="pc-tipo">Tipo</div>
-                        <div class="pc-registros">Registros</div>
-                        <div class="pc-acciones">Acciones</div>
-                    </div>
-
-                    <!-- Lista de pedidos, scroll interno unicamente aqui -->
-                    <div id="pedidos-mgmt-list" class="pedidos-list"></div>
-
-                    <!-- Formulario de creacion, oculto hasta presionar "+ Nuevo pedido" -->
-                    <div id="pedidos-new-form" class="pedidos-new-form" style="display:none;">
-                        <div class="pedidos-new-form-title"><i class="fa-solid fa-plus"></i>Crear nuevo pedido</div>
-                        <div class="pedidos-new-form-row">
-                            <input type="text" class="form-input" id="new-pedido-nombre" placeholder="Nombre del pedido" style="flex:1;min-width:160px;" maxlength="40" oninput="updateCrearPedidoBtnState()">
-                            <input type="color" class="form-input" id="new-pedido-color" value="#0d9488" title="Color de identificacion" style="width:48px;height:36px;padding:2px;cursor:pointer;">
-                            <button class="btn btn-secondary btn-sm" onclick="toggleNuevoPedidoForm(false)">Cancelar</button>
-                            <button class="btn btn-primary btn-sm" id="crear-pedido-btn" onclick="createPedido()" disabled><i class="fa-solid fa-plus" style="margin-right:4px;"></i>Crear pedido</button>
+                    <aside class="ops-split-aside">
+                        <div class="card" id="pedido-detalle-panel">
+                            <div class="card-title" style="font-size:0.85rem;"><i class="fa-solid fa-circle-info"></i> Detalle del pedido seleccionado</div>
+                            <div id="pedido-detalle-body"><p class="ops-detail-empty">Selecciona un pedido de la lista para ver su detalle.</p></div>
                         </div>
-                    </div>
+                        <div class="card" id="pedidos-recientes-panel">
+                            <div class="card-title" style="font-size:0.85rem;"><i class="fa-solid fa-clock-rotate-left"></i> Ultimos pedidos modificados</div>
+                            <div id="pedidos-recientes-body"><p class="ops-recent-empty">Cargando...</p></div>
+                        </div>
+                    </aside>
                 </div>
             </div>
         </div><!-- /view-operaciones -->
@@ -4436,6 +4559,22 @@
 <!-- Toast notifications -->
 <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
+<!-- Confirmacion generica (reemplaza confirm() nativo en acciones destructivas
+     importantes). Ver funciones showConfirmDialog()/closeConfirmModal() en el
+     bloque de JS de mas abajo. Generico a proposito para que otros modulos lo
+     reutilicen despues. -->
+<div class="confirm-modal-overlay" id="confirm-modal-overlay" onclick="if(event.target===this)closeConfirmModal(false);">
+    <div class="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-modal-title" aria-describedby="confirm-modal-msg">
+        <div class="confirm-modal-icon" id="confirm-modal-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <h3 id="confirm-modal-title">¿Confirmar accion?</h3>
+        <p id="confirm-modal-msg"></p>
+        <div class="confirm-modal-actions">
+            <button class="btn btn-secondary btn-sm" id="confirm-modal-cancel">Cancelar</button>
+            <button class="btn btn-sm btn-danger" id="confirm-modal-ok">Confirmar</button>
+        </div>
+    </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════
 // STATE
@@ -4593,6 +4732,51 @@ function showToast(message, type = 'info', duration = 4000) {
     if (duration > 0) timer = setTimeout(dismiss, type === 'error' ? Math.max(duration, 6000) : duration);
     return t;
 }
+
+// ══════════════════════════════════════════════
+// CONFIRMACION GENERICA (reemplaza confirm() nativo)
+// Componente reutilizable: showConfirmDialog({title,message,confirmText,
+// cancelText,danger}) devuelve una Promise<boolean>. Pensado para que otros
+// modulos del proyecto lo reutilicen despues (no es exclusivo de Operaciones
+// y Pedidos, aunque nace aqui). Si el overlay no existe en el DOM (defensivo),
+// cae de vuelta al confirm() nativo para no romper el flujo que lo llama.
+// ══════════════════════════════════════════════
+function showConfirmDialog({ title = '¿Confirmar accion?', message = '', confirmText = 'Confirmar', cancelText = 'Cancelar', danger = true } = {}) {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('confirm-modal-overlay');
+        const okBtn = document.getElementById('confirm-modal-ok');
+        const cancelBtn = document.getElementById('confirm-modal-cancel');
+        if (!overlay || !okBtn || !cancelBtn) { resolve(window.confirm(message || title)); return; }
+        document.getElementById('confirm-modal-title').textContent = title;
+        document.getElementById('confirm-modal-msg').textContent = message;
+        const icon = document.getElementById('confirm-modal-icon');
+        if (icon) {
+            icon.className = danger ? 'confirm-modal-icon' : 'confirm-modal-icon info';
+            icon.innerHTML = `<i class="fa-solid ${danger ? 'fa-triangle-exclamation' : 'fa-circle-question'}"></i>`;
+        }
+        okBtn.textContent = confirmText;
+        okBtn.className = 'btn btn-sm ' + (danger ? 'btn-danger' : 'btn-primary');
+        cancelBtn.textContent = cancelText;
+        overlay.classList.add('open');
+        window._confirmModalCancel = onCancel; // usado por closeConfirmModal() al clickear fuera del panel
+        function cleanup() {
+            overlay.classList.remove('open');
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            document.removeEventListener('keydown', onKey);
+            window._confirmModalCancel = null;
+        }
+        function onOk() { cleanup(); resolve(true); }
+        function onCancel() { cleanup(); resolve(false); }
+        function onKey(e) { if (e.key === 'Escape') onCancel(); }
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+        document.addEventListener('keydown', onKey);
+        setTimeout(() => okBtn.focus(), 30);
+    });
+}
+// Click fuera del panel (overlay onclick en el HTML) -> equivale a Cancelar
+function closeConfirmModal() { if (window._confirmModalCancel) window._confirmModalCancel(); }
 
 function toggleTheme() {
     const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
@@ -5005,7 +5189,13 @@ async function loadAuditData() {
 // EDIT / DELETE PALLETS (admin only, with audit)
 // ══════════════════════════════════════════════
 async function crearRetrabajo(id, palletId) {
-    if (!confirm(`Crear retrabajo de pallet ${palletId} para hoy?\n\nSe crea una copia en la fecha de hoy. El registro original no se modifica.`)) return;
+    const ok = await showConfirmDialog({
+        title: '¿Crear retrabajo?',
+        message: `Pallet ${palletId} se creara como retrabajo para hoy.\n\nSe crea una copia en la fecha de hoy. El registro original no se modifica.`,
+        confirmText: 'Crear retrabajo',
+        danger: false,
+    });
+    if (!ok) return;
     try {
         const data = await apiFetch(`${API}/api/escaneadoras/retrabajo`, { method: 'POST', body: JSON.stringify({ originalId: id }) });
         if (!data.success) { showToast(data.error, 'error'); return; }
@@ -5321,33 +5511,62 @@ function escapeHtml(s) {
 // conteos). clasificacionesData (global, cargado por loadClasificaciones) sigue
 // siendo la unica fuente de verdad de los pedidos — este panel solo la presenta. ──
 let pedidosSearchQuery = '';
+let pedidosFilterTipo = ''; // '' | 'base' | 'custom' -- deriva de isLocked, no es un campo propio
 let pedidosEditingId = null;
+let pedidosSelectedId = null; // pedido elegido para el panel lateral "Detalle del pedido seleccionado"
 let pedidosCounts = {};
 let pedidosCountsLoaded = false;
 let pedidosCountsLoading = false;
+let pedidosPage = 0; // paginacion cliente-side (la lista completa ya se carga hoy via GET /api/clasificaciones)
+const PEDIDOS_PAGE_SIZE = 8;
 
 function renderPedidosAdminPanel() {
     const list = document.getElementById('pedidos-mgmt-list');
     if (!list || !currentUser || currentUser.usuario !== '3647') return;
     const all = clasificacionesData || [];
     const q = pedidosSearchQuery.trim().toLowerCase();
-    const filtered = q ? all.filter(c => (c.nombre || '').toLowerCase().includes(q)) : all;
+    let filtered = q ? all.filter(c => (c.nombre || '').toLowerCase().includes(q)) : all.slice();
+    if (pedidosFilterTipo === 'base') filtered = filtered.filter(c => c.isLocked);
+    else if (pedidosFilterTipo === 'custom') filtered = filtered.filter(c => !c.isLocked);
 
     const countLabel = document.getElementById('pedidos-count-label');
     if (countLabel) {
         const n = filtered.length;
         countLabel.textContent = `${n.toLocaleString('es-MX')} pedido${n === 1 ? '' : 's'} registrado${n === 1 ? '' : 's'}`;
     }
+    renderPedidosSummary();
+    renderPedidoDetalle();
 
     if (all.length === 0) {
         list.innerHTML = '<p style="font-size:0.78rem;color:var(--text-muted);padding:0.75rem 0.9rem;">Sin pedidos. Crea el primero con "+ Nuevo pedido".</p>';
+        document.getElementById('pedidos-pager').style.display = 'none';
         return;
     }
     if (filtered.length === 0) {
-        list.innerHTML = '<p style="font-size:0.78rem;color:var(--text-muted);padding:0.75rem 0.9rem;">Sin resultados para tu busqueda.</p>';
+        list.innerHTML = '<p style="font-size:0.78rem;color:var(--text-muted);padding:0.75rem 0.9rem;">Sin resultados para tu busqueda/filtro.</p>';
+        document.getElementById('pedidos-pager').style.display = 'none';
         return;
     }
-    list.innerHTML = filtered.map(c => {
+
+    // Paginacion: si la fila en edicion o la seleccionada quedan fuera de la
+    // pagina actual tras un filtro/busqueda, no pasa nada -- simplemente no se
+    // muestran hasta que el usuario navegue a esa pagina.
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PEDIDOS_PAGE_SIZE));
+    if (pedidosPage >= totalPages) pedidosPage = totalPages - 1;
+    if (pedidosPage < 0) pedidosPage = 0;
+    const pageItems = filtered.slice(pedidosPage * PEDIDOS_PAGE_SIZE, (pedidosPage + 1) * PEDIDOS_PAGE_SIZE);
+
+    const pager = document.getElementById('pedidos-pager');
+    if (filtered.length > PEDIDOS_PAGE_SIZE) {
+        pager.style.display = 'flex';
+        document.getElementById('pedidos-pager-label').textContent = `Pagina ${pedidosPage + 1} de ${totalPages}`;
+        document.getElementById('pedidos-pager-prev').disabled = pedidosPage === 0;
+        document.getElementById('pedidos-pager-next').disabled = pedidosPage >= totalPages - 1;
+    } else {
+        pager.style.display = 'none';
+    }
+
+    list.innerHTML = pageItems.map(c => {
         const id = String(c._id);
         const safeName = escapeHtml((c.nombre || '').trim());
         const displayName = safeName || 'Pedido sin nombre';
@@ -5357,10 +5576,11 @@ function renderPedidosAdminPanel() {
         const registrosHtml = pedidosCountsLoaded
             ? `<span class="pedido-registros-value">${(pedidosCounts[id] ?? 0).toLocaleString('es-MX')}</span>`
             : `<span class="pedido-count-skeleton"></span>`;
+        const selectedCls = pedidosSelectedId === id ? ' selected' : '';
 
         if (pedidosEditingId === id) {
             return `
-            <div class="pedidos-row" data-id="${id}">
+            <div class="pedidos-row${selectedCls}" data-id="${id}">
                 <div class="pc-color"><input type="color" class="pedido-color-input" data-role="color" value="${c.color}" title="Color"></div>
                 <div class="pc-nombre">${c.isLocked
                     ? `<span class="pedido-nombre-text" title="Los pedidos base no pueden renombrarse">${displayName}</span>`
@@ -5374,19 +5594,87 @@ function renderPedidosAdminPanel() {
             </div>`;
         }
         return `
-        <div class="pedidos-row" data-id="${id}">
+        <div class="pedidos-row${selectedCls}" data-id="${id}">
             <div class="pc-color"><span class="pedido-color-swatch" style="background:${c.color};" title="${c.color}"></span></div>
-            <div class="pc-nombre"><span class="pedido-nombre-text" title="${displayName}">${displayName}</span></div>
+            <div class="pc-nombre"><span class="pedido-nombre-text pedido-nombre-clickable" title="${displayName} — click para ver detalle" onclick="selectPedido('${id}')">${displayName}</span></div>
             <div class="pc-tipo">${tipoBadge}</div>
             <div class="pc-registros">${registrosHtml}</div>
             <div class="pc-acciones">
-                <button class="pedido-action-btn" onclick="startEditPedido('${id}')" title="Editar pedido"><i class="fa-solid fa-pen"></i></button>
+                <button class="pedido-action-btn" onclick="startEditPedido('${id}')" title="Editar pedido" aria-label="Editar pedido ${displayName}"><i class="fa-solid fa-pen"></i></button>
                 ${c.isLocked
-                    ? `<button class="pedido-action-btn pedido-action-danger" disabled title="Los pedidos base no pueden eliminarse"><i class="fa-solid fa-trash"></i></button>`
-                    : `<button class="pedido-action-btn pedido-action-danger" onclick="confirmDeletePedido('${id}')" title="Eliminar pedido"><i class="fa-solid fa-trash"></i></button>`}
+                    ? `<button class="pedido-action-btn pedido-action-danger" disabled title="Los pedidos base no pueden eliminarse" aria-label="Eliminar deshabilitado: pedido base"><i class="fa-solid fa-trash"></i></button>`
+                    : `<button class="pedido-action-btn pedido-action-danger" onclick="confirmDeletePedido('${id}')" title="Eliminar pedido" aria-label="Eliminar pedido ${displayName}"><i class="fa-solid fa-trash"></i></button>`}
             </div>
         </div>`;
     }).join('');
+}
+
+function pedidosPagerGoto(page) {
+    pedidosPage = page;
+    renderPedidosAdminPanel();
+}
+
+// ── Seleccion de fila -> panel lateral "Detalle del pedido seleccionado".
+// Puramente visual (no dispara ninguna llamada nueva): todos los datos ya
+// estan en clasificacionesData/pedidosCounts, cargados por los endpoints
+// existentes GET /api/clasificaciones y GET /api/clasificaciones/counts. ──
+function selectPedido(id) {
+    pedidosSelectedId = (pedidosSelectedId === String(id)) ? null : String(id);
+    renderPedidosAdminPanel();
+    renderPedidoDetalle();
+}
+function renderPedidoDetalle() {
+    const body = document.getElementById('pedido-detalle-body');
+    if (!body) return;
+    const c = (clasificacionesData || []).find(x => String(x._id) === pedidosSelectedId);
+    if (!c) { body.innerHTML = '<p class="ops-detail-empty">Selecciona un pedido de la lista para ver su detalle.</p>'; return; }
+    const id = String(c._id);
+    const registros = pedidosCountsLoaded ? (pedidosCounts[id] ?? 0) : null;
+    const fmtFecha = (iso) => {
+        if (!iso) return '—';
+        try { return new Date(iso).toLocaleString('es-MX', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }); }
+        catch(e) { return '—'; }
+    };
+    body.innerHTML = `
+        <div class="ops-detail-head">
+            <span class="ops-detail-swatch" style="background:${c.color};"></span>
+            <span class="ops-detail-name">${escapeHtml(c.nombre || '')}</span>
+        </div>
+        <div class="kpi-detail-row"><span class="kpi-detail-label">Tipo</span><span class="kpi-detail-value">${c.isLocked ? 'Base' : 'Personalizado'}</span></div>
+        <div class="kpi-detail-row"><span class="kpi-detail-label">Registros</span><span class="kpi-detail-value">${registros === null ? 'Cargando...' : registros.toLocaleString('es-MX')}</span></div>
+        <div class="kpi-detail-row"><span class="kpi-detail-label">Creado</span><span class="kpi-detail-value">${fmtFecha(c.createdAt)}</span></div>
+        <div class="kpi-detail-row"><span class="kpi-detail-label">Ultima modificacion</span><span class="kpi-detail-value">${fmtFecha(c.updatedAt)}</span></div>
+        <div class="kpi-detail-row"><span class="kpi-detail-label">Estado</span><span class="kpi-detail-value" style="color:var(--success);">Activo</span></div>
+    `;
+}
+
+// ── Resumen (Total pedidos/Base/Personalizados/Total registros): se calcula
+// en cliente a partir de clasificacionesData + pedidosCounts, ambos ya
+// cargados via los endpoints existentes -- no dispara ninguna llamada nueva. ──
+function renderPedidosSummary() {
+    const grid = document.getElementById('pedidos-summary-grid');
+    if (!grid) return;
+    const activos = (clasificacionesData || []).filter(c => c.isActive !== false);
+    const total = activos.length;
+    const base = activos.filter(c => c.isLocked).length;
+    const custom = total - base;
+    const pct = (n) => total > 0 ? Math.round((n / total) * 1000) / 10 : 0;
+    let totalRegistros = null;
+    if (pedidosCountsLoaded) {
+        totalRegistros = activos.reduce((sum, c) => sum + (pedidosCounts[String(c._id)] || 0), 0);
+    }
+    const tile = (label, value, sub) => `
+        <div class="ops-summary-tile">
+            <div class="ops-summary-label">${label}</div>
+            <div class="ops-summary-value">${value}</div>
+            ${sub ? `<div class="ops-summary-sub">${sub}</div>` : ''}
+        </div>`;
+    grid.innerHTML = [
+        tile('Total pedidos', total.toLocaleString('es-MX')),
+        tile('Base', base.toLocaleString('es-MX'), `${pct(base)}% del total`),
+        tile('Personalizados', custom.toLocaleString('es-MX'), `${pct(custom)}% del total`),
+        tile('Total registros', totalRegistros === null ? '…' : totalRegistros.toLocaleString('es-MX'), totalRegistros === null ? 'Cargando...' : 'Clasificados en EscReg'),
+    ].join('');
 }
 
 // ── Busqueda (filtra clasificacionesData ya cargado en memoria — sin recargar
@@ -5394,6 +5682,9 @@ function renderPedidosAdminPanel() {
 function filterPedidosAdmin() {
     const input = document.getElementById('pedidos-search');
     pedidosSearchQuery = input ? input.value : '';
+    const tipoSel = document.getElementById('pedidos-filter-tipo');
+    pedidosFilterTipo = tipoSel ? tipoSel.value : '';
+    pedidosPage = 0;
     const clearBtn = document.getElementById('pedidos-search-clear');
     if (clearBtn) clearBtn.style.display = pedidosSearchQuery ? '' : 'none';
     renderPedidosAdminPanel();
@@ -5402,6 +5693,7 @@ function clearPedidosSearch() {
     const input = document.getElementById('pedidos-search');
     if (input) input.value = '';
     pedidosSearchQuery = '';
+    pedidosPage = 0;
     const clearBtn = document.getElementById('pedidos-search-clear');
     if (clearBtn) clearBtn.style.display = 'none';
     renderPedidosAdminPanel();
@@ -5481,7 +5773,15 @@ async function saveEditPedido(id) {
         if (dupe) { showToast('Ya existe un pedido con ese nombre', 'error'); return; }
     }
     if (!nombreCambio && color === orig.color.toLowerCase()) { cancelEditPedido(); return; }
-    if (nombreCambio && !confirm(`Renombrar "${orig.nombre}" a "${nombre}"?\n\nTodos los registros existentes con este pedido se actualizaran. No se elimina ningun registro.`)) return;
+    if (nombreCambio) {
+        const ok = await showConfirmDialog({
+            title: '¿Renombrar pedido?',
+            message: `Renombrar "${orig.nombre}" a "${nombre}"?\n\nTodos los registros existentes con este pedido se actualizaran. No se elimina ningun registro.`,
+            confirmText: 'Renombrar',
+            danger: false,
+        });
+        if (!ok) return;
+    }
     const saveBtn = document.getElementById(`save-pedido-btn-${id}`);
     if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
     try {
@@ -5501,15 +5801,21 @@ async function saveEditPedido(id) {
 
 // ── Eliminar (desactivar, soft-delete): confirmacion mostrando nombre real y
 // cantidad de registros relacionados — nunca elimina/reasigna esos registros. ──
-function confirmDeletePedido(id) {
+async function confirmDeletePedido(id) {
     const c = (clasificacionesData || []).find(x => String(x._id) === String(id));
     if (!c || c.isLocked) return;
     const count = pedidosCountsLoaded ? (pedidosCounts[String(id)] || 0) : null;
-    let msg = `¿Eliminar este pedido?\n\n"${c.nombre}"\n\nEsta accion no se puede deshacer.`;
+    let msg = `"${c.nombre}"\n\nEsta accion no se puede deshacer.`;
     if (count) {
         msg += `\n\nEste pedido tiene ${count.toLocaleString('es-MX')} registro(s) relacionado(s). Se desactivara y dejara de aparecer en la clasificacion del formulario — esos registros conservan su clasificacion actual, no se modifican ni se eliminan.`;
     }
-    if (!confirm(msg)) return;
+    const ok = await showConfirmDialog({
+        title: '¿Eliminar pedido?',
+        message: msg,
+        confirmText: 'Eliminar',
+        danger: true,
+    });
+    if (!ok) return;
     deletePedidoConfirmed(id, c.nombre);
 }
 async function deletePedidoConfirmed(id, nombre) {
@@ -5518,6 +5824,7 @@ async function deletePedidoConfirmed(id, nombre) {
         if (!data.success) { showToast(data.error, 'error'); return; }
         showToast(data.message || `Pedido "${nombre}" desactivado`, 'success');
         if (pedidosEditingId === String(id)) pedidosEditingId = null;
+        if (pedidosSelectedId === String(id)) pedidosSelectedId = null;
         await loadClasificaciones();
     } catch (e) { showToast(e.message, 'error'); }
 }
@@ -5694,7 +6001,7 @@ function switchView(viewName) {
     if (viewName === 'control') loadControl();
     if (viewName === 'monitor') loadMonitor();
     if (viewName === 'lpn') loadLpnDuplicates();
-    if (viewName === 'operaciones') { setOperacionesTab('retrabajo'); if (typeof renderPedidosAdminPanel === 'function') renderPedidosAdminPanel(); }
+    if (viewName === 'operaciones') { setOperacionesTab('retrabajo'); if (typeof renderPedidosAdminPanel === 'function') renderPedidosAdminPanel(); initFlatpickr(); loadOperacionesKpis(); }
     if (viewName === 'centro-operativo') initCentroOperativo();
     if (viewName === 'reporte-semanal') initReporteSemanal();
     if (viewName === 'dashboard-destinos-fft') initDashboardDestinosFft();
@@ -6631,6 +6938,7 @@ function applyChartTheme() {
 applyChartTheme();
 
 let fpPedidos = null;
+let fpOpsKpiFecha = null;
 // Se pone en true mientras el usuario esta tocando algun filtro del dashboard (calendario abierto,
 // campo con foco, etc). El auto-refresh (polling/Pusher) respeta este flag y se salta ese ciclo en
 // vez de interrumpir la seleccion a medias - el auto-refresh sigue activo, solo espera su turno.
@@ -6660,6 +6968,17 @@ function initFlatpickr() {
             dateFormat: 'n/j/Y',
             allowInput: true,
             onClose: function() { renderPedidosChart(); }
+        });
+    }
+    if (!fpOpsKpiFecha && document.getElementById('ops-kpi-fecha')) {
+        // Vacio por defecto = "hoy" (el backend usa mexicoDateStr() si no se
+        // manda ?fecha=). Solo se rellena si el usuario elige explicitamente
+        // otro dia, para el KPI "Retrabajos hoy" de Operaciones y Pedidos.
+        fpOpsKpiFecha = flatpickr('#ops-kpi-fecha', {
+            locale: 'es',
+            dateFormat: 'n/j/Y',
+            allowInput: true,
+            onClose: function() { loadOperacionesKpis(); }
         });
     }
 }
@@ -7007,6 +7326,92 @@ function setOperacionesTab(tab) {
     // Conteo de registros por pedido: solo se pide una vez (no en cada cambio de
     // pestaña) — se refresca aparte cuando un renombre podria haberlo invalidado.
     if (tab === 'pedidos' && !pedidosCountsLoaded) loadPedidosCounts();
+}
+
+// ══════════════════════════════════════════════
+// OPERACIONES Y PEDIDOS: KPIs reales (GET /api/operaciones/kpis, nuevo
+// endpoint de solo lectura -- ver api/index.js). Un solo request agrega los
+// 4 numeros de la fila de KPIs de arriba, en vez de 4 llamadas sueltas.
+// ══════════════════════════════════════════════
+function opsKpiSkeletonHtml() {
+    const labels = ['Retrabajos hoy', 'Pedidos registrados', 'Pedidos base', 'Personalizados'];
+    return labels.map(l => `
+        <div class="ops-kpi skeleton">
+            <div class="ops-kpi-top"><span class="ops-kpi-label">${l}</span></div>
+            <div class="ops-kpi-value">000</div>
+            <span class="ops-kpi-delta">000</span>
+        </div>`).join('');
+}
+function opsKpiCard(label, icon, color, value, deltaHtml) {
+    return `
+        <div class="ops-kpi">
+            <div class="ops-kpi-top">
+                <span class="ops-kpi-label">${label}</span>
+                <span class="ops-kpi-icon" style="background:${color}22;color:${color};"><i class="fa-solid ${icon}"></i></span>
+            </div>
+            <div class="ops-kpi-value">${value}</div>
+            ${deltaHtml || ''}
+        </div>`;
+}
+function opsFmtRelTime(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    const diffMin = Math.round((Date.now() - d.getTime()) / 60000);
+    if (diffMin < 1) return 'hace un momento';
+    if (diffMin < 60) return `hace ${diffMin} min`;
+    const diffH = Math.round(diffMin / 60);
+    if (diffH < 24) return `hace ${diffH} h`;
+    const diffD = Math.round(diffH / 24);
+    if (diffD < 30) return `hace ${diffD} d`;
+    return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+}
+async function loadOperacionesKpis() {
+    const grid = document.getElementById('ops-kpi-grid');
+    if (!grid) return;
+    grid.innerHTML = opsKpiSkeletonHtml();
+    try {
+        const fechaInput = document.getElementById('ops-kpi-fecha');
+        const fecha = fechaInput ? (fechaInput.value || '').trim() : '';
+        const qs = fecha ? `?fecha=${encodeURIComponent(fecha)}` : '';
+        const data = await apiFetch(`${API}/api/operaciones/kpis${qs}`);
+        if (!data.success) {
+            grid.innerHTML = `<div class="ops-kpi-error">No se pudieron cargar los KPIs: ${escapeHtml(data.error || 'error desconocido')}</div>`;
+            return;
+        }
+        const r = data.retrabajos || {};
+        let retDeltaHtml;
+        if (r.deltaPct === null || r.deltaPct === undefined) {
+            retDeltaHtml = `<span class="ops-kpi-delta neutral">nuevo hoy (0 ayer)</span>`;
+        } else {
+            const up = r.deltaPct >= 0;
+            retDeltaHtml = `<span class="ops-kpi-delta ${up ? 'up' : 'down'}"><i class="fa-solid fa-arrow-${up ? 'up' : 'down'}"></i> ${Math.abs(r.deltaPct).toFixed(1)}% vs ayer</span>`;
+        }
+        const p = data.pedidos || {};
+        grid.innerHTML = [
+            opsKpiCard('Retrabajos hoy', 'fa-copy', '#22c55e', (r.hoy ?? 0).toLocaleString('es-MX'), retDeltaHtml),
+            opsKpiCard('Pedidos registrados', 'fa-tags', '#4f7cff', (p.total ?? 0).toLocaleString('es-MX'), `<span class="ops-kpi-delta neutral">${(data.totalRegistros ?? 0).toLocaleString('es-MX')} registros clasificados</span>`),
+            opsKpiCard('Pedidos base', 'fa-lock', '#f59e0b', (p.base ?? 0).toLocaleString('es-MX'), `<span class="ops-kpi-delta neutral">${p.basePct ?? 0}% del total</span>`),
+            opsKpiCard('Personalizados', 'fa-pen', '#8b5cf6', (p.personalizados ?? 0).toLocaleString('es-MX'), `<span class="ops-kpi-delta neutral">${p.personalizadosPct ?? 0}% del total</span>`),
+        ].join('');
+        renderUltimosPedidosModificados(data.ultimosPedidosModificados || []);
+    } catch (e) {
+        grid.innerHTML = `<div class="ops-kpi-error">No se pudieron cargar los KPIs: ${escapeHtml(e.message)}</div>`;
+    }
+}
+// "Actividad reciente" del mockup no es fiel a la realidad (el log de
+// auditoria solo cubre renombrados, mal etiquetado) -- se sustituye por los
+// pedidos con updatedAt mas reciente, dato 100% real de Clasificacion.
+function renderUltimosPedidosModificados(items) {
+    const body = document.getElementById('pedidos-recientes-body');
+    if (!body) return;
+    if (!items.length) { body.innerHTML = '<p class="ops-recent-empty">Sin pedidos modificados todavia.</p>'; return; }
+    body.innerHTML = items.map(c => `
+        <div class="ops-recent-item">
+            <span class="ops-recent-dot" style="background:${c.color || '#6b7280'};"></span>
+            <span class="ops-recent-name" title="${escapeHtml(c.nombre || '')}">${escapeHtml(c.nombre || '')}</span>
+            <span class="ops-recent-time">${opsFmtRelTime(c.updatedAt)}</span>
+        </div>`).join('');
 }
 
 // ── Escaneadoras: menu -> ruta directa (no-admin) o hub modal (admin) ──

@@ -206,6 +206,16 @@ const escRegSchema = new mongoose.Schema({
   observaciones: { type: String, default: '' },
   capturadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   origen: { type: String, default: 'manual' }, // 'manual' | 'smartcontrol-sync'
+  // Retrabajo (ver POST /api/escaneadoras/retrabajo): estos 2 campos ya se
+  // enviaban desde ese endpoint desde antes, pero al no estar en el schema
+  // Mongoose los descartaba silenciosamente (strict:true por default) y NUNCA
+  // se persistian -- el badge "RETRABAJO" del frontend y el bloqueo de "ya es
+  // retrabajo" en buscarRetrabajo() dependen de r.retrabajo, asi que sin esto
+  // ese campo llegaba siempre undefined. Alta ADITIVA unicamente (no cambia
+  // ningun endpoint/contrato/regla de negocio, solo permite que el campo que
+  // el codigo ya intentaba guardar se guarde de verdad).
+  retrabajo: { type: Boolean, default: false, index: true },
+  originalId: { type: mongoose.Schema.Types.ObjectId, ref: 'EscaneadoraRegistro', default: null },
 }, { timestamps: true });
 
 escRegSchema.index({ fecha: 1, turno: 1 });
@@ -2783,6 +2793,91 @@ app.get('/api/clasificaciones/counts', auth, roleGuard('admin'), async (req, res
     const counts = {};
     clasifs.forEach((c, i) => { counts[String(c._id)] = (result['c' + i][0] || {}).n || 0; });
     res.json({ success: true, counts });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ── KPIs agregados para la vista "Operaciones y Pedidos" (rediseno visual
+// 2026-08-28). UN solo endpoint de solo lectura que junta los 4 numeros de la
+// fila de KPIs de arriba, para no hacer 4 llamadas sueltas desde el frontend.
+// Deliberadamente SOLO roleGuard('admin') (sin el check inline de
+// usuario==='3647' que sí llevan los endpoints de escritura/gestion de
+// /api/clasificaciones de arriba): esto es un resumen de solo lectura y los
+// nombres de pedido ya son visibles para cualquier usuario autenticado via
+// GET /api/clasificaciones (sin restriccion de rol); lo unico que se
+// restringe a admin es el conteo/gestion, no el nombre del pedido. Así los
+// admins que tienen el modulo "operaciones" pero no son el 3647 (por lo
+// tanto no ven la pestaña "Gestionar Pedidos", que sigue exclusiva de 3647)
+// igual pueden ver la fila de KPIs (incluyendo "Retrabajos hoy", que no
+// tiene nada que ver con pedidos) en vez de que toda la fila truene con 403.
+app.get('/api/operaciones/kpis', auth, roleGuard('admin'), async (req, res) => {
+  try {
+    // Fecha objetivo del KPI "Retrabajos hoy" -- mismo formato que EscReg.fecha
+    // (M/D/YYYY, ver mexicoDateStr) para no depender de rangos de createdAt en
+    // UTC. Por defecto es "hoy" en hora de Mexico; acepta ?fecha=M/D/YYYY para
+    // que el control de fecha del encabezado pueda consultar otro dia.
+    let fechaObjetivo = mexicoDateStr();
+    if (typeof req.query.fecha === 'string' && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(req.query.fecha)) {
+      fechaObjetivo = req.query.fecha;
+    }
+    const [mm, dd, yyyy] = fechaObjetivo.split('/').map(Number);
+    const objetivoDateObj = new Date(yyyy, mm - 1, dd);
+    const anteriorDateObj = new Date(objetivoDateObj);
+    anteriorDateObj.setDate(anteriorDateObj.getDate() - 1);
+    const fechaAnterior = `${anteriorDateObj.getMonth() + 1}/${anteriorDateObj.getDate()}/${anteriorDateObj.getFullYear()}`;
+
+    const [retrabajosHoy, retrabajosAyer, pedidosRegistrados, pedidosBase, clasifsParaConteo] = await Promise.all([
+      EscReg.countDocuments({ retrabajo: true, fecha: fechaObjetivo }),
+      EscReg.countDocuments({ retrabajo: true, fecha: fechaAnterior }),
+      Clasif.countDocuments({ isActive: true }),
+      Clasif.countDocuments({ isActive: true, isLocked: true }),
+      Clasif.find({ isActive: true }, { nombre: 1 }),
+    ]);
+    const pedidosPersonalizados = pedidosRegistrados - pedidosBase;
+
+    // Total de registros clasificados: misma agregacion $facet+regex que
+    // /api/clasificaciones/counts arriba (una sola pasada sobre EscReg), aqui
+    // solo se suma el resultado en vez de devolverlo desglosado por pedido.
+    let totalRegistros = 0;
+    if (clasifsParaConteo.length > 0) {
+      const facet = {};
+      clasifsParaConteo.forEach((c, i) => {
+        const re = new RegExp('^' + escapeRegex(c.nombre) + '(\\s*\\||\\s*$)');
+        facet['c' + i] = [{ $match: { observaciones: re } }, { $count: 'n' }];
+      });
+      const [result] = await EscReg.aggregate([{ $facet: facet }]);
+      clasifsParaConteo.forEach((c, i) => { totalRegistros += (result['c' + i][0] || {}).n || 0; });
+    }
+
+    // Sustituto real de "Actividad reciente" del mockup (ver notas de
+    // auditoria): el log de auditoria solo cubre renombrados y esta mal
+    // etiquetado, asi que se usa updatedAt real de Clasificacion en su lugar.
+    const ultimosPedidosModificados = await Clasif.find({ isActive: true })
+      .sort({ updatedAt: -1 })
+      .limit(5)
+      .select('nombre color isLocked createdAt updatedAt');
+
+    const pct = (parte, total) => (total > 0 ? Math.round((parte / total) * 1000) / 10 : 0);
+    // deltaPct null cuando ayer fue 0 y hoy tambien: no hay "cambio" que mostrar.
+    // Cuando ayer fue 0 y hoy > 0 no se puede expresar como %, se manda null y
+    // el frontend lo muestra como "nuevo" en vez de un porcentaje inventado.
+    let retrabajosDeltaPct = null;
+    if (retrabajosAyer > 0) retrabajosDeltaPct = Math.round(((retrabajosHoy - retrabajosAyer) / retrabajosAyer) * 1000) / 10;
+    else if (retrabajosHoy === 0) retrabajosDeltaPct = 0;
+
+    res.json({
+      success: true,
+      fecha: fechaObjetivo,
+      retrabajos: { hoy: retrabajosHoy, ayer: retrabajosAyer, deltaPct: retrabajosDeltaPct },
+      pedidos: {
+        total: pedidosRegistrados,
+        base: pedidosBase,
+        basePct: pct(pedidosBase, pedidosRegistrados),
+        personalizados: pedidosPersonalizados,
+        personalizadosPct: pct(pedidosPersonalizados, pedidosRegistrados),
+      },
+      totalRegistros,
+      ultimosPedidosModificados,
+    });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
