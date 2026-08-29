@@ -1277,6 +1277,16 @@
         .tt-filters-row{display:flex;gap:0.6rem;align-items:flex-end;flex-wrap:wrap;padding:0.9rem 1rem;margin-bottom:1rem;}
         .tt-filters-row label{display:flex;flex-direction:column;gap:0.25rem;font-size:0.72rem;font-weight:600;color:var(--tt-text-muted);text-transform:uppercase;letter-spacing:0.02em;}
         .tt-filters-row input,.tt-filters-row select{border:1px solid var(--tt-border);border-radius:8px;padding:0.42rem 0.6rem;font-size:0.83rem;background:var(--tt-card);color:var(--tt-text);}
+        .tt-filter-group{display:flex;flex-direction:column;gap:0.3rem;}
+        .tt-filter-group>.tt-filter-group-label{font-size:0.72rem;font-weight:600;color:var(--tt-text-muted);text-transform:uppercase;letter-spacing:0.02em;}
+        .tt-ubicacion-checks{display:flex;gap:0.9rem;flex-wrap:wrap;align-items:center;padding:0.42rem 0 0.1rem;}
+        .tt-ubicacion-checks label{display:flex;align-items:center;gap:5px;font-size:0.8rem;font-weight:600;color:var(--tt-text);text-transform:none;letter-spacing:normal;cursor:pointer;}
+        .tt-ubicacion-checks input[type="checkbox"]{width:15px;height:15px;accent-color:var(--tt-accent);cursor:pointer;}
+        .tt-source-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:0.65rem;font-weight:700;margin-top:0.4rem;white-space:nowrap;}
+        .tt-source-badge.oficial{background:rgba(5,150,105,0.12);color:var(--tt-success);}
+        .tt-source-badge.aproximado{background:rgba(217,119,6,0.12);color:var(--tt-warning);}
+        .tt-precision-note.oficial{background:rgba(5,150,105,0.08);border-color:rgba(5,150,105,0.25);}
+        .tt-coverage-note{font-size:0.78rem;color:var(--tt-text);background:rgba(30,64,175,0.06);border:1px solid rgba(30,64,175,0.2);border-radius:10px;padding:0.6rem 0.85rem;margin-bottom:0.85rem;display:flex;gap:0.5rem;align-items:flex-start;}
         .tt-lag-row{display:flex;gap:0.9rem;align-items:center;flex-wrap:wrap;font-size:0.78rem;color:var(--tt-text-muted);}
         .tt-lag-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;}
         .tt-lag-dot.ok{background:var(--tt-success);}
@@ -1820,7 +1830,7 @@
             <div class="tt-header-bar">
                 <div>
                     <h1 style="font-size:1.4rem;margin:0;"><i class="fa-solid fa-tags" style="color:#1E40AF;margin-right:8px;"></i>Centro de Trazabilidad TAG — MAXX</h1>
-                    <p style="margin:0.3rem 0 0;font-size:0.85rem;color:var(--tt-text-muted);">Monterrey MAXX (WorkCenter 47) — a dónde se fueron las piezas etiquetadas (SORP, Bulky, Prioridad J, TRG Preferred), cruzando SmartControl + BinManagerRO en vivo</p>
+                    <p style="margin:0.3rem 0 0;font-size:0.85rem;color:var(--tt-text-muted);">Monterrey MAXX (Sorting / Technical / OpenCell Monterrey2) — a dónde se fueron las piezas etiquetadas (SORP, Bulky, Prioridad J, TRG Preferred), cruzando SmartControl + BinManagerRO en vivo</p>
                 </div>
                 <div class="tt-header-right">
                     <div class="tt-lag-row" id="tt-lag-row"><span class="tt-lag-dot unknown"></span> Cargando estado de las fuentes…</div>
@@ -1834,9 +1844,14 @@
             </div>
 
             <div class="tt-card tt-filters-row">
-                <label>Ubicación
-                    <select id="tt-f-ubicacion" disabled><option>Monterrey MAXX (WorkCenter 47)</option></select>
-                </label>
+                <div class="tt-filter-group">
+                    <span class="tt-filter-group-label">Ubicación</span>
+                    <div class="tt-ubicacion-checks" id="tt-f-ubicacion">
+                        <label><input type="checkbox" class="tt-ubicacion-cb" value="47" checked> Sorting Monterrey2</label>
+                        <label><input type="checkbox" class="tt-ubicacion-cb" value="48" checked> Technical Monterrey2</label>
+                        <label><input type="checkbox" class="tt-ubicacion-cb" value="60" checked> OpenCell Monterrey2</label>
+                    </div>
+                </div>
                 <label>Turno
                     <select id="tt-f-turno" title="Aproximación por hora del día — no es un dato oficial de turno">
                         <option value="todos">Todos</option>
@@ -1856,7 +1871,7 @@
                 <div id="tt-turno-note" style="font-size:0.72rem;color:var(--tt-text-muted);flex-basis:100%;"><i class="fa-solid fa-circle-info"></i> "Turno" es una <b>aproximación</b> por hora del día calculada por Cubicaje al momento de la consulta — <b>no</b> es un dato oficial de turno.</div>
             </div>
 
-            <div class="tt-precision-note"><i class="fa-solid fa-circle-info" style="margin-top:2px;"></i><span>El conteo de piezas por TAG es una <b>aproximación</b> (precisión estimada 78–98% según el método) — <b>no</b> es el número exacto de la tarjeta "Sorting Dashboard Production" de BinManager (sistema .NET aparte sin código fuente accesible).</span></div>
+            <div class="tt-precision-note" id="tt-precision-note"><i class="fa-solid fa-circle-info" style="margin-top:2px;"></i><span id="tt-precision-note-text">El conteo de piezas por TAG es una <b>aproximación</b> (precisión estimada 78–98% según el método) — <b>no</b> es el número exacto de la tarjeta "Sorting Dashboard Production" de BinManager (sistema .NET aparte sin código fuente accesible).</span></div>
 
             <!-- PANEL: catálogo de tags -->
             <div id="tt-panel-catalogo">
@@ -1909,6 +1924,7 @@
 
                 <!-- TAB: destinos -->
                 <div class="tt-tabpanel active" id="tt-tabpanel-destinos">
+                    <div class="tt-coverage-note" id="tt-destinos-coverage-note"></div>
                     <div class="tt-card" style="padding:1rem;">
                         <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:flex-start;">
                             <div style="flex:1 1 220px;max-width:250px;position:relative;height:230px;margin:0 auto;">
@@ -14655,8 +14671,18 @@ if ('serviceWorker' in navigator) {
 // TagPalletGroup, PalletDetailsResult, TagOrderGroup, OrderDetailForTag,
 // LpnTagTraceResult, OverlappingLpnRow) -- nunca inventados.
 // ══════════════════════════════════════════════
+// Las 3 ubicaciones validas dentro de Monterrey MAXX (WorkCenterID reales,
+// confirmados en cubicaje/server/services/tagTraceSql.ts -> WORKCENTER_NAMES):
+// 47=Sorting Monterrey2, 48=Technical Monterrey2, 60=OpenCell Monterrey2.
+// Default nuevo: LAS 3 marcadas (antes el modulo mandaba implicitamente solo
+// 47 al no exponer selector) -- el usuario puede des/marcar libremente, pero
+// nunca se manda una peticion con 0 ubicaciones (ver ttApplyFilters/
+// ttClearFilters, que validan esto antes de recargar).
+const TT_WORKCENTER_IDS_DEFAULT = [47, 48, 60];
+
 let ttState = {
     startDate: null, endDate: null, turno: 'todos',
+    workCenterIds: [...TT_WORKCENTER_IDS_DEFAULT],
     catalog: [], summary: null, lag: null, overlapping: [],
     currentTagId: null, currentTagMeta: null,
     destinos: null, pallets: [], orders: [],
@@ -14757,6 +14783,8 @@ async function initTrazabilidadTag() {
     }
     ttState.startDate = document.getElementById('tt-f-inicio').value;
     ttState.endDate = document.getElementById('tt-f-fin').value;
+    const checked = ttSyncWorkCenterIdsFromCheckboxes();
+    ttState.workCenterIds = checked.length ? checked : [...TT_WORKCENTER_IDS_DEFAULT];
     ttShowPanel('catalogo');
     await ttLoadCatalogo();
     ttStartAutoRefresh();
@@ -14785,6 +14813,30 @@ function ttEffectiveRangeIso() {
 // aproximacion por hora del dia, NO un dato oficial de turno.
 function ttShiftQs() {
     return `shift=${encodeURIComponent(ttState.turno || 'todos')}`;
+}
+
+// Lee el estado ACTUAL de los checkboxes de ubicacion del DOM (fuente de
+// verdad visual) -- se usa solo en los puntos donde el usuario confirma el
+// filtro (Aplicar/Limpiar), nunca en cada refresh automatico, mismo patron
+// ya establecido para Fecha inicio/fin/Turno en este modulo.
+function ttSyncWorkCenterIdsFromCheckboxes() {
+    return Array.from(document.querySelectorAll('.tt-ubicacion-cb'))
+        .filter(cb => cb.checked)
+        .map(cb => Number(cb.value));
+}
+
+// Querystring "workCenterId" para las llamadas a /api/tags/* que aceptan
+// ubicacion -- Cubicaje acepta CSV en un solo parametro O parametro repetido
+// (confirmado en cubicaje/server/routes.ts, parseOptionalWorkCenterIds); se
+// manda como CSV (un solo valor "47,48,60") por ser el formato mas simple de
+// armar con un template string, sin depender de como serializa cada caller
+// un array. ttState.workCenterIds nunca deberia estar vacio al llegar aqui
+// (se valida antes en ttApplyFilters/ttClearFilters/initTrazabilidadTag) pero
+// se cae al default de las 3 ubicaciones como ultimo resorte defensivo, nunca
+// a un parametro vacio.
+function ttWorkCenterQs() {
+    const ids = (ttState.workCenterIds && ttState.workCenterIds.length) ? ttState.workCenterIds : TT_WORKCENTER_IDS_DEFAULT;
+    return `workCenterId=${encodeURIComponent(ids.join(','))}`;
 }
 
 function ttStartAutoRefresh() {
@@ -14818,9 +14870,12 @@ function ttApplyFilters() {
     const fin = document.getElementById('tt-f-fin').value;
     if (!inicio || !fin) { showToast('Selecciona fecha de inicio y fin.', 'error'); return; }
     if (inicio > fin) { showToast('La fecha de inicio no puede ser posterior a la fecha fin.', 'error'); return; }
+    const workCenterIds = ttSyncWorkCenterIdsFromCheckboxes();
+    if (!workCenterIds.length) { showToast('Selecciona al menos una ubicación.', 'error'); return; }
     ttState.startDate = inicio;
     ttState.endDate = fin;
     ttState.turno = document.getElementById('tt-f-turno').value;
+    ttState.workCenterIds = workCenterIds;
     ttShowPanel('catalogo');
     ttLoadCatalogo();
 }
@@ -14829,7 +14884,9 @@ function ttClearFilters() {
     document.getElementById('tt-f-inicio').value = d.inicio;
     document.getElementById('tt-f-fin').value = d.fin;
     document.getElementById('tt-f-turno').value = 'todos';
+    document.querySelectorAll('.tt-ubicacion-cb').forEach(cb => { cb.checked = true; });
     ttState.startDate = d.inicio; ttState.endDate = d.fin; ttState.turno = 'todos';
+    ttState.workCenterIds = [...TT_WORKCENTER_IDS_DEFAULT];
     ttShowPanel('catalogo');
     ttLoadCatalogo();
 }
@@ -14847,7 +14904,7 @@ async function ttLoadCatalogo(silencioso) {
     if (!silencioso) document.getElementById('tt-tag-grid').innerHTML = '<div class="tt-empty-note">Cargando…</div>';
     try {
         const { startIso, endIso } = ttEffectiveRangeIso();
-        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&${ttShiftQs()}`;
+        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&${ttShiftQs()}&${ttWorkCenterQs()}`;
         const [catRes, sumRes] = await Promise.all([
             apiFetch(`${API}/api/tags/catalog`),
             apiFetch(`${API}/api/tags/summary?${qs}`),
@@ -14876,10 +14933,44 @@ function ttRenderLag() {
     el.innerHTML = `${fmt(ttState.lag.smartControl, 'SmartControl')} <span>·</span> ${fmt(ttState.lag.binManager, 'BinManagerRO')} <span>·</span> <span>Dashboard actualizado: ${new Date().toLocaleTimeString('es-MX')}</span>`;
 }
 
+// Badge "Oficial (BinManager)" / "Aproximado" -- `source` viene de
+// TagSummaryResult.source (cubicaje/server/services/tagTraceSql.ts,
+// getTagSummary), es GLOBAL para los 4 tags de esta respuesta (el
+// passthrough oficial se resuelve una sola vez para todo el batch, nunca
+// por tag individual) -- por eso se repite el mismo badge en cada card, no
+// se calcula distinto por tag. "oficial" = piezas EXACTAS del dashboard
+// real de BinManager; "aproximado" = calculo propio (78-98% de precision,
+// ver precisionNote) porque el passthrough no aplica o fallo esa vez.
+function ttSourceBadgeHtml(source) {
+    if (source === 'oficial') {
+        return '<span class="tt-source-badge oficial"><i class="fa-solid fa-check"></i> Oficial (BinManager)</span>';
+    }
+    return '<span class="tt-source-badge aproximado"><i class="fa-solid fa-triangle-exclamation"></i> Aproximado</span>';
+}
+
+// Actualiza la nota de precision superior del panel-catalogo con el texto
+// REAL que manda Cubicaje (`precisionNote`, ya redactado distinto segun
+// `source` -- ver OFFICIAL_SOURCE_NOTE/PRECISION_NOTE en tagTraceSql.ts),
+// nunca el texto estatico generico que traia el HTML original. Cambia
+// tambien la clase visual (verde si oficial, naranja/warning si aproximado,
+// mismo criterio que el badge de las cards).
+function ttRenderPrecisionNote() {
+    const el = document.getElementById('tt-precision-note');
+    const textEl = document.getElementById('tt-precision-note-text');
+    if (!el || !textEl) return;
+    const summary = ttState.summary;
+    if (!summary) return;
+    el.classList.toggle('oficial', summary.source === 'oficial');
+    textEl.innerHTML = summary.precisionNote
+        ? escapeHtml(summary.precisionNote)
+        : 'El conteo de piezas por TAG es una <b>aproximación</b> (precisión estimada 78–98% según el método) — <b>no</b> es el número exacto de la tarjeta "Sorting Dashboard Production" de BinManager (sistema .NET aparte sin código fuente accesible).';
+}
+
 function ttRenderTagGrid() {
     const grid = document.getElementById('tt-tag-grid');
     // "oculta SORP si es 0" -- pedido explicito, el resto de tags SI se muestran aunque esten en 0.
     const tags = (ttState.summary?.tags || []).filter(t => !(t.tag === 'SORP' && (t.lpnCount || 0) === 0));
+    const source = ttState.summary?.source;
     if (!tags.length) {
         grid.innerHTML = '<div class="tt-empty-note">Sin TAGs con piezas en este rango.</div>';
     } else {
@@ -14888,6 +14979,7 @@ function ttRenderTagGrid() {
                 <div class="tt-tc-nombre">${escapeHtml(ttResolveTagName(t.tagId, t.tag))}</div>
                 <div class="tt-tc-desc">${escapeHtml(t.tagDescriptionSpanish || '')}</div>
                 <div class="tt-tc-valor">${(t.lpnCount || 0).toLocaleString('es-MX')}</div>
+                ${ttSourceBadgeHtml(source)}
                 <div class="tt-tc-label">Piezas (LPN)</div>
             </div>`).join('');
     }
@@ -14899,6 +14991,7 @@ function ttRenderTagGrid() {
     } else {
         overlapCard.style.display = 'none';
     }
+    ttRenderPrecisionNote();
     ttRenderTagsChart(tags);
 }
 
@@ -14945,7 +15038,7 @@ async function ttOpenTag(tagId, silencioso) {
     if (!silencioso) document.getElementById('tt-kpi-grid').innerHTML = '<div class="tt-empty-note">Cargando…</div>';
     try {
         const { startIso, endIso } = ttEffectiveRangeIso();
-        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&${ttShiftQs()}`;
+        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&${ttShiftQs()}&${ttWorkCenterQs()}`;
         const [destRes, palRes, ordRes] = await Promise.all([
             apiFetch(`${API}/api/tags/${tagId}/destinations?${qs}`),
             apiFetch(`${API}/api/tags/${tagId}/pallets?${qs}`),
@@ -14956,6 +15049,7 @@ async function ttOpenTag(tagId, silencioso) {
         ttState.pallets = palRes.success ? (palRes.data || []) : [];
         ttState.orders = ordRes.success ? (ordRes.data || []) : [];
         ttRenderTagKpis();
+        ttRenderCoverageNote();
         ttRenderDestinosTable();
         ttRenderPalletsTable();
         ttRenderOrdersTable();
@@ -14991,6 +15085,29 @@ function ttRenderTagKpis() {
             <div class="tt-kpi-value" style="color:${color};${isText ? 'font-size:0.95rem;' : ''}">${isText ? escapeHtml(String(val)) : Number(val).toLocaleString('es-MX')}</div>
             <div class="tt-kpi-label">${escapeHtml(label)}</div>
         </div>`).join('');
+}
+
+// Nota de cobertura honesta del drill-down "¿A dónde se fueron?" -- `coverage`
+// (TagDestinationsCoverage en cubicaje/server/services/tagTraceSql.ts,
+// getTagDestinations) trae piezasOficiales (conteo EXACTO del passthrough
+// oficial para ESTE tag, null si no aplico/fallo), piezasIdentificadas
+// (SIEMPRE taggedLpns.length, el numero de LPN que este modulo pudo
+// identificar con destino real vía SmartControl+BinManagerRO) y coberturaPct
+// (piezasIdentificadas/piezasOficiales*100, null si no hay oficial). Nunca se
+// aparenta que la suma de la tabla de destinos = el numero oficial de la
+// card -- este texto es explicito sobre cuanto SI se pudo vincular a un LPN.
+function ttRenderCoverageNote() {
+    const el = document.getElementById('tt-destinos-coverage-note');
+    if (!el) return;
+    const c = ttState.destinos?.coverage;
+    const identificadas = (c?.piezasIdentificadas ?? 0).toLocaleString('es-MX');
+    if (!c || c.piezasOficiales == null) {
+        el.innerHTML = `<i class="fa-solid fa-circle-info" style="margin-top:2px;"></i><span>No hay un conteo oficial de BinManager disponible para este TAG en este rango/ubicación (passthrough no configurado o no aplicable) — el desglose de abajo muestra las <b>${identificadas}</b> piezas que este módulo pudo identificar con destino real, sin poder comparar contra un total oficial.</span>`;
+        return;
+    }
+    const oficiales = c.piezasOficiales.toLocaleString('es-MX');
+    const pct = c.coberturaPct != null ? c.coberturaPct : '—';
+    el.innerHTML = `<i class="fa-solid fa-circle-info" style="margin-top:2px;"></i><span>Se identificó destino para <b>${identificadas} de ${oficiales}</b> piezas oficiales (<b>${pct}%</b> de cobertura) — el resto no se pudo vincular a un LPN específico con los datos disponibles.</span>`;
 }
 
 function ttSetTab(tab) {
@@ -15117,7 +15234,7 @@ async function ttOpenDestinoDetalle(destinoKey, page) {
     tbody.innerHTML = '<tr><td colspan="6"><div class="tt-empty-note">Cargando…</div></td></tr>';
     try {
         const { startIso, endIso } = ttEffectiveRangeIso();
-        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&page=${ttState.destinoPage}&pageSize=${ttState.destinoPageSize}&${ttShiftQs()}`;
+        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&page=${ttState.destinoPage}&pageSize=${ttState.destinoPageSize}&${ttShiftQs()}&${ttWorkCenterQs()}`;
         const res = await apiFetch(`${API}/api/tags/${ttState.currentTagId}/destinations/${encodeURIComponent(destinoKey)}?${qs}`);
         if (!res.success) throw new Error(res.error || 'No se pudo cargar el detalle');
         const data = res.data;
@@ -15155,7 +15272,7 @@ async function ttOpenOverlapping() {
     tbody.innerHTML = '<tr><td colspan="4"><div class="tt-empty-note">Cargando…</div></td></tr>';
     try {
         const { startIso, endIso } = ttEffectiveRangeIso();
-        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&${ttShiftQs()}`;
+        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&${ttShiftQs()}&${ttWorkCenterQs()}`;
         const res = await apiFetch(`${API}/api/tags/overlapping?${qs}`);
         if (!res.success) throw new Error(res.error || 'No se pudo cargar');
         ttState.overlapping = res.data || [];
@@ -15182,6 +15299,7 @@ async function ttOpenPalletModal(palletBinId) {
     try {
         const { startIso, endIso } = ttEffectiveRangeIso();
         const params = new URLSearchParams({ startDate: startIso, endDate: endIso });
+        params.set('workCenterId', (ttState.workCenterIds && ttState.workCenterIds.length ? ttState.workCenterIds : TT_WORKCENTER_IDS_DEFAULT).join(','));
         if (ttState.currentTagId != null) params.set('tagId', ttState.currentTagId);
         const res = await apiFetch(`${API}/api/tags/pallets/${palletBinId}?${params.toString()}`);
         if (!res.success) throw new Error(res.error || 'No se pudo cargar el pallet');

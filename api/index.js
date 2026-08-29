@@ -5221,6 +5221,15 @@ async function cubicajeTagsGet(path, timeoutMs = 15000) {
 // "turno2". Es una aproximacion por hora del dia (NO un dato oficial de
 // turno), documentada asi en el propio backend de Cubicaje. Cualquier otro
 // valor se ignora aqui mismo (nunca se reenvia basura upstream).
+//
+// workCenterId: selector de Ubicacion (Sorting/Technical/OpenCell Monterrey2
+// = 47/48/60 dentro de Monterrey MAXX). El frontend (index.html, checkboxes
+// tt-ubicacion-cb) arma esto SIEMPRE como un solo string CSV (ej. "47,48,60"),
+// nunca como arreglo -- por eso aqui basta con reenviarlo tal cual en un solo
+// query param. Confirmado contra cubicaje/server/routes.ts
+// (parseOptionalWorkCenterIds): acepta tanto CSV en un parametro como
+// parametro repetido, asi que reenviar el CSV recibido funciona sin tener
+// que romperlo en N parametros de este lado.
 const TAGS_VALID_SHIFTS = new Set(['todos', 'actual', 'turno1', 'turno2']);
 function tagsRangeParams(startDate, endDate, workCenterId, shift) {
   const params = new URLSearchParams();
