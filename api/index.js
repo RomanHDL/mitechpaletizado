@@ -30,6 +30,12 @@ const {
 } = require('./services/destinoTipoHelpers');
 const { normalizeBin: fftNormalizeBin } = require('./services/binHelpers');
 const { palletIdMatchKey, buildUnifiedRecord } = require('./services/unifiedPalletHelpers');
+const {
+  MODULES,
+  ALL_MODULE_IDS,
+  userHasModuleAccess,
+  getUserModules,
+} = require('./services/permissions');
 
 const app = express();
 app.use(cors());
@@ -176,7 +182,9 @@ const userSchema = new mongoose.Schema({
   passwordHash: { type: String, required: true },
   role: { type: String, enum: ['admin', 'lider', 'escaneadora', 'viewer'], required: true },
   isActive: { type: Boolean, default: true },
-  // undefined = usa el default de su rol (ROLE_MODULES); array (incluso []) = override explicito por usuario
+  // undefined = usa el defaultAccess de cada modulo (ver MODULES en
+  // api/services/permissions.js); array (incluso []) = override explicito
+  // por usuario, uno o mas ids del catalogo de modulos.
   modulosCustom: { type: [String], default: undefined },
 }, { timestamps: true });
 
@@ -284,31 +292,45 @@ function roleGuard(...roles) {
   };
 }
 
-// Permisos por modulo (independiente del Centro de Control, que sigue exclusivo de usuario 3647).
-// Solo hay 2 modulos reales en esta app: dashboard y escaneadoras (incluye resumen de turno).
-const ROLE_MODULES = {
-  admin: ['dashboard', 'escaneadoras'],
-  lider: ['dashboard', 'escaneadoras'],
-  escaneadora: ['escaneadoras'],
-  viewer: ['dashboard'],
-};
-function getUserModules(user) {
-  // El admin 3647 es superusuario en TODO el resto del codigo (decenas de
-  // checks explicitos `usuario !== '3647'`) — moduleGuard era la unica
-  // excepcion, y un modulosCustom desactualizado/incompleto en su propio
-  // registro (ej. sin 'escaneadoras') lo dejaba fuera de sus propios
-  // endpoints con 403. Nunca debe depender de modulosCustom.
-  if (String(user.usuario) === '3647') return ['dashboard', 'escaneadoras'];
-  return Array.isArray(user.modulosCustom) ? user.modulosCustom : (ROLE_MODULES[user.role] || []);
-}
-function moduleGuard(moduleName) {
+// Permisos por modulo — catalogo central en api/services/permissions.js
+// (11 modulos reales de la app, cada uno con su propio permiso independiente).
+// getUserModules/userHasModuleAccess importados arriba son la UNICA fuente de
+// verdad de aqui en adelante: reemplazan al ROLE_MODULES/getUserModules
+// locales que solo cubrian 'dashboard'/'escaneadoras' (esos 2 siguen
+// funcionando identico — su defaultAccess en el catalogo reproduce
+// ROLE_MODULES tal cual). moduleGuard(id) sigue siendo el mismo nombre que ya
+// usaban las rutas de escaneadoras/dashboard — ahora funciona para
+// CUALQUIER id del catalogo, incluyendo los que antes dependian del guard
+// generico `centroOperativoGuard` o de checks inline `usuario !== '3647'`
+// (ver seccion de rutas mas abajo: cada modulo tiene ahora SU PROPIO permiso).
+function moduleGuard(moduleId) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ success: false, error: 'No autenticado' });
-    if (!getUserModules(req.user).includes(moduleName)) {
+    if (!userHasModuleAccess(req.user, moduleId)) {
       return res.status(403).json({ success: false, error: 'Acceso denegado: no tienes permiso para ver este modulo.' });
     }
     next();
   };
+}
+// /api/resumen (Resumen Turno) nunca tuvo permiso propio: dependia de
+// moduleGuard('escaneadoras'). Ahora que 'resumen' es un modulo independiente
+// en el catalogo (mismo defaultAccess que 'escaneadoras' para no romper a
+// nadie hoy), este guard acepta CUALQUIERA de los 2 permisos explicitos, para
+// que un admin pueda otorgar 'resumen' solo (sin 'escaneadoras') a un usuario
+// via modulosCustom sin que sus llamadas a la API le den 403.
+function requireEscaneadorasOrResumen(req, res, next) {
+  if (!req.user) return res.status(401).json({ success: false, error: 'No autenticado' });
+  if (userHasModuleAccess(req.user, 'escaneadoras') || userHasModuleAccess(req.user, 'resumen')) return next();
+  return res.status(403).json({ success: false, error: 'Acceso denegado: no tienes permiso para ver este modulo.' });
+}
+// Endpoints nuevos de administracion de permisos (ver mas abajo, seccion
+// ADMIN DE PERMISOS): SIEMPRE exclusivo de usuario 3647, hardcoded — nunca
+// via modulosCustom ni roleGuard('admin'), para que el propio 3647 no pueda
+// quitarse esto ni delegarlo por accidente.
+function superAdminOnly(req, res, next) {
+  if (!req.user) return res.status(401).json({ success: false, error: 'No autenticado' });
+  if (String(req.user.usuario) !== '3647') return res.status(403).json({ success: false, error: 'Solo el administrador 3647 puede acceder a esta funcion.' });
+  next();
 }
 
 // Connect DB on every request
@@ -342,7 +364,7 @@ app.post('/api/auth/login', async (req, res) => {
     const sc = await checkAndSetSession(user, deviceId);
     if (!sc.allowed) return res.status(403).json({ success: false, error: sc.error, sessionConflict: true });
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
-    res.json({ success: true, token, deviceId: sc.deviceId, user: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role, modulosCustom: user.modulosCustom ?? null } });
+    res.json({ success: true, token, deviceId: sc.deviceId, user: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role, modulosCustom: user.modulosCustom ?? null, modules: getUserModules(user) } });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -360,7 +382,7 @@ app.post('/api/auth/nfc', async (req, res) => {
     if (!sc.allowed) return res.status(403).json({ success: false, error: sc.error, sessionConflict: true });
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
     await db.collection('nfc_cards').updateOne({ _id: card._id }, { $set: { lastUsed: new Date() }, $inc: { useCount: 1 } });
-    res.json({ success: true, token, deviceId: sc.deviceId, user: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role, modulosCustom: user.modulosCustom ?? null }, nfc: { serial: card.serialNumber, role: card.role } });
+    res.json({ success: true, token, deviceId: sc.deviceId, user: { id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role, modulosCustom: user.modulosCustom ?? null, modules: getUserModules(user) }, nfc: { serial: card.serialNumber, role: card.role } });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -377,7 +399,27 @@ app.get('/api/auth/me', auth, async (req, res) => {
     const session = await sessionsCol().findOne({ userId: req.user._id.toString() });
     if (session && session.deviceId !== deviceId) return res.status(401).json({ success: false, error: 'Sesion invalida para este dispositivo' });
   }
-  res.json({ success: true, user: { id: req.user._id, nombre: req.user.nombre, usuario: req.user.usuario, role: req.user.role, modulosCustom: req.user.modulosCustom ?? null } });
+  res.json({ success: true, user: { id: req.user._id, nombre: req.user.nombre, usuario: req.user.usuario, role: req.user.role, modulosCustom: req.user.modulosCustom ?? null, modules: getUserModules(req.user) } });
+});
+
+// Cambio de password AUTOSERVICIO (cualquier usuario autenticado, sobre su
+// propia cuenta) — requiere la password actual. Distinto de
+// POST /api/users/:id/password (reset por el admin 3647, sin password
+// actual). req.user viene de `auth` con -passwordHash (select explicito), asi
+// que se recarga el documento completo aqui para poder usar comparePassword.
+app.put('/api/auth/change-password', auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ success: false, error: 'Contrasena actual y nueva son requeridas' });
+    if (newPassword.length !== 6 || !/^\d{6}$/.test(newPassword)) return res.status(400).json({ success: false, error: 'La nueva contrasena debe ser exactamente 6 digitos' });
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    const valid = await user.comparePassword(currentPassword);
+    if (!valid) return res.status(401).json({ success: false, error: 'Contrasena actual incorrecta' });
+    user.passwordHash = await User.hashPassword(newPassword);
+    await user.save();
+    res.json({ success: true, message: 'Contrasena actualizada correctamente' });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 // ═══════════ IMPERSONATION (admin only) ═══════════
@@ -411,7 +453,7 @@ app.post('/api/auth/impersonate', auth, roleGuard('admin'), async (req, res) => 
     res.json({
       success: true,
       token,
-      user: { id: target._id, nombre: target.nombre, usuario: target.usuario, role: target.role, modulosCustom: target.modulosCustom ?? null },
+      user: { id: target._id, nombre: target.nombre, usuario: target.usuario, role: target.role, modulosCustom: target.modulosCustom ?? null, modules: getUserModules(target) },
       impersonation: true,
       admin: req.user.usuario
     });
@@ -486,11 +528,10 @@ app.put('/api/users/:id', auth, roleGuard('admin'), async (req, res) => {
       if (modulosCustom === null) {
         user.modulosCustom = undefined;
       } else {
-        const ALL_MODULES = ['dashboard', 'escaneadoras'];
-        if (!Array.isArray(modulosCustom) || !modulosCustom.every(m => ALL_MODULES.includes(m))) {
-          return res.status(400).json({ success: false, error: 'modulosCustom invalido: debe ser null o un subconjunto de ' + ALL_MODULES.join(', ') });
+        if (!Array.isArray(modulosCustom) || !modulosCustom.every(m => ALL_MODULE_IDS.includes(m))) {
+          return res.status(400).json({ success: false, error: 'modulosCustom invalido: debe ser null o un subconjunto de ' + ALL_MODULE_IDS.join(', ') });
         }
-        if (isSelf3647 && !ALL_MODULES.every(m => modulosCustom.includes(m))) {
+        if (isSelf3647 && !ALL_MODULE_IDS.every(m => modulosCustom.includes(m))) {
           return res.status(403).json({ success: false, error: 'No puedes restringir tus propios modulos como administrador 3647' });
         }
         user.modulosCustom = modulosCustom;
@@ -514,6 +555,87 @@ app.post('/api/users/:id/password', auth, roleGuard('admin'), async (req, res) =
     // Forzar re-login: limpiar sesiones del usuario
     await mongoose.connection.db.collection('active_sessions').deleteMany({ userId: user._id.toString() });
     res.json({ success: true, message: `Password de ${user.nombre} actualizado` });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ═══════════ ADMIN DE PERMISOS (panel "Administracion de accesos" de
+// Configuracion) — endpoints NUEVOS, exclusivos de usuario 3647 (superAdminOnly,
+// hardcoded, NUNCA via modulosCustom/roleGuard('admin')). Conviven con
+// /api/users/:id (arriba, ya soportaba modulosCustom) sin duplicar la fuente
+// de verdad: ambos leen/escriben el mismo campo `modulosCustom` y validan
+// contra el mismo catalogo (ALL_MODULE_IDS / MODULES de
+// api/services/permissions.js). Estos son los que consume el panel nuevo de
+// Configuracion; /api/users sigue sirviendo al Centro de Control existente. ═══════════
+
+app.get('/api/admin/users', auth, superAdminOnly, async (req, res) => {
+  try {
+    const users = await User.find({}).select('-passwordHash').sort({ role: 1, nombre: 1 });
+    const data = users.map(u => ({
+      id: u._id, nombre: u.nombre, usuario: u.usuario, role: u.role,
+      isActive: u.isActive, modulosCustom: u.modulosCustom ?? null,
+      isSuperadmin: String(u.usuario) === '3647',
+    }));
+    res.json({ success: true, data });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Estado RESUELTO (ON/OFF real) de cada modulo del catalogo para un usuario —
+// el frontend necesita saber el resultado final de userHasModuleAccess, no
+// solo el arreglo crudo de modulosCustom (que puede ser undefined = "usa el
+// default de su rol").
+app.get('/api/admin/users/:id/permissions', auth, superAdminOnly, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    const isSuperadmin = String(user.usuario) === '3647';
+    const isCustom = Array.isArray(user.modulosCustom);
+    const modules = MODULES.map(m => ({
+      id: m.id,
+      name: m.name,
+      category: m.category,
+      icon: m.icon,
+      toggleable: m.toggleable !== false,
+      enabled: userHasModuleAccess(user, m.id),
+    }));
+    res.json({
+      success: true,
+      data: {
+        id: user._id, nombre: user.nombre, usuario: user.usuario, role: user.role,
+        isActive: user.isActive, isSuperadmin,
+        permissionSource: isSuperadmin ? 'superadmin' : (isCustom ? 'custom' : 'role-default'),
+        modules,
+      },
+    });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Guarda el override explicito de modulos de un usuario. body: { modules: string[] | null }
+// - modules = arreglo (incluso []) -> override explicito (modulosCustom = ese arreglo)
+// - modules = null -> "Restaurar perfil": vuelve a depender del default de su rol (modulosCustom = undefined)
+// VALIDACION DURA: el usuario 3647 nunca puede ser modificado por esta ruta,
+// ni siquiera por si mismo — evita que el superadmin se auto-restrinja o que
+// alguien mas intente tocar su registro.
+app.put('/api/admin/users/:id/permissions', auth, superAdminOnly, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    if (String(user.usuario) === '3647') return res.status(403).json({ success: false, error: 'El superadministrador no puede ser modificado.' });
+    const { modules } = req.body;
+    if (modules === null) {
+      user.modulosCustom = undefined;
+    } else {
+      if (!Array.isArray(modules) || !modules.every(m => typeof m === 'string')) {
+        return res.status(400).json({ success: false, error: 'modules debe ser un arreglo de ids de modulo, o null para restaurar el default del rol' });
+      }
+      const unknown = modules.filter(m => !ALL_MODULE_IDS.includes(m));
+      if (unknown.length) return res.status(400).json({ success: false, error: 'Modulo(s) desconocido(s): ' + unknown.join(', ') });
+      user.modulosCustom = modules;
+    }
+    await user.save();
+    res.json({
+      success: true,
+      data: { id: user._id, modulosCustom: user.modulosCustom ?? null, effectiveModules: getUserModules(user) },
+    });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -1053,7 +1175,7 @@ async function fetchCubicajeShipmentTypes(timeoutMs = 15000) {
   return data.data;
 }
 
-app.get('/api/dashboard-destinos-fft/shipment-types', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/shipment-types', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const data = await fetchCubicajeShipmentTypes();
     res.json({ success: true, data });
@@ -1097,7 +1219,7 @@ async function fetchCubicajeDestinosHistoricos(startDate, timeoutMs = 15000) {
   return data;
 }
 
-app.get('/api/dashboard-destinos-fft/destinos-historicos', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/destinos-historicos', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const data = await fetchCubicajeDestinosHistoricos(req.query.startDate);
     res.json(data);
@@ -1135,7 +1257,7 @@ async function fetchCubicajeShipmentTypePallets(code, timeoutMs = 15000) {
   return data.pallets;
 }
 
-app.get('/api/dashboard-destinos-fft/shipment-types/:code/pallets', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/shipment-types/:code/pallets', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const pallets = await fetchCubicajeShipmentTypePallets(req.params.code);
     res.json({ success: true, code: req.params.code, pallets });
@@ -1172,7 +1294,7 @@ async function fetchCubicajeTvInventoryTotal(timeoutMs = 15000) {
   return data.total;
 }
 
-app.get('/api/dashboard-destinos-fft/tv-inventory-total', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/tv-inventory-total', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const total = await fetchCubicajeTvInventoryTotal();
     res.json({ success: true, total });
@@ -1209,7 +1331,7 @@ async function fetchCubicajeMaxxOperatorActivity(windowHours = 48, timeoutMs = 1
   return data.data;
 }
 
-app.get('/api/dashboard-destinos-fft/maxx/operator-activity', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/maxx/operator-activity', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const windowHours = Math.min(168, Math.max(1, parseInt(req.query.windowHours, 10) || 48));
     const data = await fetchCubicajeMaxxOperatorActivity(windowHours);
@@ -1247,7 +1369,7 @@ async function fetchCubicajeMaxxAudit(limit = 50, timeoutMs = 15000) {
   return data.data;
 }
 
-app.get('/api/dashboard-destinos-fft/maxx/audit', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/maxx/audit', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
     const data = await fetchCubicajeMaxxAudit(limit);
@@ -1284,7 +1406,7 @@ async function fetchCubicajeDestinoPallets(code, timeoutMs = 15000) {
   return { unidad: data.unidad, data: data.data };
 }
 
-app.get('/api/dashboard-destinos-fft/destinos/:code/pallets', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/destinos/:code/pallets', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const code = String(req.params.code || '').trim();
     if (!code) return res.status(400).json({ success: false, error: 'code invalido' });
@@ -1321,7 +1443,7 @@ async function fetchCubicajeMaxxPalletsSinMovimiento(minHours, timeoutMs = 15000
   return data.data;
 }
 
-app.get('/api/dashboard-destinos-fft/maxx/pallets-sin-movimiento', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/maxx/pallets-sin-movimiento', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const minHours = Math.min(720, Math.max(0, parseInt(req.query.minHours, 10) || 2));
     const data = await fetchCubicajeMaxxPalletsSinMovimiento(minHours);
@@ -1359,7 +1481,7 @@ async function fetchCubicajeBulkyCdmx(timeoutMs = 15000) {
   return data.data;
 }
 
-app.get('/api/dashboard-destinos-fft/bulky-cdmx', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/bulky-cdmx', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const data = await fetchCubicajeBulkyCdmx();
     res.json({ success: true, data });
@@ -1394,7 +1516,7 @@ async function fetchCubicajeMaxxActividadReciente(limit = 50, timeoutMs = 15000)
   return data.data;
 }
 
-app.get('/api/dashboard-destinos-fft/maxx/actividad-reciente', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/maxx/actividad-reciente', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
     const data = await fetchCubicajeMaxxActividadReciente(limit);
@@ -1432,7 +1554,7 @@ async function fetchCubicajeMaxxAreaSummary(area, timeoutMs = 15000) {
   return data.data;
 }
 
-app.get('/api/dashboard-destinos-fft/maxx/areas/:area', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/maxx/areas/:area', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const area = String(req.params.area || '').trim();
     if (!area) return res.status(400).json({ success: false, error: 'area invalida' });
@@ -1471,7 +1593,7 @@ async function fetchCubicajeMaxxAreaBins(area, includeEmpty, timeoutMs = 15000) 
   return data.data;
 }
 
-app.get('/api/dashboard-destinos-fft/maxx/areas/:area/bins', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/maxx/areas/:area/bins', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const area = String(req.params.area || '').trim();
     if (!area) return res.status(400).json({ success: false, error: 'area invalida' });
@@ -1488,7 +1610,7 @@ app.get('/api/dashboard-destinos-fft/maxx/areas/:area/bins', auth, roleGuard('ad
 // 2026-08-11 (WorkStationID=49 + texto "FFT", ~3,079 pallets reales -- la
 // mas grande de las 4; el frontend pagina esta tabla justo por esto).
 const MAXX_AREAS_CONFIRMADAS = ['TRG', 'FBA_FULL', 'UPT', 'FFT'];
-app.get('/api/dashboard-destinos-fft/maxx/ubicaciones', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/maxx/ubicaciones', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const includeEmpty = req.query.includeEmpty === '1' || req.query.includeEmpty === 'true';
     const porArea = await Promise.all(MAXX_AREAS_CONFIRMADAS.map((a) => fetchCubicajeMaxxAreaBins(a, includeEmpty).then((data) => data.map((b) => ({ ...b, areaFisica: a }))).catch(() => [])));
@@ -1497,8 +1619,7 @@ app.get('/api/dashboard-destinos-fft/maxx/ubicaciones', auth, roleGuard('admin')
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 
-app.get('/api/sc-pallets/live', auth, roleGuard('admin'), async (req, res) => {
-  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+app.get('/api/sc-pallets/live', auth, moduleGuard('comparador-pallets'), async (req, res) => {
   try {
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 100));
     const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
@@ -1513,8 +1634,7 @@ app.get('/api/sc-pallets/live', auth, roleGuard('admin'), async (req, res) => {
 // Detalle de UN pallet para el Comparador de Pallets (2026-08-21) -- busca en
 // CUALQUIER almacen (no solo MAXX), a diferencia de
 // /api/dashboard-destinos-fft/pallets/:palletId que esta fijo a LocationID=68.
-app.get('/api/comparador-pallets/:code', auth, roleGuard('admin'), async (req, res) => {
-  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+app.get('/api/comparador-pallets/:code', auth, moduleGuard('comparador-pallets'), async (req, res) => {
   try {
     const code = String(req.params.code || '').trim();
     if (!code) return res.status(400).json({ success: false, error: 'code invalido' });
@@ -1667,8 +1787,7 @@ async function leerRawInventarioDePallet(palletIdOriginal) {
 // proxy que /api/sc-pallets/live — llama a Cubicaje via GET
 // /api/integrations/live-pallets-stats con la misma llave compartida.
 // ══════════════════════════════════════════════
-app.get('/api/sc-pallets/live-stats', auth, roleGuard('admin'), async (req, res) => {
-  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+app.get('/api/sc-pallets/live-stats', auth, moduleGuard('comparador-pallets'), async (req, res) => {
   const base = process.env.CUBICAJE_API_BASE_URL;
   const key = process.env.CUBICAJE_INTEGRATION_KEY;
   if (!base || !key) return res.status(503).json({ success: false, error: 'CUBICAJE_API_BASE_URL/CUBICAJE_INTEGRATION_KEY no configuradas para este proyecto' });
@@ -1889,8 +2008,7 @@ app.post('/api/lpn-duplicates/check', auth, async (req, res) => {
   }
 });
 
-app.get('/api/lpn-duplicates', auth, roleGuard('admin'), async (req, res) => {
-  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+app.get('/api/lpn-duplicates', auth, moduleGuard('lpn-duplicados'), async (req, res) => {
   try {
     const filter = {};
     if (req.query.resuelto === 'false') filter.resuelto = false;
@@ -1901,8 +2019,7 @@ app.get('/api/lpn-duplicates', auth, roleGuard('admin'), async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-app.post('/api/lpn-duplicates/:id/resolver', auth, roleGuard('admin'), async (req, res) => {
-  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+app.post('/api/lpn-duplicates/:id/resolver', auth, moduleGuard('lpn-duplicados'), async (req, res) => {
   try {
     const doc = await LpnDuplicate.findByIdAndUpdate(
       req.params.id,
@@ -1920,8 +2037,7 @@ app.post('/api/lpn-duplicates/:id/resolver', auth, roleGuard('admin'), async (re
 // de tiempo area por area (via Cubicaje, historico BinManagerRO) + estado
 // actual y confirmacion en vivo (via SmartControl, sin el retraso) + a que
 // pedido de venta va de salida.
-app.get('/api/lpn-duplicates/:id/mapa', auth, roleGuard('admin'), async (req, res) => {
-  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
+app.get('/api/lpn-duplicates/:id/mapa', auth, moduleGuard('lpn-duplicados'), async (req, res) => {
   try {
     const doc = await LpnDuplicate.findById(req.params.id);
     if (!doc) return res.status(404).json({ success: false, error: 'No encontrado' });
@@ -2478,7 +2594,7 @@ resumenSchema.index({ fecha: 1, turno: 1 });
 resumenSchema.index({ createdAt: -1 });
 const Resumen = mongoose.models.ResumenPaletizado || mongoose.model('ResumenPaletizado', resumenSchema);
 
-app.post('/api/resumen', auth, moduleGuard('escaneadoras'), async (req, res) => {
+app.post('/api/resumen', auth, requireEscaneadorasOrResumen, async (req, res) => {
   try {
     const { turno, palletsTotales, palletsTRG, palletsAlmacen, palletsFBA, palletsEnProceso, asistencia, absentismo, tareasPendientes, fecha } = req.body;
     if (!turno || !fecha || palletsTotales===undefined || palletsTotales==='' || palletsTRG===undefined || palletsTRG==='' || palletsAlmacen===undefined || palletsAlmacen==='' || palletsFBA===undefined || palletsFBA==='' || palletsEnProceso===undefined || palletsEnProceso==='' || asistencia===undefined || asistencia==='' || absentismo===undefined || absentismo==='' || !tareasPendientes) {
@@ -2500,7 +2616,7 @@ app.post('/api/resumen', auth, moduleGuard('escaneadoras'), async (req, res) => 
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-app.get('/api/resumen', auth, moduleGuard('escaneadoras'), async (req, res) => {
+app.get('/api/resumen', auth, requireEscaneadorasOrResumen, async (req, res) => {
   try {
     const { fecha, turno, limit } = req.query;
     const filter = {};
@@ -2929,7 +3045,7 @@ async function computeReporteSemanal(query) {
   };
 }
 
-app.get('/api/reportes/produccion-semanal', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/reportes/produccion-semanal', auth, moduleGuard('reporte-semanal'), async (req, res) => {
   try {
     const r = await computeReporteSemanal(req.query);
     res.json({
@@ -2954,7 +3070,7 @@ app.get('/api/reportes/produccion-semanal', auth, roleGuard('admin'), centroOper
 // con ExcelJS (api/services/reporteProduccionExcel.js) a partir de los MISMOS
 // datos que /api/reportes/produccion-semanal — nunca un archivo aparte ni datos
 // distintos. Mismo guard de admin 3647 que el resto del modulo.
-app.get('/api/reportes/produccion-semanal/excel', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/reportes/produccion-semanal/excel', auth, moduleGuard('reporte-semanal'), async (req, res) => {
   try {
     const r = await computeReporteSemanal(req.query);
     const wb = construirWorkbookReporteSemanal({ dias: r.dias, resumen: r.resumen, resumenFilas: r.resumenFilas }, r.semana);
@@ -3004,7 +3120,7 @@ function fftDefaultRange(query) {
   return { fecha_inicio: fftIso(hace30), fecha_fin: fftIso(hoy) };
 }
 
-app.get('/api/dashboard-destinos-fft/filtros', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/filtros', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const [destinos, escaneadoras, condiciones, clasifs] = await Promise.all([
       EscReg.distinct('destino'),
@@ -3037,7 +3153,7 @@ app.get('/api/dashboard-destinos-fft/filtros', auth, roleGuard('admin'), centroO
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-app.get('/api/dashboard-destinos-fft/data', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/data', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const tipoFiltro = req.query.tipo || null;
     const rango = fftDefaultRange(req.query);
@@ -3321,7 +3437,7 @@ function buildDestinosPayload(registros) {
   return { destinos, meta: { totalPallets, totalPiezas, generadoEn: new Date().toISOString() } };
 }
 
-app.get('/api/dashboard-destinos-fft/destinos', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/destinos', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const { registros } = await construirCruceFft(req.query);
     res.json({ success: true, ...buildDestinosPayload(registros) });
@@ -3333,7 +3449,7 @@ app.get('/api/dashboard-destinos-fft/destinos', auth, roleGuard('admin'), centro
 // este proyecto tiene un limite de ejecucion mas corto, puede fallar por
 // timeout de la plataforma (no de este codigo) — en ese caso el cron diario
 // (ver vercel.json) sigue siendo el mecanismo confiable de refresco.
-app.post('/api/dashboard-destinos-fft/sincronizar-inventario', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.post('/api/dashboard-destinos-fft/sincronizar-inventario', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const r = await sincronizarInventarioCubicaje();
     res.json({ success: true, ...r });
@@ -3413,14 +3529,14 @@ function buildAreasPayload(cruce) {
   };
 }
 
-app.get('/api/dashboard-destinos-fft/areas', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/areas', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const cruce = await construirCruceFft(req.query);
     res.json({ success: true, ...buildAreasPayload(cruce) });
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 
-app.get('/api/dashboard-destinos-fft/areas/:areaId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/areas/:areaId', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     let areaId;
     try { areaId = decodeURIComponent(req.params.areaId || '').trim(); } catch (e) { return res.status(400).json({ success: false, error: 'areaId invalido' }); }
@@ -3472,7 +3588,7 @@ app.get('/api/dashboard-destinos-fft/areas/:areaId', auth, roleGuard('admin'), c
   } catch (error) { res.status(error.status || 500).json({ success: false, error: error.message }); }
 });
 
-app.get('/api/dashboard-destinos-fft/areas/:areaId/bines/:binId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/areas/:areaId/bines/:binId', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     let areaId, binId;
     try {
@@ -3586,7 +3702,7 @@ function buildPalletsPayload(registros, query) {
   return { records, pagination: { page, pageSize, totalRecords, totalPages } };
 }
 
-app.get('/api/dashboard-destinos-fft/pallets', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/pallets', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const { registros } = await construirCruceFft(req.query);
     res.json({ success: true, ...buildPalletsPayload(registros, req.query) });
@@ -3604,7 +3720,7 @@ app.get('/api/dashboard-destinos-fft/pallets', auth, roleGuard('admin'), centroO
 // respuesta de los 3 con las mismas funciones puras que ya usan los
 // endpoints individuales (que se dejan intactos para Areas/Actividad, que
 // sí necesitan pedirlos por separado con sus propios filtros/paginacion).
-app.get('/api/dashboard-destinos-fft/resumen-completo', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/resumen-completo', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     const cruce = await construirCruceFft(req.query);
     res.json({
@@ -3619,7 +3735,7 @@ app.get('/api/dashboard-destinos-fft/resumen-completo', auth, roleGuard('admin')
 // Detalle unificado completo de UN PalletID (ambas fuentes + historial FFT +
 // productos/SKU via SmartControl si existen + trazabilidad + datos originales
 // sin secretos). El PalletID de la URL se trata siempre como texto.
-app.get('/api/dashboard-destinos-fft/pallets/:palletId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/dashboard-destinos-fft/pallets/:palletId', auth, moduleGuard('dashboard-destinos-fft'), async (req, res) => {
   try {
     let palletIdParam;
     try { palletIdParam = decodeURIComponent(req.params.palletId || '').trim(); } catch (e) { return res.status(400).json({ success: false, error: 'palletId invalido' }); }
@@ -4281,10 +4397,12 @@ app.get('/api/historial', auth, moduleGuard('dashboard'), async (req, res) => {
 // /api/lpn-duplicates/check).
 // ══════════════════════════════════════════════
 
-function centroOperativoGuard(req, res, next) {
-  if (req.user.usuario !== '3647') return res.status(403).json({ success: false, error: 'Solo admin 3647' });
-  next();
-}
+// centroOperativoGuard (guard generico compartido por 4 modulos distintos)
+// fue retirado en la auditoria de permisos por usuario/modulo: cada ruta de
+// abajo usa ahora moduleGuard('<id-del-modulo>') con su propio permiso
+// independiente (ver api/services/permissions.js). Su defaultAccess sigue
+// siendo exactamente `usuario === '3647'`, asi que el comportamiento de hoy
+// no cambia para nadie sin modulosCustom explicito.
 
 // ── Llamada directa a Cubicaje (server-to-server, misma llave que ya usan los otros
 // proxies de este archivo) — para la reconciliacion contra BinManagerRO. ──
@@ -4372,7 +4490,7 @@ async function checkSourceHealth(name, fn) {
     return { estado: e.name === 'AbortError' ? 'timeout' : 'error', latencyMs: Date.now() - t0, ultimaConsultaExitosa: lastSuccessfulCheck[name], error: e.message || 'error' };
   }
 }
-app.get('/api/centro-operativo/estado', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/centro-operativo/estado', auth, moduleGuard('centro-operativo'), async (req, res) => {
   const [aplicacion, smartControl, binManagerRO] = await Promise.all([
     checkSourceHealth('aplicacion', async () => {
       const registros = await EscReg.estimatedDocumentCount();
@@ -4418,7 +4536,7 @@ app.get('/api/centro-operativo/estado', auth, roleGuard('admin'), centroOperativ
 });
 
 // ── Valores reales para poblar los selectores de filtro (nunca texto escrito a mano) ──
-app.get('/api/centro-operativo/filtros', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/centro-operativo/filtros', auth, moduleGuard('centro-operativo'), async (req, res) => {
   try {
     const [escaneadoras, turnos, condiciones, destinos] = await Promise.all([
       EscReg.distinct('escaneadora'),
@@ -4621,7 +4739,7 @@ async function buildEnrichedPalletList(filter, query, allowNew = true) {
 // implica 1 lookup a BinManagerRO (barato, pero no gratis a miles); el enriquecimiento de
 // SmartControl reusa el cache persistente igual que /pallets. `modo` filtra el resultado
 // ya calculado (todas/coincide/diferencia/incompleto), no cambia lo que se consulta.
-app.get('/api/centro-operativo/sources', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/centro-operativo/sources', auth, moduleGuard('centro-operativo'), async (req, res) => {
   try {
     const filter = buildCentroFilter(req.query);
     const pageNum = Math.max(1, parseInt(req.query.page) || 1);
@@ -4682,7 +4800,7 @@ app.get('/api/centro-operativo/sources', auth, roleGuard('admin'), centroOperati
 });
 
 // ── KPIs principales (2 filas de 6) ──
-app.get('/api/centro-operativo/resumen', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/centro-operativo/resumen', auth, moduleGuard('centro-operativo'), async (req, res) => {
   try {
     const filter = buildCentroFilter(req.query);
 
@@ -4765,7 +4883,7 @@ app.get('/api/centro-operativo/resumen', auth, roleGuard('admin'), centroOperati
 });
 
 // ── Graficas operativas: por escaneadora, por hora, por condicion, por destino ──
-app.get('/api/centro-operativo/produccion', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/centro-operativo/produccion', auth, moduleGuard('centro-operativo'), async (req, res) => {
   try {
     const filter = buildCentroFilter(req.query);
 
@@ -4875,7 +4993,7 @@ app.get('/api/centro-operativo/produccion', auth, roleGuard('admin'), centroOper
 // ── Resumen de televisiones: por marca, por modelo, por pulgadas, por tipo ──
 // Trabaja sobre PRODUCTOS individuales (cada TV real, no un representante por pallet) —
 // asi un pallet mixto aporta correctamente a varias marcas/modelos/pulgadas a la vez.
-app.get('/api/centro-operativo/televisiones', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/centro-operativo/televisiones', auth, moduleGuard('centro-operativo'), async (req, res) => {
   try {
     const filter = buildCentroFilter(req.query);
     // allowNew=false: mismo motivo que /produccion — solo /resumen paga el costo de
@@ -4936,7 +5054,7 @@ app.get('/api/centro-operativo/televisiones', auth, roleGuard('admin'), centroOp
 });
 
 // ── Pallets recientes: paginado server-side (mismo patron que /api/historial) ──
-app.get('/api/centro-operativo/pallets', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/centro-operativo/pallets', auth, moduleGuard('centro-operativo'), async (req, res) => {
   try {
     const filter = buildCentroFilter(req.query);
     const pageNum = Math.max(1, parseInt(req.query.page) || 1);
@@ -4992,7 +5110,7 @@ app.get('/api/centro-operativo/pallets', auth, roleGuard('admin'), centroOperati
 // ── Detalle completo de un pallet (para el drawer) — refresca y persiste via
 // enrichOnePallet (no duplica la logica de fetch+clasificacion) + reconciliacion
 // contra BinManagerRO (3ra fuente) para la pestaña "Comparacion de fuentes". ──
-app.get('/api/centro-operativo/pallets/:palletId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/centro-operativo/pallets/:palletId', auth, moduleGuard('centro-operativo'), async (req, res) => {
   try {
     const palletId = normalizePalletId(req.params.palletId);
     if (!palletId) return res.status(400).json({ success: false, error: 'palletId requerido' });
@@ -5083,7 +5201,7 @@ app.get('/api/centro-operativo/pallets/:palletId', auth, roleGuard('admin'), cen
 // Asi no se agrega ninguna dependencia nueva ni se duplica la logica de generar el
 // archivo; este endpoint solo trae el set COMPLETO de pallets que cumple el filtro
 // (hasta un tope), ya que la tabla en pantalla solo tiene la pagina visible.
-app.get('/api/centro-operativo/exportar', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/centro-operativo/exportar', auth, moduleGuard('centro-operativo'), async (req, res) => {
   try {
     const filter = buildCentroFilter(req.query);
     const pipeline = [{ $match: filter }];
@@ -5164,8 +5282,10 @@ app.get('/api/cron/sync-cubicaje-inventory', async (req, res) => {
 // directo a SQL Server (ver comentario ~L906) — proxy server-a-servidor hacia
 // Cubicaje (mi2-apps/cubicaje), CUBICAJE_API_BASE_URL + X-Integration-Key,
 // misma llave que ya usan fetchCubicajePalletDetailGlobal/fetchCubicajeShipmentTypes
-// arriba. Guard identico al resto del Centro de Control (auth + roleGuard('admin') +
-// centroOperativoGuard, exclusivo usuario 3647) — NO se inventa un guard nuevo.
+// arriba. Guard: auth + moduleGuard('trazabilidad-tag') (defaultAccess exclusivo
+// de usuario 3647, igual que antes — ver api/services/permissions.js). Modulo
+// independiente del resto del Centro de Control: un admin 3647 puede otorgar
+// este permiso a otro usuario via modulosCustom sin darle los demas.
 //
 // Rutas remotas CONFIRMADAS leyendo cubicaje/server/routes.ts directamente
 // (bloque "requirePaletizadoIntegrationKey" + /tags/*, 2026-08-28) -- shapes
@@ -5303,52 +5423,52 @@ function tagsHandleError(res, error) {
   res.status(status).json({ success: false, error: error.message || 'Error al consultar Cubicaje' });
 }
 
-app.get('/api/tags/catalog', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/tags/catalog', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
   try { res.json({ success: true, data: await fetchCubicajeTagCatalog() }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
-app.get('/api/tags/source-lag', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/tags/source-lag', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
   try { res.json({ success: true, data: await fetchCubicajeSourceLag() }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
-app.get('/api/tags/summary', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/tags/summary', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
   const { startDate, endDate, workCenterId, shift } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
   try { res.json({ success: true, data: await fetchCubicajeTagSummary(startDate, endDate, workCenterId, shift) }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
-app.get('/api/tags/overlapping', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/tags/overlapping', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
   const { startDate, endDate, workCenterId, shift } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
   try { res.json({ success: true, data: await fetchCubicajeOverlappingTags(startDate, endDate, workCenterId, shift) }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
-app.get('/api/tags/:tagId/destinations', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/tags/:tagId/destinations', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
   const { startDate, endDate, workCenterId, shift } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
   try { res.json({ success: true, data: await fetchCubicajeTagDestinations(req.params.tagId, startDate, endDate, workCenterId, shift) }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
-app.get('/api/tags/:tagId/destinations/:destinationKey', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/tags/:tagId/destinations/:destinationKey', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
   const { startDate, endDate, workCenterId, page, pageSize, shift } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
   try { res.json({ success: true, data: await fetchCubicajeDestinationDetails(req.params.tagId, req.params.destinationKey, startDate, endDate, page, pageSize, workCenterId, shift) }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
-app.get('/api/tags/:tagId/pallets', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/tags/:tagId/pallets', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
   const { startDate, endDate, workCenterId, shift } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
   try { res.json({ success: true, data: await fetchCubicajeTagPallets(req.params.tagId, startDate, endDate, workCenterId, shift) }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
-app.get('/api/tags/pallets/:palletBinId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/tags/pallets/:palletBinId', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
   const { tagId, startDate, endDate, workCenterId } = req.query;
   try {
     const data = await fetchCubicajePalletDetails(req.params.palletBinId, tagId, startDate, endDate, workCenterId);
@@ -5357,14 +5477,14 @@ app.get('/api/tags/pallets/:palletBinId', auth, roleGuard('admin'), centroOperat
   } catch (error) { tagsHandleError(res, error); }
 });
 
-app.get('/api/tags/:tagId/orders', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/tags/:tagId/orders', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
   const { startDate, endDate, workCenterId, shift } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
   try { res.json({ success: true, data: await fetchCubicajeTagOrders(req.params.tagId, startDate, endDate, workCenterId, shift) }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
-app.get('/api/tags/orders/:orderId', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/tags/orders/:orderId', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
   // tagId es REQUERIDO por Cubicaje (getOrderDetailForTag no lo acepta opcional)
   // -- se valida aqui tambien para fallar rapido con un mensaje claro.
   if (req.query.tagId == null || req.query.tagId === '' || !Number.isFinite(Number(req.query.tagId))) {
@@ -5377,7 +5497,7 @@ app.get('/api/tags/orders/:orderId', auth, roleGuard('admin'), centroOperativoGu
   } catch (error) { tagsHandleError(res, error); }
 });
 
-app.get('/api/tags/lpn/:lpn/trace', auth, roleGuard('admin'), centroOperativoGuard, async (req, res) => {
+app.get('/api/tags/lpn/:lpn/trace', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
   try { res.json({ success: true, data: await fetchCubicajeLpnTrace(req.params.lpn) }); }
   catch (error) { tagsHandleError(res, error); }
 });
