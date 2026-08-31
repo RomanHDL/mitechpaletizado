@@ -1489,6 +1489,9 @@
         .tt-kpi-value{font-size:1.5rem;font-weight:800;line-height:1;color:var(--tt-kpi-color,var(--tt-accent));word-break:break-word;}
         .tt-kpi-value.tt-kpi-value-text{font-size:0.92rem;line-height:1.25;}
         .tt-kpi-label{font-size:0.7rem;color:var(--tt-text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.02em;}
+        .tt-kpi-nodisponible{opacity:0.55;}
+        .tt-kpi-nodisponible .tt-kpi-value{color:var(--tt-text-muted);}
+        .tt-kpi-label .tt-nd-icon{margin-left:4px;color:var(--tt-warning);}
         .tt-tabs{display:flex;gap:0.4rem;overflow-x:auto;border-bottom:1px solid var(--tt-border);margin-bottom:1.1rem;}
         .tt-tab{background:none;border:none;border-bottom:2px solid transparent;padding:0.65rem 0.9rem;font-size:0.85rem;font-weight:600;color:var(--tt-text-muted);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;}
         .tt-tab.active{color:var(--tt-accent);border-bottom-color:var(--tt-accent);}
@@ -16343,26 +16346,52 @@ function ttRenderTagKpis() {
     // universo IDENTIFICADO (totalIdentificadas), no del oficial -- solo se les
     // asigna icono y color de la paleta ya definida del modulo (TT_PALETTE /
     // TT_DESTINO_REAL_PALETTE), nunca un hex inventado.
+    // Cuando el desglose interno EXCEDE al oficial (coverage.identificadasExcedeOficial,
+    // ya calculado en el backend / getTagDestinations, nunca recalculado aqui),
+    // Roman pidio explicitamente no mostrar esos 6 sub-conteos inflados como si
+    // fueran reales -- se reemplazan por "N/D" con una card visualmente atenuada.
+    // El KPI "Total piezas (LPN)" (ya resuelto arriba con el numero oficial) y
+    // "Última actualización" (no es un conteo de piezas) NUNCA se ven afectados.
+    const excedeIdentificado = !!coverage?.identificadasExcedeOficial;
     const kpis = [
-        ['Total piezas (LPN)', totalKpiVal, '#1E40AF', 'fa-boxes-stacked', false, totalBadge],
-        ['Trazabilidad completa', conMovimiento, '#059669', 'fa-circle-check', false, ''],
-        ['Esperando lag', esperandoLag, '#D97706', 'fa-clock', false, ''],
-        ['Sin movimiento posterior', sinMovimiento, '#8B5CF6', 'fa-arrows-turn-to-dots', false, ''],
-        ['Anomalías reales', anomalias, '#DC2626', 'fa-triangle-exclamation', false, ''],
-        ['Pallets', pallets, '#0891B2', 'fa-pallet', false, ''],
-        ['Pedidos', pedidos, '#1E40AF', 'fa-file-invoice', false, ''],
-        ['Última actualización', ultimaAct, '#64748B', 'fa-calendar-day', true, ''],
+        ['Total piezas (LPN)', totalKpiVal, '#1E40AF', 'fa-boxes-stacked', false, totalBadge, false],
+        ['Trazabilidad completa', conMovimiento, '#059669', 'fa-circle-check', false, '', true],
+        ['Esperando lag', esperandoLag, '#D97706', 'fa-clock', false, '', true],
+        ['Sin movimiento posterior', sinMovimiento, '#8B5CF6', 'fa-arrows-turn-to-dots', false, '', true],
+        ['Anomalías reales', anomalias, '#DC2626', 'fa-triangle-exclamation', false, '', true],
+        ['Pallets', pallets, '#0891B2', 'fa-pallet', false, '', true],
+        ['Pedidos', pedidos, '#1E40AF', 'fa-file-invoice', false, '', true],
+        ['Última actualización', ultimaAct, '#64748B', 'fa-calendar-day', true, '', false],
     ];
-    document.getElementById('tt-kpi-grid').innerHTML = kpis.map(([label, val, color, icon, isText, badge]) => `
-        <div class="tt-card tt-kpi" style="--tt-kpi-color:${color};--tt-kpi-soft:${ttHexToRgba(color, 0.12)};">
+    document.getElementById('tt-kpi-grid').innerHTML = kpis.map(([label, val, color, icon, isText, badge, subconteo]) => {
+        const noDisponible = subconteo && excedeIdentificado;
+        const valorHtml = noDisponible ? 'N/D' : (isText ? escapeHtml(String(val)) : Number(val).toLocaleString('es-MX'));
+        const ndIcon = noDisponible ? ' <i class="fa-solid fa-circle-info tt-nd-icon" title="No disponible: el desglose interno de piezas excedió el número oficial en este rango"></i>' : '';
+        return `
+        <div class="tt-card tt-kpi${noDisponible ? ' tt-kpi-nodisponible' : ''}" style="--tt-kpi-color:${color};--tt-kpi-soft:${ttHexToRgba(color, 0.12)};">
             <div class="tt-kpi-icon"><i class="fa-solid ${icon}"></i></div>
             <div class="tt-kpi-body">
-                <div class="tt-kpi-value${isText ? ' tt-kpi-value-text' : ''}">${isText ? escapeHtml(String(val)) : Number(val).toLocaleString('es-MX')}</div>
-                <div class="tt-kpi-label">${escapeHtml(label)}</div>
+                <div class="tt-kpi-value${isText ? ' tt-kpi-value-text' : ''}">${valorHtml}</div>
+                <div class="tt-kpi-label">${escapeHtml(label)}${ndIcon}</div>
                 ${badge || ''}
             </div>
-        </div>`).join('');
+        </div>`;
+    }).join('');
     ttRenderKpiBreakdownNote(coverage, totalIdentificadas, hayOficial);
+}
+
+// Mensaje honesto de "no disponible" para los tabs de desglose (destinos/
+// pallets/pedidos) cuando coverage.identificadasExcedeOficial es true --
+// el mecanismo interno de identificacion LPN-por-LPN (taggedLpns, ver
+// cubicaje/server/services/tagTraceSql.ts) encontro mas piezas "candidatas"
+// que el numero oficial confirmado, asi que mostrar ese desglose seria
+// mostrar un dato que sabemos que esta inflado. Solo reutiliza valores YA
+// calculados en `coverage` (piezasOficiales/piezasIdentificadas) -- nunca
+// inventa ni recalcula nada.
+function ttExcedeMensajeHtml(coverage, intro) {
+    const oficiales = (coverage?.piezasOficiales ?? 0).toLocaleString('es-MX');
+    const identificadas = (coverage?.piezasIdentificadas ?? 0).toLocaleString('es-MX');
+    return `<i class="fa-solid fa-triangle-exclamation" style="display:block;font-size:1.6rem;opacity:0.4;margin-bottom:0.5rem;color:var(--tt-warning);"></i>${escapeHtml(intro)} El número oficial confirmado es <b>${oficiales}</b> piezas, pero el mecanismo de identificación interno encontró más candidatos (<b>${identificadas}</b>) de los que corresponde, así que no se muestra un desglose que podría ser incorrecto.`;
 }
 
 // Nota justo debajo del grid de KPIs -- SOLO se muestra cuando el KPI "Total
@@ -16457,8 +16486,15 @@ function ttSortPallets(key) { const s = ttState.sortPallets; s.dir = (s.key === 
 function ttSortOrders(key) { const s = ttState.sortOrders; s.dir = (s.key === key && s.dir === 'desc') ? 'asc' : 'desc'; s.key = key; ttRenderOrdersTable(); }
 
 function ttRenderDestinosTable() {
-    const rows = ttSortArr(ttState.destinos?.destinations || [], ttState.sortDestinos);
+    const coverage = ttState.destinos?.coverage;
     const tbody = document.getElementById('tt-tbody-destinos');
+    if (coverage?.identificadasExcedeOficial) {
+        const mensaje = ttExcedeMensajeHtml(coverage, 'No se pudo generar un desglose de destino confiable para estas piezas en este rango.');
+        tbody.innerHTML = `<tr><td colspan="5"><div class="tt-empty-note">${mensaje}</div></td></tr>`;
+        ttRenderDestinosChart([], 'No disponible');
+        return;
+    }
+    const rows = ttSortArr(ttState.destinos?.destinations || [], ttState.sortDestinos);
     if (!rows.length) {
         tbody.innerHTML = '<tr><td colspan="5"><div class="tt-empty-note">Sin destinos en este rango.</div></td></tr>';
         ttRenderDestinosChart([]);
@@ -16483,11 +16519,11 @@ function ttRenderDestinosTable() {
 // Roman. Colores semanticos: esperando_lag=naranja, anomalia_sin_movimiento=
 // rojo (ver ttDestinoColor), destinos reales con movimiento rotan sobre una
 // paleta separada azul/verde/violeta/cian.
-function ttRenderDestinosChart(rows) {
+function ttRenderDestinosChart(rows, mensajeVacio) {
     const centro = document.getElementById('tt-destinos-donut-centro');
     if (!rows || !rows.length) {
         if (ttCharts.destinos) { ttCharts.destinos.destroy(); delete ttCharts.destinos; }
-        if (centro) centro.innerHTML = '<div style="font-size:0.7rem;color:var(--tt-text-muted);">Sin datos</div>';
+        if (centro) centro.innerHTML = `<div style="font-size:0.7rem;color:var(--tt-text-muted);">${escapeHtml(mensajeVacio || 'Sin datos')}</div>`;
         return;
     }
     const labels = rows.map(r => ttDestinoLabel(r.destinationKey));
@@ -16503,8 +16539,14 @@ function ttRenderDestinosChart(rows) {
 }
 
 function ttRenderPalletsTable() {
-    const rows = ttSortArr(ttState.pallets || [], ttState.sortPallets);
+    const coverage = ttState.destinos?.coverage;
     const tbody = document.getElementById('tt-tbody-pallets');
+    if (coverage?.identificadasExcedeOficial) {
+        const mensaje = ttExcedeMensajeHtml(coverage, 'No se puede mostrar un listado confiable de pallets para este TAG en este rango.');
+        tbody.innerHTML = `<tr><td colspan="7"><div class="tt-empty-note">${mensaje}</div></td></tr>`;
+        return;
+    }
+    const rows = ttSortArr(ttState.pallets || [], ttState.sortPallets);
     if (!rows.length) {
         tbody.innerHTML = '<tr><td colspan="7"><div class="tt-empty-note"><i class="fa-solid fa-pallet" style="display:block;font-size:1.6rem;opacity:0.35;margin-bottom:0.5rem;"></i>No hay pallets con piezas de este TAG en el período y las ubicaciones seleccionadas.</div></td></tr>';
         return;
@@ -16522,8 +16564,14 @@ function ttRenderPalletsTable() {
 }
 
 function ttRenderOrdersTable() {
-    const rows = ttSortArr(ttState.orders || [], ttState.sortOrders);
+    const coverage = ttState.destinos?.coverage;
     const tbody = document.getElementById('tt-tbody-pedidos');
+    if (coverage?.identificadasExcedeOficial) {
+        const mensaje = ttExcedeMensajeHtml(coverage, 'No se puede mostrar un listado confiable de pedidos relacionados para este TAG en este rango.');
+        tbody.innerHTML = `<tr><td colspan="5"><div class="tt-empty-note">${mensaje}</div></td></tr>`;
+        return;
+    }
+    const rows = ttSortArr(ttState.orders || [], ttState.sortOrders);
     if (!rows.length) {
         tbody.innerHTML = '<tr><td colspan="5"><div class="tt-empty-note"><i class="fa-solid fa-file-invoice" style="display:block;font-size:1.6rem;opacity:0.35;margin-bottom:0.5rem;"></i>No hay pedidos relacionados con piezas de este TAG en el período y las ubicaciones seleccionadas.</div></td></tr>';
         return;
