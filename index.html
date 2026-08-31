@@ -16322,8 +16322,16 @@ function ttRenderTagKpis() {
     const conMovimiento = detail.filter(x => x.status === 'con_movimiento').length;
     const esperandoLag = detail.filter(x => x.status === 'esperando_lag').length;
     const anomalias = detail.filter(x => x.status === 'anomalia_sin_movimiento').length;
-    const sinMovimiento = esperandoLag + anomalias;
     const pallets = ttState.pallets.length;
+    // "Sin pallet identificado" -- piezas del universo identificado que NO
+    // caen en ninguno de los pallets de ttState.pallets (ver
+    // ttRenderPalletsSummaryNote, mismo calculo, mismos datos ya cargados --
+    // no se inventa ni se pide nada nuevo). Reemplaza al KPI viejo "Sin
+    // movimiento posterior" (pedido explicito de Roman: esa card era
+    // literalmente esperandoLag+anomalias, ya mostrados aparte -- se veia
+    // "duplicada" cada vez que Anomalías=0, que es el caso mas comun).
+    const enPallets = (ttState.pallets || []).reduce((sum, p) => sum + (Number(p.piezasTag) || 0), 0);
+    const sinPalletIdentificado = Math.max(0, totalIdentificadas - enPallets);
     const pedidos = ttState.orders.length;
     const lagInfo = ttState.lag?.binManager;
     const ultimaAct = lagInfo?.lastRecordAt ? new Date(lagInfo.lastRecordAt).toLocaleString('es-MX') : '—';
@@ -16358,7 +16366,7 @@ function ttRenderTagKpis() {
         ['Total piezas (LPN)', totalKpiVal, '#1E40AF', 'fa-boxes-stacked', false, totalBadge, false],
         ['Trazabilidad completa', conMovimiento, '#059669', 'fa-circle-check', false, '', true],
         ['Esperando lag', esperandoLag, '#D97706', 'fa-clock', false, '', true],
-        ['Sin movimiento posterior', sinMovimiento, '#8B5CF6', 'fa-arrows-turn-to-dots', false, '', true],
+        ['Sin pallet identificado', sinPalletIdentificado, '#8B5CF6', 'fa-box-open', false, '', true],
         ['Anomalías reales', anomalias, '#DC2626', 'fa-triangle-exclamation', false, '', true],
         ['Pallets', pallets, '#0891B2', 'fa-pallet', false, '', true],
         ['Pedidos', pedidos, '#1E40AF', 'fa-file-invoice', false, '', true],
