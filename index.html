@@ -1483,8 +1483,11 @@
         .tt-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem;}
         @media (max-width:1100px){.tt-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
         @media (max-width:520px){.tt-kpi-grid{grid-template-columns:minmax(0,1fr);}}
-        .tt-kpi{padding:0.95rem 1.1rem;display:flex;flex-direction:column;gap:0.35rem;min-height:88px;justify-content:center;}
-        .tt-kpi-value{font-size:1.5rem;font-weight:800;line-height:1;}
+        .tt-kpi{padding:0.9rem 1.05rem;display:flex;flex-direction:row;align-items:center;gap:0.8rem;min-height:88px;border-left:4px solid var(--tt-kpi-color,var(--tt-accent));}
+        .tt-kpi-icon{width:40px;height:40px;min-width:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1rem;background:var(--tt-kpi-soft,rgba(30,64,175,0.1));color:var(--tt-kpi-color,var(--tt-accent));}
+        .tt-kpi-body{min-width:0;display:flex;flex-direction:column;gap:0.28rem;}
+        .tt-kpi-value{font-size:1.5rem;font-weight:800;line-height:1;color:var(--tt-kpi-color,var(--tt-accent));word-break:break-word;}
+        .tt-kpi-value.tt-kpi-value-text{font-size:0.92rem;line-height:1.25;}
         .tt-kpi-label{font-size:0.7rem;color:var(--tt-text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.02em;}
         .tt-tabs{display:flex;gap:0.4rem;overflow-x:auto;border-bottom:1px solid var(--tt-border);margin-bottom:1.1rem;}
         .tt-tab{background:none;border:none;border-bottom:2px solid transparent;padding:0.65rem 0.9rem;font-size:0.85rem;font-weight:600;color:var(--tt-text-muted);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;}
@@ -1510,6 +1513,67 @@
         .tt-breadcrumb a:hover{text-decoration:underline;}
         .tt-section-title{font-size:1.02rem;font-weight:800;color:var(--tt-text);margin:0 0 0.2rem;}
         .tt-section-sub{font-size:0.8rem;color:var(--tt-text-muted);margin:0 0 0.9rem;}
+        /* ── Panel "Detalle de TAG" (#tt-panel-tag) ─────────────────── */
+        .tt-detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.1rem;}
+        .tt-detail-title{font-size:1.65rem;font-weight:800;color:var(--tt-text);margin:0;line-height:1.15;}
+        .tt-detail-sub{font-size:0.85rem;color:var(--tt-text-muted);margin:0.3rem 0 0;}
+        .tt-detail-head-actions{display:flex;align-items:center;gap:0.65rem;flex-wrap:wrap;}
+        .tt-switch-wrap{display:inline-flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:600;color:var(--tt-text);cursor:pointer;user-select:none;}
+        .tt-switch{position:relative;display:inline-block;width:38px;height:21px;flex:none;}
+        .tt-switch input{position:absolute;opacity:0;width:0;height:0;}
+        .tt-switch-track{position:absolute;inset:0;background:#CBD5E1;border-radius:999px;transition:background 0.15s ease;}
+        .tt-switch-track::after{content:'';position:absolute;top:2.5px;left:2.5px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,0.25);transition:transform 0.15s ease;}
+        .tt-switch input:checked + .tt-switch-track{background:var(--tt-accent);}
+        .tt-switch input:checked + .tt-switch-track::after{transform:translateX(17px);}
+        .tt-switch input:focus-visible + .tt-switch-track{outline:2px solid var(--tt-accent);outline-offset:2px;}
+        .tt-update-pill{display:inline-flex;align-items:center;gap:8px;background:var(--tt-card);border:1px solid var(--tt-border);border-radius:10px;padding:0.4rem 0.75rem;font-size:0.74rem;color:var(--tt-text-muted);box-shadow:var(--tt-shadow);}
+        .tt-update-pill i{color:var(--tt-accent);}
+        .tt-update-pill b{color:var(--tt-text);font-weight:700;}
+        .tt-detail-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:1.1rem;align-items:start;}
+        .tt-detail-main{min-width:0;}
+        .tt-detail-aside{padding:1rem 1.1rem;position:sticky;top:1rem;}
+        .tt-resumen-title{display:flex;align-items:center;gap:8px;font-size:0.9rem;font-weight:800;color:var(--tt-text);margin-bottom:0.85rem;}
+        .tt-resumen-title i{color:var(--tt-accent);}
+        .tt-resumen-row{padding:0.6rem 0;border-top:1px solid var(--tt-border);}
+        .tt-resumen-row:first-of-type{border-top:none;padding-top:0;}
+        .tt-resumen-k{font-size:0.68rem;font-weight:700;color:var(--tt-text-muted);text-transform:uppercase;letter-spacing:0.03em;margin-bottom:0.25rem;}
+        .tt-resumen-v{font-size:0.85rem;font-weight:600;color:var(--tt-text);word-break:break-word;}
+        .tt-resumen-tag{display:flex;align-items:center;gap:0.6rem;}
+        .tt-resumen-tag .tt-tag-avatar{width:32px;height:32px;min-width:32px;font-size:0.85rem;}
+        .tt-search-field{display:flex;align-items:center;gap:0.55rem;flex:1;min-width:200px;border:1px solid var(--tt-border);border-radius:8px;padding:0 0.75rem;background:var(--tt-card);}
+        .tt-search-field i{color:var(--tt-accent);font-size:0.85rem;}
+        .tt-search-box .tt-search-field input{flex:1;min-width:0;border:none;border-radius:0;padding:0.55rem 0;background:transparent;}
+        .tt-search-box .tt-search-field input:focus{outline:none;}
+        .tt-search-field:focus-within{border-color:var(--tt-accent);box-shadow:0 0 0 3px rgba(30,64,175,0.1);}
+        /* ── Resultados de búsqueda ─────────────────────────────────── */
+        .tt-search-results{margin-bottom:1.1rem;}
+        .tt-search-results:empty{display:none;}
+        .tt-search-head{display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.7rem;}
+        .tt-search-head-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:0.8rem;font-weight:800;color:var(--tt-text);text-transform:uppercase;letter-spacing:0.03em;}
+        .tt-search-head-title .tt-chip{text-transform:none;letter-spacing:normal;}
+        .tt-search-card{padding:1rem 1.15rem;}
+        .tt-search-kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem 1.25rem;margin-bottom:0.9rem;}
+        .tt-search-k{font-size:0.66rem;font-weight:700;color:var(--tt-text-muted);text-transform:uppercase;letter-spacing:0.03em;margin-bottom:0.2rem;}
+        .tt-search-v{font-size:0.88rem;font-weight:700;color:var(--tt-text);word-break:break-word;}
+        .tt-search-actions{display:flex;gap:0.5rem;flex-wrap:wrap;padding-top:0.85rem;border-top:1px solid var(--tt-border);}
+        .tt-btn-mini{padding:0.3rem 0.6rem;font-size:0.72rem;}
+        .tt-search-msg{display:flex;gap:0.6rem;align-items:flex-start;font-size:0.83rem;padding:0.85rem 1rem;border-radius:12px;}
+        .tt-search-msg.vacio{background:#EEF2F7;border:1px solid var(--tt-border);color:var(--tt-text-muted);}
+        .tt-search-msg.vacio i{color:#94A3B8;}
+        .tt-search-msg.error{background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.25);color:var(--tt-danger);}
+        /* ── Skeletons de carga (CSS puro, sin librería) ────────────── */
+        .tt-skel{background:linear-gradient(90deg,#E9EDF3 25%,#F5F7FB 37%,#E9EDF3 63%);background-size:400% 100%;animation:tt-skel-shine 1.4s ease infinite;border-radius:6px;}
+        @keyframes tt-skel-shine{0%{background-position:100% 50%;}100%{background-position:0 50%;}}
+        @media (max-width:1100px){
+            .tt-detail-layout{grid-template-columns:minmax(0,1fr);}
+            .tt-detail-aside{position:static;}
+        }
+        @media (max-width:760px){
+            .tt-detail-head-actions{width:100%;justify-content:flex-start;}
+            .tt-detail-title{font-size:1.3rem;}
+            .tt-search-box{flex-direction:column;align-items:stretch;}
+            .tt-search-box .tt-btn{justify-content:center;}
+        }
         @media (max-width:760px){
             .tt-table thead{display:none;}
             .tt-table, .tt-table tbody, .tt-table tr, .tt-table td{display:block;width:100%;}
@@ -2120,12 +2184,31 @@
             <div id="tt-panel-tag" style="display:none;">
                 <div class="tt-breadcrumb"><a onclick="ttBackToCatalog()">Piezas por TAG</a> <i class="fa-solid fa-chevron-right" style="font-size:0.65rem;"></i> <span id="tt-tag-breadcrumb">-</span></div>
 
-                <div class="tt-search-box tt-card">
-                    <i class="fa-solid fa-magnifying-glass" style="color:#1E40AF;"></i>
-                    <input type="text" id="tt-search-input" placeholder="Buscar LPN / PalletID / Pedido / BinCode / SKU dentro de este TAG..." onkeydown="if(event.key==='Enter'){ttGlobalSearch();}">
-                    <button class="tt-btn" onclick="ttGlobalSearch()"><i class="fa-solid fa-arrow-right"></i> Buscar</button>
+                <div class="tt-detail-head">
+                    <div style="min-width:0;">
+                        <h2 class="tt-detail-title" id="tt-tag-titulo">Detalle de TAG</h2>
+                        <p class="tt-detail-sub">Trazabilidad completa de piezas, pallets y pedidos relacionados</p>
+                    </div>
+                    <div class="tt-detail-head-actions">
+                        <label class="tt-switch-wrap">Auto-actualizar
+                            <span class="tt-switch"><input type="checkbox" id="tt-auto-refresh-detalle" checked onchange="ttSyncAutoRefreshDesdeDetalle()"><span class="tt-switch-track"></span></span>
+                        </label>
+                        <button class="tt-btn" onclick="ttRefreshNow()"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                        <div class="tt-update-pill"><i class="fa-solid fa-clock"></i> Última actualización: <b id="tt-last-update-detalle">--</b></div>
+                    </div>
                 </div>
-                <div id="tt-search-empty" style="display:none;font-size:0.8rem;color:var(--tt-text-muted);margin-bottom:0.75rem;">Sin relación encontrada dentro de este TAG. Prueba "Ver trazabilidad de este LPN" si lo que buscas es un LPN.</div>
+
+                <div class="tt-detail-layout">
+                <div class="tt-detail-main">
+
+                <div class="tt-search-box tt-card">
+                    <div class="tt-search-field">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="tt-search-input" placeholder="Buscar LPN / PalletID / Pedido / BinCode / SKU dentro de este TAG..." onkeydown="if(event.key==='Enter'){ttGlobalSearch();}">
+                    </div>
+                    <button class="tt-btn tt-btn-primary" id="tt-search-btn" onclick="ttGlobalSearch()"><i class="fa-solid fa-magnifying-glass" id="tt-search-btn-icon"></i> Buscar</button>
+                </div>
+                <div class="tt-search-results" id="tt-search-results"></div>
 
                 <div class="tt-kpi-grid" id="tt-kpi-grid"></div>
 
@@ -2174,6 +2257,7 @@
                                     <th onclick="ttSortPallets('piezasTag')">Piezas del TAG</th>
                                     <th onclick="ttSortPallets('piezasTotalPallet')">Piezas totales</th>
                                     <th>Pedido</th>
+                                    <th style="cursor:default;"></th>
                                 </tr></thead>
                                 <tbody id="tt-tbody-pallets"></tbody>
                             </table>
@@ -2191,12 +2275,17 @@
                                     <th>PO</th>
                                     <th onclick="ttSortOrders('piezas')">Piezas</th>
                                     <th onclick="ttSortOrders('palletsUnicos')">Pallets</th>
+                                    <th style="cursor:default;"></th>
                                 </tr></thead>
                                 <tbody id="tt-tbody-pedidos"></tbody>
                             </table>
                         </div>
                     </div>
                 </div>
+
+                </div><!-- /.tt-detail-main -->
+                <aside class="tt-card tt-detail-aside" id="tt-resumen-tag"></aside>
+                </div><!-- /.tt-detail-layout -->
             </div>
 
             <!-- PANEL: drill-down paginado de un destino -->
@@ -15636,6 +15725,12 @@ let ttState = {
     sortOrders: { key: 'piezas', dir: 'desc' },
     currentDestinoKey: null, destinoPage: 1, destinoPageSize: 50, destinoTotal: 0,
     autoTimer: null, modalOpen: false, dateDebounceTimer: null,
+    // Buscador REAL del panel de detalle (ver ttGlobalSearch). `search` es
+    // null cuando no hay ninguna busqueda visible; cuando la hay guarda
+    // SIEMPRE la respuesta cruda del backend (nunca datos derivados a mano):
+    // { query, loading, error, data:{ query, limit, offset, totalMatches,
+    //   hasMore, results:[...] }, selected }.
+    search: null, searchLoading: false,
 };
 let ttCharts = {}; // instancias Chart.js de este modulo (mismo patron que fftCharts) -- se destruyen/recrean en cada render, nunca se acumulan.
 
@@ -15818,9 +15913,32 @@ function ttStartAutoRefresh() {
 function ttPauseAutoRefresh() {
     if (ttState.autoTimer) { clearInterval(ttState.autoTimer); ttState.autoTimer = null; }
 }
+// #tt-auto-refresh (header general del modulo) sigue siendo la UNICA fuente de
+// verdad del auto-refresh -- el switch #tt-auto-refresh-detalle del panel de
+// detalle es solo un espejo visual (mockup de Roman) que escribe en el maestro
+// y delega en la misma funcion, nunca un segundo timer.
 function ttToggleAutoRefresh() {
     const chk = document.getElementById('tt-auto-refresh');
+    const espejo = document.getElementById('tt-auto-refresh-detalle');
+    if (espejo && chk) espejo.checked = chk.checked;
     if (chk && chk.checked) ttStartAutoRefresh(); else ttPauseAutoRefresh();
+}
+function ttSyncAutoRefreshDesdeDetalle() {
+    const chk = document.getElementById('tt-auto-refresh');
+    const espejo = document.getElementById('tt-auto-refresh-detalle');
+    if (chk && espejo) chk.checked = espejo.checked;
+    ttToggleAutoRefresh();
+}
+
+// Sella la hora del ultimo refresh en los DOS lugares donde se muestra (nota
+// al pie del modulo + pill del panel de detalle) -- mismo valor, nunca dos
+// relojes distintos.
+function ttStampLastUpdate() {
+    const txt = new Date().toLocaleTimeString('es-MX');
+    ['tt-last-update', 'tt-last-update-detalle'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = txt;
+    });
 }
 function ttRefreshNow(silencioso) {
     if (ttState.modalOpen) return;
@@ -15883,6 +16001,13 @@ function ttShowPanel(name) {
         const el = document.getElementById('tt-panel-' + n);
         if (el) el.style.display = (n === name) ? '' : 'none';
     });
+    // El panel de detalle trae su propia fila Auto-actualizar / Actualizar /
+    // Última actualización (mismo #tt-auto-refresh maestro detras, ver
+    // ttSyncAutoRefreshDesdeDetalle) -- se oculta la del header general solo
+    // mientras ese panel esta visible, para no mostrar dos veces los mismos
+    // controles. En catalogo/destino/overlap vuelve a aparecer intacta.
+    const headerRight = document.querySelector('#view-trazabilidad-tag .tt-header-right');
+    if (headerRight) headerRight.style.display = (name === 'tag') ? 'none' : '';
 }
 function ttBackToCatalog() { ttShowPanel('catalogo'); }
 function ttBackToTag() { ttShowPanel('tag'); }
@@ -15903,8 +16028,7 @@ async function ttLoadCatalogo(silencioso) {
         ttState.lag = sumRes.data?.lag || null; // getTagSummary ya incluye getSourceLag() -- no se duplica la llamada
         ttRenderLag();
         ttRenderTagGrid();
-        const luEl = document.getElementById('tt-last-update');
-        if (luEl) luEl.textContent = new Date().toLocaleTimeString('es-MX');
+        ttStampLastUpdate();
     } catch (e) {
         document.getElementById('tt-tag-grid').innerHTML = `<div class="tt-empty-note">No se pudo cargar: ${escapeHtml(e.message)}</div>`;
     }
@@ -16042,14 +16166,22 @@ function ttRenderTagsChart(tags) {
 }
 
 async function ttOpenTag(tagId, silencioso) {
+    // ttRefreshNow() vuelve a entrar aqui con el MISMO tagId (refresco del tag
+    // ya abierto) -- se distingue del cambio real de TAG para decidir si
+    // ademas de limpiar los resultados de busqueda hay que limpiar el texto
+    // tecleado (solo al cambiar de TAG; refrescar no le borra lo que escribio).
+    const cambioDeTag = ttState.currentTagId !== tagId;
     ttState.currentTagId = tagId;
     ttState.currentTagMeta = (ttState.catalog || []).find(t => t.id === tagId) ||
         (ttState.summary?.tags || []).find(t => t.tagId === tagId) || null;
     ttShowPanel('tag');
     const nombre = ttResolveTagName(tagId, ttState.currentTagMeta?.tag);
     document.getElementById('tt-tag-breadcrumb').textContent = nombre;
-    document.getElementById('tt-search-empty').style.display = 'none';
-    if (!silencioso) document.getElementById('tt-kpi-grid').innerHTML = '<div class="tt-empty-note">Cargando…</div>';
+    const tituloEl = document.getElementById('tt-tag-titulo');
+    if (tituloEl) tituloEl.textContent = `Detalle de TAG — ${nombre}`;
+    ttClearSearch(cambioDeTag);
+    ttRenderResumenTag();
+    if (!silencioso) ttRenderTagSkeletons();
     try {
         const { startIso, endIso } = ttEffectiveRangeIso();
         const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&${ttShiftQs()}&${ttWorkCenterQs()}`;
@@ -16067,11 +16199,107 @@ async function ttOpenTag(tagId, silencioso) {
         ttRenderDestinosTable();
         ttRenderPalletsTable();
         ttRenderOrdersTable();
-        const luEl = document.getElementById('tt-last-update');
-        if (luEl) luEl.textContent = new Date().toLocaleTimeString('es-MX');
+        ttRenderResumenTag();
+        ttStampLastUpdate();
     } catch (e) {
         document.getElementById('tt-kpi-grid').innerHTML = `<div class="tt-empty-note">No se pudo cargar: ${escapeHtml(e.message)}</div>`;
+        ['tt-tbody-destinos', 'tt-tbody-pallets', 'tt-tbody-pedidos'].forEach(id => {
+            const tb = document.getElementById(id);
+            if (tb) tb.innerHTML = '';
+        });
     }
+}
+
+// Nombres legibles de las ubicaciones activas -- se leen de los MISMOS
+// checkboxes que el usuario ve arriba (unica fuente de esos nombres en el
+// front), nunca de un mapa duplicado aqui que se pudiera desincronizar.
+function ttWorkCenterNames() {
+    const ids = (ttState.workCenterIds && ttState.workCenterIds.length) ? ttState.workCenterIds : TT_WORKCENTER_IDS_DEFAULT;
+    return ids.map(id => {
+        const cb = document.querySelector(`.tt-ubicacion-cb[value="${id}"]`);
+        const txt = cb && cb.parentElement ? (cb.parentElement.textContent || '').trim() : '';
+        return txt || `Ubicación ${id}`;
+    });
+}
+const TT_TURNO_LABELS = { todos: 'Todos', actual: 'Turno actual', turno1: 'Turno 1', turno2: 'Turno 2' };
+function ttFechaCorta(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso + 'T00:00:00');
+    return isNaN(d.getTime()) ? String(iso) : d.toLocaleDateString('es-MX');
+}
+
+// Card lateral "Resumen del TAG" -- SOLO reexpone datos que ya estan en
+// ttState (tag abierto, filtros aplicados y totalLpns de getTagDestinations),
+// nunca calcula ni inventa un dato propio.
+function ttRenderResumenTag() {
+    const el = document.getElementById('tt-resumen-tag');
+    if (!el) return;
+    const tagId = ttState.currentTagId;
+    if (tagId == null) { el.innerHTML = ''; return; }
+    const nombre = ttResolveTagName(tagId, ttState.currentTagMeta?.tag);
+    const color = ttTagColor(tagId);
+    const inicial = ttTagInitial(tagId, nombre);
+    const periodo = (ttState.startDate && ttState.endDate)
+        ? (ttState.startDate === ttState.endDate
+            ? ttFechaCorta(ttState.startDate)
+            : `${ttFechaCorta(ttState.startDate)} al ${ttFechaCorta(ttState.endDate)}`)
+        : '—';
+    const turno = TT_TURNO_LABELS[ttState.turno] || 'Todos';
+    const ubicaciones = ttWorkCenterNames();
+    const totalPiezas = ttState.destinos?.totalLpns;
+    el.innerHTML = `
+        <div class="tt-resumen-title"><i class="fa-solid fa-box-archive"></i> Resumen del TAG</div>
+        <div class="tt-resumen-row">
+            <div class="tt-resumen-k">TAG</div>
+            <div class="tt-resumen-tag">
+                <div class="tt-tag-avatar" style="background:${ttHexToRgba(color, 0.12)};color:${color};">${escapeHtml(inicial)}</div>
+                <div class="tt-resumen-v">${escapeHtml(nombre)}</div>
+            </div>
+        </div>
+        <div class="tt-resumen-row">
+            <div class="tt-resumen-k">Período consultado</div>
+            <div class="tt-resumen-v">${escapeHtml(periodo)}</div>
+        </div>
+        <div class="tt-resumen-row">
+            <div class="tt-resumen-k">Turno</div>
+            <div class="tt-resumen-v">${escapeHtml(turno)}</div>
+        </div>
+        <div class="tt-resumen-row">
+            <div class="tt-resumen-k">Ubicaciones</div>
+            <div class="tt-resumen-v">${ubicaciones.map(n => escapeHtml(n)).join('<br>')}</div>
+        </div>
+        <div class="tt-resumen-row">
+            <div class="tt-resumen-k">Total piezas (LPN)</div>
+            <div class="tt-resumen-v" style="font-size:1.15rem;font-weight:800;color:${color};">${totalPiezas == null ? '—' : Number(totalPiezas).toLocaleString('es-MX')}</div>
+        </div>`;
+}
+
+// Placeholders de carga (bloques grises pulsantes, CSS puro -- ver .tt-skel).
+// Solo se pintan en la carga NO silenciosa; el auto-refresh de 60s nunca
+// vacia lo que el usuario ya esta leyendo.
+function ttRenderTagSkeletons() {
+    const kpiGrid = document.getElementById('tt-kpi-grid');
+    if (kpiGrid) {
+        kpiGrid.innerHTML = Array.from({ length: 8 }).map(() => `
+            <div class="tt-card tt-kpi" style="--tt-kpi-color:#E2E8F0;">
+                <div class="tt-skel" style="width:40px;height:40px;border-radius:11px;"></div>
+                <div class="tt-kpi-body" style="flex:1;">
+                    <div class="tt-skel" style="height:20px;width:62%;"></div>
+                    <div class="tt-skel" style="height:9px;width:88%;"></div>
+                </div>
+            </div>`).join('');
+    }
+    const nota = document.getElementById('tt-destinos-coverage-note');
+    if (nota) nota.innerHTML = '<div class="tt-skel" style="height:12px;width:60%;"></div>';
+    const filas = (cols, n) => Array.from({ length: n }).map(() =>
+        `<tr>${Array.from({ length: cols }).map(() => '<td><div class="tt-skel" style="height:12px;"></div></td>').join('')}</tr>`).join('');
+    const skelTbody = (id, cols, n) => { const tb = document.getElementById(id); if (tb) tb.innerHTML = filas(cols, n); };
+    skelTbody('tt-tbody-destinos', 5, 5);
+    skelTbody('tt-tbody-pallets', 7, 4);
+    skelTbody('tt-tbody-pedidos', 5, 3);
+    const centro = document.getElementById('tt-destinos-donut-centro');
+    if (centro) centro.innerHTML = '';
+    if (ttCharts.destinos) { ttCharts.destinos.destroy(); delete ttCharts.destinos; }
 }
 
 function ttRenderTagKpis() {
@@ -16086,20 +16314,26 @@ function ttRenderTagKpis() {
     const pedidos = ttState.orders.length;
     const lagInfo = ttState.lag?.binManager;
     const ultimaAct = lagInfo?.lastRecordAt ? new Date(lagInfo.lastRecordAt).toLocaleString('es-MX') : '—';
+    // Mismos 8 valores de siempre (ningun calculo cambia aqui) -- solo se les
+    // asigna icono y color de la paleta ya definida del modulo (TT_PALETTE /
+    // TT_DESTINO_REAL_PALETTE), nunca un hex inventado.
     const kpis = [
-        ['Total piezas (LPN)', total, '#1E40AF', false],
-        ['Trazabilidad completa', conMovimiento, '#059669', false],
-        ['Esperando lag', esperandoLag, '#D97706', false],
-        ['Sin movimiento posterior', sinMovimiento, '#64748B', false],
-        ['Anomalías reales', anomalias, '#DC2626', false],
-        ['Pallets', pallets, '#1E40AF', false],
-        ['Pedidos', pedidos, '#1E40AF', false],
-        ['Última actualización (BinManagerRO)', ultimaAct, '#64748B', true],
+        ['Total piezas (LPN)', total, '#1E40AF', 'fa-boxes-stacked', false],
+        ['Trazabilidad completa', conMovimiento, '#059669', 'fa-circle-check', false],
+        ['Esperando lag', esperandoLag, '#D97706', 'fa-clock', false],
+        ['Sin movimiento posterior', sinMovimiento, '#8B5CF6', 'fa-arrows-turn-to-dots', false],
+        ['Anomalías reales', anomalias, '#DC2626', 'fa-triangle-exclamation', false],
+        ['Pallets', pallets, '#0891B2', 'fa-pallet', false],
+        ['Pedidos', pedidos, '#1E40AF', 'fa-file-invoice', false],
+        ['Última actualización', ultimaAct, '#64748B', 'fa-calendar-day', true],
     ];
-    document.getElementById('tt-kpi-grid').innerHTML = kpis.map(([label, val, color, isText]) => `
-        <div class="tt-card tt-kpi">
-            <div class="tt-kpi-value" style="color:${color};${isText ? 'font-size:0.95rem;' : ''}">${isText ? escapeHtml(String(val)) : Number(val).toLocaleString('es-MX')}</div>
-            <div class="tt-kpi-label">${escapeHtml(label)}</div>
+    document.getElementById('tt-kpi-grid').innerHTML = kpis.map(([label, val, color, icon, isText]) => `
+        <div class="tt-card tt-kpi" style="--tt-kpi-color:${color};--tt-kpi-soft:${ttHexToRgba(color, 0.12)};">
+            <div class="tt-kpi-icon"><i class="fa-solid ${icon}"></i></div>
+            <div class="tt-kpi-body">
+                <div class="tt-kpi-value${isText ? ' tt-kpi-value-text' : ''}">${isText ? escapeHtml(String(val)) : Number(val).toLocaleString('es-MX')}</div>
+                <div class="tt-kpi-label">${escapeHtml(label)}</div>
+            </div>
         </div>`).join('');
 }
 
@@ -16118,12 +16352,12 @@ function ttRenderCoverageNote() {
     const c = ttState.destinos?.coverage;
     const identificadas = (c?.piezasIdentificadas ?? 0).toLocaleString('es-MX');
     if (!c || c.piezasOficiales == null) {
-        el.innerHTML = `<i class="fa-solid fa-circle-info" style="margin-top:2px;"></i><span>No hay un conteo oficial de BinManager disponible para este TAG en este rango/ubicación (passthrough no configurado o no aplicable) — el desglose de abajo muestra las <b>${identificadas}</b> piezas que este módulo pudo identificar con destino real, sin poder comparar contra un total oficial.</span>`;
+        el.innerHTML = `<i class="fa-solid fa-circle-info" style="margin-top:2px;"></i><span>Destino identificado para <b>${identificadas}</b> piezas.</span>`;
         return;
     }
     const oficiales = c.piezasOficiales.toLocaleString('es-MX');
-    const pct = c.coberturaPct != null ? c.coberturaPct : '—';
-    el.innerHTML = `<i class="fa-solid fa-circle-info" style="margin-top:2px;"></i><span>Se identificó destino para <b>${identificadas} de ${oficiales}</b> piezas oficiales (<b>${pct}%</b> de cobertura) — el resto no se pudo vincular a un LPN específico con los datos disponibles.</span>`;
+    const pct = c.coberturaPct != null ? `${c.coberturaPct}%` : '—';
+    el.innerHTML = `<i class="fa-solid fa-circle-check" style="margin-top:2px;"></i><span>Destino identificado para <b>${identificadas} de ${oficiales}</b> piezas (<b>${escapeHtml(String(pct))}</b> de cobertura)</span>`;
 }
 
 function ttSetTab(tab) {
@@ -16215,28 +16449,36 @@ function ttRenderDestinosChart(rows) {
 function ttRenderPalletsTable() {
     const rows = ttSortArr(ttState.pallets || [], ttState.sortPallets);
     const tbody = document.getElementById('tt-tbody-pallets');
-    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6"><div class="tt-empty-note">Sin pallets encontrados para este TAG en este rango.</div></td></tr>'; return; }
+    if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="tt-empty-note"><i class="fa-solid fa-pallet" style="display:block;font-size:1.6rem;opacity:0.35;margin-bottom:0.5rem;"></i>No hay pallets con piezas de este TAG en el período y las ubicaciones seleccionadas.</div></td></tr>';
+        return;
+    }
     tbody.innerHTML = rows.map(r => `
         <tr class="tt-row-clickable" onclick="ttOpenPalletModal(${r.palletBinId})">
-            <td data-label="Pallet">${escapeHtml(r.palletBinCode || ('BinID ' + r.palletBinId))}</td>
+            <td data-label="Pallet"><b>${escapeHtml(r.palletBinCode || ('BinID ' + r.palletBinId))}</b></td>
             <td data-label="Tipo">${escapeHtml(r.binTypeName || '—')}</td>
             <td data-label="Ubicación">${escapeHtml(r.locationName || '—')}</td>
             <td data-label="Piezas del TAG">${r.piezasTag}</td>
             <td data-label="Piezas totales">${r.piezasTotalPallet}</td>
             <td data-label="Pedido">${r.orderId ? `<span class="tt-chip completa" style="cursor:pointer;" onclick="event.stopPropagation();ttOpenOrdenModal(${r.orderId})">${escapeHtml(r.orderWebOrderId || ('#' + r.orderId))}</span>` : '<span class="tt-chip sinrelacion">Sin relación a pedido</span>'}</td>
+            <td data-label="Detalle"><button class="tt-btn tt-btn-mini" onclick="event.stopPropagation();ttOpenPalletModal(${r.palletBinId})"><i class="fa-solid fa-eye"></i> Ver detalle</button></td>
         </tr>`).join('');
 }
 
 function ttRenderOrdersTable() {
     const rows = ttSortArr(ttState.orders || [], ttState.sortOrders);
     const tbody = document.getElementById('tt-tbody-pedidos');
-    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="4"><div class="tt-empty-note">Sin pedidos relacionados para este TAG en este rango.</div></td></tr>'; return; }
+    if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="tt-empty-note"><i class="fa-solid fa-file-invoice" style="display:block;font-size:1.6rem;opacity:0.35;margin-bottom:0.5rem;"></i>No hay pedidos relacionados con piezas de este TAG en el período y las ubicaciones seleccionadas.</div></td></tr>';
+        return;
+    }
     tbody.innerHTML = rows.map(r => `
         <tr class="tt-row-clickable" onclick="ttOpenOrdenModal(${r.orderId})">
-            <td data-label="Pedido">${escapeHtml(r.webOrderId || ('#' + r.orderId))}</td>
+            <td data-label="Pedido"><b>${escapeHtml(r.webOrderId || ('#' + r.orderId))}</b></td>
             <td data-label="PO">${escapeHtml(r.poNumber || '—')}</td>
             <td data-label="Piezas">${r.piezas}</td>
             <td data-label="Pallets">${r.palletsUnicos}</td>
+            <td data-label="Detalle"><button class="tt-btn tt-btn-mini" onclick="event.stopPropagation();ttOpenOrdenModal(${r.orderId})"><i class="fa-solid fa-eye"></i> Ver detalle</button></td>
         </tr>`).join('');
 }
 
@@ -16437,33 +16679,208 @@ function ttCerrarLpnModal() {
     ttState.modalOpen = false;
 }
 
-// Busqueda "dentro del modulo": el TAG abierto no tiene un indice unico
-// server-side por LPN/PalletID/Pedido/BinCode/SKU (las funciones de
-// tagTraceSql.ts estan todas acotadas por tagId+rango de fechas) -- se busca
-// primero en los 3 datasets YA CARGADOS del TAG actual (destinos.detail,
-// pallets, orders) y, si no hay match ahi, se intenta como ultimo recurso una
-// trazabilidad directa de LPN (funciona para CUALQUIER LPN, pertenezca o no a
-// este TAG/rango -- getLpnTagTrace nunca requiere que el LPN este etiquetado).
-function ttGlobalSearch() {
-    const raw = (document.getElementById('tt-search-input').value || '').trim();
-    const term = raw.toLowerCase();
-    document.getElementById('tt-search-empty').style.display = 'none';
-    if (!term) return;
+// ══════════════════════════════════════════════
+// BUSCADOR REAL DEL PANEL "DETALLE DE TAG"
+// ══════════════════════════════════════════════
+// Antes esto era un find() en memoria sobre los 3 datasets ya cargados del tag
+// (destinos.detail / pallets / orders) y, si fallaba, abria el modal de
+// trazabilidad de CUALQUIER LPN aunque no perteneciera a este TAG ni a este
+// rango -- justo lo que Roman pidio eliminar. Ahora pega contra el endpoint
+// real GET /api/tags/:tagId/search (proxy a Cubicaje), que hace la deteccion
+// automatica del tipo de dato (LPN/SKU exacto o parcial primero; si ahi no hay
+// match, PalletID/BinCode o numero de pedido/WebOrderID/PONumber) SIEMPRE
+// dentro del universo ya acotado a tagId + rango + ubicacion + turno. Nunca se
+// devuelven resultados de otro TAG ni de otro rango.
+const TT_SEARCH_LIMIT = 50;
+const TT_MATCHED_BY_LABEL = { lpn: 'Coincidencia por LPN', sku: 'Coincidencia por SKU', pallet: 'Coincidencia por Pallet', order: 'Coincidencia por Pedido' };
+
+function ttSetSearchBusy(busy) {
+    const btn = document.getElementById('tt-search-btn');
+    const icon = document.getElementById('tt-search-btn-icon');
+    const input = document.getElementById('tt-search-input');
+    if (btn) btn.disabled = !!busy;
+    if (input) input.disabled = !!busy;
+    if (icon) icon.className = busy ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-magnifying-glass';
+}
+
+// Limpia lo que haya de una busqueda previa. `limpiarTexto` solo se pide al
+// CAMBIAR de TAG (no en el refresco del mismo tag, para no borrarle al usuario
+// lo que acaba de teclear). El contador de secuencia invalida cualquier
+// peticion en vuelo: si el usuario cambia de tag / refresca mientras se busca,
+// la respuesta tardia ya no repinta nada.
+function ttClearSearch(limpiarTexto) {
+    ttState.searchSeq = (ttState.searchSeq || 0) + 1;
+    ttState.search = null;
+    const cont = document.getElementById('tt-search-results');
+    if (cont) cont.innerHTML = '';
+    if (limpiarTexto) {
+        const input = document.getElementById('tt-search-input');
+        if (input) input.value = '';
+    }
+}
+
+async function ttGlobalSearch() {
+    const input = document.getElementById('tt-search-input');
+    const raw = ((input && input.value) || '').trim();
+    // Query vacio: no se manda NADA al backend, solo se limpia lo anterior.
+    if (!raw) { ttClearSearch(false); return; }
     if (ttState.currentTagId == null) { showToast('Abre un TAG primero para buscar dentro de él.', 'error'); return; }
-    const detail = ttState.destinos?.detail || [];
-    const lpnHit = detail.find(d => d.lpn.toLowerCase() === term);
-    if (lpnHit) return ttOpenLpnModal(lpnHit.lpn);
-    const binHit = detail.find(d => (d.binCode || '').toLowerCase() === term);
-    if (binHit) return ttOpenLpnModal(binHit.lpn);
-    const skuHit = detail.find(d => d.sku.toLowerCase() === term);
-    if (skuHit) { ttSetTab('destinos'); return ttOpenDestinoDetalle(skuHit.destinationKey); }
-    const palletHit = (ttState.pallets || []).find(p => (p.palletBinCode || '').toLowerCase() === term || String(p.palletBinId) === term);
-    if (palletHit) { ttSetTab('pallets'); return ttOpenPalletModal(palletHit.palletBinId); }
-    const orderHit = (ttState.orders || []).find(o => (o.webOrderId || '').toLowerCase() === term || String(o.orderId) === term || (o.poNumber || '').toLowerCase() === term);
-    if (orderHit) { ttSetTab('pedidos'); return ttOpenOrdenModal(orderHit.orderId); }
-    // Ultimo recurso: trazabilidad directa del LPN, honesta aunque no exista relacion.
-    document.getElementById('tt-search-empty').style.display = 'block';
-    ttOpenLpnModal(raw);
+    if (ttState.searchLoading) return; // evita disparos concurrentes duplicados
+    const tagId = ttState.currentTagId;
+    ttState.searchSeq = (ttState.searchSeq || 0) + 1;
+    const seq = ttState.searchSeq;
+    ttState.searchLoading = true;
+    ttSetSearchBusy(true);
+    ttState.search = { query: raw, loading: true, error: null, data: null, selected: null };
+    ttRenderSearch();
+    let resultado = null;
+    try {
+        const { startIso, endIso } = ttEffectiveRangeIso();
+        const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&${ttShiftQs()}&${ttWorkCenterQs()}` +
+            `&query=${encodeURIComponent(raw)}&limit=${TT_SEARCH_LIMIT}&offset=0`;
+        const res = await apiFetch(`${API}/api/tags/${tagId}/search?${qs}`);
+        if (!res.success) throw new Error(res.error || 'La búsqueda no devolvió una respuesta válida');
+        resultado = { query: raw, loading: false, error: null, data: res.data || null, selected: null };
+    } catch (e) {
+        // 503 (SQL Server no disponible), 502, error de red, etc. — NO es lo
+        // mismo que "0 resultados": se muestra un mensaje de fallo, y el error
+        // tecnico real queda en consola para diagnostico.
+        console.error('[trazabilidad-tag] Falló la búsqueda dentro del TAG:', e);
+        resultado = { query: raw, loading: false, error: 'No fue posible realizar la búsqueda. Intenta nuevamente.', data: null, selected: null };
+    } finally {
+        ttState.searchLoading = false;
+        ttSetSearchBusy(false);
+    }
+    if (ttState.searchSeq !== seq || ttState.currentTagId !== tagId) return; // contexto cambiado mientras buscaba
+    ttState.search = resultado;
+    ttRenderSearch();
+}
+
+function ttShowSearchResult(i) {
+    if (!ttState.search || !ttState.search.data) return;
+    ttState.search.selected = i;
+    ttRenderSearch();
+}
+function ttVolverAResultados() {
+    if (!ttState.search) return;
+    ttState.search.selected = null;
+    ttRenderSearch();
+}
+
+function ttRenderSearch() {
+    const cont = document.getElementById('tt-search-results');
+    if (!cont) return;
+    const s = ttState.search;
+    if (!s) { cont.innerHTML = ''; return; }
+    if (s.loading) {
+        cont.innerHTML = `<div class="tt-card tt-search-card">
+            <div class="tt-skel" style="height:12px;width:32%;margin-bottom:0.9rem;"></div>
+            <div class="tt-skel" style="height:11px;width:82%;margin-bottom:0.5rem;"></div>
+            <div class="tt-skel" style="height:11px;width:64%;"></div>
+        </div>`;
+        return;
+    }
+    if (s.error) {
+        cont.innerHTML = `<div class="tt-search-msg error"><i class="fa-solid fa-triangle-exclamation" style="margin-top:2px;"></i><span>${escapeHtml(s.error)}</span></div>`;
+        return;
+    }
+    const nombreTag = ttResolveTagName(ttState.currentTagId, ttState.currentTagMeta?.tag);
+    const data = s.data || {};
+    const results = Array.isArray(data.results) ? data.results : [];
+    const total = Number(data.totalMatches || 0);
+    if (!total || !results.length) {
+        cont.innerHTML = `<div class="tt-search-msg vacio"><i class="fa-solid fa-circle-info" style="margin-top:2px;"></i><span>No se encontraron coincidencias dentro de <b>${escapeHtml(nombreTag)}</b> para los filtros seleccionados.</span></div>`;
+        return;
+    }
+    const idx = (s.selected != null) ? s.selected : (results.length === 1 ? 0 : null);
+    if (idx != null && results[idx]) {
+        cont.innerHTML = ttSearchDetalleHtml(results[idx], results.length > 1, nombreTag);
+        return;
+    }
+    cont.innerHTML = ttSearchListaHtml(data, results);
+}
+
+// Detalle de UN resultado. Solo se pintan los campos que el backend devolvio
+// con dato real -- si viene null/vacio la fila simplemente no existe (nunca
+// "N/A" ni un valor inventado). Los 3 botones se ocultan igual cuando el dato
+// que necesitan no vino.
+function ttSearchDetalleHtml(r, conVolver, nombreTag) {
+    const filas = [];
+    const add = (k, v) => { if (v != null && String(v).trim() !== '') filas.push([k, v]); };
+    const fecha = (v) => { if (!v) return null; const d = new Date(v); return isNaN(d.getTime()) ? null : d.toLocaleString('es-MX'); };
+    add('LPN', r.lpn ? escapeHtml(r.lpn) : null);
+    add('SKU', r.sku ? escapeHtml(r.sku) : null);
+    const palletTxt = r.palletBinCode || (r.palletBinId != null ? ('BinID ' + r.palletBinId) : null);
+    add('Pallet', palletTxt ? escapeHtml(String(palletTxt)) : null);
+    add('Bin destino', r.binCode ? escapeHtml(r.binCode) : null);
+    const pedidoTxt = r.orderWebOrderId || (r.orderId != null ? ('#' + r.orderId) : null);
+    add('Pedido', pedidoTxt ? escapeHtml(String(pedidoTxt)) : null);
+    add('PO', r.poNumber ? escapeHtml(r.poNumber) : null);
+    add('TAG', escapeHtml(nombreTag));
+    add('Destino', r.destinationKey ? escapeHtml(ttDestinoLabel(r.destinationKey)) : null);
+    add('Fecha TAG', escapeHtml(fecha(r.tagDate) || ''));
+    add('Último movimiento', escapeHtml(fecha(r.movementDate) || ''));
+    add('Estado', r.status ? ttStatusChip(r.status) : null);
+    const acciones = [];
+    if (r.lpn) acciones.push(`<button class="tt-btn tt-btn-primary" onclick="ttOpenLpnModal('${ttJsStr(r.lpn)}')"><i class="fa-solid fa-timeline"></i> Ver movimientos</button>`);
+    if (r.palletBinId != null) acciones.push(`<button class="tt-btn" onclick="ttOpenPalletModal(${Number(r.palletBinId)})"><i class="fa-solid fa-pallet"></i> Ver pallet</button>`);
+    if (r.orderId != null) acciones.push(`<button class="tt-btn" onclick="ttOpenOrdenModal(${Number(r.orderId)})"><i class="fa-solid fa-file-invoice"></i> Ver pedido</button>`);
+    const chip = TT_MATCHED_BY_LABEL[r.matchedBy] ? `<span class="tt-chip completa">${escapeHtml(TT_MATCHED_BY_LABEL[r.matchedBy])}</span>` : '';
+    return `<div class="tt-card tt-search-card">
+        <div class="tt-search-head">
+            <div class="tt-search-head-title"><i class="fa-solid fa-circle-check" style="color:var(--tt-success);"></i> Resultado de búsqueda ${chip}</div>
+            <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+                ${conVolver ? '<button class="tt-btn tt-btn-mini" onclick="ttVolverAResultados()"><i class="fa-solid fa-arrow-left"></i> Volver a resultados</button>' : ''}
+                <button class="tt-btn tt-btn-mini" onclick="ttClearSearch(true)"><i class="fa-solid fa-xmark"></i> Cerrar</button>
+            </div>
+        </div>
+        <div class="tt-search-kv">
+            ${filas.map(([k, v]) => `<div><div class="tt-search-k">${escapeHtml(k)}</div><div class="tt-search-v">${v}</div></div>`).join('')}
+        </div>
+        ${acciones.length ? `<div class="tt-search-actions">${acciones.join('')}</div>` : ''}
+    </div>`;
+}
+
+// Varios resultados: misma info resumida en tabla; el click en la fila (o el
+// boton "Ver detalle") reusa EXACTAMENTE el mismo render de detalle de arriba.
+function ttSearchListaHtml(data, results) {
+    const total = Number(data.totalMatches || 0);
+    const mostrados = (data.limit != null) ? Math.min(Number(data.limit), results.length) : results.length;
+    const titulo = data.hasMore
+        ? `${mostrados.toLocaleString('es-MX')} de ${total.toLocaleString('es-MX')} resultados`
+        : `${total.toLocaleString('es-MX')} resultados encontrados`;
+    const fecha = (v) => { if (!v) return '—'; const d = new Date(v); return isNaN(d.getTime()) ? '—' : d.toLocaleString('es-MX'); };
+    const filas = results.map((r, i) => {
+        const palletTxt = r.palletBinCode || (r.palletBinId != null ? ('BinID ' + r.palletBinId) : '—');
+        const pedidoTxt = r.orderWebOrderId || (r.orderId != null ? ('#' + r.orderId) : '—');
+        return `<tr class="tt-row-clickable" onclick="ttShowSearchResult(${i})">
+            <td data-label="LPN"><b>${escapeHtml(r.lpn || '—')}</b></td>
+            <td data-label="SKU">${escapeHtml(r.sku || '—')}</td>
+            <td data-label="Pallet">${escapeHtml(String(palletTxt))}</td>
+            <td data-label="Pedido">${escapeHtml(String(pedidoTxt))}</td>
+            <td data-label="Bin">${escapeHtml(r.binCode || '—')}</td>
+            <td data-label="Destino">${escapeHtml(r.destinationKey ? ttDestinoLabel(r.destinationKey) : '—')}</td>
+            <td data-label="Último movimiento">${escapeHtml(fecha(r.movementDate))}</td>
+            <td data-label="Detalle"><button class="tt-btn tt-btn-mini" onclick="event.stopPropagation();ttShowSearchResult(${i})"><i class="fa-solid fa-eye"></i> Ver detalle</button></td>
+        </tr>`;
+    }).join('');
+    return `<div class="tt-card tt-search-card">
+        <div class="tt-search-head">
+            <div class="tt-search-head-title"><i class="fa-solid fa-list-ul" style="color:var(--tt-accent);"></i> ${escapeHtml(titulo)}</div>
+            <button class="tt-btn tt-btn-mini" onclick="ttClearSearch(true)"><i class="fa-solid fa-xmark"></i> Cerrar</button>
+        </div>
+        <div class="tt-table-wrap">
+            <table class="tt-table">
+                <thead><tr>
+                    <th style="cursor:default;">LPN</th><th style="cursor:default;">SKU</th><th style="cursor:default;">Pallet</th>
+                    <th style="cursor:default;">Pedido</th><th style="cursor:default;">Bin</th><th style="cursor:default;">Destino</th>
+                    <th style="cursor:default;">Último movimiento</th><th style="cursor:default;"></th>
+                </tr></thead>
+                <tbody>${filas}</tbody>
+            </table>
+        </div>
+        ${data.hasMore ? '<div class="tt-last-update-note" style="text-align:left;margin-top:0.6rem;">Hay más coincidencias de las que caben en la lista — afina el texto de búsqueda para acotarla.</div>' : ''}
+    </div>`;
 }
 </script>
 </body>
