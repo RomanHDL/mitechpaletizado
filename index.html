@@ -16376,9 +16376,9 @@ function ttRenderTagKpis() {
     // pallets distintos como sub-texto -- consistente con el resto del grid.
     const kpis = [
         ['Total piezas (LPN)', totalKpiVal, '#1E40AF', 'fa-boxes-stacked', false, totalBadge, false, null],
-        ['Trazabilidad completa', conMovimiento, '#059669', 'fa-circle-check', false, '', true, null],
-        ['Esperando movimiento', esperandoLag, '#D97706', 'fa-clock', false, '', true, 'Ya tiene el TAG, aún sin movimiento registrado en BinManager'],
-        ['Anomalías reales', anomalias, '#DC2626', 'fa-triangle-exclamation', false, '', true, null],
+        ['Trazabilidad completa', conMovimiento, '#059669', 'fa-circle-check', false, '', true, 'Sí tuvo movimiento después del tag'],
+        ['Esperando movimiento', esperandoLag, '#D97706', 'fa-clock', false, '', true, 'Sin movimiento DESPUÉS del tag — puede que ya esté en un pallet de antes'],
+        ['Anomalías reales', anomalias, '#DC2626', 'fa-triangle-exclamation', false, '', true, 'Lleva mucho tiempo sin movimiento posterior al tag'],
         ['Piezas en pallets', enPallets, '#0891B2', 'fa-pallet', false, '', true, `${pallets.toLocaleString('es-MX')} pallet${pallets === 1 ? '' : 's'} distinto${pallets === 1 ? '' : 's'}`],
         ['Sin pallet identificado', sinPalletIdentificado, '#8B5CF6', 'fa-box-open', false, '', true, null],
         ['Pedidos', pedidos, '#1E40AF', 'fa-file-invoice', false, '', true, null],
