@@ -2211,6 +2211,7 @@
                 <div class="tt-search-results" id="tt-search-results"></div>
 
                 <div class="tt-kpi-grid" id="tt-kpi-grid"></div>
+                <div class="tt-coverage-note" id="tt-kpi-breakdown-note" style="display:none;"></div>
 
                 <div class="tt-tabs" id="tt-tabs">
                     <button class="tt-tab active" data-tttab="destinos" onclick="ttSetTab('destinos')"><i class="fa-solid fa-route"></i> ¿A dónde se fueron?</button>
@@ -16207,6 +16208,8 @@ async function ttOpenTag(tagId, silencioso) {
         ttStampLastUpdate();
     } catch (e) {
         document.getElementById('tt-kpi-grid').innerHTML = `<div class="tt-empty-note">No se pudo cargar: ${escapeHtml(e.message)}</div>`;
+        const kpiNota = document.getElementById('tt-kpi-breakdown-note');
+        if (kpiNota) { kpiNota.style.display = 'none'; kpiNota.innerHTML = ''; }
         ['tt-tbody-destinos', 'tt-tbody-pallets', 'tt-tbody-pedidos'].forEach(id => {
             const tb = document.getElementById(id);
             if (tb) tb.innerHTML = '';
@@ -16295,6 +16298,8 @@ function ttRenderTagSkeletons() {
     }
     const nota = document.getElementById('tt-destinos-coverage-note');
     if (nota) nota.innerHTML = '<div class="tt-skel" style="height:12px;width:60%;"></div>';
+    const kpiNota = document.getElementById('tt-kpi-breakdown-note');
+    if (kpiNota) { kpiNota.style.display = 'none'; kpiNota.innerHTML = ''; }
     const filas = (cols, n) => Array.from({ length: n }).map(() =>
         `<tr>${Array.from({ length: cols }).map(() => '<td><div class="tt-skel" style="height:12px;"></div></td>').join('')}</tr>`).join('');
     const skelTbody = (id, cols, n) => { const tb = document.getElementById(id); if (tb) tb.innerHTML = filas(cols, n); };
@@ -16309,7 +16314,7 @@ function ttRenderTagSkeletons() {
 function ttRenderTagKpis() {
     const d = ttState.destinos;
     const detail = d?.detail || [];
-    const total = d?.totalLpns || 0;
+    const totalIdentificadas = d?.totalLpns || 0;
     const conMovimiento = detail.filter(x => x.status === 'con_movimiento').length;
     const esperandoLag = detail.filter(x => x.status === 'esperando_lag').length;
     const anomalias = detail.filter(x => x.status === 'anomalia_sin_movimiento').length;
@@ -16318,27 +16323,74 @@ function ttRenderTagKpis() {
     const pedidos = ttState.orders.length;
     const lagInfo = ttState.lag?.binManager;
     const ultimaAct = lagInfo?.lastRecordAt ? new Date(lagInfo.lastRecordAt).toLocaleString('es-MX') : '—';
-    // Mismos 8 valores de siempre (ningun calculo cambia aqui) -- solo se les
+    // KPI "Total piezas (LPN)" -- SIEMPRE debe coincidir con el numero que el
+    // usuario ya vio en la card del catalogo (ttRenderTagGrid / ttSourceBadgeHtml)
+    // para el mismo TAG/rango, nunca mostrar aqui un numero distinto sin
+    // explicar por que. `coverage.piezasOficiales` (TagDestinationsCoverage,
+    // getTagDestinations) es ese MISMO conteo oficial del passthrough de
+    // BinManager para este tag -- si esta disponible se usa como valor del KPI
+    // (con el mismo badge verde "Oficial" que las cards). Si es null (no aplico
+    // o fallo el passthrough para este tag/rango/ubicacion) se cae al universo
+    // identificado (totalLpns, el mismo valor de siempre) con badge naranja
+    // "Aproximado" para dejar claro que ese SI es el numero aproximado.
+    const coverage = d?.coverage;
+    const hayOficial = coverage?.piezasOficiales != null;
+    const totalKpiVal = hayOficial ? coverage.piezasOficiales : totalIdentificadas;
+    const totalBadge = hayOficial
+        ? '<span class="tt-source-badge oficial" style="margin-top:0.15rem;"><i class="fa-solid fa-check"></i> Oficial (BinManager)</span>'
+        : '<span class="tt-source-badge aproximado" style="margin-top:0.15rem;"><i class="fa-solid fa-triangle-exclamation"></i> Aproximado</span>';
+    // Resto de KPIs: ningun calculo cambia aqui, siguen siendo sub-conteos del
+    // universo IDENTIFICADO (totalIdentificadas), no del oficial -- solo se les
     // asigna icono y color de la paleta ya definida del modulo (TT_PALETTE /
     // TT_DESTINO_REAL_PALETTE), nunca un hex inventado.
     const kpis = [
-        ['Total piezas (LPN)', total, '#1E40AF', 'fa-boxes-stacked', false],
-        ['Trazabilidad completa', conMovimiento, '#059669', 'fa-circle-check', false],
-        ['Esperando lag', esperandoLag, '#D97706', 'fa-clock', false],
-        ['Sin movimiento posterior', sinMovimiento, '#8B5CF6', 'fa-arrows-turn-to-dots', false],
-        ['Anomalías reales', anomalias, '#DC2626', 'fa-triangle-exclamation', false],
-        ['Pallets', pallets, '#0891B2', 'fa-pallet', false],
-        ['Pedidos', pedidos, '#1E40AF', 'fa-file-invoice', false],
-        ['Última actualización', ultimaAct, '#64748B', 'fa-calendar-day', true],
+        ['Total piezas (LPN)', totalKpiVal, '#1E40AF', 'fa-boxes-stacked', false, totalBadge],
+        ['Trazabilidad completa', conMovimiento, '#059669', 'fa-circle-check', false, ''],
+        ['Esperando lag', esperandoLag, '#D97706', 'fa-clock', false, ''],
+        ['Sin movimiento posterior', sinMovimiento, '#8B5CF6', 'fa-arrows-turn-to-dots', false, ''],
+        ['Anomalías reales', anomalias, '#DC2626', 'fa-triangle-exclamation', false, ''],
+        ['Pallets', pallets, '#0891B2', 'fa-pallet', false, ''],
+        ['Pedidos', pedidos, '#1E40AF', 'fa-file-invoice', false, ''],
+        ['Última actualización', ultimaAct, '#64748B', 'fa-calendar-day', true, ''],
     ];
-    document.getElementById('tt-kpi-grid').innerHTML = kpis.map(([label, val, color, icon, isText]) => `
+    document.getElementById('tt-kpi-grid').innerHTML = kpis.map(([label, val, color, icon, isText, badge]) => `
         <div class="tt-card tt-kpi" style="--tt-kpi-color:${color};--tt-kpi-soft:${ttHexToRgba(color, 0.12)};">
             <div class="tt-kpi-icon"><i class="fa-solid ${icon}"></i></div>
             <div class="tt-kpi-body">
                 <div class="tt-kpi-value${isText ? ' tt-kpi-value-text' : ''}">${isText ? escapeHtml(String(val)) : Number(val).toLocaleString('es-MX')}</div>
                 <div class="tt-kpi-label">${escapeHtml(label)}</div>
+                ${badge || ''}
             </div>
         </div>`).join('');
+    ttRenderKpiBreakdownNote(coverage, totalIdentificadas, hayOficial);
+}
+
+// Nota justo debajo del grid de KPIs -- SOLO se muestra cuando el KPI "Total
+// piezas (LPN)" de arriba esta mostrando el numero OFICIAL (hayOficial),
+// para dejar explicito que los 7 indicadores restantes (Trazabilidad
+// completa/Esperando lag/Sin movimiento/Anomalias/Pallets/Pedidos) son un
+// desglose del universo APROXIMADO identificado (totalIdentificadas), no del
+// oficial -- reutiliza unicamente valores ya calculados de `coverage`
+// (piezasIdentificadas/coberturaPct/identificadasExcedeOficial), ningun
+// calculo nuevo. Cuando el aproximado excede al oficial
+// (identificadasExcedeOficial, el bug real en investigacion aparte) se evita
+// mostrar un % topeado que confundiria mas -- se reconoce explicitamente en
+// vez de inventar un numero.
+function ttRenderKpiBreakdownNote(coverage, totalIdentificadas, hayOficial) {
+    const el = document.getElementById('tt-kpi-breakdown-note');
+    if (!el) return;
+    if (!hayOficial) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    const identificadas = totalIdentificadas.toLocaleString('es-MX');
+    let textoCobertura;
+    if (coverage?.identificadasExcedeOficial) {
+        textoCobertura = 'identificó más piezas que el número oficial en este rango — cobertura no comparable, revisar.';
+    } else if (coverage?.coberturaPct != null) {
+        textoCobertura = `${coverage.coberturaPct}% del oficial.`;
+    } else {
+        textoCobertura = 'cobertura no disponible.';
+    }
+    el.style.display = '';
+    el.innerHTML = `<i class="fa-solid fa-circle-info" style="margin-top:2px;"></i><span>Los 7 indicadores siguientes son un desglose <b>aproximado</b> de <b>${identificadas}</b> piezas identificadas (${escapeHtml(textoCobertura)})</span>`;
 }
 
 // Nota de cobertura honesta del drill-down "¿A dónde se fueron?" -- `coverage`
