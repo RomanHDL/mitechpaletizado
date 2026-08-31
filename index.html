@@ -16179,7 +16179,11 @@ async function ttOpenTag(tagId, silencioso) {
     document.getElementById('tt-tag-breadcrumb').textContent = nombre;
     const tituloEl = document.getElementById('tt-tag-titulo');
     if (tituloEl) tituloEl.textContent = `Detalle de TAG — ${nombre}`;
-    ttClearSearch(cambioDeTag);
+    // El auto-refresh silencioso de 60s (mismo tag, silencioso=true) NUNCA le
+    // borra al usuario un resultado de búsqueda que está leyendo -- solo se
+    // limpia al cambiar de TAG o al refrescar de forma explícita (botón
+    // Actualizar / cambio de fecha vía ttDateChanged, ambos silencioso=false).
+    if (cambioDeTag || !silencioso) ttClearSearch(cambioDeTag);
     ttRenderResumenTag();
     if (!silencioso) ttRenderTagSkeletons();
     try {
