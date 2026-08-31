@@ -1489,6 +1489,7 @@
         .tt-kpi-value{font-size:1.5rem;font-weight:800;line-height:1;color:var(--tt-kpi-color,var(--tt-accent));word-break:break-word;}
         .tt-kpi-value.tt-kpi-value-text{font-size:0.92rem;line-height:1.25;}
         .tt-kpi-label{font-size:0.7rem;color:var(--tt-text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.02em;}
+        .tt-kpi-sublabel{font-size:0.68rem;color:var(--tt-text-muted);margin-top:0.15rem;}
         .tt-kpi-nodisponible{opacity:0.55;}
         .tt-kpi-nodisponible .tt-kpi-value{color:var(--tt-text-muted);}
         .tt-kpi-label .tt-nd-icon{margin-left:4px;color:var(--tt-warning);}
@@ -16362,26 +16363,39 @@ function ttRenderTagKpis() {
     // El KPI "Total piezas (LPN)" (ya resuelto arriba con el numero oficial) y
     // "Última actualización" (no es un conteo de piezas) NUNCA se ven afectados.
     const excedeIdentificado = !!coverage?.identificadasExcedeOficial;
+    // Orden agrupado por lo que Roman pidio explicitamente ("distribuye bien
+    // las piezas"): 1) estado de movimiento (Trazabilidad completa/Esperando
+    // lag/Anomalias -- estos 3 SIEMPRE suman exactamente totalIdentificadas,
+    // son mutuamente excluyentes por status), 2) ubicacion (Piezas en
+    // pallets/Sin pallet identificado -- estos 2 SIEMPRE suman exactamente
+    // totalIdentificadas tambien, ver enPallets/sinPalletIdentificado arriba).
+    // "Pallets" (el conteo de PALLETS DISTINTOS, no de piezas -- confusion
+    // real reportada por Roman: "Pallets" mostraba p.ej. 9 junto a puras
+    // cards de piezas, sin dejar claro que esa card SI cambiaba de unidad)
+    // ahora es el numero grande de piezas (enPallets) con el conteo de
+    // pallets distintos como sub-texto -- consistente con el resto del grid.
     const kpis = [
-        ['Total piezas (LPN)', totalKpiVal, '#1E40AF', 'fa-boxes-stacked', false, totalBadge, false],
-        ['Trazabilidad completa', conMovimiento, '#059669', 'fa-circle-check', false, '', true],
-        ['Esperando lag', esperandoLag, '#D97706', 'fa-clock', false, '', true],
-        ['Sin pallet identificado', sinPalletIdentificado, '#8B5CF6', 'fa-box-open', false, '', true],
-        ['Anomalías reales', anomalias, '#DC2626', 'fa-triangle-exclamation', false, '', true],
-        ['Pallets', pallets, '#0891B2', 'fa-pallet', false, '', true],
-        ['Pedidos', pedidos, '#1E40AF', 'fa-file-invoice', false, '', true],
-        ['Última actualización', ultimaAct, '#64748B', 'fa-calendar-day', true, '', false],
+        ['Total piezas (LPN)', totalKpiVal, '#1E40AF', 'fa-boxes-stacked', false, totalBadge, false, null],
+        ['Trazabilidad completa', conMovimiento, '#059669', 'fa-circle-check', false, '', true, null],
+        ['Esperando lag', esperandoLag, '#D97706', 'fa-clock', false, '', true, null],
+        ['Anomalías reales', anomalias, '#DC2626', 'fa-triangle-exclamation', false, '', true, null],
+        ['Piezas en pallets', enPallets, '#0891B2', 'fa-pallet', false, '', true, `${pallets.toLocaleString('es-MX')} pallet${pallets === 1 ? '' : 's'} distinto${pallets === 1 ? '' : 's'}`],
+        ['Sin pallet identificado', sinPalletIdentificado, '#8B5CF6', 'fa-box-open', false, '', true, null],
+        ['Pedidos', pedidos, '#1E40AF', 'fa-file-invoice', false, '', true, null],
+        ['Última actualización', ultimaAct, '#64748B', 'fa-calendar-day', true, '', false, null],
     ];
-    document.getElementById('tt-kpi-grid').innerHTML = kpis.map(([label, val, color, icon, isText, badge, subconteo]) => {
+    document.getElementById('tt-kpi-grid').innerHTML = kpis.map(([label, val, color, icon, isText, badge, subconteo, sublabel]) => {
         const noDisponible = subconteo && excedeIdentificado;
         const valorHtml = noDisponible ? 'N/D' : (isText ? escapeHtml(String(val)) : Number(val).toLocaleString('es-MX'));
         const ndIcon = noDisponible ? ' <i class="fa-solid fa-circle-info tt-nd-icon" title="No disponible: el desglose interno de piezas excedió el número oficial en este rango"></i>' : '';
+        const sublabelHtml = (sublabel && !noDisponible) ? `<div class="tt-kpi-sublabel">${escapeHtml(sublabel)}</div>` : '';
         return `
         <div class="tt-card tt-kpi${noDisponible ? ' tt-kpi-nodisponible' : ''}" style="--tt-kpi-color:${color};--tt-kpi-soft:${ttHexToRgba(color, 0.12)};">
             <div class="tt-kpi-icon"><i class="fa-solid ${icon}"></i></div>
             <div class="tt-kpi-body">
                 <div class="tt-kpi-value${isText ? ' tt-kpi-value-text' : ''}">${valorHtml}</div>
                 <div class="tt-kpi-label">${escapeHtml(label)}${ndIcon}</div>
+                ${sublabelHtml}
                 ${badge || ''}
             </div>
         </div>`;
