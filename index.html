@@ -2251,6 +2251,7 @@
 
                 <!-- TAB: pallets -->
                 <div class="tt-tabpanel" id="tt-tabpanel-pallets">
+                    <div class="tt-coverage-note" id="tt-pallets-summary-note" style="display:none;"></div>
                     <div class="tt-card" style="padding:1rem;">
                         <div class="tt-table-wrap">
                             <table class="tt-table" id="tt-tabla-pallets">
@@ -16538,19 +16539,42 @@ function ttRenderDestinosChart(rows, mensajeVacio) {
     }
 }
 
+// Nota corta arriba de la tabla de Pallets: cuántas de las piezas del TAG
+// (ttState.destinos.totalLpns -- el mismo universo YA validado como confiable
+// en este punto, porque si excediera al oficial la funcion ya habria
+// retornado antes con el mensaje de "no disponible") SI estan en algun
+// pallet identificado (suma de piezasTag de todas las filas) vs cuantas NO
+// tienen un pallet identificado en este momento. Nunca inventa un numero:
+// ambos valores ya existen en datos reales (ttState.destinos.totalLpns y la
+// suma de piezasTag que la propia tabla ya muestra por fila).
+function ttRenderPalletsSummaryNote(rows) {
+    const el = document.getElementById('tt-pallets-summary-note');
+    if (!el) return;
+    const totalPiezas = ttState.destinos?.totalLpns ?? null;
+    const enPallets = rows.reduce((sum, r) => sum + (Number(r.piezasTag) || 0), 0);
+    if (totalPiezas == null || enPallets >= totalPiezas) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    const sinPallet = totalPiezas - enPallets;
+    el.style.display = '';
+    el.innerHTML = `<i class="fa-solid fa-circle-info" style="margin-top:2px;"></i><span><b>${enPallets.toLocaleString('es-MX')}</b> de <b>${totalPiezas.toLocaleString('es-MX')}</b> piezas están en un pallet identificado — <b>${sinPallet.toLocaleString('es-MX')}</b> piezas no tienen un pallet identificado en este momento.</span>`;
+}
+
 function ttRenderPalletsTable() {
     const coverage = ttState.destinos?.coverage;
     const tbody = document.getElementById('tt-tbody-pallets');
+    const noteEl = document.getElementById('tt-pallets-summary-note');
     if (coverage?.identificadasExcedeOficial) {
         const mensaje = ttExcedeMensajeHtml(coverage, 'No se puede mostrar un listado confiable de pallets para este TAG en este rango.');
         tbody.innerHTML = `<tr><td colspan="7"><div class="tt-empty-note">${mensaje}</div></td></tr>`;
+        if (noteEl) { noteEl.style.display = 'none'; noteEl.innerHTML = ''; }
         return;
     }
     const rows = ttSortArr(ttState.pallets || [], ttState.sortPallets);
     if (!rows.length) {
         tbody.innerHTML = '<tr><td colspan="7"><div class="tt-empty-note"><i class="fa-solid fa-pallet" style="display:block;font-size:1.6rem;opacity:0.35;margin-bottom:0.5rem;"></i>No hay pallets con piezas de este TAG en el período y las ubicaciones seleccionadas.</div></td></tr>';
+        if (noteEl) { noteEl.style.display = 'none'; noteEl.innerHTML = ''; }
         return;
     }
+    ttRenderPalletsSummaryNote(rows);
     tbody.innerHTML = rows.map(r => `
         <tr class="tt-row-clickable" onclick="ttOpenPalletModal(${r.palletBinId})">
             <td data-label="Pallet"><b>${escapeHtml(r.palletBinCode || ('BinID ' + r.palletBinId))}</b></td>
@@ -16662,6 +16686,7 @@ async function ttOpenPalletModal(palletBinId) {
         const { startIso, endIso } = ttEffectiveRangeIso();
         const params = new URLSearchParams({ startDate: startIso, endDate: endIso });
         params.set('workCenterId', (ttState.workCenterIds && ttState.workCenterIds.length ? ttState.workCenterIds : TT_WORKCENTER_IDS_DEFAULT).join(','));
+        params.set('shift', ttState.turno || 'todos');
         if (ttState.currentTagId != null) params.set('tagId', ttState.currentTagId);
         const res = await apiFetch(`${API}/api/tags/pallets/${palletBinId}?${params.toString()}`);
         if (!res.success) throw new Error(res.error || 'No se pudo cargar el pallet');

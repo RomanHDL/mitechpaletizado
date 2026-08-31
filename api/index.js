@@ -5484,13 +5484,16 @@ async function fetchCubicajeTagPallets(tagId, startDate, endDate, workCenterId, 
   const params = tagsRangeParams(startDate, endDate, workCenterId, shift);
   return cubicajeTagsGet(`/api/integrations/paletizado/tags/${encodeURIComponent(tagId)}/pallets?${params.toString()}`);
 }
-async function fetchCubicajePalletDetails(palletBinId, tagId, startDate, endDate, workCenterId) {
+async function fetchCubicajePalletDetails(palletBinId, tagId, startDate, endDate, workCenterId, shift) {
   // Ruta real (confirmada en cubicaje/server/routes.ts): "/tags/pallet/:palletBinId"
   // (SINGULAR, dentro del namespace /tags/) -- NO "/tags/pallets/:id", que hubiera
   // colisionado con la ruta ya existente "/integrations/paletizado/pallets/:code"
   // (mismo patron de matching ante Express, distinto proposito). startDate/endDate
   // son OPCIONALES para este endpoint (el servicio defaultea a "ultimos 30 dias").
-  const params = tagsRangeParams(startDate, endDate, workCenterId);
+  // `shift` faltaba aqui (bug real: la tabla de pallets SI lo manda, este modal
+  // no -- podia dar resultados distintos si el usuario filtraba por turno1/
+  // turno2/actual) -- se agrega igual que en el resto de los fetchers de /tags/.
+  const params = tagsRangeParams(startDate, endDate, workCenterId, shift);
   if (tagId != null) params.set('tagId', tagId);
   return cubicajeTagsGet(`/api/integrations/paletizado/tags/pallet/${encodeURIComponent(palletBinId)}?${params.toString()}`);
 }
@@ -5579,9 +5582,9 @@ app.get('/api/tags/:tagId/pallets', auth, moduleGuard('trazabilidad-tag'), async
 });
 
 app.get('/api/tags/pallets/:palletBinId', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
-  const { tagId, startDate, endDate, workCenterId } = req.query;
+  const { tagId, startDate, endDate, workCenterId, shift } = req.query;
   try {
-    const data = await fetchCubicajePalletDetails(req.params.palletBinId, tagId, startDate, endDate, workCenterId);
+    const data = await fetchCubicajePalletDetails(req.params.palletBinId, tagId, startDate, endDate, workCenterId, shift);
     if (!data) return res.status(404).json({ success: false, error: 'Pallet no encontrado' });
     res.json({ success: true, data });
   } catch (error) { tagsHandleError(res, error); }
