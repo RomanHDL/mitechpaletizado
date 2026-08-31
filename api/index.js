@@ -5498,6 +5498,20 @@ async function fetchCubicajeTagOrders(tagId, startDate, endDate, workCenterId, s
   const params = tagsRangeParams(startDate, endDate, workCenterId, shift);
   return cubicajeTagsGet(`/api/integrations/paletizado/tags/${encodeURIComponent(tagId)}/orders?${params.toString()}`);
 }
+// Busqueda REAL dentro de un TAG (LPN / SKU / PalletID / BinCode / numero de
+// pedido) -- ruta "/tags/:tagId/search" en Cubicaje. Reutiliza tagsRangeParams
+// (mismo rango + ubicacion + turno que el resto del panel de detalle) y solo
+// agrega query/limit/offset: el universo buscado SIEMPRE queda acotado al
+// mismo tagId+rango+ubicacion+turno que ve el usuario, nunca a la base
+// completa. `query` es obligatorio (Cubicaje responde 400 missing_query si
+// falta) -- se valida antes en la ruta local para no gastar el round-trip.
+async function fetchCubicajeTagSearch(tagId, { startDate, endDate, workCenterId, shift, query, limit, offset } = {}) {
+  const params = tagsRangeParams(startDate, endDate, workCenterId, shift);
+  params.set('query', query);
+  if (limit != null && limit !== '') params.set('limit', limit);
+  if (offset != null && offset !== '') params.set('offset', offset);
+  return cubicajeTagsGet(`/api/integrations/paletizado/tags/${encodeURIComponent(tagId)}/search?${params.toString()}`);
+}
 async function fetchCubicajeOrderDetail(orderId, tagId) {
   // Ruta real: "/tags/order/:orderId" (SINGULAR, mismo motivo que /tags/pallet/
   // arriba -- evita colision con "/orders/:id" del resto de la app). tagId es
@@ -5578,6 +5592,22 @@ app.get('/api/tags/:tagId/orders', auth, moduleGuard('trazabilidad-tag'), async 
   if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
   try { res.json({ success: true, data: await fetchCubicajeTagOrders(req.params.tagId, startDate, endDate, workCenterId, shift) }); }
   catch (error) { tagsHandleError(res, error); }
+});
+
+// Buscador del panel "Detalle de TAG". Va ANTES de /api/tags/orders/:orderId
+// solo por orden de lectura -- no hay colision real posible entre ambas (el
+// ultimo segmento de esta ruta es el literal "search", y un :orderId nunca es
+// la palabra "search"), a diferencia del caso ya documentado de
+// /tags/pallet/ vs /pallets/:code mas arriba.
+app.get('/api/tags/:tagId/search', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
+  const { startDate, endDate, workCenterId, shift, limit, offset } = req.query;
+  const query = typeof req.query.query === 'string' ? req.query.query.trim() : '';
+  if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
+  if (!query) return res.status(400).json({ success: false, error: 'query (texto a buscar) es requerido' });
+  try {
+    const data = await fetchCubicajeTagSearch(req.params.tagId, { startDate, endDate, workCenterId, shift, query, limit, offset });
+    res.json({ success: true, data });
+  } catch (error) { tagsHandleError(res, error); }
 });
 
 app.get('/api/tags/orders/:orderId', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
