@@ -1442,35 +1442,43 @@
         .tt-btn.tt-btn-primary:hover{background:#1E3A8A;}
         .tt-btn.active{background:var(--tt-accent);border-color:var(--tt-accent);color:#fff;}
         .tt-btn:disabled{opacity:0.5;cursor:not-allowed;}
-        .tt-filters-row{display:flex;gap:0.6rem;align-items:flex-end;flex-wrap:wrap;padding:0.9rem 1rem;margin-bottom:1rem;}
+        .tt-filters-title{font-size:1rem;font-weight:800;color:var(--tt-text);margin:0 0 0.9rem;}
+        .tt-filters-row{display:flex;justify-content:space-between;align-items:flex-end;gap:1.25rem;flex-wrap:wrap;}
         .tt-filters-row label{display:flex;flex-direction:column;gap:0.25rem;font-size:0.72rem;font-weight:600;color:var(--tt-text-muted);text-transform:uppercase;letter-spacing:0.02em;}
-        .tt-filters-row input,.tt-filters-row select{border:1px solid var(--tt-border);border-radius:8px;padding:0.42rem 0.6rem;font-size:0.83rem;background:var(--tt-card);color:var(--tt-text);}
-        .tt-filter-group{display:flex;flex-direction:column;gap:0.3rem;}
-        .tt-filter-group>.tt-filter-group-label{font-size:0.72rem;font-weight:600;color:var(--tt-text-muted);text-transform:uppercase;letter-spacing:0.02em;}
-        .tt-ubicacion-checks{display:flex;gap:0.9rem;flex-wrap:wrap;align-items:center;padding:0.42rem 0 0.1rem;}
-        .tt-ubicacion-checks label{display:flex;align-items:center;gap:5px;font-size:0.8rem;font-weight:600;color:var(--tt-text);text-transform:none;letter-spacing:normal;cursor:pointer;}
+        .tt-filters-right{display:flex;align-items:flex-end;gap:0.65rem;flex-wrap:wrap;}
+        .tt-filters-right input,.tt-filters-right select{border:1px solid var(--tt-border);border-radius:8px;padding:0.42rem 0.6rem;font-size:0.83rem;background:var(--tt-card);color:var(--tt-text);}
+        .tt-ubicacion-checks{display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;}
+        .tt-ubicacion-checks label{display:flex;align-items:center;gap:7px;font-size:0.8rem;font-weight:700;color:var(--tt-accent);text-transform:none;letter-spacing:normal;cursor:pointer;background:rgba(30,64,175,0.06);border:1px solid rgba(30,64,175,0.22);border-radius:999px;padding:0.5rem 0.95rem;transition:background 0.15s ease,border-color 0.15s ease;}
+        .tt-ubicacion-checks label:hover{background:rgba(30,64,175,0.1);}
         .tt-ubicacion-checks input[type="checkbox"]{width:15px;height:15px;accent-color:var(--tt-accent);cursor:pointer;}
         .tt-source-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:0.65rem;font-weight:700;margin-top:0.4rem;white-space:nowrap;}
         .tt-source-badge.oficial{background:rgba(5,150,105,0.12);color:var(--tt-success);}
         .tt-source-badge.aproximado{background:rgba(217,119,6,0.12);color:var(--tt-warning);}
-        .tt-precision-note.oficial{background:rgba(5,150,105,0.08);border-color:rgba(5,150,105,0.25);}
         .tt-coverage-note{font-size:0.78rem;color:var(--tt-text);background:rgba(30,64,175,0.06);border:1px solid rgba(30,64,175,0.2);border-radius:10px;padding:0.6rem 0.85rem;margin-bottom:0.85rem;display:flex;gap:0.5rem;align-items:flex-start;}
-        .tt-lag-row{display:flex;gap:0.9rem;align-items:center;flex-wrap:wrap;font-size:0.78rem;color:var(--tt-text-muted);}
-        .tt-lag-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;}
-        .tt-lag-dot.ok{background:var(--tt-success);}
-        .tt-lag-dot.lag{background:var(--tt-warning);}
-        .tt-lag-dot.critical{background:var(--tt-danger);}
-        .tt-lag-dot.unknown{background:#94A3B8;}
-        .tt-precision-note{font-size:0.72rem;color:var(--tt-text-muted);background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.25);border-radius:10px;padding:0.55rem 0.8rem;margin-bottom:1rem;display:flex;gap:0.5rem;align-items:flex-start;}
+        .tt-info-pill{font-size:0.78rem;color:var(--tt-text-muted);background:#EEF2F7;border:1px solid var(--tt-border);border-radius:10px;padding:0.6rem 0.9rem;margin-bottom:1.25rem;display:flex;gap:0.5rem;align-items:center;}
+        .tt-info-pill i{color:#94A3B8;}
+        .tt-last-update-note{font-size:0.75rem;color:var(--tt-text-muted);text-align:center;margin-top:0.25rem;}
         .tt-search-box{display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;padding:0.85rem 1rem;margin-bottom:1rem;border:1.5px solid var(--tt-accent);}
         .tt-search-box input{flex:1;min-width:220px;padding:0.55rem 0.85rem;font-size:0.9rem;border:1px solid var(--tt-border);border-radius:8px;background:var(--tt-card);color:var(--tt-text);}
-        .tt-tag-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.25rem;}
+        .tt-tag-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem;}
+        @media (max-width:1100px){.tt-tag-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+        @media (max-width:520px){.tt-tag-grid{grid-template-columns:minmax(0,1fr);}}
         .tt-tag-card{padding:1.15rem 1.25rem;border-top:4px solid var(--tt-accent);cursor:pointer;transition:transform 0.15s ease,box-shadow 0.15s ease;text-align:left;}
         .tt-tag-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(15,23,42,0.1);}
+        .tt-tag-card-head{display:flex;align-items:flex-start;gap:0.85rem;margin-bottom:0.15rem;}
+        .tt-tag-avatar{width:42px;height:42px;min-width:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem;}
         .tt-tag-card .tt-tc-nombre{font-size:1.05rem;font-weight:800;}
         .tt-tag-card .tt-tc-desc{font-size:0.75rem;color:var(--tt-text-muted);margin-top:0.15rem;min-height:1.1em;}
         .tt-tag-card .tt-tc-valor{font-size:1.9rem;font-weight:800;margin-top:0.6rem;color:var(--tt-accent);}
         .tt-tag-card .tt-tc-label{font-size:0.7rem;color:var(--tt-text-muted);text-transform:uppercase;letter-spacing:0.02em;}
+        @media (max-width:1100px){.tt-ubicacion-checks{flex-basis:100%;}}
+        @media (max-width:520px){
+            .tt-filters-row{flex-direction:column;align-items:stretch;}
+            .tt-filters-right{flex-direction:column;align-items:stretch;width:100%;}
+            .tt-filters-right label,.tt-filters-right .tt-btn{width:100%;}
+            .tt-ubicacion-checks{flex-direction:column;align-items:stretch;}
+            .tt-ubicacion-checks label{justify-content:flex-start;}
+        }
         .tt-overlap-card{padding:1.1rem 1.25rem;border-top:4px solid #8b5cf6;cursor:pointer;}
         .tt-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem;}
         @media (max-width:1100px){.tt-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
@@ -2035,10 +2043,9 @@
             <div class="tt-header-bar">
                 <div>
                     <h1 style="font-size:1.4rem;margin:0;"><i class="fa-solid fa-tags" style="color:#1E40AF;margin-right:8px;"></i>Centro de Trazabilidad TAG — MAXX</h1>
-                    <p style="margin:0.3rem 0 0;font-size:0.85rem;color:var(--tt-text-muted);">Monterrey MAXX (Sorting / Technical / OpenCell Monterrey2) — a dónde se fueron las piezas etiquetadas (SORP, Bulky, Prioridad J, TRG Preferred), cruzando SmartControl + BinManagerRO en vivo</p>
+                    <p style="margin:0.3rem 0 0;font-size:0.85rem;color:var(--tt-text-muted);">Monterrey MAXX (Sorting / Technical / OpenCell Monterrey2)</p>
                 </div>
                 <div class="tt-header-right">
-                    <div class="tt-lag-row" id="tt-lag-row"><span class="tt-lag-dot unknown"></span> Cargando estado de las fuentes…</div>
                     <div style="display:flex;gap:0.5rem;align-items:center;">
                         <label style="display:flex;align-items:center;gap:5px;font-size:0.78rem;color:var(--tt-text-muted);cursor:pointer;">
                             <input type="checkbox" id="tt-auto-refresh" checked onchange="ttToggleAutoRefresh()"> Auto-actualizar (60s)
@@ -2048,35 +2055,36 @@
                 </div>
             </div>
 
-            <div class="tt-card tt-filters-row">
-                <div class="tt-filter-group">
-                    <span class="tt-filter-group-label">Ubicación</span>
+            <div class="tt-card" style="padding:1.1rem 1.25rem 1.25rem;margin-bottom:1rem;">
+                <div class="tt-filters-title">Filtros</div>
+                <div class="tt-filters-row">
                     <div class="tt-ubicacion-checks" id="tt-f-ubicacion">
                         <label><input type="checkbox" class="tt-ubicacion-cb" value="47" checked> Sorting Monterrey2</label>
                         <label><input type="checkbox" class="tt-ubicacion-cb" value="48" checked> Technical Monterrey2</label>
                         <label><input type="checkbox" class="tt-ubicacion-cb" value="60" checked> OpenCell Monterrey2</label>
                     </div>
+                    <div class="tt-filters-right">
+                        <label>Turno
+                            <select id="tt-f-turno" title="Aproximación por hora del día — no es un dato oficial de turno">
+                                <option value="todos">Todos</option>
+                                <option value="actual">Turno actual</option>
+                                <option value="turno1">Turno 1</option>
+                                <option value="turno2">Turno 2</option>
+                            </select>
+                        </label>
+                        <label>Fecha inicio
+                            <input type="date" id="tt-f-inicio" onchange="ttDateChanged()">
+                        </label>
+                        <label>Fecha fin
+                            <input type="date" id="tt-f-fin" onchange="ttDateChanged()">
+                        </label>
+                        <button class="tt-btn tt-btn-primary" onclick="ttApplyFilters()"><i class="fa-solid fa-filter"></i> Aplicar filtros</button>
+                        <button class="tt-btn" onclick="ttClearFilters()"><i class="fa-solid fa-xmark"></i> Limpiar filtros</button>
+                    </div>
                 </div>
-                <label>Turno
-                    <select id="tt-f-turno" title="Aproximación por hora del día — no es un dato oficial de turno">
-                        <option value="todos">Todos</option>
-                        <option value="actual">Turno actual</option>
-                        <option value="turno1">Turno 1</option>
-                        <option value="turno2">Turno 2</option>
-                    </select>
-                </label>
-                <label>Fecha inicio
-                    <input type="date" id="tt-f-inicio">
-                </label>
-                <label>Fecha fin
-                    <input type="date" id="tt-f-fin">
-                </label>
-                <button class="tt-btn tt-btn-primary" onclick="ttApplyFilters()"><i class="fa-solid fa-check"></i> Aplicar</button>
-                <button class="tt-btn" onclick="ttClearFilters()"><i class="fa-solid fa-xmark"></i> Limpiar filtros</button>
-                <div id="tt-turno-note" style="font-size:0.72rem;color:var(--tt-text-muted);flex-basis:100%;"><i class="fa-solid fa-circle-info"></i> "Turno" es una <b>aproximación</b> por hora del día calculada por Cubicaje al momento de la consulta — <b>no</b> es un dato oficial de turno.</div>
             </div>
 
-            <div class="tt-precision-note" id="tt-precision-note"><i class="fa-solid fa-circle-info" style="margin-top:2px;"></i><span id="tt-precision-note-text">El conteo de piezas por TAG es una <b>aproximación</b> (precisión estimada 78–98% según el método) — <b>no</b> es el número exacto de la tarjeta "Sorting Dashboard Production" de BinManager (sistema .NET aparte sin código fuente accesible).</span></div>
+            <div class="tt-info-pill" id="tt-info-pill"><i class="fa-solid fa-circle-info"></i><span id="tt-info-pill-text">Los datos mostrados corresponden al rango de fechas seleccionado.</span></div>
 
             <!-- PANEL: catálogo de tags -->
             <div id="tt-panel-catalogo">
@@ -2217,6 +2225,8 @@
                     </div>
                 </div>
             </div>
+
+            <div class="tt-last-update-note"><i class="fa-solid fa-clock"></i> Última actualización: <b id="tt-last-update">--</b></div>
         </div>
 
         <!-- Modal: detalle de pallet (reutiliza .co-pallet-modal-*, mismo patron que Comparador/Reporte Semanal) -->
@@ -15625,7 +15635,7 @@ let ttState = {
     sortPallets: { key: 'piezasTag', dir: 'desc' },
     sortOrders: { key: 'piezas', dir: 'desc' },
     currentDestinoKey: null, destinoPage: 1, destinoPageSize: 50, destinoTotal: 0,
-    autoTimer: null, modalOpen: false,
+    autoTimer: null, modalOpen: false, dateDebounceTimer: null,
 };
 let ttCharts = {}; // instancias Chart.js de este modulo (mismo patron que fftCharts) -- se destruyen/recrean en cada render, nunca se acumulan.
 
@@ -15693,6 +15703,28 @@ function ttResolveTagName(tagId, fallbackTag) {
     return `Tag #${tagId} (sin nombre)`;
 }
 
+// Color e inicial del avatar de cada tag-card -- SIEMPRE por tagId real
+// (82=Prioridad J, 89=BULKY, 39=TRG Preferred, 80=SORP), NUNCA por posicion
+// en el array ni por el string de nombre (locale-dependiente, ver comentario
+// de ttResolveTagName arriba sobre el bug real del tag 39). SORP no tiene
+// color propio pedido por Roman -> cae al azul default, igual que cualquier
+// tag futuro no contemplado en este mapa.
+const TT_TAG_COLORS = { 82: '#1E40AF', 89: '#059669', 39: '#D97706', 80: '#1E40AF' };
+const TT_TAG_INITIALS = { 82: 'P', 89: 'B', 39: 'T', 80: 'S' };
+function ttTagColor(tagId) { return TT_TAG_COLORS[tagId] || '#1E40AF'; }
+function ttTagInitial(tagId, nombreResuelto) {
+    if (TT_TAG_INITIALS[tagId]) return TT_TAG_INITIALS[tagId];
+    const n = String(nombreResuelto || '').trim();
+    return n ? n[0].toUpperCase() : '?';
+}
+function ttHexToRgba(hex, alpha) {
+    const h = String(hex || '').replace('#', '');
+    const r = parseInt(h.substring(0, 2), 16) || 0;
+    const g = parseInt(h.substring(2, 4), 16) || 0;
+    const b = parseInt(h.substring(4, 6), 16) || 0;
+    return `rgba(${r},${g},${b},${alpha})`;
+}
+
 // Escapa para insertar dentro de un literal JS de comillas simples embebido en
 // un atributo onclick="..." -- mismo criterio ya usado en el resto del archivo
 // (ej. deleteUser/ctrlRemoveCat: .replace(/'/g,"\\'")), NO escapeHtml (que
@@ -15706,8 +15738,7 @@ function ttJsStr(s) {
 function ttIsoDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function ttDefaultDates() {
     const hoy = new Date();
-    const hace7 = new Date(); hace7.setDate(hoy.getDate() - 6);
-    return { inicio: ttIsoDate(hace7), fin: ttIsoDate(hoy) };
+    return { inicio: ttIsoDate(hoy), fin: ttIsoDate(hoy) };
 }
 
 async function initTrazabilidadTag() {
@@ -15826,6 +15857,27 @@ function ttClearFilters() {
     ttLoadCatalogo();
 }
 
+// Auto-actualizacion al cambiar Fecha inicio/fin (onchange en #tt-f-inicio y
+// #tt-f-fin) -- debounce corto para no disparar de mas si el usuario edita
+// rapido (ej. escribiendo el anio digito por digito en algunos navegadores).
+// Solo actualiza ttState.startDate/endDate y reusa ttRefreshNow(), que YA
+// decide correctamente si hay que recargar el catalogo o el tag actualmente
+// abierto -- no se duplica esa logica aqui. Si las fechas no son validas
+// (falta alguna o inicio > fin) simplemente no dispara nada, sin toast, para
+// no ser ruidoso mientras el usuario todavia esta escribiendo.
+function ttDateChanged() {
+    if (ttState.dateDebounceTimer) { clearTimeout(ttState.dateDebounceTimer); }
+    ttState.dateDebounceTimer = setTimeout(() => {
+        ttState.dateDebounceTimer = null;
+        const inicio = document.getElementById('tt-f-inicio').value;
+        const fin = document.getElementById('tt-f-fin').value;
+        if (!inicio || !fin || inicio > fin) return;
+        ttState.startDate = inicio;
+        ttState.endDate = fin;
+        ttRefreshNow();
+    }, 450);
+}
+
 function ttShowPanel(name) {
     ['catalogo', 'tag', 'destino', 'overlap'].forEach(n => {
         const el = document.getElementById('tt-panel-' + n);
@@ -15851,6 +15903,8 @@ async function ttLoadCatalogo(silencioso) {
         ttState.lag = sumRes.data?.lag || null; // getTagSummary ya incluye getSourceLag() -- no se duplica la llamada
         ttRenderLag();
         ttRenderTagGrid();
+        const luEl = document.getElementById('tt-last-update');
+        if (luEl) luEl.textContent = new Date().toLocaleTimeString('es-MX');
     } catch (e) {
         document.getElementById('tt-tag-grid').innerHTML = `<div class="tt-empty-note">No se pudo cargar: ${escapeHtml(e.message)}</div>`;
     }
@@ -15909,14 +15963,24 @@ function ttRenderTagGrid() {
     if (!tags.length) {
         grid.innerHTML = '<div class="tt-empty-note">Sin TAGs con piezas en este rango.</div>';
     } else {
-        grid.innerHTML = tags.map(t => `
-            <div class="tt-card tt-tag-card" onclick="ttOpenTag(${t.tagId})">
-                <div class="tt-tc-nombre">${escapeHtml(ttResolveTagName(t.tagId, t.tag))}</div>
-                <div class="tt-tc-desc">${escapeHtml(t.tagDescriptionSpanish || '')}</div>
+        grid.innerHTML = tags.map(t => {
+            const nombre = ttResolveTagName(t.tagId, t.tag);
+            const color = ttTagColor(t.tagId);
+            const inicial = ttTagInitial(t.tagId, nombre);
+            return `
+            <div class="tt-card tt-tag-card" style="border-top-color:${color};" onclick="ttOpenTag(${t.tagId})">
+                <div class="tt-tag-card-head">
+                    <div class="tt-tag-avatar" style="background:${ttHexToRgba(color, 0.12)};color:${color};">${escapeHtml(inicial)}</div>
+                    <div style="min-width:0;">
+                        <div class="tt-tc-nombre">${escapeHtml(nombre)}</div>
+                        <div class="tt-tc-desc">${escapeHtml(t.tagDescriptionSpanish || '')}</div>
+                    </div>
+                </div>
                 <div class="tt-tc-valor">${(t.lpnCount || 0).toLocaleString('es-MX')}</div>
                 ${ttSourceBadgeHtml(source)}
                 <div class="tt-tc-label">Piezas (LPN)</div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
     }
     const overlapCard = document.getElementById('tt-overlap-card');
     const overlapCount = ttState.summary?.overlapCount || 0;
@@ -15927,7 +15991,22 @@ function ttRenderTagGrid() {
         overlapCard.style.display = 'none';
     }
     ttRenderPrecisionNote();
+    ttRenderRangeNote();
     ttRenderTagsChart(tags);
+}
+
+// Nota corta y generica del rango de fechas activo -- reemplaza el antiguo
+// parrafo tecnico de precision/aproximacion (#tt-precision-note, esa info ya
+// vive en el badge de cada tag-card via ttSourceBadgeHtml). Solo ajusta
+// "dia" vs "rango" segun si Fecha inicio = Fecha fin; nunca menciona
+// SmartControl/BinManagerRO/aproximacion.
+function ttRenderRangeNote() {
+    const el = document.getElementById('tt-info-pill-text');
+    if (!el) return;
+    const mismoDia = ttState.startDate && ttState.endDate && ttState.startDate === ttState.endDate;
+    el.textContent = mismoDia
+        ? 'Los datos mostrados corresponden al día seleccionado.'
+        : 'Los datos mostrados corresponden al rango de fechas seleccionado.';
 }
 
 // Dona "Piezas por TAG" -- misma lista ya filtrada (SORP oculto si es 0) que
@@ -15988,6 +16067,8 @@ async function ttOpenTag(tagId, silencioso) {
         ttRenderDestinosTable();
         ttRenderPalletsTable();
         ttRenderOrdersTable();
+        const luEl = document.getElementById('tt-last-update');
+        if (luEl) luEl.textContent = new Date().toLocaleTimeString('es-MX');
     } catch (e) {
         document.getElementById('tt-kpi-grid').innerHTML = `<div class="tt-empty-note">No se pudo cargar: ${escapeHtml(e.message)}</div>`;
     }
