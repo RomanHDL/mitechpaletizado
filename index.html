@@ -2258,7 +2258,7 @@
                             <table class="tt-table" id="tt-tabla-pallets">
                                 <thead><tr>
                                     <th onclick="ttSortPallets('palletBinCode')">Pallet</th>
-                                    <th onclick="ttSortPallets('binTypeName')">Tipo</th>
+                                    <th onclick="ttSortPallets('binTypeName')" title="Tipo de pallet según el catálogo real de BinManager. 'No clasificado' es un tipo válido — significa que BinManager no le asignó una categoría más específica, no es un error.">Tipo <i class="fa-solid fa-circle-info" style="font-size:0.65rem;opacity:0.5;"></i></th>
                                     <th onclick="ttSortPallets('locationName')">Ubicación</th>
                                     <th onclick="ttSortPallets('piezasTag')">Piezas del TAG</th>
                                     <th onclick="ttSortPallets('piezasTotalPallet')">Piezas totales</th>
@@ -16377,7 +16377,7 @@ function ttRenderTagKpis() {
     const kpis = [
         ['Total piezas (LPN)', totalKpiVal, '#1E40AF', 'fa-boxes-stacked', false, totalBadge, false, null],
         ['Trazabilidad completa', conMovimiento, '#059669', 'fa-circle-check', false, '', true, null],
-        ['Esperando lag', esperandoLag, '#D97706', 'fa-clock', false, '', true, null],
+        ['Esperando movimiento', esperandoLag, '#D97706', 'fa-clock', false, '', true, 'Ya tiene el TAG, aún sin movimiento registrado en BinManager'],
         ['Anomalías reales', anomalias, '#DC2626', 'fa-triangle-exclamation', false, '', true, null],
         ['Piezas en pallets', enPallets, '#0891B2', 'fa-pallet', false, '', true, `${pallets.toLocaleString('es-MX')} pallet${pallets === 1 ? '' : 's'} distinto${pallets === 1 ? '' : 's'}`],
         ['Sin pallet identificado', sinPalletIdentificado, '#8B5CF6', 'fa-box-open', false, '', true, null],
@@ -16479,14 +16479,14 @@ function ttSetTab(tab) {
 function ttStatusChip(status) {
     const map = {
         con_movimiento: ['completa', 'Trazabilidad completa'],
-        esperando_lag: ['lag', 'Esperando datos por lag'],
+        esperando_lag: ['lag', 'Esperando movimiento'],
         anomalia_sin_movimiento: ['anomalia', 'Anomalía real'],
     };
     const [cls, label] = map[status] || ['noclasificado', 'No clasificado'];
     return `<span class="tt-chip ${cls}">${escapeHtml(label)}</span>`;
 }
 function ttDestinoLabel(key) {
-    if (key === 'esperando_lag') return 'Esperando datos por lag';
+    if (key === 'esperando_lag') return 'Esperando movimiento';
     if (key === 'anomalia_sin_movimiento') return 'Anomalía real (sin movimiento posterior)';
     if (/^BinID_\d+$/.test(key)) return `No clasificado (${key})`;
     return key;
