@@ -2259,7 +2259,8 @@
                                 <thead><tr>
                                     <th onclick="ttSortPallets('palletBinCode')">Pallet</th>
                                     <th onclick="ttSortPallets('binTypeName')" title="Tipo de pallet según el catálogo real de BinManager. 'No clasificado' es un tipo válido — significa que BinManager no le asignó una categoría más específica, no es un error.">Tipo <i class="fa-solid fa-circle-info" style="font-size:0.65rem;opacity:0.5;"></i></th>
-                                    <th onclick="ttSortPallets('locationName')">Ubicación</th>
+                                    <th onclick="ttSortPallets('workStationName')">Área</th>
+                                    <th>Material</th>
                                     <th onclick="ttSortPallets('piezasTag')">Piezas del TAG</th>
                                     <th onclick="ttSortPallets('piezasTotalPallet')">Piezas totales</th>
                                     <th>Pedido</th>
@@ -16586,13 +16587,13 @@ function ttRenderPalletsTable() {
     const noteEl = document.getElementById('tt-pallets-summary-note');
     if (coverage?.identificadasExcedeOficial) {
         const mensaje = ttExcedeMensajeHtml(coverage, 'No se puede mostrar un listado confiable de pallets para este TAG en este rango.');
-        tbody.innerHTML = `<tr><td colspan="7"><div class="tt-empty-note">${mensaje}</div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8"><div class="tt-empty-note">${mensaje}</div></td></tr>`;
         if (noteEl) { noteEl.style.display = 'none'; noteEl.innerHTML = ''; }
         return;
     }
     const rows = ttSortArr(ttState.pallets || [], ttState.sortPallets);
     if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="7"><div class="tt-empty-note"><i class="fa-solid fa-pallet" style="display:block;font-size:1.6rem;opacity:0.35;margin-bottom:0.5rem;"></i>No hay pallets con piezas de este TAG en el período y las ubicaciones seleccionadas.</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8"><div class="tt-empty-note"><i class="fa-solid fa-pallet" style="display:block;font-size:1.6rem;opacity:0.35;margin-bottom:0.5rem;"></i>No hay pallets con piezas de este TAG en el período y las ubicaciones seleccionadas.</div></td></tr>';
         if (noteEl) { noteEl.style.display = 'none'; noteEl.innerHTML = ''; }
         return;
     }
@@ -16601,12 +16602,28 @@ function ttRenderPalletsTable() {
         <tr class="tt-row-clickable" onclick="ttOpenPalletModal(${r.palletBinId})">
             <td data-label="Pallet"><b>${escapeHtml(r.palletBinCode || ('BinID ' + r.palletBinId))}</b></td>
             <td data-label="Tipo">${escapeHtml(r.binTypeName || '—')}</td>
-            <td data-label="Ubicación">${escapeHtml(r.locationName || '—')}</td>
+            <td data-label="Área">${escapeHtml(r.workStationName || r.locationName || '—')}</td>
+            <td data-label="Material">${ttFormatSkuList(r.skus)}</td>
             <td data-label="Piezas del TAG">${r.piezasTag}</td>
             <td data-label="Piezas totales">${r.piezasTotalPallet}</td>
             <td data-label="Pedido">${r.orderId ? `<span class="tt-chip completa" style="cursor:pointer;" onclick="event.stopPropagation();ttOpenOrdenModal(${r.orderId})">${escapeHtml(r.orderWebOrderId || ('#' + r.orderId))}</span>` : '<span class="tt-chip sinrelacion">Sin relación a pedido</span>'}</td>
             <td data-label="Detalle"><button class="tt-btn tt-btn-mini" onclick="event.stopPropagation();ttOpenPalletModal(${r.palletBinId})"><i class="fa-solid fa-eye"></i> Ver detalle</button></td>
         </tr>`).join('');
+}
+
+// Lista compacta de SKUs (material real) de un pallet -- ttState.pallets[].skus
+// ya viene del backend (getTagPallets, cubicaje) acotado a las piezas DEL TAG
+// en ese pallet, nunca a piezas ajenas. Si son muchos, se acorta visualmente
+// pero el tooltip (title) siempre trae la lista completa -- nunca se pierde
+// informacion, solo se compacta la vista.
+function ttFormatSkuList(skus) {
+    if (!skus || !skus.length) return '<span style="color:var(--tt-text-muted);">—</span>';
+    const max = 2;
+    const visible = skus.slice(0, max).map(s => escapeHtml(s)).join(', ');
+    const resto = skus.length - max;
+    const full = escapeHtml(skus.join(', '));
+    if (resto <= 0) return `<span title="${full}">${visible}</span>`;
+    return `<span title="${full}">${visible} <span style="color:var(--tt-text-muted);">+${resto} más</span></span>`;
 }
 
 function ttRenderOrdersTable() {
