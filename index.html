@@ -1460,7 +1460,7 @@
         .tt-last-update-note{font-size:0.75rem;color:var(--tt-text-muted);text-align:center;margin-top:0.25rem;}
         .tt-search-box{display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;padding:0.85rem 1rem;margin-bottom:1rem;border:1.5px solid var(--tt-accent);}
         .tt-search-box input{flex:1;min-width:220px;padding:0.55rem 0.85rem;font-size:0.9rem;border:1px solid var(--tt-border);border-radius:8px;background:var(--tt-card);color:var(--tt-text);}
-        .tt-tag-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem;}
+        .tt-tag-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem;}
         @media (max-width:1100px){.tt-tag-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
         @media (max-width:520px){.tt-tag-grid{grid-template-columns:minmax(0,1fr);}}
         .tt-tag-card{padding:1.15rem 1.25rem;border-top:4px solid var(--tt-accent);cursor:pointer;transition:transform 0.15s ease,box-shadow 0.15s ease;text-align:left;}
@@ -15808,10 +15808,16 @@ function ttResolveTagName(tagId, fallbackTag) {
 // Color e inicial del avatar de cada tag-card -- SIEMPRE por tagId real
 // (82=Prioridad J, 89=BULKY, 39=TRG Preferred, 80=SORP), NUNCA por posicion
 // en el array ni por el string de nombre (locale-dependiente, ver comentario
-// de ttResolveTagName arriba sobre el bug real del tag 39). SORP no tiene
-// color propio pedido por Roman -> cae al azul default, igual que cualquier
-// tag futuro no contemplado en este mapa.
-const TT_TAG_COLORS = { 82: '#1E40AF', 89: '#059669', 39: '#D97706', 80: '#1E40AF' };
+// de ttResolveTagName arriba sobre el bug real del tag 39).
+//
+// Colores 2026-08-31 (pedido de Roman): alineados EXACTOS con el widget
+// "PIEZAS POR TAG" del dashboard oficial de BinManager (SORP=azul,
+// TRG=morado, BULKY=naranja, Prioridad J=rojo) para no confundirse al
+// comparar las dos pantallas -- reutiliza los 4 tokens de color YA
+// definidos en este modulo (--tt-accent/--tt-danger/--tt-warning y el
+// violeta #8B5CF6 de TT_PALETTE/TT_DESTINO_REAL_PALETTE), nunca un hex
+// inventado. Cualquier tag futuro no contemplado en este mapa cae al azul.
+const TT_TAG_COLORS = { 80: '#1E40AF', 39: '#8B5CF6', 89: '#D97706', 82: '#DC2626' };
 const TT_TAG_INITIALS = { 82: 'P', 89: 'B', 39: 'T', 80: 'S' };
 function ttTagColor(tagId) { return TT_TAG_COLORS[tagId] || '#1E40AF'; }
 function ttTagInitial(tagId, nombreResuelto) {
@@ -16086,10 +16092,25 @@ function ttRenderPrecisionNote() {
         : 'El conteo de piezas por TAG es una <b>aproximación</b> (precisión estimada 78–98% según el método) — <b>no</b> es el número exacto de la tarjeta "Sorting Dashboard Production" de BinManager (sistema .NET aparte sin código fuente accesible).';
 }
 
+// Orden fijo 2026-08-31 (pedido de Roman): IDÉNTICO al widget "PIEZAS POR
+// TAG" del dashboard oficial de BinManager (SORP, TRG Preferred, BULKY,
+// Prioridad J) -- para que las dos pantallas se lean igual y no se confunda
+// al compararlas. Reemplaza el filtro viejo "oculta SORP si es 0": ahora los
+// 4 tags SIEMPRE se muestran, aunque estén en 0 (pedido explícito nuevo,
+// reemplaza el pedido anterior de ocultar SORP en 0). Cualquier tag futuro
+// no contemplado aquí cae al final, en el orden que ya traiga el backend.
+const TT_TAG_DISPLAY_ORDER = [80, 39, 89, 82];
+function ttSortTagsForDisplay(tags) {
+    return [...tags].sort((a, b) => {
+        const ia = TT_TAG_DISPLAY_ORDER.indexOf(a.tagId);
+        const ib = TT_TAG_DISPLAY_ORDER.indexOf(b.tagId);
+        return (ia === -1 ? TT_TAG_DISPLAY_ORDER.length : ia) - (ib === -1 ? TT_TAG_DISPLAY_ORDER.length : ib);
+    });
+}
+
 function ttRenderTagGrid() {
     const grid = document.getElementById('tt-tag-grid');
-    // "oculta SORP si es 0" -- pedido explicito, el resto de tags SI se muestran aunque esten en 0.
-    const tags = (ttState.summary?.tags || []).filter(t => !(t.tag === 'SORP' && (t.lpnCount || 0) === 0));
+    const tags = ttSortTagsForDisplay(ttState.summary?.tags || []);
     const source = ttState.summary?.source;
     if (!tags.length) {
         grid.innerHTML = '<div class="tt-empty-note">Sin TAGs con piezas en este rango.</div>';
@@ -16140,7 +16161,7 @@ function ttRenderRangeNote() {
         : 'Los datos mostrados corresponden al rango de fechas seleccionado.';
 }
 
-// Dona "Piezas por TAG" -- misma lista ya filtrada (SORP oculto si es 0) que
+// Dona "Piezas por TAG" -- misma lista ya ordenada (ttSortTagsForDisplay) que
 // alimenta las cards de arriba, nunca un dato aparte. Nombre SIEMPRE resuelto
 // via ttResolveTagName (mismo criterio que las cards, ver comentario ahi).
 function ttRenderTagsChart(tags) {
@@ -16154,7 +16175,11 @@ function ttRenderTagsChart(tags) {
     }
     const nombres = tags.map(t => ttResolveTagName(t.tagId, t.tag));
     const valores = tags.map(t => t.lpnCount || 0);
-    const colores = tags.map((t, i) => ttColorIdx(i));
+    // Mismo color POR TAG que las cards de arriba (ttTagColor, ver el
+    // comentario ahi -- alineado con el dashboard oficial) -- antes usaba
+    // ttColorIdx(i) (paleta generica por posicion), lo que hacia que la dona
+    // no coincidiera con el color de la card del mismo tag.
+    const colores = tags.map(t => ttTagColor(t.tagId));
     ttMakeChart('tags', 'tt-chart-tags', ttDonutBase(nombres, valores, colores));
     const total = valores.reduce((s, v) => s + v, 0);
     if (centro) {
@@ -16166,7 +16191,7 @@ function ttRenderTagsChart(tags) {
         legendBody.innerHTML = tags.map((t, i) => {
             const val = valores[i];
             const pct = total > 0 ? (val / total * 100) : 0;
-            const dot = `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${ttColorIdx(i)};margin-right:6px;"></span>`;
+            const dot = `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${colores[i]};margin-right:6px;"></span>`;
             return `<tr><td data-label="TAG">${dot}${escapeHtml(nombres[i])}</td><td data-label="Piezas">${val.toLocaleString('es-MX')}</td><td data-label="%">${pct.toFixed(1)}%</td></tr>`;
         }).join('');
     }
