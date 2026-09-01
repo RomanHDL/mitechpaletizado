@@ -2220,6 +2220,7 @@
                 <div class="tt-tabs" id="tt-tabs">
                     <button class="tt-tab active" data-tttab="destinos" onclick="ttSetTab('destinos')"><i class="fa-solid fa-route"></i> ¿A dónde se fueron?</button>
                     <button class="tt-tab" data-tttab="pallets" onclick="ttSetTab('pallets')"><i class="fa-solid fa-pallet"></i> Pallets</button>
+                    <button class="tt-tab" data-tttab="piezas" onclick="ttSetTab('piezas')"><i class="fa-solid fa-list-check"></i> Piezas</button>
                     <button class="tt-tab" data-tttab="pedidos" onclick="ttSetTab('pedidos')"><i class="fa-solid fa-file-invoice"></i> Pedidos relacionados</button>
                 </div>
 
@@ -2267,6 +2268,33 @@
                                     <th style="cursor:default;"></th>
                                 </tr></thead>
                                 <tbody id="tt-tbody-pallets"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: piezas (pedido explicito de Roman 2026-08-31: "en las 3 card
+                     trg, bulky, prioridad j quiero saber donde estan exactamente las
+                     piezas" -- antes solo existia el agregado por pallet (tab Pallets,
+                     que solo lista pallets identificados) o buscar UN LPN a la vez con
+                     el buscador de arriba. Esta tabla lista TODAS las piezas del tag
+                     (universo completo de getTagPieces/cubicaje), una fila por LPN,
+                     diga o no diga con pallet identificado -- click en una fila abre el
+                     mismo modal de trazabilidad completa (ttOpenLpnModal) que ya usan
+                     el buscador y el drill-down de destinos. -->
+                <div class="tt-tabpanel" id="tt-tabpanel-piezas">
+                    <div class="tt-card" style="padding:1rem;">
+                        <div class="tt-table-wrap">
+                            <table class="tt-table" id="tt-tabla-piezas">
+                                <thead><tr>
+                                    <th onclick="ttSortPiezas('lpn')">LPN</th>
+                                    <th onclick="ttSortPiezas('sku')">SKU</th>
+                                    <th onclick="ttSortPiezas('status')">Estado</th>
+                                    <th onclick="ttSortPiezas('palletBinCode')">Pallet</th>
+                                    <th onclick="ttSortPiezas('workStationName')">Área</th>
+                                    <th onclick="ttSortPiezas('movementDate')">Último movimiento</th>
+                                </tr></thead>
+                                <tbody id="tt-tbody-piezas"></tbody>
                             </table>
                         </div>
                     </div>
@@ -15726,10 +15754,11 @@ let ttState = {
     workCenterIds: [...TT_WORKCENTER_IDS_DEFAULT],
     catalog: [], summary: null, lag: null, overlapping: [],
     currentTagId: null, currentTagMeta: null,
-    destinos: null, pallets: [], orders: [],
+    destinos: null, pallets: [], orders: [], pieces: [],
     sortDestinos: { key: 'piezas', dir: 'desc' },
     sortPallets: { key: 'piezasTag', dir: 'desc' },
     sortOrders: { key: 'piezas', dir: 'desc' },
+    sortPieces: { key: 'lpn', dir: 'asc' },
     currentDestinoKey: null, destinoPage: 1, destinoPageSize: 50, destinoTotal: 0,
     autoTimer: null, modalOpen: false, dateDebounceTimer: null,
     // Buscador REAL del panel de detalle (ver ttGlobalSearch). `search` es
@@ -16221,27 +16250,33 @@ async function ttOpenTag(tagId, silencioso) {
     try {
         const { startIso, endIso } = ttEffectiveRangeIso();
         const qs = `startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIso)}&${ttShiftQs()}&${ttWorkCenterQs()}`;
-        const [destRes, palRes, ordRes] = await Promise.all([
+        const [destRes, palRes, ordRes, piecesRes] = await Promise.all([
             apiFetch(`${API}/api/tags/${tagId}/destinations?${qs}`),
             apiFetch(`${API}/api/tags/${tagId}/pallets?${qs}`),
             apiFetch(`${API}/api/tags/${tagId}/orders?${qs}`),
+            apiFetch(`${API}/api/tags/${tagId}/pieces?${qs}`),
         ]);
         if (!destRes.success) throw new Error(destRes.error || 'No se pudieron cargar los destinos');
         ttState.destinos = destRes.data;
         ttState.pallets = palRes.success ? (palRes.data || []) : [];
         ttState.orders = ordRes.success ? (ordRes.data || []) : [];
+        // "Piezas" -- best-effort: si este endpoint falla no debe tumbar el
+        // resto del panel (destinos/pallets/pedidos ya cargaron bien), solo
+        // esa pestaña queda vacia con su propio mensaje de error.
+        ttState.pieces = piecesRes.success ? (piecesRes.data || []) : [];
         ttRenderTagKpis();
         ttRenderCoverageNote();
         ttRenderDestinosTable();
         ttRenderPalletsTable();
         ttRenderOrdersTable();
+        ttRenderPiezasTable(piecesRes.success ? null : (piecesRes.error || 'No se pudo cargar'));
         ttRenderResumenTag();
         ttStampLastUpdate();
     } catch (e) {
         document.getElementById('tt-kpi-grid').innerHTML = `<div class="tt-empty-note">No se pudo cargar: ${escapeHtml(e.message)}</div>`;
         const kpiNota = document.getElementById('tt-kpi-breakdown-note');
         if (kpiNota) { kpiNota.style.display = 'none'; kpiNota.innerHTML = ''; }
-        ['tt-tbody-destinos', 'tt-tbody-pallets', 'tt-tbody-pedidos'].forEach(id => {
+        ['tt-tbody-destinos', 'tt-tbody-pallets', 'tt-tbody-pedidos', 'tt-tbody-piezas'].forEach(id => {
             const tb = document.getElementById(id);
             if (tb) tb.innerHTML = '';
         });
@@ -16336,6 +16371,7 @@ function ttRenderTagSkeletons() {
     const skelTbody = (id, cols, n) => { const tb = document.getElementById(id); if (tb) tb.innerHTML = filas(cols, n); };
     skelTbody('tt-tbody-destinos', 5, 5);
     skelTbody('tt-tbody-pallets', 7, 4);
+    skelTbody('tt-tbody-piezas', 6, 6);
     skelTbody('tt-tbody-pedidos', 5, 3);
     const centro = document.getElementById('tt-destinos-donut-centro');
     if (centro) centro.innerHTML = '';
@@ -16496,7 +16532,7 @@ function ttRenderCoverageNote() {
 
 function ttSetTab(tab) {
     document.querySelectorAll('#tt-tabs .tt-tab').forEach(b => b.classList.toggle('active', b.dataset.tttab === tab));
-    ['destinos', 'pallets', 'pedidos'].forEach(n => {
+    ['destinos', 'pallets', 'piezas', 'pedidos'].forEach(n => {
         const panel = document.getElementById('tt-tabpanel-' + n);
         if (panel) panel.classList.toggle('active', n === tab);
     });
@@ -16533,6 +16569,7 @@ function ttSortArr(arr, sortState) {
 function ttSortDestinos(key) { const s = ttState.sortDestinos; s.dir = (s.key === key && s.dir === 'desc') ? 'asc' : 'desc'; s.key = key; ttRenderDestinosTable(); }
 function ttSortPallets(key) { const s = ttState.sortPallets; s.dir = (s.key === key && s.dir === 'desc') ? 'asc' : 'desc'; s.key = key; ttRenderPalletsTable(); }
 function ttSortOrders(key) { const s = ttState.sortOrders; s.dir = (s.key === key && s.dir === 'desc') ? 'asc' : 'desc'; s.key = key; ttRenderOrdersTable(); }
+function ttSortPiezas(key) { const s = ttState.sortPieces; s.dir = (s.key === key && s.dir === 'desc') ? 'asc' : 'desc'; s.key = key; ttRenderPiezasTable(); }
 
 function ttRenderDestinosTable() {
     const coverage = ttState.destinos?.coverage;
@@ -16671,6 +16708,38 @@ function ttRenderOrdersTable() {
             <td data-label="Piezas">${r.piezas}</td>
             <td data-label="Pallets">${r.palletsUnicos}</td>
             <td data-label="Detalle"><button class="tt-btn tt-btn-mini" onclick="event.stopPropagation();ttOpenOrdenModal(${r.orderId})"><i class="fa-solid fa-eye"></i> Ver detalle</button></td>
+        </tr>`).join('');
+}
+
+// Tabla "Piezas" -- TODAS las piezas del tag, una fila por LPN (universo
+// completo de getTagPieces/cubicaje, nunca solo las que ya tienen pallet
+// identificado como la tabla de Pallets, ni solo un resultado de busqueda a
+// la vez). Pedido explicito de Roman (2026-08-31): poder ver de un vistazo,
+// para las 3 cards TRG/BULKY/Prioridad J, si cada pieza YA tiene un pallet
+// real (con su BinCode) o no -- antes tenia que buscar LPN por LPN en la
+// herramienta separada de Cubicaje. Click en la fila abre el MISMO modal de
+// trazabilidad completa (ttOpenLpnModal) que ya usan el buscador y el
+// drill-down de destinos -- no se duplica esa logica.
+function ttRenderPiezasTable(errorMsg) {
+    const tbody = document.getElementById('tt-tbody-piezas');
+    if (!tbody) return;
+    if (errorMsg) {
+        tbody.innerHTML = `<tr><td colspan="6"><div class="tt-empty-note">No se pudo cargar: ${escapeHtml(errorMsg)}</div></td></tr>`;
+        return;
+    }
+    const rows = ttSortArr(ttState.pieces || [], ttState.sortPieces);
+    if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="6"><div class="tt-empty-note"><i class="fa-solid fa-list-check" style="display:block;font-size:1.6rem;opacity:0.35;margin-bottom:0.5rem;"></i>No hay piezas de este TAG en el período y las ubicaciones seleccionadas.</div></td></tr>';
+        return;
+    }
+    tbody.innerHTML = rows.map(r => `
+        <tr class="tt-row-clickable" onclick="ttOpenLpnModal('${ttJsStr(r.lpn)}')">
+            <td data-label="LPN"><b>${escapeHtml(r.lpn)}</b></td>
+            <td data-label="SKU">${escapeHtml(r.sku || '—')}</td>
+            <td data-label="Estado">${ttStatusChip(r.status)}</td>
+            <td data-label="Pallet">${r.palletBinId ? `<span class="tt-chip completa" style="cursor:pointer;" onclick="event.stopPropagation();ttOpenPalletModal(${r.palletBinId})">${escapeHtml(r.palletBinCode || ('BinID ' + r.palletBinId))}</span>` : '<span class="tt-chip sinrelacion">Sin pallet identificado</span>'}</td>
+            <td data-label="Área">${escapeHtml(r.workStationName || r.locationName || '—')}</td>
+            <td data-label="Último movimiento">${r.movementDate ? new Date(r.movementDate).toLocaleString('es-MX') : '—'}</td>
         </tr>`).join('');
 }
 

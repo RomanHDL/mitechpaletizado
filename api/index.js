@@ -5484,6 +5484,15 @@ async function fetchCubicajeTagPallets(tagId, startDate, endDate, workCenterId, 
   const params = tagsRangeParams(startDate, endDate, workCenterId, shift);
   return cubicajeTagsGet(`/api/integrations/paletizado/tags/${encodeURIComponent(tagId)}/pallets?${params.toString()}`);
 }
+// Listado per-LPN de TODAS las piezas del tag (a diferencia de /pallets, que
+// solo agrupa las piezas que YA tienen un pallet identificado) -- pedido de
+// Roman 2026-08-31 para poder ver de un vistazo si cada pieza tiene pallet o
+// no, sin tener que buscarla una por una. Ruta real en Cubicaje:
+// "/tags/:tagId/pieces" (ver server/routes.ts).
+async function fetchCubicajeTagPieces(tagId, startDate, endDate, workCenterId, shift) {
+  const params = tagsRangeParams(startDate, endDate, workCenterId, shift);
+  return cubicajeTagsGet(`/api/integrations/paletizado/tags/${encodeURIComponent(tagId)}/pieces?${params.toString()}`);
+}
 async function fetchCubicajePalletDetails(palletBinId, tagId, startDate, endDate, workCenterId, shift) {
   // Ruta real (confirmada en cubicaje/server/routes.ts): "/tags/pallet/:palletBinId"
   // (SINGULAR, dentro del namespace /tags/) -- NO "/tags/pallets/:id", que hubiera
@@ -5578,6 +5587,13 @@ app.get('/api/tags/:tagId/pallets', auth, moduleGuard('trazabilidad-tag'), async
   const { startDate, endDate, workCenterId, shift } = req.query;
   if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
   try { res.json({ success: true, data: await fetchCubicajeTagPallets(req.params.tagId, startDate, endDate, workCenterId, shift) }); }
+  catch (error) { tagsHandleError(res, error); }
+});
+
+app.get('/api/tags/:tagId/pieces', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
+  const { startDate, endDate, workCenterId, shift } = req.query;
+  if (!startDate || !endDate) return res.status(400).json({ success: false, error: 'startDate y endDate son requeridos' });
+  try { res.json({ success: true, data: await fetchCubicajeTagPieces(req.params.tagId, startDate, endDate, workCenterId, shift) }); }
   catch (error) { tagsHandleError(res, error); }
 });
 
