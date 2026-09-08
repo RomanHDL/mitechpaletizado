@@ -1480,10 +1480,11 @@
             .tt-ubicacion-checks label{justify-content:flex-start;}
         }
         .tt-overlap-card{padding:1.1rem 1.25rem;border-top:4px solid #8b5cf6;cursor:pointer;}
-        .tt-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem;}
-        @media (max-width:1100px){.tt-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
-        @media (max-width:520px){.tt-kpi-grid{grid-template-columns:minmax(0,1fr);}}
-        .tt-kpi{padding:0.9rem 1.05rem;display:flex;flex-direction:row;align-items:center;gap:0.8rem;min-height:88px;border-left:4px solid var(--tt-kpi-color,var(--tt-accent));}
+        .tt-kpi-grid{display:flex;flex-direction:column;gap:0.85rem;margin-bottom:1.25rem;}
+        .tt-kpi-row{display:flex;flex-wrap:wrap;gap:1rem;}
+        .tt-kpi{flex:1 1 220px;padding:0.9rem 1.05rem;display:flex;flex-direction:row;align-items:center;gap:0.8rem;min-height:88px;border-left:4px solid var(--tt-kpi-color,var(--tt-accent));}
+        .tt-kpi.tt-kpi-full{flex-basis:100%;}
+        @media (max-width:520px){.tt-kpi{flex-basis:100%;}}
         .tt-kpi-icon{width:40px;height:40px;min-width:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1rem;background:var(--tt-kpi-soft,rgba(30,64,175,0.1));color:var(--tt-kpi-color,var(--tt-accent));}
         .tt-kpi-body{min-width:0;display:flex;flex-direction:column;gap:0.28rem;}
         .tt-kpi-value{font-size:1.5rem;font-weight:800;line-height:1;color:var(--tt-kpi-color,var(--tt-accent));word-break:break-word;}
@@ -1493,6 +1494,12 @@
         .tt-kpi-nodisponible{opacity:0.55;}
         .tt-kpi-nodisponible .tt-kpi-value{color:var(--tt-text-muted);}
         .tt-kpi-label .tt-nd-icon{margin-left:4px;color:var(--tt-warning);}
+        .tt-kpi-group-label{font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:var(--tt-text-muted);padding-top:0.3rem;border-top:1px dashed var(--tt-border);display:flex;align-items:center;gap:5px;}
+        .tt-kpi.tt-kpi-clickable{cursor:pointer;transition:transform 0.1s ease,box-shadow 0.1s ease;}
+        .tt-kpi.tt-kpi-clickable:hover{box-shadow:0 2px 10px rgba(15,23,42,0.1);transform:translateY(-1px);}
+        .tt-kpi.tt-kpi-active{outline:2px solid var(--tt-kpi-color,var(--tt-accent));outline-offset:-2px;}
+        .tt-filter-bar{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;font-size:0.8rem;color:var(--tt-text);background:rgba(30,64,175,0.06);border:1px solid rgba(30,64,175,0.2);border-radius:10px;padding:0.55rem 0.85rem;margin-bottom:0.85rem;}
+        .tt-filter-bar button{background:none;border:none;color:var(--tt-accent);font-weight:700;font-size:0.78rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:0;}
         .tt-tabs{display:flex;gap:0.4rem;overflow-x:auto;border-bottom:1px solid var(--tt-border);margin-bottom:1.1rem;}
         .tt-tab{background:none;border:none;border-bottom:2px solid transparent;padding:0.65rem 0.9rem;font-size:0.85rem;font-weight:600;color:var(--tt-text-muted);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;}
         .tt-tab.active{color:var(--tt-accent);border-bottom-color:var(--tt-accent);}
@@ -1510,6 +1517,8 @@
         .tt-chip.anomalia{background:rgba(220,38,38,0.12);color:var(--tt-danger);}
         .tt-chip.noclasificado{background:rgba(100,116,139,0.12);color:var(--tt-text-muted);}
         .tt-chip.sinrelacion{background:rgba(100,116,139,0.12);color:var(--tt-text-muted);}
+        .tt-chip.esperapallet{background:rgba(139,92,246,0.12);color:#8B5CF6;}
+        .tt-piezas-destino{font-size:0.7rem;color:var(--tt-text-muted);margin-top:2px;}
         .tt-pagination{display:flex;gap:0.5rem;align-items:center;justify-content:flex-end;margin-top:0.75rem;font-size:0.8rem;color:var(--tt-text-muted);}
         .tt-empty-note{padding:2rem;text-align:center;color:var(--tt-text-muted);font-size:0.85rem;}
         .tt-breadcrumb{font-size:0.78rem;color:var(--tt-text-muted);margin-bottom:0.75rem;display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
@@ -2226,6 +2235,7 @@
 
                 <!-- TAB: destinos -->
                 <div class="tt-tabpanel active" id="tt-tabpanel-destinos">
+                    <div class="tt-filter-bar"><i class="fa-solid fa-circle-info"></i> Esta vista agrupa lo que pasó justo <b>después</b> del TAG (a dónde se movió cada pieza esa vez). Para ver dónde está <b>cada pieza HOY</b> (pallet, condición, destino y pedido) usa la pestaña <a onclick="ttSetTab('piezas')" style="cursor:pointer;font-weight:700;color:var(--tt-accent);">Piezas</a>.</div>
                     <div class="tt-coverage-note" id="tt-destinos-coverage-note"></div>
                     <div class="tt-card" style="padding:1rem;">
                         <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:flex-start;">
@@ -2283,15 +2293,18 @@
                      mismo modal de trazabilidad completa (ttOpenLpnModal) que ya usan
                      el buscador y el drill-down de destinos. -->
                 <div class="tt-tabpanel" id="tt-tabpanel-piezas">
+                    <div class="tt-filter-bar" id="tt-piezas-filter-bar" style="display:none;"></div>
                     <div class="tt-card" style="padding:1rem;">
                         <div class="tt-table-wrap">
                             <table class="tt-table" id="tt-tabla-piezas">
                                 <thead><tr>
                                     <th onclick="ttSortPiezas('lpn')">LPN</th>
                                     <th onclick="ttSortPiezas('sku')">SKU</th>
+                                    <th onclick="ttSortPiezas('skuCondition')">Condición</th>
                                     <th onclick="ttSortPiezas('status')">Estado</th>
-                                    <th onclick="ttSortPiezas('palletBinCode')">Pallet</th>
+                                    <th onclick="ttSortPiezas('palletBinCode')" title="Pallet donde vive la pieza hoy, y a qué destino real va ese pallet (TRG/FBA/BULKY/etc.)">Pallet / Destino</th>
                                     <th onclick="ttSortPiezas('workStationName')">Área</th>
+                                    <th onclick="ttSortPiezas('orderWebOrderId')">Pedido</th>
                                     <th onclick="ttSortPiezas('movementDate')">Último movimiento</th>
                                 </tr></thead>
                                 <tbody id="tt-tbody-piezas"></tbody>
@@ -15759,6 +15772,16 @@ let ttState = {
     sortPallets: { key: 'piezasTag', dir: 'desc' },
     sortOrders: { key: 'piezas', dir: 'desc' },
     sortPieces: { key: 'lpn', dir: 'asc' },
+    // Filtro activo de la pestaña "Piezas" (2026-09-07, pedido de Roman: que
+    // las KPI cards de arriba lleven directo a la lista de piezas ya
+    // filtrada, en vez de solo mostrar un numero suelto). null = sin filtro
+    // (se ve la tabla completa). `status` filtra por TagDestinationStatus
+    // (con_movimiento/esperando_lag/anomalia_sin_movimiento); `hasPallet`
+    // filtra por si la pieza tiene o no un pallet identificado HOY -- son
+    // dos preguntas independientes (ver comentario de getTagPieces en
+    // cubicaje), nunca se combinan mas de uno a la vez porque cada KPI
+    // representa solo una de las dos dimensiones.
+    piezasFilter: null,
     currentDestinoKey: null, destinoPage: 1, destinoPageSize: 50, destinoTotal: 0,
     autoTimer: null, modalOpen: false, dateDebounceTimer: null,
     // Buscador REAL del panel de detalle (ver ttGlobalSearch). `search` es
@@ -16245,6 +16268,11 @@ async function ttOpenTag(tagId, silencioso) {
     // limpia al cambiar de TAG o al refrescar de forma explícita (botón
     // Actualizar / cambio de fecha vía ttDateChanged, ambos silencioso=false).
     if (cambioDeTag || !silencioso) ttClearSearch(cambioDeTag);
+    // El filtro de la pestaña Piezas (ver ttApplyPiezasFilter) es especifico
+    // de ESTE tag -- al cambiar de tag no tendria sentido conservar un filtro
+    // como "Anomalías reales" armado sobre el tag anterior.
+    if (cambioDeTag) { ttState.piezasFilter = null; ttState.piezasFilterLabel = null; }
+    ttRenderPiezasFilterBar();
     ttRenderResumenTag();
     if (!silencioso) ttRenderTagSkeletons();
     try {
@@ -16353,14 +16381,19 @@ function ttRenderResumenTag() {
 function ttRenderTagSkeletons() {
     const kpiGrid = document.getElementById('tt-kpi-grid');
     if (kpiGrid) {
-        kpiGrid.innerHTML = Array.from({ length: 8 }).map(() => `
+        const skelCard = () => `
             <div class="tt-card tt-kpi" style="--tt-kpi-color:#E2E8F0;">
                 <div class="tt-skel" style="width:40px;height:40px;border-radius:11px;"></div>
                 <div class="tt-kpi-body" style="flex:1;">
                     <div class="tt-skel" style="height:20px;width:62%;"></div>
                     <div class="tt-skel" style="height:9px;width:88%;"></div>
                 </div>
-            </div>`).join('');
+            </div>`;
+        kpiGrid.innerHTML = `
+            <div class="tt-kpi-row">${skelCard()}</div>
+            <div class="tt-kpi-row">${skelCard()}${skelCard()}${skelCard()}</div>
+            <div class="tt-kpi-row">${skelCard()}${skelCard()}</div>
+            <div class="tt-kpi-row">${skelCard()}${skelCard()}</div>`;
     }
     const nota = document.getElementById('tt-destinos-coverage-note');
     if (nota) nota.innerHTML = '<div class="tt-skel" style="height:12px;width:60%;"></div>';
@@ -16371,7 +16404,7 @@ function ttRenderTagSkeletons() {
     const skelTbody = (id, cols, n) => { const tb = document.getElementById(id); if (tb) tb.innerHTML = filas(cols, n); };
     skelTbody('tt-tbody-destinos', 5, 5);
     skelTbody('tt-tbody-pallets', 7, 4);
-    skelTbody('tt-tbody-piezas', 6, 6);
+    skelTbody('tt-tbody-piezas', 8, 6);
     skelTbody('tt-tbody-pedidos', 5, 3);
     const centro = document.getElementById('tt-destinos-donut-centro');
     if (centro) centro.innerHTML = '';
@@ -16394,7 +16427,7 @@ function ttRenderTagKpis() {
     // literalmente esperandoLag+anomalias, ya mostrados aparte -- se veia
     // "duplicada" cada vez que Anomalías=0, que es el caso mas comun).
     const enPallets = (ttState.pallets || []).reduce((sum, p) => sum + (Number(p.piezasTag) || 0), 0);
-    const sinPalletIdentificado = Math.max(0, totalIdentificadas - enPallets);
+    const enEsperaDePallet = Math.max(0, totalIdentificadas - enPallets);
     const pedidos = ttState.orders.length;
     const lagInfo = ttState.lag?.binManager;
     const ultimaAct = lagInfo?.lastRecordAt ? new Date(lagInfo.lastRecordAt).toLocaleString('es-MX') : '—';
@@ -16426,43 +16459,88 @@ function ttRenderTagKpis() {
     // "Última actualización" (no es un conteo de piezas) NUNCA se ven afectados.
     const excedeIdentificado = !!coverage?.identificadasExcedeOficial;
     // Orden agrupado por lo que Roman pidio explicitamente ("distribuye bien
-    // las piezas"): 1) estado de movimiento (Trazabilidad completa/Esperando
-    // lag/Anomalias -- estos 3 SIEMPRE suman exactamente totalIdentificadas,
-    // son mutuamente excluyentes por status), 2) ubicacion (Piezas en
-    // pallets/Sin pallet identificado -- estos 2 SIEMPRE suman exactamente
-    // totalIdentificadas tambien, ver enPallets/sinPalletIdentificado arriba).
-    // "Pallets" (el conteo de PALLETS DISTINTOS, no de piezas -- confusion
-    // real reportada por Roman: "Pallets" mostraba p.ej. 9 junto a puras
-    // cards de piezas, sin dejar claro que esa card SI cambiaba de unidad)
-    // ahora es el numero grande de piezas (enPallets) con el conteo de
-    // pallets distintos como sub-texto -- consistente con el resto del grid.
+    // las piezas" + "especifica, no dupliques"): 1) estado de movimiento
+    // (Trazabilidad completa/Esperando lag/Anomalias -- estos 3 SIEMPRE
+    // suman exactamente totalIdentificadas, son mutuamente excluyentes por
+    // status), 2) ubicacion (Piezas en pallets/En espera de pallet ID --
+    // estos 2 SIEMPRE suman exactamente totalIdentificadas tambien, ver
+    // enPallets/enEsperaDePallet arriba). Cada grupo lleva un `groupLabel`
+    // visible (2026-09-07, pedido de Roman: cuando ambos grupos coinciden en
+    // el mismo numero por casualidad -- ej. 90 y 90 -- sin el rotulo se leia
+    // como si fuera el MISMO dato repetido dos veces; con el rotulo queda
+    // explicito que son dos preguntas distintas que solo coincidieron). Cada
+    // card de sub-conteo (subconteo:true) es clicable (`filter`) y lleva
+    // directo a la pestaña Piezas ya filtrada por esa misma dimension (ver
+    // ttApplyPiezasFilter) -- excepto cuando excedeIdentificado, porque ahí
+    // el numero ya se muestra como "N/D" y filtrar por él sería enseñar una
+    // lista que sabemos inflada.
     const kpis = [
-        ['Total piezas (LPN)', totalKpiVal, '#1E40AF', 'fa-boxes-stacked', false, totalBadge, false, null],
-        ['Trazabilidad completa', conMovimiento, '#059669', 'fa-circle-check', false, '', true, 'Sí tuvo movimiento después del tag'],
-        ['Esperando movimiento', esperandoLag, '#D97706', 'fa-clock', false, '', true, 'Sin movimiento DESPUÉS del tag — puede que ya esté en un pallet de antes'],
-        ['Anomalías reales', anomalias, '#DC2626', 'fa-triangle-exclamation', false, '', true, 'Lleva mucho tiempo sin movimiento posterior al tag'],
-        ['Piezas en pallets', enPallets, '#0891B2', 'fa-pallet', false, '', true, `${pallets.toLocaleString('es-MX')} pallet${pallets === 1 ? '' : 's'} distinto${pallets === 1 ? '' : 's'}`],
-        ['Sin pallet identificado', sinPalletIdentificado, '#8B5CF6', 'fa-box-open', false, '', true, null],
-        ['Pedidos', pedidos, '#1E40AF', 'fa-file-invoice', false, '', true, null],
-        ['Última actualización', ultimaAct, '#64748B', 'fa-calendar-day', true, '', false, null],
+        { row: 0, full: true, label: 'Total piezas (LPN)', val: totalKpiVal, color: '#1E40AF', icon: 'fa-boxes-stacked', badge: totalBadge, subconteo: false },
+        { row: 1, groupLabel: '¿Tuvieron movimiento después del TAG?', label: 'Trazabilidad completa', val: conMovimiento, color: '#059669', icon: 'fa-circle-check', subconteo: true, sublabel: 'Sí tuvo movimiento después del tag', filter: { status: 'con_movimiento' } },
+        { row: 1, label: 'Esperando movimiento', val: esperandoLag, color: '#D97706', icon: 'fa-clock', subconteo: true, sublabel: 'Sin movimiento DESPUÉS del tag — puede que ya esté en un pallet de antes', filter: { status: 'esperando_lag' } },
+        { row: 1, label: 'Anomalías reales', val: anomalias, color: '#DC2626', icon: 'fa-triangle-exclamation', subconteo: true, sublabel: 'Lleva mucho tiempo sin movimiento posterior al tag', filter: { status: 'anomalia_sin_movimiento' } },
+        { row: 2, groupLabel: '¿Dónde están las piezas ahora mismo?', label: 'Piezas en pallets', val: enPallets, color: '#0891B2', icon: 'fa-pallet', subconteo: true, sublabel: `${pallets.toLocaleString('es-MX')} pallet${pallets === 1 ? '' : 's'} distinto${pallets === 1 ? '' : 's'}`, filter: { hasPallet: true } },
+        { row: 2, label: 'En espera de pallet ID', val: enEsperaDePallet, color: '#8B5CF6', icon: 'fa-box-open', subconteo: true, filter: { hasPallet: false } },
+        { row: 3, label: 'Pedidos', val: pedidos, color: '#1E40AF', icon: 'fa-file-invoice', subconteo: true, tab: 'pedidos' },
+        { row: 3, label: 'Última actualización', val: ultimaAct, color: '#64748B', icon: 'fa-calendar-day', isText: true, subconteo: false },
     ];
-    document.getElementById('tt-kpi-grid').innerHTML = kpis.map(([label, val, color, icon, isText, badge, subconteo, sublabel]) => {
-        const noDisponible = subconteo && excedeIdentificado;
-        const valorHtml = noDisponible ? 'N/D' : (isText ? escapeHtml(String(val)) : Number(val).toLocaleString('es-MX'));
+    const cardHtml = (k) => {
+        const noDisponible = k.subconteo && excedeIdentificado;
+        const valorHtml = noDisponible ? 'N/D' : (k.isText ? escapeHtml(String(k.val)) : Number(k.val).toLocaleString('es-MX'));
         const ndIcon = noDisponible ? ' <i class="fa-solid fa-circle-info tt-nd-icon" title="No disponible: el desglose interno de piezas excedió el número oficial en este rango"></i>' : '';
-        const sublabelHtml = (sublabel && !noDisponible) ? `<div class="tt-kpi-sublabel">${escapeHtml(sublabel)}</div>` : '';
+        const sublabelHtml = (k.sublabel && !noDisponible) ? `<div class="tt-kpi-sublabel">${escapeHtml(k.sublabel)}</div>` : '';
+        const puedeClick = !noDisponible && (k.filter || k.tab);
+        const activo = puedeClick && k.filter && JSON.stringify(ttState.piezasFilter) === JSON.stringify(k.filter);
+        const onclick = !puedeClick ? '' : k.filter
+            ? `onclick="ttApplyPiezasFilter('${escapeHtml(JSON.stringify(k.filter))}', '${escapeHtml(k.label)}')"`
+            : `onclick="ttSetTab('${k.tab}')"`;
         return `
-        <div class="tt-card tt-kpi${noDisponible ? ' tt-kpi-nodisponible' : ''}" style="--tt-kpi-color:${color};--tt-kpi-soft:${ttHexToRgba(color, 0.12)};">
-            <div class="tt-kpi-icon"><i class="fa-solid ${icon}"></i></div>
+        <div class="tt-card tt-kpi${k.full ? ' tt-kpi-full' : ''}${noDisponible ? ' tt-kpi-nodisponible' : ''}${puedeClick ? ' tt-kpi-clickable' : ''}${activo ? ' tt-kpi-active' : ''}" style="--tt-kpi-color:${k.color};--tt-kpi-soft:${ttHexToRgba(k.color, 0.12)};" ${onclick} title="${puedeClick ? 'Click para ver estas piezas' : ''}">
+            <div class="tt-kpi-icon"><i class="fa-solid ${k.icon}"></i></div>
             <div class="tt-kpi-body">
-                <div class="tt-kpi-value${isText ? ' tt-kpi-value-text' : ''}">${valorHtml}</div>
-                <div class="tt-kpi-label">${escapeHtml(label)}${ndIcon}</div>
+                <div class="tt-kpi-value${k.isText ? ' tt-kpi-value-text' : ''}">${valorHtml}</div>
+                <div class="tt-kpi-label">${escapeHtml(k.label)}${ndIcon}</div>
                 ${sublabelHtml}
-                ${badge || ''}
+                ${k.badge || ''}
             </div>
         </div>`;
+    };
+    const rowIds = [...new Set(kpis.map(k => k.row))];
+    document.getElementById('tt-kpi-grid').innerHTML = rowIds.map(rowId => {
+        const rowKpis = kpis.filter(k => k.row === rowId);
+        const groupLabelHtml = rowKpis[0].groupLabel ? `<div class="tt-kpi-group-label">${escapeHtml(rowKpis[0].groupLabel)}</div>` : '';
+        return `${groupLabelHtml}<div class="tt-kpi-row">${rowKpis.map(cardHtml).join('')}</div>`;
     }).join('');
     ttRenderKpiBreakdownNote(coverage, totalIdentificadas, hayOficial);
+}
+
+// Click en una KPI card de sub-conteo (Trazabilidad completa/Esperando
+// movimiento/Anomalías/Piezas en pallets/En espera de pallet ID) -- lleva a
+// la pestaña Piezas con el MISMO filtro que representa esa card (nunca
+// recalcula el numero, solo filtra ttState.pieces, que ya trae todo el
+// universo de este tag/rango). `label` es solo para el texto de la barra de
+// filtro activo (mismo texto que ya vio en la card).
+function ttApplyPiezasFilter(filterJson, label) {
+    ttState.piezasFilter = JSON.parse(filterJson);
+    ttState.piezasFilterLabel = label;
+    ttSetTab('piezas');
+    ttRenderPiezasFilterBar();
+    ttRenderPiezasTable();
+    ttRenderTagKpis();
+}
+function ttClearPiezasFilter() {
+    ttState.piezasFilter = null;
+    ttState.piezasFilterLabel = null;
+    ttRenderPiezasFilterBar();
+    ttRenderPiezasTable();
+    ttRenderTagKpis();
+}
+function ttRenderPiezasFilterBar() {
+    const bar = document.getElementById('tt-piezas-filter-bar');
+    if (!bar) return;
+    if (!ttState.piezasFilter) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+    bar.style.display = '';
+    bar.innerHTML = `<i class="fa-solid fa-filter"></i> Mostrando solo: <b>${escapeHtml(ttState.piezasFilterLabel || '')}</b><button onclick="ttClearPiezasFilter()"><i class="fa-solid fa-xmark"></i> Quitar filtro y ver todas las piezas</button>`;
 }
 
 // Mensaje honesto de "no disponible" para los tabs de desglose (destinos/
@@ -16720,25 +16798,67 @@ function ttRenderOrdersTable() {
 // herramienta separada de Cubicaje. Click en la fila abre el MISMO modal de
 // trazabilidad completa (ttOpenLpnModal) que ya usan el buscador y el
 // drill-down de destinos -- no se duplica esa logica.
+// Celda "Pallet / Destino" -- si la pieza tiene pallet identificado HOY
+// (hasPallet, ver TagPieceRow en cubicaje) muestra el código del pallet
+// (clicable, abre el mismo modal que el resto del módulo) + el destino REAL
+// de ese pallet (binTypeName -- TRG/FBA/BULKY/etc., el mismo catálogo de
+// BinManager que ya usa la pestaña Pallets) como texto secundario. Si NO
+// tiene pallet identificado, dice explícitamente "En espera de pallet ID"
+// (pedido de Roman 2026-09-07: nunca dejar una pieza en un limbo ambiguo --
+// o se sabe dónde está, o se dice claro que está esperando a que la
+// escaneen a un pallet).
+function ttPiezaPalletDestinoHtml(r) {
+    const tienePallet = r.hasPallet != null ? r.hasPallet : !!r.palletBinId;
+    if (!tienePallet) return '<span class="tt-chip esperapallet"><i class="fa-solid fa-hourglass-half"></i> En espera de pallet ID</span>';
+    const codigo = escapeHtml(r.palletBinCode || ('BinID ' + r.palletBinId));
+    const destino = r.binTypeName ? `<div class="tt-piezas-destino">→ ${escapeHtml(r.binTypeName)}</div>` : '';
+    return `<span class="tt-chip completa" style="cursor:pointer;" onclick="event.stopPropagation();ttOpenPalletModal(${r.palletBinId})">${codigo}</span>${destino}`;
+}
+// Celda "Pedido" -- mismo criterio que la pestaña Pallets (chip clicable con
+// ttOpenOrdenModal si hay un pedido demostrable para este LPN, "Sin pedido
+// relacionado" si no). orderId/orderWebOrderId vienen de getTagPieces
+// (cubicaje, resolveOrdersForLpns) -- null cuando el LPN no aparece en
+// ninguna línea de OM.OrderItems, nunca se adivina.
+function ttPiezaPedidoHtml(r) {
+    if (!r.orderId) return '<span class="tt-chip sinrelacion">Sin pedido relacionado</span>';
+    return `<span class="tt-chip completa" style="cursor:pointer;" onclick="event.stopPropagation();ttOpenOrdenModal(${r.orderId})">${escapeHtml(r.orderWebOrderId || ('#' + r.orderId))}</span>`;
+}
+// Aplica ttState.piezasFilter (ver ttApplyPiezasFilter) sobre el universo
+// completo de piezas ya cargado -- nunca pide de nuevo al backend, es el
+// mismo array que ya usan el resto de columnas. `status` y `hasPallet` son
+// dos preguntas independientes (ver comentario de getTagPieces en cubicaje),
+// el filtro activo solo usa UNA de las dos a la vez.
+function ttFiltrarPiezas(rows) {
+    const f = ttState.piezasFilter;
+    if (!f) return rows;
+    if (f.status) return rows.filter(r => r.status === f.status);
+    if (f.hasPallet != null) return rows.filter(r => (r.hasPallet != null ? r.hasPallet : !!r.palletBinId) === f.hasPallet);
+    return rows;
+}
 function ttRenderPiezasTable(errorMsg) {
     const tbody = document.getElementById('tt-tbody-piezas');
     if (!tbody) return;
     if (errorMsg) {
-        tbody.innerHTML = `<tr><td colspan="6"><div class="tt-empty-note">No se pudo cargar: ${escapeHtml(errorMsg)}</div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8"><div class="tt-empty-note">No se pudo cargar: ${escapeHtml(errorMsg)}</div></td></tr>`;
         return;
     }
-    const rows = ttSortArr(ttState.pieces || [], ttState.sortPieces);
+    const rows = ttFiltrarPiezas(ttSortArr(ttState.pieces || [], ttState.sortPieces));
     if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="6"><div class="tt-empty-note"><i class="fa-solid fa-list-check" style="display:block;font-size:1.6rem;opacity:0.35;margin-bottom:0.5rem;"></i>No hay piezas de este TAG en el período y las ubicaciones seleccionadas.</div></td></tr>';
+        const msg = ttState.piezasFilter
+            ? 'Ninguna pieza de este TAG coincide con el filtro activo.'
+            : 'No hay piezas de este TAG en el período y las ubicaciones seleccionadas.';
+        tbody.innerHTML = `<tr><td colspan="8"><div class="tt-empty-note"><i class="fa-solid fa-list-check" style="display:block;font-size:1.6rem;opacity:0.35;margin-bottom:0.5rem;"></i>${escapeHtml(msg)}</div></td></tr>`;
         return;
     }
     tbody.innerHTML = rows.map(r => `
         <tr class="tt-row-clickable" onclick="ttOpenLpnModal('${ttJsStr(r.lpn)}')">
             <td data-label="LPN"><b>${escapeHtml(r.lpn)}</b></td>
             <td data-label="SKU">${escapeHtml(r.sku || '—')}</td>
+            <td data-label="Condición">${escapeHtml(r.skuCondition || '—')}</td>
             <td data-label="Estado">${ttStatusChip(r.status)}</td>
-            <td data-label="Pallet">${r.palletBinId ? `<span class="tt-chip completa" style="cursor:pointer;" onclick="event.stopPropagation();ttOpenPalletModal(${r.palletBinId})">${escapeHtml(r.palletBinCode || ('BinID ' + r.palletBinId))}</span>` : '<span class="tt-chip sinrelacion">Sin pallet identificado</span>'}</td>
+            <td data-label="Pallet / Destino">${ttPiezaPalletDestinoHtml(r)}</td>
             <td data-label="Área">${escapeHtml(r.workStationName || r.locationName || '—')}</td>
+            <td data-label="Pedido">${ttPiezaPedidoHtml(r)}</td>
             <td data-label="Último movimiento">${r.movementDate ? new Date(r.movementDate).toLocaleString('es-MX') : '—'}</td>
         </tr>`).join('');
 }
