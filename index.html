@@ -12053,6 +12053,20 @@ async function loadCatalogos() {
 
 const hasWebNfc = ('NDEFReader' in window);
 
+function nfcErrorMessage(err) {
+    switch (err.name) {
+        case 'NotAllowedError':
+            return 'Permite el acceso NFC en Chrome (Ajustes del sitio)';
+        case 'NotSupportedError':
+        case 'NotReadableError':
+            return 'Activa el NFC en Ajustes del telefono';
+        case 'SecurityError':
+            return 'NFC requiere conexion segura (https)';
+        default:
+            return err.message || 'No se pudo iniciar el NFC';
+    }
+}
+
 function initNfc() {
     const statusEl = document.getElementById('nfc-status');
     if (!hasWebNfc) {
@@ -12086,10 +12100,11 @@ async function handleNfcScan() {
             }, { signal: controller.signal });
 
         } catch (err) {
+            console.error('[NFC] scan() fallo:', err.name, err.message);
             btn.classList.remove('scanning');
             btn.classList.add('nfc-error');
             btn.querySelector('.nfc-text span:first-child').textContent = 'Error NFC';
-            btn.querySelector('.nfc-text span:last-child').textContent = err.name === 'NotAllowedError' ? 'Permite acceso NFC' : err.message;
+            btn.querySelector('.nfc-text span:last-child').textContent = nfcErrorMessage(err);
             setTimeout(resetNfcBtn, 3000);
         }
         return;
