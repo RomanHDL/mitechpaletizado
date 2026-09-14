@@ -193,6 +193,21 @@ async function connectDB() {
   }
   await mongoose.connect(uri);
   isConnected = true;
+
+  // Indice legado en lpnduplicates: antes de que existiera el campo `tipo`
+  // (ver lpnDuplicateSchema mas abajo), el indice unico era solo sobre
+  // serialNumber. Ahora el mismo LPN puede tener a la vez un registro
+  // 'fisico' y uno 'transferencia' (indice correcto ya es compuesto
+  // {serialNumber,tipo}), pero ese indice VIEJO nunca se elimino solo --
+  // Mongoose crea los indices nuevos del schema, nunca borra los que ya no
+  // estan en el, asi que ambos convivian en la coleccion real. Resultado:
+  // cada vez que el mismo serialNumber aparecia con su segundo tipo,
+  // findOneAndUpdate tronaba con E11000 contra el indice viejo y el
+  // endpoint /api/lpn-duplicates/check regresaba 502 (bug real detectado en
+  // los logs de Vercel, 2026-09-14). Mismo patron ya usado para el indice
+  // legado email_1 de users (ver /api/seed) -- drop silencioso, no-op si el
+  // indice ya no existe.
+  try { await mongoose.connection.db.collection('lpnduplicates').dropIndex('serialNumber_1'); } catch (e) {}
 }
 
 // ── Models ──
