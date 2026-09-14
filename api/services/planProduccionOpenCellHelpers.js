@@ -407,33 +407,52 @@ function calcWeeklyTotals(days) {
 }
 
 // Recalcula delta/recoveryPlan/pctPlan de UNA semana a partir de plan/processed
-// -- formulas confirmadas contra el Excel real de Roman (ver
-// planProduccionOpenCellHelpers.test.js, "recalcDerivedMetrics reproduce..."):
-//   Delta vs Processed(dia N)  = Plan(N) - Processed(N)
-//   Recovery Plan(dia N)       = Plan(N) + Delta(N-1)  (null en el primer dia
-//                                 de la semana, o si Delta(N-1) no existe)
-//   % Plan(dia N)               = Processed(N) / Plan(N)  (fraccion 0..1, NUNCA
-//                                 *100 -- el frontend la multiplica al pintarla)
-// Se usa tanto al reimportar (nunca, el Excel ya trae sus propias formulas)
-// como -- sobre todo -- al capturar Plan/Processed/Finished Good a mano desde
-// la app (POST/PUT /api/plan-produccion-opencell/day en api/index.js), para
-// que una semana editada a mano quede matematicamente identica a una
-// importada. finishedGood y detail NUNCA se tocan aqui (son valores propios,
-// no derivados).
+// -- SOLO se usa para la captura manual (PUT /api/plan-produccion-opencell/day
+// en api/index.js), NUNCA al reimportar el Excel (esas semanas conservan tal
+// cual los valores que ya traiga el archivo).
+//
+// Delta vs Processed es un DEFICIT ACUMULADO, no una comparacion aislada del
+// dia -- pedido explicito de Roman con un ejemplo real verificado: si el
+// Lunes faltaron 300 piezas (Plan 400, Processed 100), el objetivo real del
+// Martes ya no es solo su Plan de 400, es 400+300=700 (eso ya era Recovery
+// Plan). Si el Martes se procesan 600 contra ESE objetivo de 700, todavia se
+// deben 100 -- NUNCA "-200", que es lo que salia comparando el Martes solo
+// contra su propio Plan de 400 (bug real reportado, capturas del
+// 2026-09-14). Ese arrastre sigue empujandose dia tras dia:
+//   objetivo(dia 0)      = Plan(0)
+//   objetivo(dia N>0)    = Plan(N) + Delta(N-1)   (= Recovery Plan de ese dia,
+//                          solo si Plan(N) y Delta(N-1) existen -- si no, el
+//                          objetivo cae de vuelta a Plan(N) solo, como el dia 0)
+//   Delta(dia N)         = objetivo(dia N) - Processed(N)
+//   Recovery Plan(dia N) = objetivo(dia N), pero SOLO se muestra (no null)
+//                          cuando de verdad hubo arrastre (N>0 con Plan(N) y
+//                          Delta(N-1) conocidos)
+//   % Plan(dia N)        = Processed(N) / Plan(N)  (fraccion 0..1, NUNCA *100
+//                          -- el frontend la multiplica al pintarla; esta SI
+//                          se queda contra el Plan del propio dia, Roman no
+//                          pidio cambiarla)
+// finishedGood y detail NUNCA se tocan aqui (son valores propios, no derivados).
 function recalcDerivedMetrics(days) {
-  const delta = days.map((d) => (d.plan !== null && d.plan !== undefined && d.processed !== null && d.processed !== undefined)
-    ? d.plan - d.processed
-    : null);
-  return days.map((d, i) => ({
-    ...d,
-    delta: delta[i],
-    recoveryPlan: (i === 0 || d.plan === null || d.plan === undefined || delta[i - 1] === null || delta[i - 1] === undefined)
+  const result = [];
+  let prevDelta = null;
+  for (let i = 0; i < days.length; i++) {
+    const d = days[i];
+    const hayArrastre = i > 0 && d.plan !== null && d.plan !== undefined && prevDelta !== null && prevDelta !== undefined;
+    const objetivo = hayArrastre ? d.plan + prevDelta : d.plan;
+    const delta = (objetivo === null || objetivo === undefined || d.processed === null || d.processed === undefined)
       ? null
-      : d.plan + delta[i - 1],
-    pctPlan: (d.plan === null || d.plan === undefined || d.plan === 0 || d.processed === null || d.processed === undefined)
-      ? null
-      : d.processed / d.plan,
-  }));
+      : objetivo - d.processed;
+    result.push({
+      ...d,
+      delta,
+      recoveryPlan: hayArrastre ? objetivo : null,
+      pctPlan: (d.plan === null || d.plan === undefined || d.plan === 0 || d.processed === null || d.processed === undefined)
+        ? null
+        : d.processed / d.plan,
+    });
+    prevDelta = delta;
+  }
+  return result;
 }
 
 // Semana "vacia" (aun no importada) con fechas correctas y todas las

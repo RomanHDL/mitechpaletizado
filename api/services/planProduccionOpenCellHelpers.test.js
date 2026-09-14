@@ -224,22 +224,44 @@ test('calcWeeklyTotals suma solo dias con dato y calcula cumplimiento semanal', 
   assert.equal(totals.cumplimientoPct, (252 / 360) * 100);
 });
 
-test('recalcDerivedMetrics reproduce exactamente las formulas del Excel real (Delta/Recovery/%Plan de la semana 36)', () => {
-  // Plan y Processed tal cual filas 25/26 de buildSummaryWorksheet (semana 36,
-  // cols B-H) -- Delta/Recovery/%Plan esperados son los de las filas 28/29/30
-  // del MISMO Excel real, capturados como fixture en parseSummarySheet arriba.
-  const plans = [180, 180, 180, 180, 180, null, null];
-  const processed = [100, 152, 141, 160, 32, null, null];
-  const days = plans.map((plan, i) => ({ plan, processed: processed[i], finishedGood: 999, detail: [] }));
+test('recalcDerivedMetrics arrastra el deficit acumulado dia tras dia (ejemplo real de Roman, 2026-09-14)', () => {
+  // Lunes: Plan 400, Processed 100 -> faltan 300. Martes: Plan 400, pero el
+  // objetivo REAL ya es 400+300=700 (eso es Recovery Plan). Si el Martes se
+  // procesan 600 contra ese objetivo de 700, TODAVIA se deben 100 -- nunca
+  // "-200" (que es lo que da comparar el Martes solo contra su propio Plan
+  // de 400, bug real reportado por Roman con captura de pantalla). Miercoles
+  // hereda esos 100 sumados a su propio Plan -> objetivo 500, y como todavia
+  // no se captura Processed ese dia, su Delta se queda en null (no se puede
+  // saber si se cumplio o no un objetivo que aun no paso).
+  const days = [
+    { plan: 400, processed: 100, finishedGood: 90, detail: [] },
+    { plan: 400, processed: 600, finishedGood: null, detail: [] },
+    { plan: 400, processed: null, finishedGood: null, detail: [] },
+  ];
   const result = recalcDerivedMetrics(days);
-  assert.deepEqual(result.map((d) => d.delta), [80, 28, 39, 20, 148, null, null]);
-  assert.deepEqual(result.map((d) => d.recoveryPlan), [null, 260, 208, 219, 200, null, null]);
-  assert.deepEqual(result.map((d) => d.pctPlan), [
-    100 / 180, 152 / 180, 141 / 180, 160 / 180, 32 / 180, null, null,
-  ]);
+  assert.deepEqual(result.map((d) => d.delta), [300, 100, null]);
+  assert.deepEqual(result.map((d) => d.recoveryPlan), [null, 700, 500]);
+  assert.deepEqual(result.map((d) => d.pctPlan), [100 / 400, 600 / 400, null]);
   // finishedGood/detail nunca se tocan
-  assert.equal(result[0].finishedGood, 999);
+  assert.equal(result[0].finishedGood, 90);
   assert.deepEqual(result[0].detail, []);
+});
+
+test('recalcDerivedMetrics: Recovery Plan es el objetivo de HOY (no depende de si ya se capturo Processed de hoy), pero un Delta null si corta el arrastre para el dia SIGUIENTE', () => {
+  // Martes hereda el arrastre del Lunes (300) igual que si ya se supiera su
+  // Processed -- Recovery Plan solo depende de Plan(dia) y Delta(dia-1), es
+  // un objetivo hacia adelante. Pero como el Martes todavia no tiene
+  // Processed capturado, su propio Delta es null, y por lo tanto Miercoles
+  // NO puede heredar un arrastre real: su objetivo cae de vuelta a su propio
+  // Plan (igual que el primer dia de la semana).
+  const days = [
+    { plan: 400, processed: 100 }, // Delta = 300
+    { plan: 400, processed: null }, // Recovery Plan = 400+300 = 700, pero Delta = null (no hay Processed aun)
+    { plan: 500, processed: 500 },
+  ];
+  const result = recalcDerivedMetrics(days);
+  assert.deepEqual(result.map((d) => d.delta), [300, null, 0]);
+  assert.deepEqual(result.map((d) => d.recoveryPlan), [null, 700, null]);
 });
 
 test('recalcDerivedMetrics: plan 0 o null nunca produce division por cero (pctPlan null, no NaN/Infinity)', () => {

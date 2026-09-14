@@ -4244,7 +4244,7 @@
             </div>
 
             <!-- Tabla de produccion (2 semanas consecutivas) -->
-            <p style="margin:0 0 0.4rem;font-size:0.78rem;color:var(--text-muted);"><i class="fa-solid fa-pen" style="margin-right:4px;"></i>Click en cualquier celda para capturar el dato a mano. Al editar Plan o Processed, Delta/Recovery Plan/% Plan se recalculan solos — también puedes escribirlos directo si prefieres.</p>
+            <p style="margin:0 0 0.4rem;font-size:0.78rem;color:var(--text-muted);"><i class="fa-solid fa-pen" style="margin-right:4px;"></i>Click en cualquier celda para capturar el dato a mano. Al editar Plan o Processed, Delta/Recovery Plan/% Plan se recalculan solos — el faltante de un día se arrastra al siguiente (Recovery Plan ya lo incluye). También puedes escribirlos directo si prefieres.</p>
             <div class="opc-table-wrap" id="opc-table-wrap">
                 <div style="padding:2rem;text-align:center;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>
             </div>
@@ -17836,7 +17836,12 @@ function opcEditCell(td) {
         done = true;
         if (!save) { opcRenderTable(); return; }
         const value = input.value.trim();
-        if (value === original) { opcRenderTable(); return; }
+        // Nota: se guarda SIEMPRE, incluso si el valor no cambio -- Plan y
+        // Processed disparan recalcDerivedMetrics en el backend, asi que
+        // volver a guardar el mismo numero es la forma de forzar un
+        // recalculo de Delta/Recovery Plan/% Plan del resto de la semana
+        // (util si esos derivados quedaron desactualizados por un cambio de
+        // formula, o por editar un dia posterior antes que uno anterior).
         let toSend = value === '' ? null : value;
         if (toSend !== null && td.dataset.isPct === '1') toSend = String(Number(toSend) / 100); // % Plan se guarda como fraccion (0..1)
         await opcSaveDayValue(td.dataset.weekStart, Number(td.dataset.dayIndex), td.dataset.field, toSend);
