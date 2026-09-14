@@ -4244,7 +4244,7 @@
             </div>
 
             <!-- Tabla de produccion (2 semanas consecutivas) -->
-            <p style="margin:0 0 0.4rem;font-size:0.78rem;color:var(--text-muted);"><i class="fa-solid fa-pen" style="margin-right:4px;"></i>Click en Plan, Processed o Finished Good para capturar el dato a mano — Delta, Recovery Plan y % Plan se calculan solos.</p>
+            <p style="margin:0 0 0.4rem;font-size:0.78rem;color:var(--text-muted);"><i class="fa-solid fa-pen" style="margin-right:4px;"></i>Click en cualquier celda para capturar el dato a mano. Al editar Plan o Processed, Delta/Recovery Plan/% Plan se recalculan solos — también puedes escribirlos directo si prefieres.</p>
             <div class="opc-table-wrap" id="opc-table-wrap">
                 <div style="padding:2rem;text-align:center;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>
             </div>
@@ -17580,9 +17580,9 @@ const OPC_ROW_DEFS = [
     { key: 'plan', label: 'Plan (Materials Available)', cls: 'opc-row-plan', editable: true },
     { key: 'processed', label: 'Processed', cls: 'opc-row-processed', editable: true },
     { key: 'finishedGood', label: 'Finished Good', cls: 'opc-row-finishedgood', editable: true },
-    { key: 'delta', label: 'Delta vs Processed', cls: 'opc-row-delta' },
-    { key: 'recoveryPlan', label: 'Recovery Plan', cls: 'opc-row-recovery' },
-    { key: 'pctPlan', label: '% Plan', cls: 'opc-row-pct' },
+    { key: 'delta', label: 'Delta vs Processed', cls: 'opc-row-delta', editable: true },
+    { key: 'recoveryPlan', label: 'Recovery Plan', cls: 'opc-row-recovery', editable: true },
+    { key: 'pctPlan', label: '% Plan', cls: 'opc-row-pct', editable: true, isPct: true },
 ];
 const OPC_STATUS_CLASS = { 'Pendiente': 'opc-status-pendiente', 'En proceso': 'opc-status-en-proceso', 'Completado': 'opc-status-completado' };
 
@@ -17799,7 +17799,8 @@ function opcRenderTable() {
                 else { cellHtml = Math.round(raw).toLocaleString('es-MX'); }
                 if (row.editable) {
                     extraCls += ' opc-cell-editable';
-                    html += `<td class="${weekend ? 'opc-weekend' : ''} ${extraCls}" data-week-start="${w.weekStartDate.slice(0, 10)}" data-day-index="${i}" data-field="${row.key}" data-value="${raw === null || raw === undefined ? '' : raw}" title="Click para capturar" onclick="opcEditCell(this)">${cellHtml}</td>`;
+                    const editValue = (raw === null || raw === undefined) ? '' : (row.isPct ? Math.round(raw * 100) : raw);
+                    html += `<td class="${weekend ? 'opc-weekend' : ''} ${extraCls}" data-week-start="${w.weekStartDate.slice(0, 10)}" data-day-index="${i}" data-field="${row.key}" data-value="${editValue}" data-is-pct="${row.isPct ? '1' : ''}" title="Click para capturar" onclick="opcEditCell(this)">${cellHtml}</td>`;
                 } else {
                     html += `<td class="${weekend ? 'opc-weekend' : ''} ${extraCls}">${cellHtml}</td>`;
                 }
@@ -17836,7 +17837,9 @@ function opcEditCell(td) {
         if (!save) { opcRenderTable(); return; }
         const value = input.value.trim();
         if (value === original) { opcRenderTable(); return; }
-        await opcSaveDayValue(td.dataset.weekStart, Number(td.dataset.dayIndex), td.dataset.field, value === '' ? null : value);
+        let toSend = value === '' ? null : value;
+        if (toSend !== null && td.dataset.isPct === '1') toSend = String(Number(toSend) / 100); // % Plan se guarda como fraccion (0..1)
+        await opcSaveDayValue(td.dataset.weekStart, Number(td.dataset.dayIndex), td.dataset.field, toSend);
     };
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); input.blur(); }

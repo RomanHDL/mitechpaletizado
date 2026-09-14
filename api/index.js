@@ -5743,19 +5743,25 @@ app.get('/api/plan-produccion-opencell/week/:weekStartDate', auth, moduleGuard('
   }
 });
 
-// Captura manual de UN dia (Plan/Processed/Finished Good) sin depender del
-// Excel -- pedido explicito de Roman. dayIndex es la posicion 0-6 (Lunes..
-// Domingo) dentro de la semana que arranca en weekStartDate. Si la semana
-// todavia no existe en Mongo (nunca se importo ni capturo), se crea a partir
-// del esqueleto vacio (mismo que regresa GET /week). Delta/Recovery Plan/%
-// Plan SIEMPRE se recalculan con recalcDerivedMetrics (formulas verificadas
-// contra el Excel real, ver planProduccionOpenCellHelpers.js) -- nunca se
-// reciben del body, para que una semana capturada a mano quede
-// matematicamente identica a una importada. Mismo nivel de acceso que el
-// Action Plan (cualquier usuario con el modulo, no solo 3647).
+// Captura manual de UN dia sin depender del Excel -- pedido explicito de
+// Roman, TODA la tabla es editable (no solo Plan/Processed/Finished Good).
+// dayIndex es la posicion 0-6 (Lunes..Domingo) dentro de la semana que
+// arranca en weekStartDate. Si la semana todavia no existe en Mongo (nunca
+// se importo ni capturo), se crea a partir del esqueleto vacio (mismo que
+// regresa GET /week).
+// Delta/Recovery Plan/% Plan son formulas derivadas de Plan/Processed (ver
+// recalcDerivedMetrics en planProduccionOpenCellHelpers.js) -- por default
+// se recalculan solas al editar Plan o Processed, para que capturar a mano
+// quede matematicamente identico a una semana importada. PERO si Roman edita
+// Delta/Recovery Plan/% Plan directamente (sin tocar Plan/Processed en esa
+// misma llamada), se guardan tal cual como override manual, sin recalcular
+// -- ese override se pierde la proxima vez que se edite Plan o Processed de
+// ese dia, porque en ese momento SI se recalcula toda la semana (Recovery
+// Plan depende del Delta del dia anterior, por eso el recalculo es de la
+// semana completa, no solo del dia editado).
 app.put('/api/plan-produccion-opencell/day', auth, moduleGuard('plan-produccion-opencell'), async (req, res) => {
   try {
-    const { weekStartDate, dayIndex, plan, processed, finishedGood } = req.body || {};
+    const { weekStartDate, dayIndex, plan, processed, finishedGood, delta, recoveryPlan, pctPlan } = req.body || {};
     const requested = toDateOrNull(weekStartDate);
     if (!requested) return res.status(400).json({ success: false, error: 'weekStartDate invalido, usa formato YYYY-MM-DD.' });
     const monday = mondayOf(requested);
@@ -5764,7 +5770,8 @@ app.put('/api/plan-produccion-opencell/day', auth, moduleGuard('plan-produccion-
       return res.status(400).json({ success: false, error: 'dayIndex debe ser un entero entre 0 y 6.' });
     }
     const toNumOrNull = (v) => (v === undefined || v === null || v === '' ? null : Number(v));
-    for (const [label, v] of [['plan', plan], ['processed', processed], ['finishedGood', finishedGood]]) {
+    const fields = { plan, processed, finishedGood, delta, recoveryPlan, pctPlan };
+    for (const [label, v] of Object.entries(fields)) {
       if (v !== undefined && v !== null && v !== '' && !Number.isFinite(Number(v))) {
         return res.status(400).json({ success: false, error: `${label} debe ser numerico o vacio.` });
       }
@@ -5776,10 +5783,16 @@ app.put('/api/plan-produccion-opencell/day', auth, moduleGuard('plan-produccion-
     const days = (existing ? existing.days : buildEmptyWeekSkeleton(year, weekNumber, monday).days).map((d) => ({ ...d }));
     if (!days[idx]) return res.status(400).json({ success: false, error: 'dayIndex fuera de rango para esta semana.' });
 
+    if (finishedGood !== undefined) days[idx].finishedGood = toNumOrNull(finishedGood);
+    // Overrides manuales de los campos derivados -- se pisan abajo si plan/processed tambien cambian en esta misma llamada.
+    if (delta !== undefined) days[idx].delta = toNumOrNull(delta);
+    if (recoveryPlan !== undefined) days[idx].recoveryPlan = toNumOrNull(recoveryPlan);
+    if (pctPlan !== undefined) days[idx].pctPlan = toNumOrNull(pctPlan);
+
+    const editingRawInputs = plan !== undefined || processed !== undefined;
     if (plan !== undefined) days[idx].plan = toNumOrNull(plan);
     if (processed !== undefined) days[idx].processed = toNumOrNull(processed);
-    if (finishedGood !== undefined) days[idx].finishedGood = toNumOrNull(finishedGood);
-    const recalculated = recalcDerivedMetrics(days);
+    const recalculated = editingRawInputs ? recalcDerivedMetrics(days) : days;
 
     const updated = await OpenCellWeek.findOneAndUpdate(
       { year, weekNumber },
