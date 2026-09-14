@@ -1351,6 +1351,11 @@
         .opc-pct-bad{color:var(--danger);font-weight:700;}
         .opc-day-clickable{cursor:pointer;}
         .opc-day-clickable:hover{text-decoration:underline;}
+        .opc-table td.opc-cell-editable{cursor:text;position:relative;}
+        .opc-table td.opc-cell-editable:hover{background:var(--accent-glow);}
+        .opc-table td.opc-cell-editable input{width:64px;text-align:center;font-size:0.82rem;font-family:inherit;color:var(--text-main);background:var(--bg-card);border:1px solid var(--accent);border-radius:4px;padding:2px 4px;-moz-appearance:textfield;}
+        .opc-table td.opc-cell-editable input::-webkit-outer-spin-button,.opc-table td.opc-cell-editable input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+        .opc-table td.opc-cell-saving{opacity:0.5;}
         .opc-actionplan-header{display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem;}
         .opc-actionplan-title{font-size:1.05rem;font-weight:700;color:var(--text-main);display:flex;align-items:center;gap:8px;}
         .opc-actionplan-actions{display:flex;gap:0.5rem;flex-wrap:wrap;}
@@ -4239,6 +4244,7 @@
             </div>
 
             <!-- Tabla de produccion (2 semanas consecutivas) -->
+            <p style="margin:0 0 0.4rem;font-size:0.78rem;color:var(--text-muted);"><i class="fa-solid fa-pen" style="margin-right:4px;"></i>Click en Plan, Processed o Finished Good para capturar el dato a mano — Delta, Recovery Plan y % Plan se calculan solos.</p>
             <div class="opc-table-wrap" id="opc-table-wrap">
                 <div style="padding:2rem;text-align:center;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>
             </div>
@@ -17571,9 +17577,9 @@ let opcCharts = { daily: null, pct: null, delta: null, recovery: null };
 
 const OPC_DIAS_CORTOS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']; // indexado por getUTCDay()
 const OPC_ROW_DEFS = [
-    { key: 'plan', label: 'Plan (Materials Available)', cls: 'opc-row-plan' },
-    { key: 'processed', label: 'Processed', cls: 'opc-row-processed' },
-    { key: 'finishedGood', label: 'Finished Good', cls: 'opc-row-finishedgood' },
+    { key: 'plan', label: 'Plan (Materials Available)', cls: 'opc-row-plan', editable: true },
+    { key: 'processed', label: 'Processed', cls: 'opc-row-processed', editable: true },
+    { key: 'finishedGood', label: 'Finished Good', cls: 'opc-row-finishedgood', editable: true },
     { key: 'delta', label: 'Delta vs Processed', cls: 'opc-row-delta' },
     { key: 'recoveryPlan', label: 'Recovery Plan', cls: 'opc-row-recovery' },
     { key: 'pctPlan', label: '% Plan', cls: 'opc-row-pct' },
@@ -17781,7 +17787,7 @@ function opcRenderTable() {
     OPC_ROW_DEFS.forEach((row) => {
         html += `<tr class="${row.cls}"><td class="opc-row-label">${row.label}</td>`;
         weeks.forEach((w) => {
-            w.days.forEach((d) => {
+            w.days.forEach((d, i) => {
                 const iso = d.date.slice(0, 10);
                 const weekend = opcIsWeekendISO(iso);
                 const raw = d[row.key];
@@ -17791,13 +17797,76 @@ function opcRenderTable() {
                     else { cellHtml = `${Math.round(raw * 100)}%`; extraCls = opcPctClass(raw); }
                 } else if (raw === null || raw === undefined) { cellHtml = '-'; extraCls = 'opc-cell-empty'; }
                 else { cellHtml = Math.round(raw).toLocaleString('es-MX'); }
-                html += `<td class="${weekend ? 'opc-weekend' : ''} ${extraCls}">${cellHtml}</td>`;
+                if (row.editable) {
+                    extraCls += ' opc-cell-editable';
+                    html += `<td class="${weekend ? 'opc-weekend' : ''} ${extraCls}" data-week-start="${w.weekStartDate.slice(0, 10)}" data-day-index="${i}" data-field="${row.key}" data-value="${raw === null || raw === undefined ? '' : raw}" title="Click para capturar" onclick="opcEditCell(this)">${cellHtml}</td>`;
+                } else {
+                    html += `<td class="${weekend ? 'opc-weekend' : ''} ${extraCls}">${cellHtml}</td>`;
+                }
             });
         });
         html += '</tr>';
     });
     html += '</tbody></table>';
     wrap.innerHTML = html;
+}
+
+// Captura manual de Plan/Processed/Finished Good directamente en la tabla,
+// sin depender del Excel (pedido explicito de Roman). Click en la celda ->
+// input numerico; Enter o blur guarda (Escape cancela sin guardar). El
+// backend recalcula Delta/Recovery Plan/% Plan con las mismas formulas del
+// Excel (ver recalcDerivedMetrics en planProduccionOpenCellHelpers.js), asi
+// que tras guardar se recarga toda la semana para reflejar esos derivados.
+function opcEditCell(td) {
+    if (td.querySelector('input')) return; // ya esta en edicion
+    const original = td.dataset.value || '';
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.step = '1';
+    input.value = original;
+    td.textContent = '';
+    td.appendChild(input);
+    input.focus();
+    input.select();
+
+    let done = false;
+    const finish = async (save) => {
+        if (done) return;
+        done = true;
+        if (!save) { opcRenderTable(); return; }
+        const value = input.value.trim();
+        if (value === original) { opcRenderTable(); return; }
+        await opcSaveDayValue(td.dataset.weekStart, Number(td.dataset.dayIndex), td.dataset.field, value === '' ? null : value);
+    };
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', () => finish(true));
+}
+
+async function opcSaveDayValue(weekStartISO, dayIndex, field, value) {
+    const tableWrap = document.getElementById('opc-table-wrap');
+    if (tableWrap) tableWrap.classList.add('opc-cell-saving');
+    try {
+        const data = await apiFetch(`${API}/api/plan-produccion-opencell/day`, {
+            method: 'PUT',
+            body: JSON.stringify({ weekStartDate: weekStartISO, dayIndex, [field]: value }),
+        });
+        if (!data.success) throw new Error(data.error || 'Error al guardar');
+        if (weekStartISO === opcPrimaryWeekStart) {
+            opcWeekA = data.week;
+            opcRenderKpis();
+            opcRenderCharts();
+            opcRenderTable();
+        }
+        showToast('Guardado', 'success', 1200);
+    } catch (e) {
+        showToast('Error al guardar: ' + e.message, 'error');
+        opcRenderTable();
+    } finally {
+        if (tableWrap) tableWrap.classList.remove('opc-cell-saving');
+    }
 }
 
 function opcRenderActionPlanTitle() {

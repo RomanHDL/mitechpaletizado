@@ -406,6 +406,36 @@ function calcWeeklyTotals(days) {
   return { plan, processed, finishedGood, delta, cumplimientoPct: calcPct(processed, plan) };
 }
 
+// Recalcula delta/recoveryPlan/pctPlan de UNA semana a partir de plan/processed
+// -- formulas confirmadas contra el Excel real de Roman (ver
+// planProduccionOpenCellHelpers.test.js, "recalcDerivedMetrics reproduce..."):
+//   Delta vs Processed(dia N)  = Plan(N) - Processed(N)
+//   Recovery Plan(dia N)       = Plan(N) + Delta(N-1)  (null en el primer dia
+//                                 de la semana, o si Delta(N-1) no existe)
+//   % Plan(dia N)               = Processed(N) / Plan(N)  (fraccion 0..1, NUNCA
+//                                 *100 -- el frontend la multiplica al pintarla)
+// Se usa tanto al reimportar (nunca, el Excel ya trae sus propias formulas)
+// como -- sobre todo -- al capturar Plan/Processed/Finished Good a mano desde
+// la app (POST/PUT /api/plan-produccion-opencell/day en api/index.js), para
+// que una semana editada a mano quede matematicamente identica a una
+// importada. finishedGood y detail NUNCA se tocan aqui (son valores propios,
+// no derivados).
+function recalcDerivedMetrics(days) {
+  const delta = days.map((d) => (d.plan !== null && d.plan !== undefined && d.processed !== null && d.processed !== undefined)
+    ? d.plan - d.processed
+    : null);
+  return days.map((d, i) => ({
+    ...d,
+    delta: delta[i],
+    recoveryPlan: (i === 0 || d.plan === null || d.plan === undefined || delta[i - 1] === null || delta[i - 1] === undefined)
+      ? null
+      : d.plan + delta[i - 1],
+    pctPlan: (d.plan === null || d.plan === undefined || d.plan === 0 || d.processed === null || d.processed === undefined)
+      ? null
+      : d.processed / d.plan,
+  }));
+}
+
 // Semana "vacia" (aun no importada) con fechas correctas y todas las
 // metricas en null -- para que la navegacion nunca truene en una semana sin
 // datos todavia.
@@ -463,6 +493,7 @@ module.exports = {
   sumOrNull,
   calcPct,
   calcWeeklyTotals,
+  recalcDerivedMetrics,
   buildEmptyWeekSkeleton,
   actionItemSourceKey,
   defaultEstatusFor,

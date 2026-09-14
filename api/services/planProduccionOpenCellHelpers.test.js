@@ -15,6 +15,7 @@ const {
   sumOrNull,
   calcPct,
   calcWeeklyTotals,
+  recalcDerivedMetrics,
   buildEmptyWeekSkeleton,
   actionItemSourceKey,
   defaultEstatusFor,
@@ -221,6 +222,32 @@ test('calcWeeklyTotals suma solo dias con dato y calcula cumplimiento semanal', 
   assert.equal(totals.plan, 360);
   assert.equal(totals.processed, 252);
   assert.equal(totals.cumplimientoPct, (252 / 360) * 100);
+});
+
+test('recalcDerivedMetrics reproduce exactamente las formulas del Excel real (Delta/Recovery/%Plan de la semana 36)', () => {
+  // Plan y Processed tal cual filas 25/26 de buildSummaryWorksheet (semana 36,
+  // cols B-H) -- Delta/Recovery/%Plan esperados son los de las filas 28/29/30
+  // del MISMO Excel real, capturados como fixture en parseSummarySheet arriba.
+  const plans = [180, 180, 180, 180, 180, null, null];
+  const processed = [100, 152, 141, 160, 32, null, null];
+  const days = plans.map((plan, i) => ({ plan, processed: processed[i], finishedGood: 999, detail: [] }));
+  const result = recalcDerivedMetrics(days);
+  assert.deepEqual(result.map((d) => d.delta), [80, 28, 39, 20, 148, null, null]);
+  assert.deepEqual(result.map((d) => d.recoveryPlan), [null, 260, 208, 219, 200, null, null]);
+  assert.deepEqual(result.map((d) => d.pctPlan), [
+    100 / 180, 152 / 180, 141 / 180, 160 / 180, 32 / 180, null, null,
+  ]);
+  // finishedGood/detail nunca se tocan
+  assert.equal(result[0].finishedGood, 999);
+  assert.deepEqual(result[0].detail, []);
+});
+
+test('recalcDerivedMetrics: plan 0 o null nunca produce division por cero (pctPlan null, no NaN/Infinity)', () => {
+  const days = [{ plan: 0, processed: 10 }, { plan: null, processed: 5 }, { plan: 100, processed: null }];
+  const result = recalcDerivedMetrics(days);
+  assert.deepEqual(result.map((d) => d.pctPlan), [null, null, null]);
+  // delta si es una resta simple (no division) -- solo es null cuando falta plan o processed
+  assert.deepEqual(result.map((d) => d.delta), [-10, null, null]);
 });
 
 test('buildEmptyWeekSkeleton produce 7 dias con fechas correctas y todas las metricas en null', () => {
