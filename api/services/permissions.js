@@ -151,6 +151,16 @@ const MODULES = [
     icon: 'fa-tags',
     defaultAccess: (user) => String(user.usuario) === '3647',
   },
+  {
+    id: 'plan-produccion-opencell',
+    name: 'Plan de Produccion OpenCell',
+    viewTarget: 'plan-produccion-opencell',
+    category: 'Pedidos/Producción',
+    homeCategory: 'Reportes y análisis',
+    releaseDate: '2026-09-14',
+    icon: 'fa-industry',
+    defaultAccess: (user) => String(user.usuario) === '3647',
+  },
 ];
 
 const ALL_MODULE_IDS = MODULES.map((m) => m.id);

@@ -8,13 +8,14 @@ const {
   getUserModules,
 } = require('./permissions');
 
-test('el catalogo tiene los 11 modulos reales, sin duplicados', () => {
-  assert.equal(MODULES.length, 11);
-  assert.equal(new Set(ALL_MODULE_IDS).size, 11);
+test('el catalogo tiene los 12 modulos reales, sin duplicados', () => {
+  assert.equal(MODULES.length, 12);
+  assert.equal(new Set(ALL_MODULE_IDS).size, 12);
   [
     'escaneadoras', 'resumen', 'dashboard', 'config', 'lpn-duplicados',
     'operaciones', 'centro-operativo', 'reporte-semanal',
     'dashboard-destinos-fft', 'comparador-pallets', 'trazabilidad-tag',
+    'plan-produccion-opencell',
   ].forEach((id) => assert.ok(isKnownModuleId(id), `falta el modulo ${id}`));
 });
 

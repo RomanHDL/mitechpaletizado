@@ -25,6 +25,18 @@ const {
 } = require('./services/reporteProduccionHelpers');
 const { construirWorkbookReporteSemanal } = require('./services/reporteProduccionExcel');
 const {
+  toDateOrNull,
+  mondayOf,
+  isoWeekNumber,
+  parseOpenCellWorkbook,
+  calcWeeklyTotals,
+  buildEmptyWeekSkeleton,
+  actionItemSourceKey,
+  defaultEstatusFor,
+} = require('./services/planProduccionOpenCellHelpers');
+const { construirWorkbookPlanProduccionOpenCell } = require('./services/planProduccionOpenCellExcel');
+const ExcelJS = require('exceljs');
+const {
   prepararRegistroFft,
   normalizeDestination: fftNormalizeDestino,
 } = require('./services/destinoTipoHelpers');
@@ -40,7 +52,12 @@ const {
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+// Limite subido de 100kb (default de Express) a 20mb: el unico caso que lo
+// necesita hoy es la carga de Excel de Plan de Produccion OpenCell
+// (POST /api/plan-produccion-opencell/import, archivo en base64 dentro del
+// body JSON) -- el resto de la API sigue mandando payloads pequenos, subir
+// el limite global no cambia su comportamiento.
+app.use(express.json({ limit: '20mb' }));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'mitech-jwt-secret-2026';
 // Key required to call the one-time seed/diagnostic endpoints (they create users / expose data).
@@ -5645,6 +5662,247 @@ app.get('/api/tags/orders/:orderId', auth, moduleGuard('trazabilidad-tag'), asyn
 app.get('/api/tags/lpn/:lpn/trace', auth, moduleGuard('trazabilidad-tag'), async (req, res) => {
   try { res.json({ success: true, data: await fetchCubicajeLpnTrace(req.params.lpn) }); }
   catch (error) { tagsHandleError(res, error); }
+});
+
+// ═══════════ PLAN DE PRODUCCION OPENCELL (admin 3647 por default, ver permissions.js) ═══════════
+// Semana ya "armada" (Summary + detalle Brand/Model/Size/QTY de las hojas
+// "Week NN") tal como la produce planProduccionOpenCellHelpers.js al leer el
+// .xlsx -- una celda sin dato en el Excel se guarda como `null` (default de
+// cada metrica), NUNCA como 0 (ver esa misma regla documentada alla).
+const openCellDayItemSchema = new mongoose.Schema({
+  brand: String,
+  model: String,
+  size: Number,
+  qty: Number,
+}, { _id: false });
+const openCellDaySchema = new mongoose.Schema({
+  date: { type: Date, required: true },
+  plan: { type: Number, default: null },
+  processed: { type: Number, default: null },
+  finishedGood: { type: Number, default: null },
+  delta: { type: Number, default: null },
+  recoveryPlan: { type: Number, default: null },
+  pctPlan: { type: Number, default: null },
+  detail: { type: [openCellDayItemSchema], default: [] },
+}, { _id: false });
+const openCellWeekSchema = new mongoose.Schema({
+  year: { type: Number, required: true },
+  weekNumber: { type: Number, required: true },
+  weekStartDate: { type: Date, required: true },
+  weekEndDate: { type: Date, required: true },
+  days: { type: [openCellDaySchema], default: [] },
+  sourceFile: String,
+  importedBy: String,
+}, { timestamps: true });
+openCellWeekSchema.index({ year: 1, weekNumber: 1 }, { unique: true });
+openCellWeekSchema.index({ weekStartDate: 1 }, { unique: true });
+const OpenCellWeek = mongoose.models.OpenCellWeek || mongoose.model('OpenCellWeek', openCellWeekSchema);
+
+// El Excel origen NO trae Estatus (ver planProduccionOpenCellHelpers.js,
+// defaultEstatusFor) -- es un campo propio de la app desde que se importa por
+// primera vez. `sourceKey` (actionItemSourceKey) evita duplicar un item al
+// reimportar el mismo Excel: null = item creado a mano en la app (nunca se
+// dedupea contra el import).
+const openCellActionItemSchema = new mongoose.Schema({
+  year: { type: Number, required: true },
+  weekNumber: { type: Number, required: true },
+  accountable: { type: String, default: '' },
+  descripcion: { type: String, default: '' },
+  committedDate: { type: Date, default: null },
+  estatus: { type: String, enum: ['Pendiente', 'En proceso', 'Completado'], default: 'Pendiente' },
+  sourceKey: { type: String, default: null, index: true },
+  createdBy: String,
+}, { timestamps: true });
+const OpenCellActionItem = mongoose.models.OpenCellActionItem || mongoose.model('OpenCellActionItem', openCellActionItemSchema);
+
+const OPENCELL_ESTATUS_VALUES = ['Pendiente', 'En proceso', 'Completado'];
+
+// Semana completa para UNA fecha cualquiera dentro de ella (el backend
+// normaliza al Lunes real con mondayOf, ver bug de zona horaria documentado
+// en planProduccionOpenCellHelpers.js). Si no esta importada todavia, regresa
+// un esqueleto vacio con las fechas correctas (isoWeekNumber ya verificado
+// contra el Excel real: coincide con su propia numeracion "Week N") para que
+// la navegacion nunca truene en una semana sin datos aun.
+app.get('/api/plan-produccion-opencell/week/:weekStartDate', auth, moduleGuard('plan-produccion-opencell'), async (req, res) => {
+  try {
+    const requested = toDateOrNull(req.params.weekStartDate);
+    if (!requested) return res.status(400).json({ success: false, error: 'weekStartDate invalido, usa formato YYYY-MM-DD.' });
+    const monday = mondayOf(requested);
+    const found = await OpenCellWeek.findOne({ weekStartDate: monday }).lean();
+    if (found) {
+      return res.json({ success: true, imported: true, week: { ...found, totals: calcWeeklyTotals(found.days) } });
+    }
+    const weekNumber = isoWeekNumber(monday);
+    const year = monday.getUTCFullYear();
+    const skeleton = buildEmptyWeekSkeleton(year, weekNumber, monday);
+    res.json({ success: true, imported: false, week: { ...skeleton, totals: calcWeeklyTotals(skeleton.days) } });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/plan-produccion-opencell/action-plan', auth, moduleGuard('plan-produccion-opencell'), async (req, res) => {
+  try {
+    const year = parseInt(req.query.year, 10);
+    const weekNumber = parseInt(req.query.weekNumber, 10);
+    if (!Number.isFinite(year) || !Number.isFinite(weekNumber)) {
+      return res.status(400).json({ success: false, error: 'year y weekNumber (query) son requeridos.' });
+    }
+    const items = await OpenCellActionItem.find({ year, weekNumber }).sort({ createdAt: 1 }).lean();
+    res.json({ success: true, items });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.post('/api/plan-produccion-opencell/action-plan', auth, moduleGuard('plan-produccion-opencell'), async (req, res) => {
+  try {
+    const { year, weekNumber, accountable, descripcion, committedDate, estatus } = req.body || {};
+    const yearNum = Number(year), weekNumberNum = Number(weekNumber);
+    if (!Number.isFinite(yearNum) || !Number.isFinite(weekNumberNum)) {
+      return res.status(400).json({ success: false, error: 'year y weekNumber son requeridos.' });
+    }
+    if (estatus !== undefined && !OPENCELL_ESTATUS_VALUES.includes(estatus)) {
+      return res.status(400).json({ success: false, error: `estatus invalido: "${estatus}".` });
+    }
+    const item = await OpenCellActionItem.create({
+      year: yearNum,
+      weekNumber: weekNumberNum,
+      accountable: (accountable || '').toString().trim(),
+      descripcion: (descripcion || '').toString().trim(),
+      committedDate: toDateOrNull(committedDate),
+      estatus: estatus || 'Pendiente',
+      sourceKey: null,
+      createdBy: req.user.usuario || '',
+    });
+    res.json({ success: true, item });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.put('/api/plan-produccion-opencell/action-plan/:id', auth, moduleGuard('plan-produccion-opencell'), async (req, res) => {
+  try {
+    const { accountable, descripcion, committedDate, estatus } = req.body || {};
+    if (estatus !== undefined && !OPENCELL_ESTATUS_VALUES.includes(estatus)) {
+      return res.status(400).json({ success: false, error: `estatus invalido: "${estatus}".` });
+    }
+    const update = {};
+    if (accountable !== undefined) update.accountable = String(accountable).trim();
+    if (descripcion !== undefined) update.descripcion = String(descripcion).trim();
+    if (committedDate !== undefined) update.committedDate = toDateOrNull(committedDate);
+    if (estatus !== undefined) update.estatus = estatus;
+    const item = await OpenCellActionItem.findByIdAndUpdate(req.params.id, { $set: update }, { new: true });
+    if (!item) return res.status(404).json({ success: false, error: 'Item no encontrado.' });
+    res.json({ success: true, item });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.delete('/api/plan-produccion-opencell/action-plan/:id', auth, moduleGuard('plan-produccion-opencell'), async (req, res) => {
+  try {
+    const item = await OpenCellActionItem.findByIdAndDelete(req.params.id);
+    if (!item) return res.status(404).json({ success: false, error: 'Item no encontrado.' });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Carga de un nuevo Excel ("Plan de produccion semanal Open cell.xlsx"):
+// parsea Summary + TODAS las hojas "Week NN" que traiga (deteccion dinamica,
+// nunca hardcodeada a 36/37) y hace upsert de cada semana encontrada. Los
+// items de Action Plan del Excel se agregan SOLO si son nuevos (ver
+// actionItemSourceKey) -- reimportar nunca pisa el estatus/ediciones que el
+// usuario ya haya hecho en la app para un item que ya existia. Admin 3647
+// unicamente, sin importar a quien mas se le haya otorgado el modulo.
+app.post('/api/plan-produccion-opencell/import', auth, moduleGuard('plan-produccion-opencell'), async (req, res) => {
+  if (String(req.user.usuario) !== '3647') {
+    return res.status(403).json({ success: false, error: 'Solo el administrador puede actualizar el Excel de Plan de Produccion OpenCell.' });
+  }
+  try {
+    const { fileBase64, filename } = req.body || {};
+    if (!fileBase64 || typeof fileBase64 !== 'string') {
+      return res.status(400).json({ success: false, error: 'fileBase64 (Excel en base64) es requerido.' });
+    }
+    let buffer;
+    try { buffer = Buffer.from(fileBase64, 'base64'); } catch { buffer = null; }
+    if (!buffer || !buffer.length) {
+      return res.status(400).json({ success: false, error: 'fileBase64 invalido o vacio.' });
+    }
+
+    const wb = new ExcelJS.Workbook();
+    try { await wb.xlsx.load(buffer); }
+    catch (e) { return res.status(400).json({ success: false, error: `No se pudo leer el archivo como .xlsx: ${e.message}` }); }
+
+    const { weeks, actionItems, warnings } = parseOpenCellWorkbook(wb);
+    if (!weeks.length) {
+      return res.status(400).json({ success: false, error: 'No se encontro ninguna semana valida en el archivo.', warnings });
+    }
+
+    const weeksByNumber = new Map(weeks.map((w) => [w.weekNumber, w]));
+    for (const week of weeks) {
+      await OpenCellWeek.findOneAndUpdate(
+        { year: week.year, weekNumber: week.weekNumber },
+        { $set: {
+            weekStartDate: week.weekStartDate,
+            weekEndDate: week.weekEndDate,
+            days: week.days,
+            sourceFile: filename || 'upload.xlsx',
+            importedBy: req.user.usuario || '',
+        } },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+    }
+
+    let actionItemsAdded = 0;
+    for (const item of actionItems) {
+      const sourceKey = actionItemSourceKey(item);
+      const exists = await OpenCellActionItem.findOne({ sourceKey });
+      if (exists) continue; // ya existe (o fue editado en la app) -- reimportar nunca lo pisa
+      const relatedWeek = weeksByNumber.get(item.weekNumber);
+      const year = relatedWeek ? relatedWeek.year : (item.committedDate ? item.committedDate.getUTCFullYear() : new Date().getUTCFullYear());
+      await OpenCellActionItem.create({
+        year,
+        weekNumber: item.weekNumber,
+        accountable: item.accountable,
+        descripcion: item.descripcion,
+        committedDate: item.committedDate,
+        estatus: defaultEstatusFor(item.committedDate),
+        sourceKey,
+        createdBy: `import:${req.user.usuario || ''}`,
+      });
+      actionItemsAdded++;
+    }
+
+    res.json({ success: true, weeksImported: weeks.length, weekNumbers: weeks.map((w) => w.weekNumber), actionItemsAdded, warnings });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Descarga de la semana (year+weekNumber) como .xlsx real generado en el
+// servidor (planProduccionOpenCellExcel.js) -- Resumen de produccion +
+// Action Plan de esa semana, mismos datos que la pantalla. Si la semana
+// todavia no fue importada, exporta el esqueleto vacio (weekStartDate
+// opcional en query -- el frontend siempre lo conoce porque ya cargo esa
+// semana en pantalla antes de ofrecer el boton de exportar).
+app.get('/api/plan-produccion-opencell/export', auth, moduleGuard('plan-produccion-opencell'), async (req, res) => {
+  try {
+    const year = parseInt(req.query.year, 10);
+    const weekNumber = parseInt(req.query.weekNumber, 10);
+    if (!Number.isFinite(year) || !Number.isFinite(weekNumber)) {
+      return res.status(400).json({ success: false, error: 'year y weekNumber (query) son requeridos.' });
+    }
+    let week = await OpenCellWeek.findOne({ year, weekNumber }).lean();
+    if (!week) {
+      const weekStartDateParam = toDateOrNull(req.query.weekStartDate);
+      const monday = mondayOf(weekStartDateParam || new Date());
+      week = buildEmptyWeekSkeleton(year, weekNumber, monday);
+    }
+    const items = await OpenCellActionItem.find({ year, weekNumber }).sort({ createdAt: 1 }).lean();
+    const wb = construirWorkbookPlanProduccionOpenCell(week, items);
+    const buffer = await wb.xlsx.writeBuffer();
+    const nombreArchivo = `Plan_Produccion_OpenCell_Semana_${weekNumber}_${year}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // ═══════════ HEALTH ═══════════

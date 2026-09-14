@@ -1295,6 +1295,88 @@
             @page{size:landscape;}
         }
 
+        /* ── Plan de Produccion OpenCell — usa las variables globales de tema
+           (--bg-card/--accent/--success/--warning/--danger/--border/--text-*),
+           NUNCA una paleta propia, para heredar dark/light automaticamente. ── */
+        #view-plan-produccion-opencell .opc-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;}
+        .opc-header-right{display:flex;flex-direction:column;gap:0.45rem;align-items:flex-end;}
+        .opc-status-row{display:flex;align-items:center;gap:0.5rem;font-size:0.78rem;color:var(--text-muted);}
+        .opc-status-dot{width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block;}
+        .opc-month-input{padding:0.4rem 0.6rem;font-size:0.85rem;}
+        .opc-kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0.9rem;margin-bottom:1rem;}
+        @media (max-width:1200px){.opc-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+        @media (max-width:640px){.opc-kpi-grid{grid-template-columns:1fr;}}
+        .opc-kpi-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.9rem 1rem;}
+        .opc-kpi-label{font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.02em;font-weight:600;display:flex;align-items:center;gap:6px;}
+        .opc-kpi-value{font-size:1.5rem;font-weight:800;color:var(--text-main);margin-top:0.3rem;display:flex;align-items:baseline;gap:6px;}
+        .opc-kpi-value .opc-kpi-unit{font-size:0.72rem;font-weight:600;color:var(--text-muted);}
+        .opc-kpi-sub{font-size:0.75rem;color:var(--text-muted);margin-top:0.2rem;}
+        .opc-kpi-card.opc-has-delta .opc-kpi-value{color:var(--danger);}
+        .opc-kpi-bar{height:6px;border-radius:4px;background:var(--inset-bg);margin-top:0.55rem;overflow:hidden;}
+        .opc-kpi-bar-fill{height:100%;background:var(--accent);border-radius:4px;transition:width 0.3s ease;}
+        .opc-charts-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0.9rem;margin-bottom:1rem;}
+        @media (max-width:1200px){.opc-charts-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+        @media (max-width:640px){.opc-charts-grid{grid-template-columns:1fr;}}
+        .opc-chart-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.75rem 0.85rem;min-width:0;}
+        .opc-chart-title{font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.02em;margin-bottom:0.45rem;display:flex;align-items:center;gap:6px;}
+        .opc-chart-card .opc-chart-box{position:relative;height:170px;}
+        .opc-week-nav{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:0.9rem 1.1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;}
+        .opc-week-nav-side{display:flex;flex-direction:column;gap:0.15rem;font-size:0.78rem;color:var(--text-muted);min-width:110px;}
+        .opc-week-nav-side.opc-side-right{text-align:right;align-items:flex-end;}
+        .opc-week-nav-side b{color:var(--text-main);font-size:0.85rem;}
+        .opc-week-nav-center{text-align:center;display:flex;flex-direction:column;align-items:center;gap:0.2rem;}
+        .opc-week-nav-center .opc-week-title{font-size:1.2rem;font-weight:800;color:var(--text-main);}
+        .opc-week-nav-center .opc-week-range{font-size:0.8rem;color:var(--text-muted);}
+        .opc-badge-current{display:inline-flex;align-items:center;gap:4px;font-size:0.68rem;font-weight:700;padding:2px 9px;border-radius:20px;color:var(--success);background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.35);margin-top:2px;}
+        .opc-table-wrap{overflow-x:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:1rem;}
+        .opc-table{width:100%;border-collapse:collapse;min-width:820px;}
+        .opc-table th,.opc-table td{padding:0.5rem 0.6rem;text-align:center;font-size:0.82rem;border-bottom:1px solid var(--border);white-space:nowrap;}
+        .opc-table thead th{font-size:0.72rem;text-transform:uppercase;letter-spacing:0.02em;}
+        .opc-table .opc-week-header{background:var(--accent);color:#fff;font-weight:700;font-size:0.8rem;}
+        .opc-table .opc-date-header{color:var(--text-muted);font-weight:600;background:var(--inset-bg);}
+        .opc-table td.opc-weekend,.opc-table th.opc-weekend{background:var(--inset-bg);}
+        .opc-table th:first-child,.opc-table td:first-child{text-align:left;position:sticky;left:0;background:var(--bg-card);z-index:1;min-width:180px;}
+        .opc-table tbody tr:last-child td{border-bottom:none;}
+        .opc-row-label{font-weight:700;}
+        .opc-row-plan .opc-row-label{color:var(--accent);}
+        .opc-row-processed .opc-row-label{color:var(--success);}
+        .opc-row-finishedgood .opc-row-label{color:#14b8a6;}
+        .opc-row-delta .opc-row-label{color:var(--danger);}
+        .opc-row-recovery .opc-row-label{color:var(--accent);}
+        .opc-row-pct .opc-row-label{color:var(--text-main);}
+        .opc-cell-empty{color:var(--text-muted);}
+        .opc-pct-good{color:var(--success);font-weight:700;}
+        .opc-pct-ok{color:#84cc16;font-weight:700;}
+        .opc-pct-warn{color:var(--warning);font-weight:700;}
+        .opc-pct-bad{color:var(--danger);font-weight:700;}
+        .opc-day-clickable{cursor:pointer;}
+        .opc-day-clickable:hover{text-decoration:underline;}
+        .opc-actionplan-header{display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem;}
+        .opc-actionplan-title{font-size:1.05rem;font-weight:700;color:var(--text-main);display:flex;align-items:center;gap:8px;}
+        .opc-actionplan-actions{display:flex;gap:0.5rem;flex-wrap:wrap;}
+        .opc-table-actionplan{width:100%;border-collapse:collapse;min-width:640px;}
+        .opc-table-actionplan th{text-align:left;font-size:0.72rem;text-transform:uppercase;color:var(--text-muted);padding:0.5rem 0.65rem;border-bottom:1px solid var(--border);}
+        .opc-table-actionplan td{padding:0.55rem 0.65rem;font-size:0.85rem;border-bottom:1px solid var(--border);vertical-align:top;}
+        .opc-table-actionplan tr:last-child td{border-bottom:none;}
+        .opc-status-pill{display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;}
+        .opc-status-pill.opc-status-pendiente{color:var(--warning);background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);}
+        .opc-status-pill.opc-status-en-proceso{color:var(--accent);background:var(--accent-glow);border:1px solid var(--accent);}
+        .opc-status-pill.opc-status-completado{color:var(--success);background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.35);}
+        .opc-empty-row td{text-align:center;color:var(--text-muted);font-style:italic;padding:1rem;}
+        .opc-icon-btn{background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:4px 6px;border-radius:6px;font-size:0.85rem;}
+        .opc-icon-btn:hover{background:var(--inset-bg);color:var(--text-main);}
+        .opc-icon-btn.opc-danger:hover{color:var(--danger);}
+        .opc-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:2600;justify-content:center;align-items:flex-start;padding:2rem 1rem;overflow-y:auto;}
+        .opc-modal-overlay.open{display:flex;}
+        .opc-modal{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;width:100%;max-width:460px;padding:1.5rem;box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+        .opc-modal h3{font-size:1.1rem;margin-bottom:0.25rem;color:var(--text-main);}
+        .opc-modal label{display:block;font-size:0.78rem;color:var(--text-muted);margin:0.75rem 0 0.3rem;font-weight:600;}
+        .opc-modal .form-input{width:100%;box-sizing:border-box;}
+        .opc-modal-actions{display:flex;gap:0.6rem;justify-content:flex-end;margin-top:1.25rem;}
+        @media (max-width:760px){
+            .opc-table td:first-child,.opc-table th:first-child{min-width:140px;}
+        }
+
         /* ── Dashboard Destinos FFT (admin 3647 only). A diferencia del resto de
            la app (que sigue el toggle claro/oscuro), este modulo usa SIEMPRE
            fondo claro y tarjetas blancas por requerimiento explicito del diseno
@@ -2036,6 +2118,31 @@
                             <div class="hero-title">Centro de Trazabilidad TAG — MAXX</div>
                             <div class="hero-desc">Seguimiento de TAGs, piezas, pallets, pedidos, bines y movimientos de Monterrey MAXX</div>
                             <div class="hero-cta">Abrir trazabilidad <i class="fa-solid fa-arrow-right"></i></div>
+                        </div>
+                    </button>
+
+                    <!-- L: Plan de Produccion OpenCell (exclusivo 3647 por default) -->
+                    <button type="button" class="hero-card hero-orange card-3647-only mod-gated" data-module="plan-produccion-opencell" onclick="switchView('plan-produccion-opencell')">
+                        <span class="hero-badge-nuevo" style="display:none;">NUEVO</span>
+                        <div class="hero-illustration">
+                            <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <rect x="20" y="20" width="160" height="80" rx="8" fill="#241708" stroke="#f59e0b" stroke-width="2"/>
+                                <rect x="34" y="70" width="16" height="20" fill="#3a2a12"/>
+                                <rect x="58" y="55" width="16" height="35" fill="#3a2a12"/>
+                                <rect x="82" y="40" width="16" height="50" fill="#3a2a12"/>
+                                <rect x="106" y="60" width="16" height="30" fill="#3a2a12"/>
+                                <polyline points="34,66 58,50 82,36 106,55 130,30" fill="none" stroke="#f97316" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                                <circle cx="130" cy="30" r="4" fill="#f97316"/>
+                                <rect x="144" y="34" width="36" height="46" rx="3" fill="#1a2540"/>
+                                <rect x="150" y="42" width="24" height="4" fill="#f59e0b"/>
+                                <rect x="150" y="50" width="16" height="4" fill="#4f7cff"/>
+                                <rect x="150" y="58" width="20" height="4" fill="#22c55e"/>
+                            </svg>
+                        </div>
+                        <div class="hero-body">
+                            <div class="hero-title">Plan de Produccion OpenCell</div>
+                            <div class="hero-desc">Seguimiento semanal Plan vs Procesado, Finished Good y Recovery Plan — Open Cell</div>
+                            <div class="hero-cta">Abrir plan <i class="fa-solid fa-arrow-right"></i></div>
                         </div>
                     </button>
 
@@ -4048,6 +4155,166 @@
             <div id="rs-dias-container"></div>
         </div><!-- /view-reporte-semanal -->
 
+        <!-- ══════════════════════════════════════ -->
+        <!-- VIEW: PLAN DE PRODUCCION OPENCELL (exclusivo 3647 por default) -->
+        <!-- ══════════════════════════════════════ -->
+        <div class="view" id="view-plan-produccion-opencell">
+            <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
+            <div class="opc-header">
+                <div>
+                    <h1 style="font-size:1.5rem;margin:0;"><i class="fa-solid fa-industry" style="color:var(--accent);margin-right:8px;"></i>Plan de Produccion OpenCell</h1>
+                    <p style="margin:0.35rem 0 0;font-size:1rem;font-weight:600;color:var(--text-main);">Producción Semanal — Plan vs Procesado</p>
+                    <p style="margin:0.15rem 0 0;font-size:0.82rem;color:var(--text-muted);">Seguimiento diario de producción y materiales | OpenCell - MiTechnologies</p>
+                </div>
+                <div class="opc-header-right">
+                    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+                        <input type="month" id="opc-month-input" class="form-input opc-month-input" onchange="opcOnMonthChange(this.value)" title="Ir a la primera semana de este mes">
+                        <button class="btn btn-secondary btn-sm" onclick="opcGoToday()" title="Ir a la semana actual"><i class="fa-solid fa-calendar-day"></i> Hoy</button>
+                        <button class="btn btn-secondary btn-sm" onclick="opcLoadAll()" title="Actualizar"><i class="fa-solid fa-rotate"></i></button>
+                    </div>
+                    <div class="opc-status-row">
+                        <span class="opc-status-dot" id="opc-status-dot"></span>
+                        <span id="opc-status-text">Datos actualizados</span>
+                        <span id="opc-status-time" style="color:var(--text-main);font-weight:600;"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPIs -->
+            <div class="opc-kpi-grid">
+                <div class="opc-kpi-card">
+                    <div class="opc-kpi-label"><i class="fa-solid fa-bullseye" style="color:var(--accent);"></i> Plan Semanal</div>
+                    <div class="opc-kpi-value" id="opc-kpi-plan">-- <span class="opc-kpi-unit">piezas</span></div>
+                </div>
+                <div class="opc-kpi-card">
+                    <div class="opc-kpi-label"><i class="fa-solid fa-gears" style="color:var(--success);"></i> Procesado</div>
+                    <div class="opc-kpi-value" id="opc-kpi-processed">-- <span class="opc-kpi-unit">piezas</span></div>
+                    <div class="opc-kpi-sub" id="opc-kpi-processed-sub">-- % del plan</div>
+                </div>
+                <div class="opc-kpi-card">
+                    <div class="opc-kpi-label"><i class="fa-solid fa-circle-check" style="color:#14b8a6;"></i> Finished Good</div>
+                    <div class="opc-kpi-value" id="opc-kpi-fg">-- <span class="opc-kpi-unit">piezas</span></div>
+                    <div class="opc-kpi-sub" id="opc-kpi-fg-sub">-- % del plan</div>
+                </div>
+                <div class="opc-kpi-card" id="opc-kpi-delta-card">
+                    <div class="opc-kpi-label"><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);"></i> Delta vs Procesado</div>
+                    <div class="opc-kpi-value" id="opc-kpi-delta">-- <span class="opc-kpi-unit">piezas</span></div>
+                </div>
+                <div class="opc-kpi-card">
+                    <div class="opc-kpi-label"><i class="fa-solid fa-percent" style="color:var(--warning);"></i> Cumplimiento</div>
+                    <div class="opc-kpi-value" id="opc-kpi-cumplimiento">--%</div>
+                    <div class="opc-kpi-bar"><div class="opc-kpi-bar-fill" id="opc-kpi-cumplimiento-bar" style="width:0%;"></div></div>
+                </div>
+            </div>
+
+            <!-- Graficas compactas -->
+            <div class="opc-charts-grid">
+                <div class="opc-chart-card">
+                    <div class="opc-chart-title"><i class="fa-solid fa-chart-column"></i> Producción Diaria</div>
+                    <div class="opc-chart-box"><canvas id="opc-chart-daily"></canvas></div>
+                </div>
+                <div class="opc-chart-card">
+                    <div class="opc-chart-title"><i class="fa-solid fa-chart-line"></i> % Plan Diario</div>
+                    <div class="opc-chart-box"><canvas id="opc-chart-pct"></canvas></div>
+                </div>
+                <div class="opc-chart-card">
+                    <div class="opc-chart-title"><i class="fa-solid fa-triangle-exclamation"></i> Delta vs Procesado</div>
+                    <div class="opc-chart-box"><canvas id="opc-chart-delta"></canvas></div>
+                </div>
+                <div class="opc-chart-card">
+                    <div class="opc-chart-title"><i class="fa-solid fa-arrows-rotate"></i> Recovery Plan</div>
+                    <div class="opc-chart-box"><canvas id="opc-chart-recovery"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Navegador de semana -->
+            <div class="opc-week-nav">
+                <button class="btn btn-secondary btn-sm" onclick="opcNavWeek(-1)"><i class="fa-solid fa-chevron-left"></i> <span id="opc-nav-prev-label">Semana anterior</span></button>
+                <div class="opc-week-nav-center">
+                    <div class="opc-week-title" id="opc-week-title">Semana --</div>
+                    <div class="opc-week-range" id="opc-week-range">-- al --</div>
+                    <span class="opc-badge-current" id="opc-badge-current" style="display:none;"><i class="fa-solid fa-circle" style="font-size:6px;"></i> Semana en curso</span>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="opcNavWeek(1)"><span id="opc-nav-next-label">Siguiente semana</span> <i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+
+            <!-- Tabla de produccion (2 semanas consecutivas) -->
+            <div class="opc-table-wrap" id="opc-table-wrap">
+                <div style="padding:2rem;text-align:center;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>
+            </div>
+
+            <!-- Action Plan -->
+            <div class="card" style="padding:1.1rem 1.25rem;">
+                <div class="opc-actionplan-header">
+                    <div class="opc-actionplan-title"><i class="fa-solid fa-clipboard-list" style="color:var(--accent);"></i> <span id="opc-actionplan-title">Action Plan</span></div>
+                    <div class="opc-actionplan-actions">
+                        <button class="btn btn-secondary btn-sm" id="opc-btn-import" style="display:none;" onclick="document.getElementById('opc-import-file').click()"><i class="fa-solid fa-file-arrow-up"></i> Actualizar Excel</button>
+                        <input type="file" id="opc-import-file" accept=".xlsx" style="display:none;" onchange="opcHandleImportFile(this)">
+                        <button class="btn btn-secondary btn-sm" onclick="opcExportExcel()" id="opc-btn-export"><i class="fa-solid fa-file-excel"></i> Exportar Excel</button>
+                        <button class="btn btn-primary btn-sm" onclick="opcOpenActionModal()"><i class="fa-solid fa-plus"></i> Agregar acción</button>
+                    </div>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="opc-table-actionplan">
+                        <thead>
+                            <tr>
+                                <th>Week</th>
+                                <th>Accountable</th>
+                                <th>Descripción de las acciones</th>
+                                <th>Committed date</th>
+                                <th>Estatus</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="opc-actionplan-tbody">
+                            <tr class="opc-empty-row"><td colspan="6">Cargando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div><!-- /view-plan-produccion-opencell -->
+
+        <!-- Modal: crear/editar item de Action Plan -->
+        <div class="opc-modal-overlay" id="opc-action-modal-overlay" onclick="if(event.target===this)opcCloseActionModal();">
+            <div class="opc-modal" role="dialog" aria-modal="true" aria-labelledby="opc-modal-title">
+                <h3 id="opc-modal-title">Agregar acción</h3>
+                <p style="font-size:0.8rem;color:var(--text-muted);margin:0;" id="opc-modal-week-label">Semana --</p>
+                <label for="opc-form-accountable">Responsable</label>
+                <input type="text" class="form-input" id="opc-form-accountable" placeholder="Nombre del responsable">
+                <label for="opc-form-descripcion">Descripción de la acción</label>
+                <textarea class="form-input" id="opc-form-descripcion" rows="3" placeholder="Describe la acción a realizar" style="resize:vertical;"></textarea>
+                <label for="opc-form-committed-date">Committed date</label>
+                <input type="date" class="form-input" id="opc-form-committed-date">
+                <label for="opc-form-estatus">Estatus</label>
+                <select class="form-input" id="opc-form-estatus">
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="En proceso">En proceso</option>
+                    <option value="Completado">Completado</option>
+                </select>
+                <div class="opc-modal-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="opcCloseActionModal()">Cancelar</button>
+                    <button class="btn btn-primary btn-sm" id="opc-modal-save-btn" onclick="opcSaveAction()"><i class="fa-solid fa-check"></i> Guardar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: detalle de produccion de UN dia (Brand/Model/Size/Qty) -->
+        <div class="opc-modal-overlay" id="opc-day-modal-overlay" onclick="if(event.target===this)opcCloseDayModal();">
+            <div class="opc-modal" role="dialog" aria-modal="true" style="max-width:520px;">
+                <h3 id="opc-day-modal-title">Detalle del día</h3>
+                <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 0.75rem;" id="opc-day-modal-total"></p>
+                <div style="max-height:50vh;overflow-y:auto;">
+                    <table class="opc-table-actionplan" style="min-width:0;">
+                        <thead><tr><th>Marca</th><th>Modelo</th><th>Tamaño</th><th style="text-align:right;">Cantidad</th></tr></thead>
+                        <tbody id="opc-day-modal-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="opc-modal-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="opcCloseDayModal()">Cerrar</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal de detalle de registros — Reporte Semanal de Produccion.
              Reutiliza .co-pallet-modal-* (mismo patron visual/print que el
              detalle de pallet de Centro Operativo) para no crear un componente
@@ -5003,6 +5270,10 @@ function toggleTheme() {
     const dashActive = document.getElementById('view-dashboard')?.classList.contains('active');
     if (dashActive && typeof loadDashboard === 'function') {
         loadDashboard();
+    }
+    const opcActive = document.getElementById('view-plan-produccion-opencell')?.classList.contains('active');
+    if (opcActive && typeof opcRenderCharts === 'function') {
+        opcRenderCharts();
     }
     // Forzar reflow y reactivar transiciones en el siguiente frame
     // eslint-disable-next-line no-unused-expressions
@@ -6175,6 +6446,7 @@ const VIEW_MODULE_MAP = {
     'fft-bin-detalle': 'dashboard-destinos-fft',
     'comparador-pallets': 'comparador-pallets',
     'trazabilidad-tag': 'trazabilidad-tag',
+    'plan-produccion-opencell': 'plan-produccion-opencell',
 };
 
 // Nivel 2 de proteccion de navegacion (nivel 1 = cards ocultas en home, nivel
@@ -6250,6 +6522,7 @@ function switchView(viewName) {
     if (viewName === 'comparador-pallets') initComparadorPallets();
     if (viewName === 'trazabilidad-tag') initTrazabilidadTag();
     else ttPauseAutoRefresh();
+    if (viewName === 'plan-produccion-opencell') initPlanProduccionOpenCell();
 }
 
 // ══════════════════════════════════════════════
@@ -17278,6 +17551,423 @@ function ttSearchListaHtml(data, results) {
         </div>
         ${data.hasMore ? '<div class="tt-last-update-note" style="text-align:left;margin-top:0.6rem;">Hay más coincidencias de las que caben en la lista — afina el texto de búsqueda para acotarla.</div>' : ''}
     </div>`;
+}
+
+// ══════════════════════════════════════════════
+// PLAN DE PRODUCCION OPENCELL
+// Todas las fechas se manejan como string 'YYYY-MM-DD' + Date con getUTC*
+// EXCLUSIVAMENTE (nunca getFullYear/getDay locales) -- el backend regresa
+// fechas ISO en UTC-medianoche (ver bug de zona horaria documentado en
+// api/services/planProduccionOpenCellHelpers.js, mondayOf()); usar getters
+// locales aqui reproduciria el mismo corrimiento de un dia en un navegador
+// con zona horaria distinta de UTC.
+// ══════════════════════════════════════════════
+let opcInitialized = false;
+let opcPrimaryWeekStart = null; // 'YYYY-MM-DD' (Lunes) de la semana seleccionada
+let opcWeekA = null;
+let opcWeekB = null;
+let opcActionItems = [];
+let opcEditingActionId = null;
+let opcCharts = { daily: null, pct: null, delta: null, recovery: null };
+
+const OPC_DIAS_CORTOS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']; // indexado por getUTCDay()
+const OPC_ROW_DEFS = [
+    { key: 'plan', label: 'Plan (Materials Available)', cls: 'opc-row-plan' },
+    { key: 'processed', label: 'Processed', cls: 'opc-row-processed' },
+    { key: 'finishedGood', label: 'Finished Good', cls: 'opc-row-finishedgood' },
+    { key: 'delta', label: 'Delta vs Processed', cls: 'opc-row-delta' },
+    { key: 'recoveryPlan', label: 'Recovery Plan', cls: 'opc-row-recovery' },
+    { key: 'pctPlan', label: '% Plan', cls: 'opc-row-pct' },
+];
+const OPC_STATUS_CLASS = { 'Pendiente': 'opc-status-pendiente', 'En proceso': 'opc-status-en-proceso', 'Completado': 'opc-status-completado' };
+
+function opcTodayISO() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+function opcMondayISO(iso) {
+    const d = new Date(`${iso}T00:00:00Z`);
+    const dow = d.getUTCDay();
+    const diff = dow === 0 ? -6 : 1 - dow;
+    d.setUTCDate(d.getUTCDate() + diff);
+    return d.toISOString().slice(0, 10);
+}
+function opcAddDaysISO(iso, n) {
+    const d = new Date(`${iso}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+}
+function opcFmtShort(iso) { const [, m, d] = iso.split('-'); return `${d}/${m}`; }
+function opcFmtFull(iso) { const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; }
+function opcDayNameShort(iso) { return OPC_DIAS_CORTOS[new Date(`${iso}T00:00:00Z`).getUTCDay()]; }
+function opcIsWeekendISO(iso) { const dow = new Date(`${iso}T00:00:00Z`).getUTCDay(); return dow === 0 || dow === 6; }
+function opcFmtNum(n) { return (n === null || n === undefined) ? '--' : Math.round(n).toLocaleString('es-MX'); }
+function opcFmtPct(n) { return (n === null || n === undefined) ? '--' : `${Math.round(n)}%`; }
+function opcEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function opcPctClass(fraction) {
+    if (fraction == null) return '';
+    const pct = fraction * 100;
+    if (pct >= 100) return 'opc-pct-good';
+    if (pct >= 80) return 'opc-pct-ok';
+    if (pct >= 50) return 'opc-pct-warn';
+    return 'opc-pct-bad';
+}
+
+function initPlanProduccionOpenCell() {
+    const isAdmin = currentUser && String(currentUser.usuario) === '3647';
+    const importBtn = document.getElementById('opc-btn-import');
+    if (importBtn) importBtn.style.display = isAdmin ? '' : 'none';
+    if (!opcInitialized) {
+        opcPrimaryWeekStart = opcMondayISO(opcTodayISO());
+        opcInitialized = true;
+    }
+    opcLoadAll();
+}
+
+async function opcFetchWeek(weekStartISO) {
+    const data = await apiFetch(`${API}/api/plan-produccion-opencell/week/${weekStartISO}`);
+    if (!data.success) throw new Error(data.error || 'Error al cargar la semana');
+    return data.week;
+}
+
+async function opcLoadActionPlan() {
+    const data = await apiFetch(`${API}/api/plan-produccion-opencell/action-plan?year=${opcWeekA.year}&weekNumber=${opcWeekA.weekNumber}`);
+    if (!data.success) throw new Error(data.error || 'Error al cargar Action Plan');
+    opcActionItems = data.items || [];
+    opcRenderActionPlanTable();
+}
+
+async function opcLoadAll() {
+    const statusText = document.getElementById('opc-status-text');
+    const statusDot = document.getElementById('opc-status-dot');
+    const tableWrap = document.getElementById('opc-table-wrap');
+    if (statusText) statusText.textContent = 'Actualizando...';
+    if (statusDot) statusDot.style.background = 'var(--warning)';
+    try {
+        const secondaryStart = opcAddDaysISO(opcPrimaryWeekStart, 7);
+        const [weekA, weekB] = await Promise.all([opcFetchWeek(opcPrimaryWeekStart), opcFetchWeek(secondaryStart)]);
+        opcWeekA = weekA;
+        opcWeekB = weekB;
+
+        const monthInput = document.getElementById('opc-month-input');
+        if (monthInput) monthInput.value = opcWeekA.weekStartDate.slice(0, 7);
+
+        opcRenderKpis();
+        opcRenderCharts();
+        opcRenderWeekNav();
+        opcRenderTable();
+        opcRenderActionPlanTitle();
+        await opcLoadActionPlan();
+
+        if (statusText) statusText.textContent = 'Datos actualizados';
+        if (statusDot) statusDot.style.background = 'var(--success)';
+        const statusTime = document.getElementById('opc-status-time');
+        if (statusTime) statusTime.textContent = new Date().toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+        if (statusText) statusText.textContent = 'Error al cargar datos';
+        if (statusDot) statusDot.style.background = 'var(--danger)';
+        if (tableWrap) tableWrap.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--danger);">Error al cargar la semana: ${opcEsc(e.message)}</div>`;
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+function opcRenderKpis() {
+    const t = opcWeekA.totals;
+    document.getElementById('opc-kpi-plan').innerHTML = `${opcFmtNum(t.plan)} <span class="opc-kpi-unit">piezas</span>`;
+    document.getElementById('opc-kpi-processed').innerHTML = `${opcFmtNum(t.processed)} <span class="opc-kpi-unit">piezas</span>`;
+    const procPct = (t.plan && t.processed != null) ? (t.processed / t.plan * 100) : null;
+    document.getElementById('opc-kpi-processed-sub').textContent = `${opcFmtPct(procPct)} del plan`;
+    document.getElementById('opc-kpi-fg').innerHTML = `${opcFmtNum(t.finishedGood)} <span class="opc-kpi-unit">piezas</span>`;
+    const fgPct = (t.plan && t.finishedGood != null) ? (t.finishedGood / t.plan * 100) : null;
+    document.getElementById('opc-kpi-fg-sub').textContent = `${opcFmtPct(fgPct)} del plan`;
+    document.getElementById('opc-kpi-delta').innerHTML = `${opcFmtNum(t.delta)} <span class="opc-kpi-unit">piezas</span>`;
+    const deltaCard = document.getElementById('opc-kpi-delta-card');
+    if (deltaCard) deltaCard.classList.toggle('opc-has-delta', !!(t.delta && t.delta > 0));
+    document.getElementById('opc-kpi-cumplimiento').textContent = opcFmtPct(t.cumplimientoPct);
+    const bar = document.getElementById('opc-kpi-cumplimiento-bar');
+    if (bar) bar.style.width = `${Math.max(0, Math.min(100, t.cumplimientoPct || 0))}%`;
+}
+
+function opcRenderCharts() {
+    if (!opcWeekA || !document.getElementById('view-plan-produccion-opencell')?.classList.contains('active')) return;
+    const days = opcWeekA.days;
+    const labels = days.map((d) => { const iso = d.date.slice(0, 10); return `${opcDayNameShort(iso)} ${opcFmtShort(iso)}`; });
+    const baseTooltip = { backgroundColor: CHART_THEME.tooltipBg, titleColor: CHART_THEME.text, bodyColor: CHART_THEME.tooltipBody, borderColor: CHART_THEME.tooltipBorder, borderWidth: 1 };
+    const axisTicks = { color: CHART_THEME.muted, font: { size: 9 } };
+
+    if (opcCharts.daily) opcCharts.daily.destroy();
+    const ctxDaily = document.getElementById('opc-chart-daily');
+    if (ctxDaily) {
+        opcCharts.daily = new Chart(ctxDaily.getContext('2d'), {
+            type: 'bar',
+            data: { labels, datasets: [
+                { label: 'Plan', data: days.map((d) => d.plan), backgroundColor: '#4f7cff', borderRadius: 3 },
+                { label: 'Processed', data: days.map((d) => d.processed), backgroundColor: '#22c55e', borderRadius: 3 },
+                { label: 'Finished Good', data: days.map((d) => d.finishedGood), backgroundColor: '#14b8a6', borderRadius: 3 },
+            ] },
+            options: { responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 9 }, color: CHART_THEME.text } }, tooltip: baseTooltip, datalabels: { display: false } },
+                scales: { x: { ticks: axisTicks, grid: { display: false } }, y: { beginAtZero: true, ticks: axisTicks, grid: { color: CHART_THEME.gridLight } } } },
+        });
+    }
+
+    if (opcCharts.pct) opcCharts.pct.destroy();
+    const ctxPct = document.getElementById('opc-chart-pct');
+    if (ctxPct) {
+        opcCharts.pct = new Chart(ctxPct.getContext('2d'), {
+            type: 'line',
+            data: { labels, datasets: [
+                { label: '% Plan', data: days.map((d) => d.pctPlan == null ? null : Math.round(d.pctPlan * 1000) / 10), borderColor: '#4f7cff', backgroundColor: 'rgba(79,124,255,0.15)', tension: 0.3, spanGaps: false, pointRadius: 3, fill: true },
+                { label: 'Meta 100%', data: days.map(() => 100), borderColor: CHART_THEME.muted, borderDash: [4, 4], pointRadius: 0, fill: false },
+            ] },
+            options: { responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { ...baseTooltip, callbacks: { label: (c) => c.dataset.label === 'Meta 100%' ? '' : `${c.parsed.y}%` } }, datalabels: { display: false } },
+                scales: { x: { ticks: axisTicks, grid: { display: false } }, y: { min: 0, suggestedMax: 120, ticks: { ...axisTicks, stepSize: 25, callback: (v) => v + '%' }, grid: { color: CHART_THEME.gridLight } } } },
+        });
+    }
+
+    if (opcCharts.delta) opcCharts.delta.destroy();
+    const ctxDelta = document.getElementById('opc-chart-delta');
+    if (ctxDelta) {
+        opcCharts.delta = new Chart(ctxDelta.getContext('2d'), {
+            type: 'bar',
+            data: { labels, datasets: [{ label: 'Delta', data: days.map((d) => d.delta), backgroundColor: days.map((d) => (d.delta || 0) > 0 ? '#ef4444' : '#f59e0b'), borderRadius: 3 }] },
+            options: { responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: baseTooltip, datalabels: { display: (c) => c.dataset.data[c.dataIndex] != null, anchor: 'end', align: 'end', color: CHART_THEME.text, font: { weight: 'bold', size: 10 }, formatter: (v) => v == null ? '' : v } },
+                scales: { x: { ticks: axisTicks, grid: { display: false } }, y: { beginAtZero: true, ticks: axisTicks, grid: { color: CHART_THEME.gridLight } } } },
+        });
+    }
+
+    if (opcCharts.recovery) opcCharts.recovery.destroy();
+    const ctxRecovery = document.getElementById('opc-chart-recovery');
+    if (ctxRecovery) {
+        opcCharts.recovery = new Chart(ctxRecovery.getContext('2d'), {
+            type: 'line',
+            data: { labels, datasets: [{ label: 'Recovery Plan', data: days.map((d) => d.recoveryPlan), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.15)', tension: 0.3, spanGaps: false, pointRadius: 3, fill: true }] },
+            options: { responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: baseTooltip, datalabels: { display: false } },
+                scales: { x: { ticks: axisTicks, grid: { display: false } }, y: { beginAtZero: true, ticks: axisTicks, grid: { color: CHART_THEME.gridLight } } } },
+        });
+    }
+}
+
+function opcRenderWeekNav() {
+    const titleEl = document.getElementById('opc-week-title');
+    const rangeEl = document.getElementById('opc-week-range');
+    const badgeEl = document.getElementById('opc-badge-current');
+    const prevLabel = document.getElementById('opc-nav-prev-label');
+    const nextLabel = document.getElementById('opc-nav-next-label');
+    if (titleEl) titleEl.textContent = `Semana ${opcWeekA.weekNumber}`;
+    if (rangeEl) rangeEl.textContent = `${opcFmtFull(opcWeekA.weekStartDate.slice(0, 10))} - ${opcFmtFull(opcWeekA.weekEndDate.slice(0, 10))}`;
+    const isCurrentWeek = opcWeekA.weekStartDate.slice(0, 10) === opcMondayISO(opcTodayISO());
+    if (badgeEl) badgeEl.style.display = isCurrentWeek ? '' : 'none';
+    if (prevLabel) prevLabel.textContent = `Semana ${opcWeekA.weekNumber - 1}`;
+    if (nextLabel) nextLabel.textContent = `Semana ${opcWeekA.weekNumber + 1}`;
+}
+
+function opcRenderTable() {
+    const wrap = document.getElementById('opc-table-wrap');
+    if (!wrap || !opcWeekA || !opcWeekB) return;
+    const weeks = [opcWeekA, opcWeekB];
+
+    let html = '<table class="opc-table"><thead><tr><th></th>';
+    weeks.forEach((w) => { html += `<th class="opc-week-header" colspan="${w.days.length}">WEEK ${w.weekNumber}</th>`; });
+    html += '</tr><tr><th></th>';
+    weeks.forEach((w) => {
+        w.days.forEach((d, i) => {
+            const iso = d.date.slice(0, 10);
+            const weekend = opcIsWeekendISO(iso);
+            html += `<th class="opc-date-header opc-day-clickable${weekend ? ' opc-weekend' : ''}" onclick="opcOpenDayModal('${w.weekStartDate.slice(0, 10)}', ${i})" title="Ver detalle del día">${opcFmtShort(iso)}<br><span style="font-size:0.65rem;">${opcDayNameShort(iso)}</span></th>`;
+        });
+    });
+    html += '</tr></thead><tbody>';
+
+    OPC_ROW_DEFS.forEach((row) => {
+        html += `<tr class="${row.cls}"><td class="opc-row-label">${row.label}</td>`;
+        weeks.forEach((w) => {
+            w.days.forEach((d) => {
+                const iso = d.date.slice(0, 10);
+                const weekend = opcIsWeekendISO(iso);
+                const raw = d[row.key];
+                let cellHtml, extraCls = '';
+                if (row.key === 'pctPlan') {
+                    if (raw === null || raw === undefined) { cellHtml = '-'; extraCls = 'opc-cell-empty'; }
+                    else { cellHtml = `${Math.round(raw * 100)}%`; extraCls = opcPctClass(raw); }
+                } else if (raw === null || raw === undefined) { cellHtml = '-'; extraCls = 'opc-cell-empty'; }
+                else { cellHtml = Math.round(raw).toLocaleString('es-MX'); }
+                html += `<td class="${weekend ? 'opc-weekend' : ''} ${extraCls}">${cellHtml}</td>`;
+            });
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+}
+
+function opcRenderActionPlanTitle() {
+    const el = document.getElementById('opc-actionplan-title');
+    if (el) el.textContent = `Action Plan - Semana ${opcWeekA.weekNumber}`;
+    const weekLabel = document.getElementById('opc-modal-week-label');
+    if (weekLabel) weekLabel.textContent = `Semana ${opcWeekA.weekNumber}`;
+}
+
+function opcRenderActionPlanTable() {
+    const tbody = document.getElementById('opc-actionplan-tbody');
+    if (!tbody) return;
+    if (!opcActionItems.length) {
+        tbody.innerHTML = '<tr class="opc-empty-row"><td colspan="6">Sin acciones registradas para esta semana</td></tr>';
+        return;
+    }
+    tbody.innerHTML = opcActionItems.map((item) => `
+        <tr>
+            <td>Week ${item.weekNumber}</td>
+            <td>${opcEsc(item.accountable) || '-'}</td>
+            <td>${opcEsc(item.descripcion) || '-'}</td>
+            <td>${item.committedDate ? opcFmtFull(item.committedDate.slice(0, 10)) : '-'}</td>
+            <td><span class="opc-status-pill ${OPC_STATUS_CLASS[item.estatus] || 'opc-status-pendiente'}"><i class="fa-solid fa-circle" style="font-size:6px;"></i> ${opcEsc(item.estatus)}</span></td>
+            <td><button class="opc-icon-btn" onclick="opcOpenActionModal('${item._id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                <button class="opc-icon-btn opc-danger" onclick="opcDeleteAction('${item._id}')" title="Eliminar"><i class="fa-solid fa-trash"></i></button></td>
+        </tr>`).join('');
+}
+
+function opcOpenActionModal(id) {
+    opcEditingActionId = id || null;
+    const item = id ? opcActionItems.find((i) => i._id === id) : null;
+    document.getElementById('opc-modal-title').textContent = item ? 'Editar acción' : 'Agregar acción';
+    document.getElementById('opc-form-accountable').value = item ? item.accountable : '';
+    document.getElementById('opc-form-descripcion').value = item ? item.descripcion : '';
+    document.getElementById('opc-form-committed-date').value = item && item.committedDate ? item.committedDate.slice(0, 10) : '';
+    document.getElementById('opc-form-estatus').value = item ? item.estatus : 'Pendiente';
+    document.getElementById('opc-action-modal-overlay').classList.add('open');
+}
+function opcCloseActionModal() {
+    document.getElementById('opc-action-modal-overlay').classList.remove('open');
+    opcEditingActionId = null;
+}
+
+async function opcSaveAction() {
+    const accountable = document.getElementById('opc-form-accountable').value.trim();
+    const descripcion = document.getElementById('opc-form-descripcion').value.trim();
+    const committedDate = document.getElementById('opc-form-committed-date').value || null;
+    const estatus = document.getElementById('opc-form-estatus').value;
+    if (!accountable || !descripcion) { showToast('Responsable y descripción son requeridos', 'error'); return; }
+    const btn = document.getElementById('opc-modal-save-btn');
+    btn.disabled = true;
+    try {
+        const data = opcEditingActionId
+            ? await apiFetch(`${API}/api/plan-produccion-opencell/action-plan/${opcEditingActionId}`, { method: 'PUT', body: JSON.stringify({ accountable, descripcion, committedDate, estatus }) })
+            : await apiFetch(`${API}/api/plan-produccion-opencell/action-plan`, { method: 'POST', body: JSON.stringify({ year: opcWeekA.year, weekNumber: opcWeekA.weekNumber, accountable, descripcion, committedDate, estatus }) });
+        if (!data.success) throw new Error(data.error || 'Error al guardar');
+        showToast('Acción guardada', 'success', 2000);
+        opcCloseActionModal();
+        await opcLoadActionPlan();
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function opcDeleteAction(id) {
+    const ok = await showConfirmDialog({ title: 'Eliminar acción', message: '¿Seguro que quieres eliminar esta acción del Action Plan? Esta operación no se puede deshacer.', confirmText: 'Eliminar', danger: true });
+    if (!ok) return;
+    try {
+        const data = await apiFetch(`${API}/api/plan-produccion-opencell/action-plan/${id}`, { method: 'DELETE' });
+        if (!data.success) throw new Error(data.error || 'Error al eliminar');
+        showToast('Acción eliminada', 'success', 2000);
+        await opcLoadActionPlan();
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+function opcNavWeek(delta) {
+    opcPrimaryWeekStart = opcAddDaysISO(opcPrimaryWeekStart, delta * 7);
+    opcLoadAll();
+}
+function opcGoToday() {
+    opcPrimaryWeekStart = opcMondayISO(opcTodayISO());
+    opcLoadAll();
+}
+function opcOnMonthChange(value) {
+    if (!value) return;
+    opcPrimaryWeekStart = opcMondayISO(`${value}-01`);
+    opcLoadAll();
+}
+
+async function opcExportExcel() {
+    const btn = document.getElementById('opc-btn-export');
+    const prevHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generando...';
+    try {
+        const params = new URLSearchParams({ year: opcWeekA.year, weekNumber: opcWeekA.weekNumber, weekStartDate: opcWeekA.weekStartDate.slice(0, 10) });
+        const headers = { 'X-Device-Id': DEVICE_ID };
+        if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+        const resp = await fetch(`${API}/api/plan-produccion-opencell/export?${params.toString()}`, { headers });
+        if (resp.status === 401) { handleLogout(); throw new Error('Sesion expirada'); }
+        if (!resp.ok) {
+            let msg = 'Error al generar el Excel';
+            try { const j = await resp.json(); msg = j.error || msg; } catch (e) { /* respuesta no-JSON */ }
+            throw new Error(msg);
+        }
+        const blob = await resp.blob();
+        const disposition = resp.headers.get('Content-Disposition') || '';
+        const match = /filename="([^"]+)"/.exec(disposition);
+        const filename = match ? match[1] : `Plan_Produccion_OpenCell_${Date.now()}.xlsx`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        showToast('Excel descargado', 'success', 2500);
+    } catch (e) {
+        showToast('Error al descargar Excel: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = prevHtml;
+    }
+}
+
+function opcHandleImportFile(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+        try {
+            const base64 = String(reader.result).split(',')[1];
+            showToast('Importando Excel...', 'info', 2000);
+            const data = await apiFetch(`${API}/api/plan-produccion-opencell/import`, { method: 'POST', body: JSON.stringify({ fileBase64: base64, filename: file.name }) });
+            if (!data.success) throw new Error(data.error || 'Error al importar');
+            showToast(`Excel importado: ${data.weeksImported} semana(s), ${data.actionItemsAdded} acción(es) nueva(s)`, 'success', 4000);
+            await opcLoadAll();
+        } catch (e) {
+            showToast('Error al importar: ' + e.message, 'error');
+        } finally {
+            input.value = '';
+        }
+    };
+    reader.onerror = () => { showToast('No se pudo leer el archivo', 'error'); input.value = ''; };
+    reader.readAsDataURL(file);
+}
+
+function opcOpenDayModal(weekStartISO, dayIndex) {
+    const week = (opcWeekA && opcWeekA.weekStartDate.slice(0, 10) === weekStartISO) ? opcWeekA
+        : (opcWeekB && opcWeekB.weekStartDate.slice(0, 10) === weekStartISO) ? opcWeekB : null;
+    const day = week && week.days[dayIndex];
+    if (!day) return;
+    const iso = day.date.slice(0, 10);
+    document.getElementById('opc-day-modal-title').textContent = `${opcDayNameShort(iso)} ${opcFmtFull(iso)}`;
+    const total = (day.detail || []).reduce((s, it) => s + (it.qty || 0), 0);
+    document.getElementById('opc-day-modal-total').textContent = (day.detail || []).length ? `Total producido: ${total.toLocaleString('es-MX')} piezas` : 'Sin producción registrada para este día';
+    const tbody = document.getElementById('opc-day-modal-tbody');
+    tbody.innerHTML = (day.detail || []).length
+        ? day.detail.map((it) => `<tr><td>${opcEsc(it.brand)}</td><td>${opcEsc(it.model)}</td><td>${it.size != null ? it.size + '"' : '-'}</td><td style="text-align:right;">${it.qty != null ? it.qty.toLocaleString('es-MX') : '-'}</td></tr>`).join('')
+        : '<tr class="opc-empty-row"><td colspan="4">Sin detalle disponible para este día</td></tr>';
+    document.getElementById('opc-day-modal-overlay').classList.add('open');
+}
+function opcCloseDayModal() {
+    document.getElementById('opc-day-modal-overlay').classList.remove('open');
 }
 </script>
 </body>
