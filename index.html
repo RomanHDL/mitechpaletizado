@@ -17565,7 +17565,6 @@ function ttSearchListaHtml(data, results) {
 let opcInitialized = false;
 let opcPrimaryWeekStart = null; // 'YYYY-MM-DD' (Lunes) de la semana seleccionada
 let opcWeekA = null;
-let opcWeekB = null;
 let opcActionItems = [];
 let opcEditingActionId = null;
 let opcCharts = { daily: null, pct: null, delta: null, recovery: null };
@@ -17644,10 +17643,7 @@ async function opcLoadAll() {
     if (statusText) statusText.textContent = 'Actualizando...';
     if (statusDot) statusDot.style.background = 'var(--warning)';
     try {
-        const secondaryStart = opcAddDaysISO(opcPrimaryWeekStart, 7);
-        const [weekA, weekB] = await Promise.all([opcFetchWeek(opcPrimaryWeekStart), opcFetchWeek(secondaryStart)]);
-        opcWeekA = weekA;
-        opcWeekB = weekB;
+        opcWeekA = await opcFetchWeek(opcPrimaryWeekStart);
 
         const monthInput = document.getElementById('opc-month-input');
         if (monthInput) monthInput.value = opcWeekA.weekStartDate.slice(0, 7);
@@ -17767,8 +17763,8 @@ function opcRenderWeekNav() {
 
 function opcRenderTable() {
     const wrap = document.getElementById('opc-table-wrap');
-    if (!wrap || !opcWeekA || !opcWeekB) return;
-    const weeks = [opcWeekA, opcWeekB];
+    if (!wrap || !opcWeekA) return;
+    const weeks = [opcWeekA];
 
     let html = '<table class="opc-table"><thead><tr><th></th>';
     weeks.forEach((w) => { html += `<th class="opc-week-header" colspan="${w.days.length}">WEEK ${w.weekNumber}</th>`; });
@@ -17952,8 +17948,7 @@ function opcHandleImportFile(input) {
 }
 
 function opcOpenDayModal(weekStartISO, dayIndex) {
-    const week = (opcWeekA && opcWeekA.weekStartDate.slice(0, 10) === weekStartISO) ? opcWeekA
-        : (opcWeekB && opcWeekB.weekStartDate.slice(0, 10) === weekStartISO) ? opcWeekB : null;
+    const week = (opcWeekA && opcWeekA.weekStartDate.slice(0, 10) === weekStartISO) ? opcWeekA : null;
     const day = week && week.days[dayIndex];
     if (!day) return;
     const iso = day.date.slice(0, 10);
