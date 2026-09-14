@@ -5,7 +5,8 @@
     { "src": "index.html", "use": "@vercel/static" },
     { "src": "mitech-icon.png", "use": "@vercel/static" },
     { "src": "manifest.json", "use": "@vercel/static" },
-    { "src": "sw.js", "use": "@vercel/static" }
+    { "src": "sw.js", "use": "@vercel/static" },
+    { "src": "branding/*.png", "use": "@vercel/static" }
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" }
