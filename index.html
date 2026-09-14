@@ -1304,16 +1304,20 @@
            mecanismo de tema que el resto del sitio (atributo data-theme en
            <html>, ver applyTheme()/toggleTheme()): dos <img>, la CSS decide
            cual se ve segun el atributo, sin JS extra y sin parpadeo al
-           cambiar de tema. */
+           cambiar de tema. Logo a la izquierda + texto apilado a un lado
+           (no arriba/abajo) para poder crecer el logo sin alargar el header;
+           flex-wrap deja que el texto caiga debajo del logo solo si el
+           ancho ya no alcanza (celular angosto), sin media query aparte. */
+        .opc-header-left{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;}
         .opc-logo-wrap{display:flex;align-items:center;}
-        .opc-logo{height:44px;width:auto;object-fit:contain;display:block;}
+        .opc-logo{height:64px;width:auto;object-fit:contain;display:block;}
         .opc-logo-light{display:none;}
         .opc-logo-dark{display:block;}
         :root[data-theme='light'] .opc-logo-light{display:block;}
         :root[data-theme='light'] .opc-logo-dark{display:none;}
-        @media (max-width:1024px){ .opc-logo{height:38px;} }
-        @media (max-width:768px){ .opc-logo{height:34px;} }
-        @media (max-width:480px){ .opc-logo{height:30px;} }
+        @media (max-width:1024px){ .opc-logo{height:56px;} }
+        @media (max-width:768px){ .opc-logo{height:48px;} }
+        @media (max-width:480px){ .opc-logo{height:40px;} }
         .opc-status-row{display:flex;align-items:center;gap:0.5rem;font-size:0.78rem;color:var(--text-muted);}
         .opc-status-dot{width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block;}
         .opc-month-input{padding:0.4rem 0.6rem;font-size:0.85rem;}
@@ -4180,13 +4184,15 @@
         <div class="view" id="view-plan-produccion-opencell">
             <button class="back-btn" onclick="switchView('home')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
             <div class="opc-header">
-                <div>
+                <div class="opc-header-left">
                     <div class="opc-logo-wrap">
                         <img src="/branding/vios-hyundai-light.png" alt="VIOS / HYUNDAI" class="opc-logo opc-logo-light">
                         <img src="/branding/vios-hyundai-dark.png" alt="VIOS / HYUNDAI" class="opc-logo opc-logo-dark">
                     </div>
-                    <p style="margin:0.35rem 0 0;font-size:1rem;font-weight:600;color:var(--text-main);">Producción Semanal — Plan vs Procesado</p>
-                    <p style="margin:0.15rem 0 0;font-size:0.82rem;color:var(--text-muted);">Seguimiento diario de producción y materiales | OpenCell - MiTechnologies</p>
+                    <div class="opc-header-text">
+                        <p style="margin:0;font-size:1rem;font-weight:600;color:var(--text-main);">Producción Semanal — Plan vs Procesado</p>
+                        <p style="margin:0.15rem 0 0;font-size:0.82rem;color:var(--text-muted);">Seguimiento diario de producción y materiales | OpenCell - MiTechnologies</p>
+                    </div>
                 </div>
                 <div class="opc-header-right">
                     <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
