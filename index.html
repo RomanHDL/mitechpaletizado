@@ -846,6 +846,14 @@
            de Roman 2026-07-28 v4 — NO volver a achicarla). */
         .hero-illustration { width:100%; height:150px; display:flex; align-items:center; justify-content:center; padding:1rem 1.75rem; flex-shrink:0; }
         .hero-illustration svg { width:100%; height:100%; max-height:130px; }
+        /* Imagen personalizada (subida por 3647, ver setIllustrationContent()):
+           llena TODO el recuadro (sin padding, recortando con object-fit:cover)
+           en vez de quedar "flotando" con el fondo degradado de la card
+           alrededor -- eso era lo que se veia mal (pedido explicito de Roman,
+           captura real). Los iconos SVG por-defecto NO cambian, siguen con
+           padding+contain como siempre. */
+        .hero-illustration.has-custom-img { padding:0; }
+        .hero-illustration.has-custom-img img { width:100%; height:100%; object-fit:cover; display:block; }
 
         .hero-body { padding:1.1rem 1.5rem 1.35rem; display:flex; flex-direction:column; gap:0.4rem; flex:1; }
         .hero-title { font-size:1.15rem; font-weight:700; letter-spacing:-0.2px; }
@@ -2590,7 +2598,7 @@
                         <label for="module-edit-image-input">Imagen (opcional — reemplaza el ícono actual)</label>
                         <input type="file" id="module-edit-image-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="onModuleEditImageChange(this)">
                         <button type="button" class="btn btn-secondary btn-sm" id="module-edit-clear-image-btn" onclick="clearModuleEditImage()" style="margin-top:0.5rem;display:none;"><i class="fa-solid fa-trash"></i> Quitar imagen nueva</button>
-                        <p style="font-size:0.72rem;color:var(--text-muted);margin:0.6rem 0 0;">Imagen máx. ~500KB. Si no subes una, se conserva el ícono actual del módulo.</p>
+                        <p style="font-size:0.72rem;color:var(--text-muted);margin:0.6rem 0 0;">Sube cualquier foto — se ajusta sola automáticamente. Si no subes una, se conserva el ícono actual del módulo.</p>
                     </div>
                     <div class="module-edit-preview-col">
                         <div class="module-edit-preview-label"><i class="fa-solid fa-eye"></i> Así se vería en tu Home</div>
@@ -5536,14 +5544,23 @@ async function saveModuleCustomizationsMap(map) {
     if (!data.success) throw new Error(data.error || 'Error al guardar');
 }
 
+// Pinta el contenido de un .hero-illustration -- una imagen personalizada
+// llena TODO el recuadro (clase has-custom-img, ver CSS) en vez de quedar
+// flotando con padding sobre el fondo degradado de la card; el SVG por
+// defecto se queda tal cual, sin la clase.
+function setIllustrationContent(el, html) {
+    if (!el) return;
+    el.innerHTML = html;
+    el.classList.toggle('has-custom-img', /^\s*<img/i.test(html));
+}
+
 function applyCustomizationToCard(key, custom) {
     const card = document.querySelector(`.hero-card[data-module="${key}"]`);
     if (!card) return;
     if (custom.title) { const t = card.querySelector('.hero-title'); if (t) t.textContent = custom.title; }
     if (custom.description) { const d = card.querySelector('.hero-desc'); if (d) d.textContent = custom.description; }
     if (custom.imageDataUrl) {
-        const illus = card.querySelector('.hero-illustration');
-        if (illus) illus.innerHTML = `<img src="${custom.imageDataUrl}" alt="" style="width:100%;height:100%;object-fit:contain;">`;
+        setIllustrationContent(card.querySelector('.hero-illustration'), `<img src="${custom.imageDataUrl}" alt="">`);
     }
 }
 
@@ -5575,7 +5592,7 @@ async function openModuleEditModal(moduleKey) {
 
     const previewCard = document.getElementById('module-edit-preview-card');
     previewCard.className = 'hero-card module-edit-preview-card' + (colorClass ? ' ' + colorClass : '');
-    document.getElementById('module-edit-preview-illustration').innerHTML = moduleEditOriginalIllustrationHtml;
+    setIllustrationContent(document.getElementById('module-edit-preview-illustration'), moduleEditOriginalIllustrationHtml);
     updateModuleEditPreview();
 
     document.getElementById('module-edit-modal-overlay').classList.add('open');
@@ -5592,27 +5609,65 @@ function updateModuleEditPreview() {
     document.getElementById('module-edit-preview-desc').textContent = document.getElementById('module-edit-desc').value.trim() || 'Descripción del módulo';
 }
 
-function onModuleEditImageChange(input) {
+// Redimensiona/comprime la imagen en el propio navegador (canvas) antes de
+// convertirla a base64 -- asi Roman puede subir CUALQUIER foto (celular,
+// varios MB) sin tener que comprimirla el mismo antes; el resultado siempre
+// queda chico porque el icono nunca se muestra a mas de ~150px en pantalla.
+// PNG solo si la imagen tiene transparencia real (logos/iconos), JPEG para
+// el resto (fotos) porque pesa muchisimo menos para contenido fotografico.
+function resizeImageFile(file, maxDim = 720, quality = 0.85) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            let { width, height } = img;
+            if (width > maxDim || height > maxDim) {
+                const scale = maxDim / Math.max(width, height);
+                width = Math.round(width * scale);
+                height = Math.round(height * scale);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width; canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            let hasAlpha = false;
+            try {
+                const data = ctx.getImageData(0, 0, width, height).data;
+                for (let i = 3; i < data.length; i += 4 * 37) { // muestreo, no pixel por pixel (mas rapido)
+                    if (data[i] < 255) { hasAlpha = true; break; }
+                }
+            } catch (e) { /* no deberia pasar con un archivo local (sin CORS) */ }
+            resolve(hasAlpha ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen (¿archivo corrupto?)')); };
+        img.src = url;
+    });
+}
+
+async function onModuleEditImageChange(input) {
     const file = input.files && input.files[0];
     if (!file) return;
-    if (file.size > 550000) {
-        showToast('La imagen es muy pesada (máximo ~500KB). Elige una más ligera.', 'error');
+    if (!file.type.startsWith('image/')) {
+        showToast('Elige un archivo de imagen (png, jpg, webp, etc).', 'error');
         input.value = '';
         return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-        moduleEditNewImageDataUrl = reader.result;
-        document.getElementById('module-edit-preview-illustration').innerHTML = `<img src="${reader.result}" alt="" style="width:100%;height:100%;object-fit:contain;">`;
+    try {
+        const dataUrl = await resizeImageFile(file);
+        moduleEditNewImageDataUrl = dataUrl;
+        setIllustrationContent(document.getElementById('module-edit-preview-illustration'), `<img src="${dataUrl}" alt="">`);
         document.getElementById('module-edit-clear-image-btn').style.display = '';
-    };
-    reader.readAsDataURL(file);
+    } catch (e) {
+        showToast('No se pudo procesar la imagen: ' + e.message, 'error');
+        input.value = '';
+    }
 }
 function clearModuleEditImage() {
     moduleEditNewImageDataUrl = undefined; // cancela la imagen nueva elegida, NO borra una ya guardada
     document.getElementById('module-edit-image-input').value = '';
     document.getElementById('module-edit-clear-image-btn').style.display = 'none';
-    document.getElementById('module-edit-preview-illustration').innerHTML = moduleEditOriginalIllustrationHtml;
+    setIllustrationContent(document.getElementById('module-edit-preview-illustration'), moduleEditOriginalIllustrationHtml);
 }
 
 async function saveModuleEdit() {
@@ -5652,7 +5707,7 @@ async function restoreModuleDefault() {
         if (def && card) { // regresa la card real al valor de fabrica al instante, sin recargar la pagina
             const t = card.querySelector('.hero-title'); if (t) t.textContent = def.title;
             const d = card.querySelector('.hero-desc'); if (d) d.textContent = def.description;
-            const illus = card.querySelector('.hero-illustration'); if (illus) illus.innerHTML = def.illustrationHtml;
+            setIllustrationContent(card.querySelector('.hero-illustration'), def.illustrationHtml);
         }
         showToast('Módulo restaurado', 'success', 2000);
         closeModuleEditModal();
