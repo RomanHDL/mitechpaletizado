@@ -4197,6 +4197,7 @@
                 <div class="opc-header-right">
                     <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
                         <input type="month" id="opc-month-input" class="form-input opc-month-input" onchange="opcOnMonthChange(this.value)" title="Ir a la primera semana de este mes">
+                        <button class="btn btn-secondary btn-sm" onclick="opcExportExcel()" id="opc-btn-export"><i class="fa-solid fa-file-excel"></i> Exportar Excel</button>
                         <button class="btn btn-secondary btn-sm" onclick="opcGoToday()" title="Ir a la semana actual"><i class="fa-solid fa-calendar-day"></i> Hoy</button>
                         <button class="btn btn-secondary btn-sm" onclick="opcLoadAll()" title="Actualizar"><i class="fa-solid fa-rotate"></i></button>
                     </div>
@@ -4279,7 +4280,6 @@
                     <div class="opc-actionplan-actions">
                         <button class="btn btn-secondary btn-sm" id="opc-btn-import" style="display:none;" onclick="document.getElementById('opc-import-file').click()"><i class="fa-solid fa-file-arrow-up"></i> Actualizar Excel</button>
                         <input type="file" id="opc-import-file" accept=".xlsx" style="display:none;" onchange="opcHandleImportFile(this)">
-                        <button class="btn btn-secondary btn-sm" onclick="opcExportExcel()" id="opc-btn-export"><i class="fa-solid fa-file-excel"></i> Exportar Excel</button>
                         <button class="btn btn-primary btn-sm" onclick="opcOpenActionModal()"><i class="fa-solid fa-plus"></i> Agregar acción</button>
                     </div>
                 </div>
