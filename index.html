@@ -847,13 +847,15 @@
         .hero-illustration { width:100%; height:150px; display:flex; align-items:center; justify-content:center; padding:1rem 1.75rem; flex-shrink:0; }
         .hero-illustration svg { width:100%; height:100%; max-height:130px; }
         /* Imagen personalizada (subida por 3647, ver setIllustrationContent()):
-           llena TODO el recuadro (sin padding, recortando con object-fit:cover)
-           en vez de quedar "flotando" con el fondo degradado de la card
-           alrededor -- eso era lo que se veia mal (pedido explicito de Roman,
-           captura real). Los iconos SVG por-defecto NO cambian, siguen con
-           padding+contain como siempre. */
-        .hero-illustration.has-custom-img { padding:0; }
-        .hero-illustration.has-custom-img img { width:100%; height:100%; object-fit:cover; display:block; }
+           object-fit:contain (NUNCA cover) para que la imagen completa
+           siempre se vea entera -- object-fit:cover se probo primero pero
+           Roman reporto que recortaba lados/arriba de sus imagenes
+           (2026-09-15), asi que se regreso a contain con solo un padding
+           chico (0.4rem, mucho menor al 1rem/1.75rem del icono SVG) para
+           que la imagen se vea grande sin tocar la esquina redondeada de la
+           card. Los iconos SVG por-defecto NO cambian. */
+        .hero-illustration.has-custom-img { padding:0.4rem; }
+        .hero-illustration.has-custom-img img { width:100%; height:100%; object-fit:contain; display:block; }
 
         .hero-body { padding:1.1rem 1.5rem 1.35rem; display:flex; flex-direction:column; gap:0.4rem; flex:1; }
         .hero-title { font-size:1.15rem; font-weight:700; letter-spacing:-0.2px; }
@@ -5545,9 +5547,9 @@ async function saveModuleCustomizationsMap(map) {
 }
 
 // Pinta el contenido de un .hero-illustration -- una imagen personalizada
-// llena TODO el recuadro (clase has-custom-img, ver CSS) en vez de quedar
-// flotando con padding sobre el fondo degradado de la card; el SVG por
-// defecto se queda tal cual, sin la clase.
+// se ve COMPLETA, sin recortar (clase has-custom-img -> object-fit:contain
+// en el CSS), con menos padding que el icono SVG por defecto (que se queda
+// tal cual, sin la clase).
 function setIllustrationContent(el, html) {
     if (!el) return;
     el.innerHTML = html;
@@ -5564,12 +5566,39 @@ function applyCustomizationToCard(key, custom) {
     }
 }
 
+// Cache local de las personalizaciones -- /api/settings trae TODAS las
+// imagenes juntas en un solo documento (pueden ser varios cientos de KB
+// cada una), asi que esperar esa respuesta antes de pintar las cards hacia
+// que Roman viera el icono viejo durante 5-10s cada vez que entraba o
+// refrescaba (reportado 2026-09-15). Con la cache, la version guardada la
+// ULTIMA vez se pinta de inmediato en DOMContentLoaded (sin red), y
+// applyModuleCustomizationsToHome() sigue trayendo la version real del
+// servidor en segundo plano (por si cambio desde otro dispositivo) y
+// refresca la cache para la proxima vez.
+const MODULE_CUSTOMIZATIONS_CACHE_KEY = 'mitech_module_customizations_cache_v1';
+function applyModuleCustomizationsFromCache() {
+    try {
+        const cached = localStorage.getItem(MODULE_CUSTOMIZATIONS_CACHE_KEY);
+        if (!cached) return;
+        const map = JSON.parse(cached);
+        Object.entries(map).forEach(([key, custom]) => applyCustomizationToCard(key, custom));
+    } catch (e) { /* cache corrupta o localStorage bloqueado -- se ignora, la red la reemplaza */ }
+}
+function cacheModuleCustomizations(map) {
+    try { localStorage.setItem(MODULE_CUSTOMIZATIONS_CACHE_KEY, JSON.stringify(map)); } catch (e) { /* localStorage lleno/bloqueado -- no es critico, solo se pierde la cache */ }
+}
+// IMPORTANTE: se registra DESPUES del listener que captura heroCardDefaults
+// (mas arriba en este archivo) para que ese snapshot sea siempre el valor
+// 100% de fabrica, nunca una card ya personalizada por esta cache.
+document.addEventListener('DOMContentLoaded', applyModuleCustomizationsFromCache);
+
 // Aplica las personalizaciones guardadas a las cards reales del Home -- se
 // llama despues de login (ver enterApp()). Si un modulo no tiene override
 // guardado, su card se queda tal cual el HTML por-defecto.
 async function applyModuleCustomizationsToHome() {
     const map = await fetchModuleCustomizations();
     Object.entries(map).forEach(([key, custom]) => applyCustomizationToCard(key, custom));
+    cacheModuleCustomizations(map);
 }
 
 // Abre el modal con formulario + vista previa EN VIVO (misma tarjeta real:
@@ -5683,6 +5712,7 @@ async function saveModuleEdit() {
         const imageDataUrl = moduleEditNewImageDataUrl !== undefined ? moduleEditNewImageDataUrl : (existing.imageDataUrl || '');
         map[key] = { title, description, imageDataUrl };
         await saveModuleCustomizationsMap(map);
+        cacheModuleCustomizations(map); // para que la proxima carga ya la pinte de inmediato, sin esperar red
         applyCustomizationToCard(key, map[key]); // actualiza la card real al instante, sin recargar la pagina
         showToast('Módulo actualizado', 'success', 2000);
         closeModuleEditModal();
@@ -5702,6 +5732,7 @@ async function restoreModuleDefault() {
         const map = await fetchModuleCustomizations();
         delete map[key];
         await saveModuleCustomizationsMap(map);
+        cacheModuleCustomizations(map);
         const def = heroCardDefaults[key];
         const card = document.querySelector(`.hero-card[data-module="${key}"]`);
         if (def && card) { // regresa la card real al valor de fabrica al instante, sin recargar la pagina
