@@ -831,17 +831,16 @@
         .hero-card:hover { transform:translateY(-3px); box-shadow:0 10px 28px rgba(15,23,42,0.13); }
         .hero-card:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
 
-        /* Modo "Editar módulos" (solo 3647, ver toggleHomeEditMode()) — pedido
-           explicito de Roman para poder cambiar nombre/descripcion/imagen de
-           cada card sin pedirlo en el chat. Mientras esta activo, un click en
-           cualquier hero-card abre el modal de edicion en vez de navegar (el
-           listener que intercepta el click vive en JS, capturing phase). El
-           badge de lapiz se inyecta por JS (injectHeroEditBadges()) en vez de
-           hardcodearlo en las 12 cards -- un <span>, nunca un <button>
-           anidado (hero-card YA es un <button>, no se puede anidar otro). */
-        .home-edit-mode .hero-card{outline:2px dashed var(--accent);outline-offset:4px;cursor:pointer;}
-        .hero-edit-badge{display:none;position:absolute;top:0.75rem;left:0.75rem;z-index:2;background:var(--accent);color:#fff;width:28px;height:28px;border-radius:50%;align-items:center;justify-content:center;font-size:0.75rem;box-shadow:0 2px 8px rgba(0,0,0,0.3);}
-        .home-edit-mode .hero-edit-badge{display:flex;}
+        /* Menu "⋮" por card para editar nombre/descripcion/imagen (solo 3647,
+           ver injectHeroKebabMenus()/openModuleEditModal()) -- pedido
+           explicito de Roman: nada de boton global, cada modulo tiene su
+           propio control. Es un <span role="button">, NUNCA un <button> real
+           (hero-card YA es un <button>, HTML no permite anidar otro adentro).
+           Se posiciona debajo de donde caeria el badge "NUEVO" (top-right)
+           para nunca superponerse con el. */
+        .hero-kebab-btn{display:none;position:absolute;top:2.5rem;right:0.75rem;z-index:2;width:30px;height:30px;border-radius:50%;align-items:center;justify-content:center;background:rgba(15,23,42,0.55);color:#fff;font-size:0.95rem;cursor:pointer;transition:background 0.15s;}
+        .hero-kebab-btn.visible{display:flex;}
+        .hero-kebab-btn:hover,.hero-kebab-btn:focus-visible{background:var(--accent);outline:none;}
 
         /* Ilustracion protagonista (130-170px en escritorio, pedido explicito
            de Roman 2026-07-28 v4 — NO volver a achicarla). */
@@ -858,6 +857,19 @@
             transition:filter 0.15s;
         }
         .hero-card:hover .hero-cta { filter:brightness(1.08); }
+
+        /* Modal "Editar módulo": formulario + vista previa EN VIVO (misma
+           tarjeta real, ver hero-card/module-edit-preview-card mas arriba en
+           el HTML) -- se ensancha el .opc-modal generico solo para este caso
+           (2 columnas) via su propia clase, sin tocar el resto de modales
+           que ya usan ese mismo patron. */
+        .module-edit-modal{max-width:840px;}
+        .module-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start;margin-top:0.5rem;}
+        @media (max-width:700px){ .module-edit-grid{grid-template-columns:1fr;} }
+        .module-edit-preview-label{font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:0.5rem;display:flex;align-items:center;gap:6px;}
+        .module-edit-preview-card{pointer-events:none;cursor:default;}
+        .module-edit-preview-card:hover{transform:none;box-shadow:none;}
+        .module-edit-preview-card .hero-illustration svg{max-height:110px;}
 
         /* Colores por card */
         .hero-blue .hero-illustration { background:linear-gradient(160deg, rgba(79,124,255,0.14), rgba(99,102,241,0.06)); }
@@ -1788,9 +1800,6 @@
                         <h2 id="home-greeting" style="margin:0;font-size:1.4rem;font-weight:700;">Bienvenido</h2>
                         <div class="ops-context" id="ops-context"></div>
                     </div>
-                    <button type="button" class="btn btn-secondary btn-sm card-3647-only" id="home-edit-mode-btn" onclick="toggleHomeEditMode()" title="Cambiar nombre, descripción o imagen de los módulos">
-                        <i class="fa-solid fa-pen"></i> Editar módulos
-                    </button>
                 </div>
 
                 <!-- ═══ ADMIN: KPIs del dia ═══ -->
@@ -2564,21 +2573,37 @@
         </div>
 
         <!-- Modal: editar nombre/descripcion/imagen de una card del Home (solo
-             3647, ver toggleHomeEditMode()/openModuleEditModal() mas abajo). -->
+             3647, ver injectHeroKebabMenus()/openModuleEditModal() mas abajo).
+             2 columnas: formulario + vista previa EN VIVO de la card real
+             (mismas clases hero-card/hero-illustration/hero-body/hero-title/
+             hero-desc/hero-cta que usa el Home de verdad, asi que se ve
+             identica sin duplicar estilos). -->
         <div class="opc-modal-overlay" id="module-edit-modal-overlay" onclick="if(event.target===this)closeModuleEditModal();">
-            <div class="opc-modal" role="dialog" aria-modal="true" aria-labelledby="module-edit-modal-title">
+            <div class="opc-modal module-edit-modal" role="dialog" aria-modal="true" aria-labelledby="module-edit-modal-title">
                 <h3 id="module-edit-modal-title">Editar módulo</h3>
-                <label for="module-edit-title">Título</label>
-                <input type="text" class="form-input" id="module-edit-title" maxlength="60">
-                <label for="module-edit-desc">Descripción</label>
-                <textarea class="form-input" id="module-edit-desc" rows="3" maxlength="160" style="resize:vertical;"></textarea>
-                <label for="module-edit-image-input">Imagen (opcional — reemplaza el ícono actual)</label>
-                <input type="file" id="module-edit-image-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="onModuleEditImageChange(this)">
-                <div id="module-edit-image-preview" style="display:none;margin-top:0.6rem;">
-                    <img id="module-edit-image-preview-img" alt="" style="max-width:100%;max-height:110px;object-fit:contain;border:1px solid var(--border);border-radius:8px;padding:6px;display:block;">
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="clearModuleEditImage()" style="margin-top:0.4rem;"><i class="fa-solid fa-trash"></i> Quitar imagen nueva</button>
+                <div class="module-edit-grid">
+                    <div class="module-edit-form">
+                        <label for="module-edit-title">Título</label>
+                        <input type="text" class="form-input" id="module-edit-title" maxlength="60" oninput="updateModuleEditPreview()">
+                        <label for="module-edit-desc">Descripción</label>
+                        <textarea class="form-input" id="module-edit-desc" rows="3" maxlength="160" style="resize:vertical;" oninput="updateModuleEditPreview()"></textarea>
+                        <label for="module-edit-image-input">Imagen (opcional — reemplaza el ícono actual)</label>
+                        <input type="file" id="module-edit-image-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="onModuleEditImageChange(this)">
+                        <button type="button" class="btn btn-secondary btn-sm" id="module-edit-clear-image-btn" onclick="clearModuleEditImage()" style="margin-top:0.5rem;display:none;"><i class="fa-solid fa-trash"></i> Quitar imagen nueva</button>
+                        <p style="font-size:0.72rem;color:var(--text-muted);margin:0.6rem 0 0;">Imagen máx. ~500KB. Si no subes una, se conserva el ícono actual del módulo.</p>
+                    </div>
+                    <div class="module-edit-preview-col">
+                        <div class="module-edit-preview-label"><i class="fa-solid fa-eye"></i> Así se vería en tu Home</div>
+                        <div class="hero-card module-edit-preview-card" id="module-edit-preview-card">
+                            <div class="hero-illustration" id="module-edit-preview-illustration"></div>
+                            <div class="hero-body">
+                                <div class="hero-title" id="module-edit-preview-title"></div>
+                                <div class="hero-desc" id="module-edit-preview-desc"></div>
+                                <div class="hero-cta">Abrir módulo <i class="fa-solid fa-arrow-right"></i></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <p style="font-size:0.72rem;color:var(--text-muted);margin:0.6rem 0 0;">Imagen máx. ~500KB. Si no subes una, se conserva el ícono actual del módulo.</p>
                 <div class="opc-modal-actions">
                     <button class="btn btn-secondary btn-sm" onclick="restoreModuleDefault()" style="margin-right:auto;"><i class="fa-solid fa-rotate-left"></i> Restaurar original</button>
                     <button class="btn btn-secondary btn-sm" onclick="closeModuleEditModal()">Cancelar</button>
@@ -5442,42 +5467,59 @@ function refreshHomeCategorySections() {
 // ══════════════════════════════════════════════
 // PERSONALIZACION DE MODULOS DEL HOME (solo 3647) — pedido explicito de
 // Roman: poder cambiar titulo/descripcion/imagen de cualquier card del Home
-// sin pedirlo en el chat. Se guarda en /api/settings (AppSetting, ya
-// existente en el proyecto para catalogos/ajustes) bajo la key
-// "moduleCustomizations", como UN objeto {moduleKey: {title, description,
-// imageDataUrl}} -- no se crea un modelo/coleccion nueva. hero-card YA es un
-// <button>, asi que el "modo edicion" NO agrega un boton anidado (invalido
-// en HTML): mientras esta activo, un listener en capturing phase sobre
-// view-home intercepta el click ANTES de que llegue al onclick real de la
-// card (switchView/openEscaneadorasModule/etc.) y abre el modal en su lugar.
+// sin pedirlo en el chat, cada card con su propio control (menu "⋮", NO un
+// boton global) y con vista previa en vivo antes de guardar. Se guarda en
+// /api/settings (AppSetting, ya existente en el proyecto para catalogos/
+// ajustes) bajo la key "moduleCustomizations", como UN objeto {moduleKey:
+// {title, description, imageDataUrl}} -- no se crea modelo/coleccion nueva.
+// hero-card YA es un <button>, asi que el menu "⋮" es un <span role="button">
+// inyectado por JS (NUNCA un <button> anidado, invalido en HTML) con su
+// propio click que hace stopPropagation para no disparar la navegacion de
+// la card.
 // ══════════════════════════════════════════════
-let homeEditMode = false;
 let moduleEditCurrentKey = null;
-let moduleEditNewImageDataUrl = undefined; // undefined = sin cambio, '' = imagen quitada, string = nueva imagen
+let moduleEditNewImageDataUrl = undefined; // undefined = sin cambio (se conserva lo ya guardado), string = nueva imagen elegida
+let moduleEditOriginalIllustrationHtml = ''; // snapshot del icono/imagen ANTES de elegir una nueva (para "Quitar imagen nueva")
 
-function toggleHomeEditMode() {
-    homeEditMode = !homeEditMode;
-    const homeView = document.getElementById('view-home');
-    if (homeView) homeView.classList.toggle('home-edit-mode', homeEditMode);
-    const btn = document.getElementById('home-edit-mode-btn');
-    if (btn) btn.innerHTML = homeEditMode ? '<i class="fa-solid fa-check"></i> Listo' : '<i class="fa-solid fa-pen"></i> Editar módulos';
-    if (homeEditMode) showToast('Modo edición activado: click en cualquier módulo para cambiar su nombre, descripción o imagen.', 'info', 4500);
-}
-
-// Intercepta el click de cualquier hero-card SOLO si el modo edicion esta
-// activo -- capturing:true para ganarle al onclick inline de la card.
+// Snapshot de los valores 100% de fabrica (hardcoded en el HTML) de cada
+// card, tomado ANTES de que applyModuleCustomizationsToHome() pinte
+// cualquier override -- es lo que usa "Restaurar original" para regresar
+// sin tener que recargar la pagina.
+const heroCardDefaults = {};
 document.addEventListener('DOMContentLoaded', () => {
-    const homeView = document.getElementById('view-home');
-    if (!homeView) return;
-    homeView.addEventListener('click', (e) => {
-        if (!homeEditMode) return;
-        const card = e.target.closest('.hero-card[data-module]');
-        if (!card) return;
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        openModuleEditModal(card.dataset.module);
-    }, true);
+    document.querySelectorAll('.hero-card[data-module]').forEach((card) => {
+        heroCardDefaults[card.dataset.module] = {
+            title: card.querySelector('.hero-title')?.textContent.trim() || '',
+            description: card.querySelector('.hero-desc')?.textContent.trim() || '',
+            illustrationHtml: card.querySelector('.hero-illustration')?.innerHTML || '',
+        };
+    });
 });
+
+// Agrega el menu "⋮" a cada card (si aun no lo tiene) y ajusta su
+// visibilidad segun el usuario -- se llama en cada enterApp() (login o
+// cambio de usuario/impersonacion) para que la visibilidad siempre refleje
+// a currentUser.
+function injectHeroKebabMenus() {
+    const isOwner = String(currentUser?.usuario) === '3647';
+    document.querySelectorAll('.hero-card[data-module]').forEach((card) => {
+        let btn = card.querySelector('.hero-kebab-btn');
+        if (!btn) {
+            btn = document.createElement('span');
+            btn.className = 'hero-kebab-btn';
+            btn.setAttribute('role', 'button');
+            btn.setAttribute('tabindex', '0');
+            btn.setAttribute('aria-label', 'Editar módulo');
+            btn.title = 'Editar módulo';
+            btn.innerHTML = '<i class="fa-solid fa-ellipsis-vertical"></i>';
+            const activate = (e) => { e.preventDefault(); e.stopPropagation(); openModuleEditModal(card.dataset.module); };
+            btn.addEventListener('click', activate);
+            btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') activate(e); });
+            card.appendChild(btn);
+        }
+        btn.classList.toggle('visible', isOwner);
+    });
+}
 
 async function fetchModuleCustomizations() {
     try {
@@ -5494,36 +5536,60 @@ async function saveModuleCustomizationsMap(map) {
     if (!data.success) throw new Error(data.error || 'Error al guardar');
 }
 
+function applyCustomizationToCard(key, custom) {
+    const card = document.querySelector(`.hero-card[data-module="${key}"]`);
+    if (!card) return;
+    if (custom.title) { const t = card.querySelector('.hero-title'); if (t) t.textContent = custom.title; }
+    if (custom.description) { const d = card.querySelector('.hero-desc'); if (d) d.textContent = custom.description; }
+    if (custom.imageDataUrl) {
+        const illus = card.querySelector('.hero-illustration');
+        if (illus) illus.innerHTML = `<img src="${custom.imageDataUrl}" alt="" style="width:100%;height:100%;object-fit:contain;">`;
+    }
+}
+
 // Aplica las personalizaciones guardadas a las cards reales del Home -- se
 // llama despues de login (ver enterApp()). Si un modulo no tiene override
 // guardado, su card se queda tal cual el HTML por-defecto.
 async function applyModuleCustomizationsToHome() {
     const map = await fetchModuleCustomizations();
-    document.querySelectorAll('.hero-card[data-module]').forEach((card) => {
-        const custom = map[card.dataset.module];
-        if (!custom) return;
-        if (custom.title) { const t = card.querySelector('.hero-title'); if (t) t.textContent = custom.title; }
-        if (custom.description) { const d = card.querySelector('.hero-desc'); if (d) d.textContent = custom.description; }
-        if (custom.imageDataUrl) {
-            const illus = card.querySelector('.hero-illustration');
-            if (illus) illus.innerHTML = `<img src="${custom.imageDataUrl}" alt="" style="width:100%;height:100%;object-fit:contain;">`;
-        }
-    });
+    Object.entries(map).forEach(([key, custom]) => applyCustomizationToCard(key, custom));
 }
 
+// Abre el modal con formulario + vista previa EN VIVO (misma tarjeta real:
+// mismas clases hero-card/hero-illustration/hero-title/hero-desc/hero-cta,
+// incluyendo el color propio de la card, asi que se ve identica al Home).
 async function openModuleEditModal(moduleKey) {
     moduleEditCurrentKey = moduleKey;
     moduleEditNewImageDataUrl = undefined;
-    document.getElementById('module-edit-image-preview').style.display = 'none';
+    document.getElementById('module-edit-clear-image-btn').style.display = 'none';
     document.getElementById('module-edit-image-input').value = '';
+
     const card = document.querySelector(`.hero-card[data-module="${moduleKey}"]`);
-    document.getElementById('module-edit-title').value = card ? card.querySelector('.hero-title').textContent.trim() : '';
-    document.getElementById('module-edit-desc').value = card ? card.querySelector('.hero-desc').textContent.trim() : '';
+    const title = card ? card.querySelector('.hero-title').textContent.trim() : '';
+    const description = card ? card.querySelector('.hero-desc').textContent.trim() : '';
+    moduleEditOriginalIllustrationHtml = card ? card.querySelector('.hero-illustration').innerHTML : '';
+    const colorClass = card ? [...card.classList].find((c) => c.startsWith('hero-') && c !== 'hero-card' && c !== 'hero-grid') : '';
+
+    document.getElementById('module-edit-title').value = title;
+    document.getElementById('module-edit-desc').value = description;
+
+    const previewCard = document.getElementById('module-edit-preview-card');
+    previewCard.className = 'hero-card module-edit-preview-card' + (colorClass ? ' ' + colorClass : '');
+    document.getElementById('module-edit-preview-illustration').innerHTML = moduleEditOriginalIllustrationHtml;
+    updateModuleEditPreview();
+
     document.getElementById('module-edit-modal-overlay').classList.add('open');
 }
 function closeModuleEditModal() {
     document.getElementById('module-edit-modal-overlay').classList.remove('open');
     moduleEditCurrentKey = null;
+}
+
+// Sincroniza titulo/descripcion escritos con la vista previa -- oninput en
+// ambos campos del formulario.
+function updateModuleEditPreview() {
+    document.getElementById('module-edit-preview-title').textContent = document.getElementById('module-edit-title').value.trim() || 'Título del módulo';
+    document.getElementById('module-edit-preview-desc').textContent = document.getElementById('module-edit-desc').value.trim() || 'Descripción del módulo';
 }
 
 function onModuleEditImageChange(input) {
@@ -5537,15 +5603,16 @@ function onModuleEditImageChange(input) {
     const reader = new FileReader();
     reader.onload = () => {
         moduleEditNewImageDataUrl = reader.result;
-        document.getElementById('module-edit-image-preview-img').src = reader.result;
-        document.getElementById('module-edit-image-preview').style.display = '';
+        document.getElementById('module-edit-preview-illustration').innerHTML = `<img src="${reader.result}" alt="" style="width:100%;height:100%;object-fit:contain;">`;
+        document.getElementById('module-edit-clear-image-btn').style.display = '';
     };
     reader.readAsDataURL(file);
 }
 function clearModuleEditImage() {
-    moduleEditNewImageDataUrl = ''; // '' = quitar la imagen personalizada al guardar (vuelve al icono original)
+    moduleEditNewImageDataUrl = undefined; // cancela la imagen nueva elegida, NO borra una ya guardada
     document.getElementById('module-edit-image-input').value = '';
-    document.getElementById('module-edit-image-preview').style.display = 'none';
+    document.getElementById('module-edit-clear-image-btn').style.display = 'none';
+    document.getElementById('module-edit-preview-illustration').innerHTML = moduleEditOriginalIllustrationHtml;
 }
 
 async function saveModuleEdit() {
@@ -5558,15 +5625,12 @@ async function saveModuleEdit() {
     try {
         const map = await fetchModuleCustomizations();
         const existing = map[key] || {};
-        map[key] = {
-            title,
-            description,
-            imageDataUrl: moduleEditNewImageDataUrl !== undefined ? moduleEditNewImageDataUrl : (existing.imageDataUrl || ''),
-        };
+        const imageDataUrl = moduleEditNewImageDataUrl !== undefined ? moduleEditNewImageDataUrl : (existing.imageDataUrl || '');
+        map[key] = { title, description, imageDataUrl };
         await saveModuleCustomizationsMap(map);
+        applyCustomizationToCard(key, map[key]); // actualiza la card real al instante, sin recargar la pagina
         showToast('Módulo actualizado', 'success', 2000);
         closeModuleEditModal();
-        location.reload(); // simple y robusto: re-renderiza el Home con la card ya personalizada
     } catch (e) {
         showToast('Error al guardar: ' + e.message, 'error');
     } finally {
@@ -5583,9 +5647,15 @@ async function restoreModuleDefault() {
         const map = await fetchModuleCustomizations();
         delete map[key];
         await saveModuleCustomizationsMap(map);
+        const def = heroCardDefaults[key];
+        const card = document.querySelector(`.hero-card[data-module="${key}"]`);
+        if (def && card) { // regresa la card real al valor de fabrica al instante, sin recargar la pagina
+            const t = card.querySelector('.hero-title'); if (t) t.textContent = def.title;
+            const d = card.querySelector('.hero-desc'); if (d) d.textContent = def.description;
+            const illus = card.querySelector('.hero-illustration'); if (illus) illus.innerHTML = def.illustrationHtml;
+        }
         showToast('Módulo restaurado', 'success', 2000);
         closeModuleEditModal();
-        location.reload();
     } catch (e) {
         showToast('Error al restaurar: ' + e.message, 'error');
     }
@@ -5651,6 +5721,7 @@ function enterApp() {
     applyNuevoBadges();
     refreshHomeCategorySections();
     applyModuleCustomizationsToHome(); // fire-and-forget: no debe bloquear el login si falla
+    injectHeroKebabMenus(); // menu "⋮" de editar modulo, visible solo para 3647
 
     // Solo dashboard, sin escaneadoras (ej. viewer): ir directo al dashboard
     if (currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras')) {
