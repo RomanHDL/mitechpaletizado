@@ -114,16 +114,21 @@ function writeCell(ws, r, c, value, opts = {}) {
 
 // ── Encabezado: logo + mes/año a la derecha + titulo "PRODUCCION SEMANAL" ──
 function buildHeaderSection(ws, week, colCount) {
-  ws.getRow(1).height = 30;
-  ws.getRow(2).height = 20;
+  // 3 filas de alto (88pt) para que el logo (252x84, 3:1 -- mismo aspect
+  // ratio del PNG real) quepa grande y visible, sin encimarse con el titulo
+  // que arranca en la fila 5. Pedido explicito de Roman: "haz el logo mas
+  // grande que sea visible" (antes 150x50 se veia diminuto).
+  ws.getRow(1).height = 34;
+  ws.getRow(2).height = 30;
+  ws.getRow(3).height = 24;
 
   if (LOGO_BUFFER) {
     const imageId = ws.workbook.addImage({ buffer: LOGO_BUFFER, extension: 'png' });
-    ws.addImage(imageId, { tl: { col: 0.15, row: 0.15 }, ext: { width: 150, height: 50 } });
+    ws.addImage(imageId, { tl: { col: 0.15, row: 0.15 }, ext: { width: 252, height: 84 } });
   } else {
     const fallback = ws.getCell('A1');
     fallback.value = 'VIOS / HYUNDAI';
-    fallback.font = { bold: true, size: 16, color: { argb: AZUL_OSCURO } };
+    fallback.font = { bold: true, size: 20, color: { argb: AZUL_OSCURO } };
   }
 
   const mesAnio = ws.getCell(1, colCount - 1);
@@ -132,13 +137,7 @@ function buildHeaderSection(ws, week, colCount) {
   mesAnio.alignment = { horizontal: 'right', vertical: 'middle' };
   ws.mergeCells(1, colCount - 1, 1, colCount);
 
-  const linea2 = ws.getCell(2, colCount - 1);
-  linea2.value = 'Plan de Producción | OpenCell';
-  linea2.font = { size: 9, color: { argb: GRIS_TEXTO } };
-  linea2.alignment = { horizontal: 'right', vertical: 'middle' };
-  ws.mergeCells(2, colCount - 1, 2, colCount);
-
-  let r = 4;
+  let r = 5;
   const titulo = ws.getCell(r, 1);
   titulo.value = 'PRODUCCIÓN SEMANAL';
   titulo.font = { bold: true, size: 20, color: { argb: AZUL_OSCURO } };

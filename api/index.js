@@ -5980,7 +5980,7 @@ app.get('/api/plan-produccion-opencell/export', auth, moduleGuard('plan-producci
     const items = await OpenCellActionItem.find({ year, weekNumber }).sort({ createdAt: 1 }).lean();
     const wb = construirWorkbookPlanProduccionOpenCell(week, items);
     const buffer = await wb.xlsx.writeBuffer();
-    const nombreArchivo = `Plan_Produccion_OpenCell_Semana_${weekNumber}_${year}.xlsx`;
+    const nombreArchivo = `VIOS_HYUNDAI_Produccion_Semana_${weekNumber}_${year}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
     res.send(Buffer.from(buffer));
