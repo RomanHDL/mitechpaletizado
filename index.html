@@ -846,16 +846,22 @@
            de Roman 2026-07-28 v4 — NO volver a achicarla). */
         .hero-illustration { width:100%; height:150px; display:flex; align-items:center; justify-content:center; padding:1rem 1.75rem; flex-shrink:0; }
         .hero-illustration svg { width:100%; height:100%; max-height:130px; }
-        /* Imagen personalizada (subida por 3647, ver setIllustrationContent()):
-           object-fit:contain (NUNCA cover) para que la imagen completa
-           siempre se vea entera -- object-fit:cover se probo primero pero
-           Roman reporto que recortaba lados/arriba de sus imagenes
-           (2026-09-15), asi que se regreso a contain con solo un padding
-           chico (0.4rem, mucho menor al 1rem/1.75rem del icono SVG) para
-           que la imagen se vea grande sin tocar la esquina redondeada de la
-           card. Los iconos SVG por-defecto NO cambian. */
-        .hero-illustration.has-custom-img { padding:0.4rem; }
-        .hero-illustration.has-custom-img img { width:100%; height:100%; object-fit:contain; display:block; }
+        /* Imagen personalizada (subida por 3647, ver setIllustrationContent()/
+           resizeImageFile()): el object-fit real va INLINE en el <img>
+           (custom.imageFit, guardado junto con la imagen) porque depende de
+           COMO se proceso la imagen al subirla:
+           - Logo/icono con transparencia real -> "contain", nunca se
+             recorta (su fondo transparente ya combina solo con la card).
+           - Foto/ilustracion opaca (el caso normal: imagenes generadas por
+             IA) -> se compone un lienzo 3:1 con fondo difuminado de la
+             MISMA imagen + la imagen completa encima (ver
+             composePhotoOntoCanvas en resizeImageFile), y se pinta con
+             "cover" -- llena la card de esquina a esquina SIEMPRE, sin
+             mostrar el color de fondo de la card (lo que Roman reporto que
+             se veia feo, 2026-09-15) y sin recortar contenido real (el
+             margen difuminado alrededor absorbe el recorte de cover). */
+        .hero-illustration.has-custom-img { padding:0; }
+        .hero-illustration.has-custom-img img { width:100%; height:100%; display:block; }
 
         .hero-body { padding:1.1rem 1.5rem 1.35rem; display:flex; flex-direction:column; gap:0.4rem; flex:1; }
         .hero-title { font-size:1.15rem; font-weight:700; letter-spacing:-0.2px; }
@@ -5489,6 +5495,7 @@ function refreshHomeCategorySections() {
 // ══════════════════════════════════════════════
 let moduleEditCurrentKey = null;
 let moduleEditNewImageDataUrl = undefined; // undefined = sin cambio (se conserva lo ya guardado), string = nueva imagen elegida
+let moduleEditNewImageFit = undefined; // 'cover' (foto compuesta) o 'contain' (logo transparente) de la imagen recien elegida -- ver resizeImageFile()
 let moduleEditOriginalIllustrationHtml = ''; // snapshot del icono/imagen ANTES de elegir una nueva (para "Quitar imagen nueva")
 
 // Snapshot de los valores 100% de fabrica (hardcoded en el HTML) de cada
@@ -5547,13 +5554,21 @@ async function saveModuleCustomizationsMap(map) {
 }
 
 // Pinta el contenido de un .hero-illustration -- una imagen personalizada
-// se ve COMPLETA, sin recortar (clase has-custom-img -> object-fit:contain
-// en el CSS), con menos padding que el icono SVG por defecto (que se queda
-// tal cual, sin la clase).
+// activa la clase has-custom-img (quita el padding del icono SVG, ver CSS);
+// el object-fit real va inline en el <img>, ver buildCustomImageHtml().
 function setIllustrationContent(el, html) {
     if (!el) return;
     el.innerHTML = html;
     el.classList.toggle('has-custom-img', /^\s*<img/i.test(html));
+}
+
+// fit: 'cover' (foto compuesta con fondo difuminado, ver resizeImageFile) o
+// 'contain' (logo transparente, nunca se recorta). Personalizaciones viejas
+// guardadas ANTES de que existiera este campo no traen imageFit -- 'contain'
+// es el default seguro (como se comportaban antes: nunca recortar).
+function buildCustomImageHtml(dataUrl, fit) {
+    const objectFit = fit === 'cover' ? 'cover' : 'contain';
+    return `<img src="${dataUrl}" alt="" style="object-fit:${objectFit};">`;
 }
 
 function applyCustomizationToCard(key, custom) {
@@ -5562,7 +5577,7 @@ function applyCustomizationToCard(key, custom) {
     if (custom.title) { const t = card.querySelector('.hero-title'); if (t) t.textContent = custom.title; }
     if (custom.description) { const d = card.querySelector('.hero-desc'); if (d) d.textContent = custom.description; }
     if (custom.imageDataUrl) {
-        setIllustrationContent(card.querySelector('.hero-illustration'), `<img src="${custom.imageDataUrl}" alt="">`);
+        setIllustrationContent(card.querySelector('.hero-illustration'), buildCustomImageHtml(custom.imageDataUrl, custom.imageFit));
     }
 }
 
@@ -5607,6 +5622,7 @@ async function applyModuleCustomizationsToHome() {
 async function openModuleEditModal(moduleKey) {
     moduleEditCurrentKey = moduleKey;
     moduleEditNewImageDataUrl = undefined;
+    moduleEditNewImageFit = undefined;
     document.getElementById('module-edit-clear-image-btn').style.display = 'none';
     document.getElementById('module-edit-image-input').value = '';
 
@@ -5638,36 +5654,90 @@ function updateModuleEditPreview() {
     document.getElementById('module-edit-preview-desc').textContent = document.getElementById('module-edit-desc').value.trim() || 'Descripción del módulo';
 }
 
+// Proporcion aproximada del recuadro .hero-illustration en escritorio (~3:1,
+// card ancha y baja) -- se usa como lienzo "canonico" para componer la
+// imagen (ver composePhotoOntoCanvas). No hace falta que coincida exacto
+// con cada breakpoint real: el margen difuminado (ver FG_MARGIN abajo)
+// absorbe esa variacion sin que se note.
+const CARD_ILLUSTRATION_RATIO = 3;
+
 // Redimensiona/comprime la imagen en el propio navegador (canvas) antes de
 // convertirla a base64 -- asi Roman puede subir CUALQUIER foto (celular,
 // varios MB) sin tener que comprimirla el mismo antes; el resultado siempre
 // queda chico porque el icono nunca se muestra a mas de ~150px en pantalla.
-// PNG solo si la imagen tiene transparencia real (logos/iconos), JPEG para
-// el resto (fotos) porque pesa muchisimo menos para contenido fotografico.
-function resizeImageFile(file, maxDim = 720, quality = 0.85) {
+//
+// Logos/iconos con transparencia real se quedan tal cual (solo redimension),
+// porque su fondo transparente YA combina con el degradado de la card. Para
+// fotos/ilustraciones SIN transparencia (el caso real de Roman: imagenes
+// generadas por IA que casi nunca traen la proporcion ancha de la card) se
+// compone un lienzo 3:1: fondo = la MISMA imagen agrandada y difuminada
+// (cubre todo, sin inventar un color que no combine), encima la imagen
+// COMPLETA sin recortar. Asi la card queda llena de esquina a esquina y
+// nunca se pierde contenido -- pedido explicito de Roman, 2026-09-15
+// (LPN Duplicados/Operaciones y Pedidos se veian "chicas y feas" con fondo
+// de la card asomando).
+function resizeImageFile(file, maxDim = 900, quality = 0.85) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         const url = URL.createObjectURL(file);
         img.onload = () => {
             URL.revokeObjectURL(url);
-            let { width, height } = img;
-            if (width > maxDim || height > maxDim) {
-                const scale = maxDim / Math.max(width, height);
-                width = Math.round(width * scale);
-                height = Math.round(height * scale);
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = width; canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
             let hasAlpha = false;
             try {
-                const data = ctx.getImageData(0, 0, width, height).data;
-                for (let i = 3; i < data.length; i += 4 * 37) { // muestreo, no pixel por pixel (mas rapido)
+                // Miniatura de 100px SOLO para detectar transparencia -- una
+                // foto de celular de varios megapixeles hace getImageData()
+                // lento sobre el canvas completo; el submuestreo real ya no
+                // hace falta porque la miniatura entera es chica.
+                const probeSize = 100;
+                const probeScale = Math.min(1, probeSize / Math.max(img.width, img.height));
+                const probe = document.createElement('canvas');
+                probe.width = Math.max(1, Math.round(img.width * probeScale));
+                probe.height = Math.max(1, Math.round(img.height * probeScale));
+                const pctx = probe.getContext('2d');
+                pctx.drawImage(img, 0, 0, probe.width, probe.height);
+                const data = pctx.getImageData(0, 0, probe.width, probe.height).data;
+                for (let i = 3; i < data.length; i += 4) {
                     if (data[i] < 255) { hasAlpha = true; break; }
                 }
             } catch (e) { /* no deberia pasar con un archivo local (sin CORS) */ }
-            resolve(hasAlpha ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', quality));
+
+            if (hasAlpha) {
+                let { width, height } = img;
+                if (width > maxDim || height > maxDim) {
+                    const scale = maxDim / Math.max(width, height);
+                    width = Math.round(width * scale);
+                    height = Math.round(height * scale);
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width; canvas.height = height;
+                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                resolve({ dataUrl: canvas.toDataURL('image/png'), fit: 'contain' });
+                return;
+            }
+
+            const canvasW = maxDim;
+            const canvasH = Math.round(canvasW / CARD_ILLUSTRATION_RATIO);
+            const canvas = document.createElement('canvas');
+            canvas.width = canvasW; canvas.height = canvasH;
+            const ctx = canvas.getContext('2d');
+
+            // Fondo: la imagen agrandada (cover, +extra para que el blur no deje un borde transparente) y difuminada.
+            const coverScale = Math.max(canvasW / img.width, canvasH / img.height) * 1.15;
+            const bgW = img.width * coverScale, bgH = img.height * coverScale;
+            ctx.filter = 'blur(24px) brightness(0.92)';
+            ctx.drawImage(img, (canvasW - bgW) / 2, (canvasH - bgH) / 2, bgW, bgH);
+            ctx.filter = 'none';
+
+            // Primer plano: la imagen COMPLETA sin recortar (contain), con
+            // margen (FG_MARGIN) para que el object-fit:cover del CSS (ver
+            // .has-custom-img) pueda recortar un poco en breakpoints mas
+            // angostos SIN tocar nunca el contenido nitido, solo el difuminado.
+            const FG_MARGIN = 0.88; // primer plano ocupa como maximo 88% del lienzo en cada eje
+            const containScale = Math.min((canvasW * FG_MARGIN) / img.width, (canvasH * FG_MARGIN) / img.height);
+            const fgW = img.width * containScale, fgH = img.height * containScale;
+            ctx.drawImage(img, (canvasW - fgW) / 2, (canvasH - fgH) / 2, fgW, fgH);
+
+            resolve({ dataUrl: canvas.toDataURL('image/jpeg', quality), fit: 'cover' });
         };
         img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen (¿archivo corrupto?)')); };
         img.src = url;
@@ -5683,9 +5753,10 @@ async function onModuleEditImageChange(input) {
         return;
     }
     try {
-        const dataUrl = await resizeImageFile(file);
+        const { dataUrl, fit } = await resizeImageFile(file);
         moduleEditNewImageDataUrl = dataUrl;
-        setIllustrationContent(document.getElementById('module-edit-preview-illustration'), `<img src="${dataUrl}" alt="">`);
+        moduleEditNewImageFit = fit;
+        setIllustrationContent(document.getElementById('module-edit-preview-illustration'), buildCustomImageHtml(dataUrl, fit));
         document.getElementById('module-edit-clear-image-btn').style.display = '';
     } catch (e) {
         showToast('No se pudo procesar la imagen: ' + e.message, 'error');
@@ -5694,6 +5765,7 @@ async function onModuleEditImageChange(input) {
 }
 function clearModuleEditImage() {
     moduleEditNewImageDataUrl = undefined; // cancela la imagen nueva elegida, NO borra una ya guardada
+    moduleEditNewImageFit = undefined;
     document.getElementById('module-edit-image-input').value = '';
     document.getElementById('module-edit-clear-image-btn').style.display = 'none';
     setIllustrationContent(document.getElementById('module-edit-preview-illustration'), moduleEditOriginalIllustrationHtml);
@@ -5710,7 +5782,8 @@ async function saveModuleEdit() {
         const map = await fetchModuleCustomizations();
         const existing = map[key] || {};
         const imageDataUrl = moduleEditNewImageDataUrl !== undefined ? moduleEditNewImageDataUrl : (existing.imageDataUrl || '');
-        map[key] = { title, description, imageDataUrl };
+        const imageFit = moduleEditNewImageDataUrl !== undefined ? moduleEditNewImageFit : (existing.imageFit || 'contain');
+        map[key] = { title, description, imageDataUrl, imageFit };
         await saveModuleCustomizationsMap(map);
         cacheModuleCustomizations(map); // para que la proxima carga ya la pinte de inmediato, sin esperar red
         applyCustomizationToCard(key, map[key]); // actualiza la card real al instante, sin recargar la pagina
