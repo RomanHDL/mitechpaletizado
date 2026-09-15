@@ -831,6 +831,18 @@
         .hero-card:hover { transform:translateY(-3px); box-shadow:0 10px 28px rgba(15,23,42,0.13); }
         .hero-card:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
 
+        /* Modo "Editar módulos" (solo 3647, ver toggleHomeEditMode()) — pedido
+           explicito de Roman para poder cambiar nombre/descripcion/imagen de
+           cada card sin pedirlo en el chat. Mientras esta activo, un click en
+           cualquier hero-card abre el modal de edicion en vez de navegar (el
+           listener que intercepta el click vive en JS, capturing phase). El
+           badge de lapiz se inyecta por JS (injectHeroEditBadges()) en vez de
+           hardcodearlo en las 12 cards -- un <span>, nunca un <button>
+           anidado (hero-card YA es un <button>, no se puede anidar otro). */
+        .home-edit-mode .hero-card{outline:2px dashed var(--accent);outline-offset:4px;cursor:pointer;}
+        .hero-edit-badge{display:none;position:absolute;top:0.75rem;left:0.75rem;z-index:2;background:var(--accent);color:#fff;width:28px;height:28px;border-radius:50%;align-items:center;justify-content:center;font-size:0.75rem;box-shadow:0 2px 8px rgba(0,0,0,0.3);}
+        .home-edit-mode .hero-edit-badge{display:flex;}
+
         /* Ilustracion protagonista (130-170px en escritorio, pedido explicito
            de Roman 2026-07-28 v4 — NO volver a achicarla). */
         .hero-illustration { width:100%; height:150px; display:flex; align-items:center; justify-content:center; padding:1rem 1.75rem; flex-shrink:0; }
@@ -1776,6 +1788,9 @@
                         <h2 id="home-greeting" style="margin:0;font-size:1.4rem;font-weight:700;">Bienvenido</h2>
                         <div class="ops-context" id="ops-context"></div>
                     </div>
+                    <button type="button" class="btn btn-secondary btn-sm card-3647-only" id="home-edit-mode-btn" onclick="toggleHomeEditMode()" title="Cambiar nombre, descripción o imagen de los módulos">
+                        <i class="fa-solid fa-pen"></i> Editar módulos
+                    </button>
                 </div>
 
                 <!-- ═══ ADMIN: KPIs del dia ═══ -->
@@ -2546,6 +2561,30 @@
                 <div class="co-pallet-modal-meta" id="tt-lpn-modal-meta"></div>
             </div>
             <div class="co-pallet-modal-body" id="tt-lpn-modal-body"></div>
+        </div>
+
+        <!-- Modal: editar nombre/descripcion/imagen de una card del Home (solo
+             3647, ver toggleHomeEditMode()/openModuleEditModal() mas abajo). -->
+        <div class="opc-modal-overlay" id="module-edit-modal-overlay" onclick="if(event.target===this)closeModuleEditModal();">
+            <div class="opc-modal" role="dialog" aria-modal="true" aria-labelledby="module-edit-modal-title">
+                <h3 id="module-edit-modal-title">Editar módulo</h3>
+                <label for="module-edit-title">Título</label>
+                <input type="text" class="form-input" id="module-edit-title" maxlength="60">
+                <label for="module-edit-desc">Descripción</label>
+                <textarea class="form-input" id="module-edit-desc" rows="3" maxlength="160" style="resize:vertical;"></textarea>
+                <label for="module-edit-image-input">Imagen (opcional — reemplaza el ícono actual)</label>
+                <input type="file" id="module-edit-image-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="onModuleEditImageChange(this)">
+                <div id="module-edit-image-preview" style="display:none;margin-top:0.6rem;">
+                    <img id="module-edit-image-preview-img" alt="" style="max-width:100%;max-height:110px;object-fit:contain;border:1px solid var(--border);border-radius:8px;padding:6px;display:block;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="clearModuleEditImage()" style="margin-top:0.4rem;"><i class="fa-solid fa-trash"></i> Quitar imagen nueva</button>
+                </div>
+                <p style="font-size:0.72rem;color:var(--text-muted);margin:0.6rem 0 0;">Imagen máx. ~500KB. Si no subes una, se conserva el ícono actual del módulo.</p>
+                <div class="opc-modal-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="restoreModuleDefault()" style="margin-right:auto;"><i class="fa-solid fa-rotate-left"></i> Restaurar original</button>
+                    <button class="btn btn-secondary btn-sm" onclick="closeModuleEditModal()">Cancelar</button>
+                    <button class="btn btn-primary btn-sm" id="module-edit-save-btn" onclick="saveModuleEdit()"><i class="fa-solid fa-check"></i> Guardar</button>
+                </div>
+            </div>
         </div>
 
         <!-- ══════════════════════════════════════ -->
@@ -5400,6 +5439,158 @@ function refreshHomeCategorySections() {
     });
 }
 
+// ══════════════════════════════════════════════
+// PERSONALIZACION DE MODULOS DEL HOME (solo 3647) — pedido explicito de
+// Roman: poder cambiar titulo/descripcion/imagen de cualquier card del Home
+// sin pedirlo en el chat. Se guarda en /api/settings (AppSetting, ya
+// existente en el proyecto para catalogos/ajustes) bajo la key
+// "moduleCustomizations", como UN objeto {moduleKey: {title, description,
+// imageDataUrl}} -- no se crea un modelo/coleccion nueva. hero-card YA es un
+// <button>, asi que el "modo edicion" NO agrega un boton anidado (invalido
+// en HTML): mientras esta activo, un listener en capturing phase sobre
+// view-home intercepta el click ANTES de que llegue al onclick real de la
+// card (switchView/openEscaneadorasModule/etc.) y abre el modal en su lugar.
+// ══════════════════════════════════════════════
+let homeEditMode = false;
+let moduleEditCurrentKey = null;
+let moduleEditNewImageDataUrl = undefined; // undefined = sin cambio, '' = imagen quitada, string = nueva imagen
+
+function toggleHomeEditMode() {
+    homeEditMode = !homeEditMode;
+    const homeView = document.getElementById('view-home');
+    if (homeView) homeView.classList.toggle('home-edit-mode', homeEditMode);
+    const btn = document.getElementById('home-edit-mode-btn');
+    if (btn) btn.innerHTML = homeEditMode ? '<i class="fa-solid fa-check"></i> Listo' : '<i class="fa-solid fa-pen"></i> Editar módulos';
+    if (homeEditMode) showToast('Modo edición activado: click en cualquier módulo para cambiar su nombre, descripción o imagen.', 'info', 4500);
+}
+
+// Intercepta el click de cualquier hero-card SOLO si el modo edicion esta
+// activo -- capturing:true para ganarle al onclick inline de la card.
+document.addEventListener('DOMContentLoaded', () => {
+    const homeView = document.getElementById('view-home');
+    if (!homeView) return;
+    homeView.addEventListener('click', (e) => {
+        if (!homeEditMode) return;
+        const card = e.target.closest('.hero-card[data-module]');
+        if (!card) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        openModuleEditModal(card.dataset.module);
+    }, true);
+});
+
+async function fetchModuleCustomizations() {
+    try {
+        const data = await apiFetch(`${API}/api/settings`);
+        return (data && data.data && data.data.moduleCustomizations) || {};
+    } catch (e) {
+        console.error('No se pudieron cargar las personalizaciones de modulos', e);
+        return {};
+    }
+}
+
+async function saveModuleCustomizationsMap(map) {
+    const data = await apiFetch(`${API}/api/settings/moduleCustomizations`, { method: 'PUT', body: JSON.stringify({ value: map }) });
+    if (!data.success) throw new Error(data.error || 'Error al guardar');
+}
+
+// Aplica las personalizaciones guardadas a las cards reales del Home -- se
+// llama despues de login (ver enterApp()). Si un modulo no tiene override
+// guardado, su card se queda tal cual el HTML por-defecto.
+async function applyModuleCustomizationsToHome() {
+    const map = await fetchModuleCustomizations();
+    document.querySelectorAll('.hero-card[data-module]').forEach((card) => {
+        const custom = map[card.dataset.module];
+        if (!custom) return;
+        if (custom.title) { const t = card.querySelector('.hero-title'); if (t) t.textContent = custom.title; }
+        if (custom.description) { const d = card.querySelector('.hero-desc'); if (d) d.textContent = custom.description; }
+        if (custom.imageDataUrl) {
+            const illus = card.querySelector('.hero-illustration');
+            if (illus) illus.innerHTML = `<img src="${custom.imageDataUrl}" alt="" style="width:100%;height:100%;object-fit:contain;">`;
+        }
+    });
+}
+
+async function openModuleEditModal(moduleKey) {
+    moduleEditCurrentKey = moduleKey;
+    moduleEditNewImageDataUrl = undefined;
+    document.getElementById('module-edit-image-preview').style.display = 'none';
+    document.getElementById('module-edit-image-input').value = '';
+    const card = document.querySelector(`.hero-card[data-module="${moduleKey}"]`);
+    document.getElementById('module-edit-title').value = card ? card.querySelector('.hero-title').textContent.trim() : '';
+    document.getElementById('module-edit-desc').value = card ? card.querySelector('.hero-desc').textContent.trim() : '';
+    document.getElementById('module-edit-modal-overlay').classList.add('open');
+}
+function closeModuleEditModal() {
+    document.getElementById('module-edit-modal-overlay').classList.remove('open');
+    moduleEditCurrentKey = null;
+}
+
+function onModuleEditImageChange(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 550000) {
+        showToast('La imagen es muy pesada (máximo ~500KB). Elige una más ligera.', 'error');
+        input.value = '';
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+        moduleEditNewImageDataUrl = reader.result;
+        document.getElementById('module-edit-image-preview-img').src = reader.result;
+        document.getElementById('module-edit-image-preview').style.display = '';
+    };
+    reader.readAsDataURL(file);
+}
+function clearModuleEditImage() {
+    moduleEditNewImageDataUrl = ''; // '' = quitar la imagen personalizada al guardar (vuelve al icono original)
+    document.getElementById('module-edit-image-input').value = '';
+    document.getElementById('module-edit-image-preview').style.display = 'none';
+}
+
+async function saveModuleEdit() {
+    const key = moduleEditCurrentKey;
+    if (!key) return;
+    const title = document.getElementById('module-edit-title').value.trim();
+    const description = document.getElementById('module-edit-desc').value.trim();
+    const btn = document.getElementById('module-edit-save-btn');
+    btn.disabled = true;
+    try {
+        const map = await fetchModuleCustomizations();
+        const existing = map[key] || {};
+        map[key] = {
+            title,
+            description,
+            imageDataUrl: moduleEditNewImageDataUrl !== undefined ? moduleEditNewImageDataUrl : (existing.imageDataUrl || ''),
+        };
+        await saveModuleCustomizationsMap(map);
+        showToast('Módulo actualizado', 'success', 2000);
+        closeModuleEditModal();
+        location.reload(); // simple y robusto: re-renderiza el Home con la card ya personalizada
+    } catch (e) {
+        showToast('Error al guardar: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function restoreModuleDefault() {
+    const key = moduleEditCurrentKey;
+    if (!key) return;
+    const ok = await showConfirmDialog({ title: 'Restaurar módulo', message: '¿Restaurar este módulo a su nombre, descripción e imagen originales?', confirmText: 'Restaurar', danger: false });
+    if (!ok) return;
+    try {
+        const map = await fetchModuleCustomizations();
+        delete map[key];
+        await saveModuleCustomizationsMap(map);
+        showToast('Módulo restaurado', 'success', 2000);
+        closeModuleEditModal();
+        location.reload();
+    } catch (e) {
+        showToast('Error al restaurar: ' + e.message, 'error');
+    }
+}
+
 function enterApp() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').classList.add('active');
@@ -5459,6 +5650,7 @@ function enterApp() {
     // la visibilidad final de cada card ya esten resueltas.
     applyNuevoBadges();
     refreshHomeCategorySections();
+    applyModuleCustomizationsToHome(); // fire-and-forget: no debe bloquear el login si falla
 
     // Solo dashboard, sin escaneadoras (ej. viewer): ir directo al dashboard
     if (currentUser.role !== 'admin' && hasModule('dashboard') && !hasModule('escaneadoras')) {
